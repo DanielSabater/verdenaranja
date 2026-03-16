@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { C } from "../../constants/colors.js"
 import { PAYMENT_METHODS, HOURS } from "../../constants/data.js"
 import { fmt, cellKey, apptTotal, apptDur } from "../../utils/appointments.js"
@@ -22,22 +23,110 @@ export function AppGrid({
   onCellClick, onEdit, onPay, onDelete,
   CELL_H,
 }) {
+  const [profPopup, setProfPopup] = useState(null) // profId
+
+  // Build summary for a professional
+  const getProfSummary = (profId) => {
+    const appts = Object.values(appointments).filter(a => a.profId === profId)
+    const paid  = appts.filter(a => a.paid)
+    const total = paid.reduce((s,a) => s + apptTotal(a), 0)
+    const tips  = paid.reduce((s,a) => s + (a.tip||0), 0)
+    const byMethod = {}
+    paid.forEach(a => {
+      if (a.paymentSplits?.length) {
+        a.paymentSplits.forEach(sp => { byMethod[sp.methodId] = (byMethod[sp.methodId]||0) + (parseFloat(sp.amount)||0) })
+      } else if (a.payMethod) {
+        byMethod[a.payMethod] = (byMethod[a.payMethod]||0) + apptTotal(a)
+      }
+    })
+    return { appts, paid, total, tips, byMethod }
+  }
+
   return (
 <div className="grid-scroll" style={{ overflowX:"auto", padding:"16px 8px 36px", WebkitOverflowScrolling:"touch" }}>
         <table style={{ borderCollapse:"collapse", tableLayout:"fixed", width:"100%", minWidth: isMobile ? `${professionals.length*80}px` : `${professionals.length*140}px` }}>
           <thead>
             <tr>
               {professionals.map(p => (
-                <th key={p.id} style={{ padding: isMobile?"6px 2px":"10px 5px", borderBottom:`2px solid ${C.border}`, width: `${100/professionals.length}%`, minWidth: isMobile?80:140 }}>
-                  <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:3 }}>
+                <th key={p.id} style={{ padding: isMobile?"6px 2px":"10px 5px", borderBottom:`2px solid ${C.border}`, width: `${100/professionals.length}%`, minWidth: isMobile?80:140, position:"relative" }}>
+                  <div onClick={() => setProfPopup(profPopup===p.id ? null : p.id)}
+                    style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:3, cursor:"pointer" }}>
                     <div style={{
                       width:36, height:36, borderRadius:"50%",
-                      background:`linear-gradient(135deg,${C.greenPale},${C.greenMint})`,
-                      border:`2px solid ${C.greenLight}`,
+                      background: profPopup===p.id ? `linear-gradient(135deg,${C.green},${C.greenLight})` : `linear-gradient(135deg,${C.greenPale},${C.greenMint})`,
+                      border:`2px solid ${profPopup===p.id ? C.green : C.greenLight}`,
                       display:"flex", alignItems:"center", justifyContent:"center", fontSize:16,
+                      transition:"all .2s",
                     }}>{p.emoji}</div>
-                    <span style={{ fontSize:11, color:C.text }}>{p.name}</span>
+                    <span style={{ fontSize:11, color: profPopup===p.id ? C.green : C.text, fontWeight: profPopup===p.id ? "bold" : "normal" }}>{p.name}</span>
                   </div>
+
+                  {/* Popup resumen */}
+                  {profPopup === p.id && (() => {
+                    const s = getProfSummary(p.id)
+                    return (
+                      <div style={{
+                        position:"absolute", top:"100%", left:"50%", transform:"translateX(-50%)",
+                        zIndex:200, background:C.white, borderRadius:14,
+                        border:`1.5px solid ${C.greenMint}`,
+                        boxShadow:"0 8px 32px rgba(58,125,68,.18)",
+                        padding:"14px 16px", minWidth:200, marginTop:6,
+                        textAlign:"left",
+                      }}>
+                        <div style={{ fontSize:7, letterSpacing:"3px", color:C.orange, textTransform:"uppercase", marginBottom:8 }}>
+                          {p.emoji} {p.name} · hoy
+                        </div>
+                        <div style={{ height:2, background:`linear-gradient(90deg,${C.green},${C.greenMint},transparent)`, marginBottom:10, borderRadius:2 }}/>
+
+                        {/* Stats */}
+                        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6, marginBottom:10 }}>
+                          {[
+                            ["📅 Turnos",   s.appts.length, C.textSoft],
+                            ["✅ Cobrados", s.paid.length,  C.green],
+                            ["💰 Total",    fmt(s.total),   C.orange],
+                            ["🎁 Propinas", fmt(s.tips),    C.gold],
+                          ].map(([label, val, col]) => (
+                            <div key={label} style={{ background:C.cream, borderRadius:8, padding:"6px 8px" }}>
+                              <div style={{ fontSize:8, color:C.textSoft, letterSpacing:"1px" }}>{label}</div>
+                              <div style={{ fontSize:13, color:col, fontWeight:"bold" }}>{val}</div>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* By method */}
+                        {Object.keys(s.byMethod).length > 0 && (
+                          <div style={{ borderTop:`1px solid ${C.border}`, paddingTop:8, marginTop:4 }}>
+                            <div style={{ fontSize:8, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase", marginBottom:6 }}>Por método</div>
+                            {PAYMENT_METHODS.filter(pm => s.byMethod[pm.id] > 0).map(pm => (
+                              <div key={pm.id} style={{ display:"flex", justifyContent:"space-between", fontSize:11, color:C.textSoft, marginBottom:3 }}>
+                                <span>{pm.icon} {pm.label}</span>
+                                <span style={{ color:pm.color, fontWeight:"bold" }}>{fmt(s.byMethod[pm.id])}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Turnos list */}
+                        {s.appts.length > 0 && (
+                          <div style={{ borderTop:`1px solid ${C.border}`, paddingTop:8, marginTop:6 }}>
+                            <div style={{ fontSize:8, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase", marginBottom:6 }}>Turnos</div>
+                            {s.appts.map((a,i) => (
+                              <div key={i} style={{ display:"flex", justifyContent:"space-between", fontSize:10, color:C.textSoft, padding:"3px 0", borderBottom:`1px solid ${C.greenPale}` }}>
+                                <span style={{ color:C.text }}>{a.hour} · {a.client}</span>
+                                <span style={{ color: a.paid ? C.green : C.orange }}>{a.paid ? fmt(apptTotal(a)) : "⏳ Pendiente"}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {s.appts.length === 0 && (
+                          <div style={{ fontSize:11, color:C.textSoft, fontStyle:"italic", textAlign:"center", padding:"8px 0" }}>Sin turnos hoy</div>
+                        )}
+
+                        <button onClick={e=>{e.stopPropagation();setProfPopup(null)}} style={{ marginTop:10, width:"100%", padding:"6px", borderRadius:8, border:`1px solid ${C.border}`, background:C.cream, color:C.textSoft, fontSize:10, cursor:"pointer", fontFamily:"Georgia,serif" }}>Cerrar</button>
+                      </div>
+                    )
+                  })()}
                 </th>
               ))}
             </tr>
