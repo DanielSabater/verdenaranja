@@ -1,62 +1,104 @@
 import { useState, useEffect, useRef } from "react"
-import { dbGet, dbSet } from "../utils/storage.js"
-import { DB_KEYS, CONFIG_DEFAULT } from "../constants/data.js"
+import { CONFIG_DEFAULT } from "../constants/data.js"
 
-/**
- * Loads allData, gastos, sueldos, config from localStorage on mount.
- * Auto-saves (debounced 600ms) whenever any of them change.
- * Returns { loaded, saveStatus, allData, setAllData, gastos, setGastos, sueldos, setSueldos, config, setConfig }
- */
+const SUPABASE_URL     = import.meta.env.VITE_SUPABASE_URL
+const SUPABASE_ANON    = import.meta.env.VITE_SUPABASE_ANON_KEY
+const TABLE            = "perlaverde_data"
+
+// ── Supabase helpers ──────────────────────────────────────────────────────────
+async function dbRead(id) {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/${TABLE}?id=eq.${id}&select=data`,
+    { headers: { apikey: SUPABASE_ANON, Authorization: `Bearer ${SUPABASE_ANON}` } }
+  )
+  const rows = await res.json()
+  return rows?.[0]?.data ?? null
+}
+
+async function dbWrite(id, data) {
+  await fetch(
+    `${SUPABASE_URL}/rest/v1/${TABLE}`,
+    {
+      method:  "POST",
+      headers: {
+        apikey:          SUPABASE_ANON,
+        Authorization:   `Bearer ${SUPABASE_ANON}`,
+        "Content-Type":  "application/json",
+        Prefer:          "resolution=merge-duplicates",
+      },
+      body: JSON.stringify({ id, data, updated_at: new Date().toISOString() }),
+    }
+  )
+}
+
+// ── Hook ──────────────────────────────────────────────────────────────────────
 export function usePersistentState() {
-  const [loaded,    setLoaded]    = useState(false)
+  const [loaded,     setLoaded]     = useState(false)
   const [saveStatus, setSaveStatus] = useState("idle")
-  const [allData,   setAllData]   = useState({})
-  const [gastos,    setGastos]    = useState([])
-  const [sueldos,   setSueldos]   = useState({})
-  const [config,    setConfig]    = useState(CONFIG_DEFAULT)
-  const [clientes,  setClientes]  = useState([])
+  const [allData,    setAllData]    = useState({})
+  const [gastos,     setGastos]     = useState([])
+  const [sueldos,    setSueldos]    = useState({})
+  const [config,     setConfig]     = useState(CONFIG_DEFAULT)
+  const [clientes,   setClientes]   = useState([])
   const saveTimer = useRef(null)
+  const initialized = useRef(false)
 
-  // Load on mount
+  // ── Load from Supabase on mount ──────────────────────────────────────────
   useEffect(() => {
-    const ad = dbGet(DB_KEYS.allData)
-    const gs = dbGet(DB_KEYS.gastos)
-    const ss = dbGet(DB_KEYS.sueldos)
-    const cf = dbGet(DB_KEYS.config)
-    const cl = dbGet(DB_KEYS.clientes)
-    if (ad) setAllData(ad)
-    if (gs) setGastos(gs)
-    if (ss) setSueldos(ss)
-    if (cf) setConfig(prev => ({ ...prev, ...cf }))
-    if (cl) setClientes(cl)
-    setLoaded(true)
+    async function load() {
+      try {
+        const [ad, gs, ss, cf, cl] = await Promise.all([
+          dbRead("allData"),
+          dbRead("gastos"),
+          dbRead("sueldos"),
+          dbRead("config"),
+          dbRead("clientes"),
+        ])
+        if (ad) setAllData(ad)
+        if (gs) setGastos(gs)
+        if (ss) setSueldos(ss)
+        if (cf) setConfig(prev => ({ ...prev, ...cf }))
+        if (cl) setClientes(cl)
+      } catch (e) {
+        console.error("Error cargando datos:", e)
+      } finally {
+        setLoaded(true)
+        initialized.current = true
+      }
+    }
+    load()
   }, [])
 
-  // Auto-save debounced
+  // ── Auto-save debounced 1s ────────────────────────────────────────────────
   useEffect(() => {
-    if (!loaded) return
+    if (!initialized.current) return
     setSaveStatus("saving")
     if (saveTimer.current) clearTimeout(saveTimer.current)
-    saveTimer.current = setTimeout(() => {
-      const ok = [
-        dbSet(DB_KEYS.allData,  allData),
-        dbSet(DB_KEYS.gastos,   gastos),
-        dbSet(DB_KEYS.sueldos,  sueldos),
-        dbSet(DB_KEYS.config,   config),
-        dbSet(DB_KEYS.clientes, clientes),
-      ].every(Boolean)
-      setSaveStatus(ok ? "saved" : "error")
-      if (ok) setTimeout(() => setSaveStatus("idle"), 2200)
-    }, 600)
+    saveTimer.current = setTimeout(async () => {
+      try {
+        await Promise.all([
+          dbWrite("allData",  allData),
+          dbWrite("gastos",   gastos),
+          dbWrite("sueldos",  sueldos),
+          dbWrite("config",   config),
+          dbWrite("clientes", clientes),
+        ])
+        setSaveStatus("saved")
+        setTimeout(() => setSaveStatus("idle"), 2200)
+      } catch (e) {
+        console.error("Error guardando:", e)
+        setSaveStatus("error")
+      }
+    }, 1000)
     return () => clearTimeout(saveTimer.current)
-  }, [allData, gastos, sueldos, config, clientes, loaded])
+  }, [allData, gastos, sueldos, config, clientes])
 
   return {
     loaded, saveStatus,
-    allData, setAllData,
-    gastos,  setGastos,
-    sueldos, setSueldos,
-    config,  setConfig,
-    clientes, setClientes,
+    allData,   setAllData,
+    gastos,    setGastos,
+    sueldos,   setSueldos,
+    config,    setConfig,
+    clientes,  setClientes,
   }
 }
