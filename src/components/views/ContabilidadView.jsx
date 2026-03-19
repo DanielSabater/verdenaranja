@@ -122,7 +122,7 @@ export default function ContabilidadView({
   const TABS = [{ id:"resumen", label:"📊 Resumen" }, { id:"gastos", label:"💸 Gastos" }, { id:"sueldos", label:"👩 Sueldos" }]
 
   return (
-    <div style={{ maxWidth:960, margin:"0 auto", padding:"20px 16px 80px" }}>
+    <div style={{ maxWidth:960, margin:"0 auto", padding:"20px 16px 160px" }}>
 
       {/* Period selector */}
       <div style={{ display:"flex", gap:6, marginBottom:20, flexWrap:"wrap", alignItems:"center" }}>

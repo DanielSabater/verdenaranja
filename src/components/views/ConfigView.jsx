@@ -48,7 +48,7 @@ export default function ConfigView({ config, setConfig }) {
   ];
 
   return (
-    <div style={{ maxWidth:860, margin:"0 auto", padding:"16px 12px 80px" }}>
+    <div style={{ maxWidth:860, margin:"0 auto", padding:"16px 12px 100px" }}>
 
       {/* Section tabs */}
       <div style={{ display:"flex", gap:6, marginBottom:28, flexWrap:"wrap" }}>

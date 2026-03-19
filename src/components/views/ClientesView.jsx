@@ -63,8 +63,8 @@ export default function ClientesView({ clientes, setClientes, allData }) {
   }
 
   return (
-    <div style={{ background: C.cream, minHeight:"100vh" }}>
-      <div style={{ maxWidth:900, margin:"0 auto", padding:"20px 16px", display:"grid", gridTemplateColumns:"320px 1fr", gap:24, alignItems:"start" }}>
+    <div style={{ background: C.cream, minHeight:"100vh", paddingBottom:80 }}>
+      <div style={{ maxWidth:900, margin:"0 auto", padding:"20px 16px 160px", display:"grid", gridTemplateColumns:"320px 1fr", gap:24, alignItems:"start" }}>
 
         {/* Panel izq */}
         <div>
