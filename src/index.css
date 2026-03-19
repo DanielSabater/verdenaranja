@@ -59,8 +59,8 @@ select { appearance: auto; }
 
 /* ── Vista transition ── */
 @keyframes pvFade {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 .pv-view { animation: pvFade 0.2s ease forwards; }
 
