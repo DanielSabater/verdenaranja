@@ -268,10 +268,12 @@ export default function App() {
     </div>
   )
 
+  if (!session) return <Login onLogin={handleLogin} />
+
   return (
     <div className="main-content main-scroll" style={{ minHeight: "100vh", background: C.cream, fontFamily: "'Georgia','Times New Roman',serif", color: C.text, userSelect: draggingKey ? "none" : "auto", visibility: session ? "visible" : "hidden" }}>
 
-      {!session && <Login onLogin={handleLogin} />}
+
 
       <AppHeader
         config={config} activeView={activeView}
