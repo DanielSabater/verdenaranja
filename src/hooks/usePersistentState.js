@@ -40,6 +40,7 @@ async function loadAll() {
 
 export function usePersistentState() {
   const [loaded,     setLoaded]     = useState(false)
+  const hasLoaded = useRef(false)
   const [saveStatus, setSaveStatus] = useState("idle")
   const [allData,    setAllData]    = useState({})
   const [gastos,     setGastos]     = useState([])
@@ -59,10 +60,12 @@ export function usePersistentState() {
       if (cf) setConfig(prev => ({ ...prev, ...cf }))
       if (cl) setClientes(cl)
       setLoaded(true)
+      hasLoaded.current = true
       initialized.current = true
     }).catch(e => {
       console.error("Error cargando datos:", e)
       setLoaded(true)
+      hasLoaded.current = true
       initialized.current = true
     })
   }, [])

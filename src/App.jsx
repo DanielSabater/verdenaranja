@@ -261,10 +261,10 @@ export default function App() {
 
   const doDelete = () => { setAppointments(p => { const n = { ...p }; delete n[deleteKey]; return n }); setDeleteKey(null) }
 
+  // Show loading only on very first load, not on session changes
   if (!loaded) return (
-    <div style={{ minHeight: "100vh", background: C.cream, fontFamily: "'Georgia','Times New Roman',serif", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16 }}>
-      <div style={{ width: 52, height: 52, borderRadius: "50%", background: `linear-gradient(135deg,${C.green},${C.greenLight})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, animation: "spin 1.2s linear infinite" }}>🌿</div>
-      <div style={{ fontSize: 11, letterSpacing: "3px", color: C.textSoft, textTransform: "uppercase" }}>Cargando datos...</div>
+    <div style={{ minHeight:"100vh", background:C.cream, display:"flex", alignItems:"center", justifyContent:"center" }}>
+      <div style={{ width:52, height:52, borderRadius:"50%", background:`linear-gradient(135deg,${C.green},${C.greenLight})`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:26, animation:"spin 1.2s linear infinite" }}>🌿</div>
     </div>
   )
 
