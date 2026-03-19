@@ -32,7 +32,11 @@ export default function Login({ onLogin }) {
     setLoading(true); setError("")
     try {
       const data = await signIn(email, password)
-      if (data.error) { setError("Email o contraseña incorrectos"); return }
+      if (data.error || !data.access_token) {
+        setError("Email o contraseña incorrectos")
+        setLoading(false)
+        return
+      }
       onLogin(data.access_token, data.user)
     } catch (e) {
       setError("Error de conexión")
