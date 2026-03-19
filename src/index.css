@@ -1,6 +1,6 @@
 *, *::before, *::after { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; font-size: 16px; }
-body { margin: 0; overscroll-behavior-y: contain; }
+html, body { margin: 0; height: 100%; overflow: hidden; -webkit-text-size-adjust: 100%; font-size: 16px; }
+#root { height: 100%; display: flex; flex-direction: column; }
 
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: #f0f0f0; }
@@ -18,17 +18,20 @@ select { appearance: auto; }
 .date-nav-pills    { display: flex !important; }
 .date-nav-compact  { display: none !important; }
 
+.main-content {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 @media (max-width: 900px) {
   .bottom-nav          { display: flex !important; }
   .desktop-nav         { display: none !important; }
   .desktop-totals      { display: none !important; }
   .desktop-savebadge   { display: none !important; }
-  .main-scroll         { padding-bottom: 80px; min-height: 100vh; }
   .mobile-totals-strip { display: flex !important; }
   .date-nav-pills      { display: none !important; }
   .date-nav-compact    { display: flex !important; }
-  /* Ensure all view content has space for the fixed bottom nav */
-  .pv-bg, .pv-view { padding-bottom: 80px !important; }
 }
 
 /* ── Modales bottom sheet en mobile ── */
@@ -44,11 +47,8 @@ select { appearance: auto; }
   }
 }
 
-/* ── Grid scroll suave ── */
+/* ── Grid scroll ── */
 .grid-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-@media (max-width: 900px) {
-  .grid-scroll { padding: 8px 4px 24px; }
-}
 
 /* ── Touch targets ── */
 @media (max-width: 900px) {
@@ -58,18 +58,7 @@ select { appearance: auto; }
 @keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
 @keyframes slideUp { from { transform: translateY(40px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 @keyframes spin    { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes pvFade  { from { opacity: 0; } to { opacity: 1; } }
 
-/* ── Vista transition ── */
-@keyframes pvFade {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
 .pv-view { animation: pvFade 0.2s ease forwards; }
-
-/* ── Vista background ── */
-.pv-bg { background: #fdfaf6; min-height: calc(100vh - 56px); }
-
-@media (max-width: 900px) {
-  .pv-bg { padding-bottom: 80px; }
-  .pv-view { padding-bottom: 80px; }
-}
+.pv-bg   { background: #fdfaf6; }

@@ -1,5 +1,4 @@
 import { memo } from "react"
-import { createPortal } from "react-dom"
 import { C } from "../../constants/colors.js"
 import { PAYMENT_METHODS } from "../../constants/data.js"
 import { fmt } from "../../utils/appointments.js"
@@ -142,10 +141,9 @@ export const AppHeader = memo(function AppHeader({ config, activeView, setActive
         </div>
       )}
 
-      {/* Bottom nav (mobile) - rendered via portal to avoid stacking context issues */}
-      {createPortal(
+      {/* Bottom nav (mobile) */}
       <nav className="bottom-nav" style={{
-        position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 99999,
+        flexShrink: 0,
         justifyContent: "space-around", alignItems: "stretch",
         background: C.white, borderTop: `2px solid ${C.greenMint}`,
         height: 62, boxShadow: "0 -4px 20px rgba(58,125,68,.10)",
@@ -170,7 +168,6 @@ export const AppHeader = memo(function AppHeader({ config, activeView, setActive
           </button>
         ))}
       </nav>
-      , document.body)}
     </>
   )
 })
