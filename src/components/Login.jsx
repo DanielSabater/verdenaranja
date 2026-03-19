@@ -46,7 +46,7 @@ export default function Login({ onLogin }) {
   }
 
   return (
-    <div style={{ minHeight:"100vh", background:C.cream, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"Georgia,serif" }}>
+    <div style={{ position:"fixed", inset:0, background:C.cream, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"Georgia,serif", zIndex:9999, overflowY:"auto" }}>
       <div style={{ width:"min(420px,calc(100vw - 32px))", padding:32, background:C.white, borderRadius:20, boxShadow:`0 20px 60px rgba(58,125,68,.12)`, border:`1px solid ${C.border}` }}>
 
         {/* Logo */}

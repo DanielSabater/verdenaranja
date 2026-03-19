@@ -269,14 +269,9 @@ export default function App() {
   )
 
   return (
-    <div className="main-content main-scroll" style={{ minHeight: "100vh", background: C.cream, fontFamily: "'Georgia','Times New Roman',serif", color: C.text, userSelect: draggingKey ? "none" : "auto" }}>
+    <div className="main-content main-scroll" style={{ minHeight: "100vh", background: C.cream, fontFamily: "'Georgia','Times New Roman',serif", color: C.text, userSelect: draggingKey ? "none" : "auto", visibility: session ? "visible" : "hidden" }}>
 
-      {/* Login overlay */}
-      {!session && (
-        <div style={{ position:"fixed", inset:0, zIndex:9999, background:C.cream }}>
-          <Login onLogin={handleLogin} />
-        </div>
-      )}
+      {!session && <Login onLogin={handleLogin} />}
 
       <AppHeader
         config={config} activeView={activeView}
