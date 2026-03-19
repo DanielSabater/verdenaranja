@@ -4,6 +4,7 @@ import { PAYMENT_METHODS } from "../../constants/data.js"
 import { fmt } from "../../utils/appointments.js"
 
 export const AppHeader = memo(function AppHeader({ config, activeView, setActiveView, saveStatus, totalByMethod, grandTotal, grandEarnings, onLogout }) {
+  const isMobileNav = typeof window !== "undefined" && window.innerWidth <= 900
   const VIEWS = [
     { id: "turnos",       icon: "📅", label: "Turnos" },
     { id: "contabilidad", icon: "📊", label: "Contabilidad" },
@@ -41,7 +42,7 @@ export const AppHeader = memo(function AppHeader({ config, activeView, setActive
         </div>
 
         {/* Desktop nav */}
-        <div className="desktop-nav" style={{ display: "flex", gap: 4 }}>
+        <div style={{ display: isMobileNav ? "none" : "flex", gap: 4 }}>
           {VIEWS.map(v => (
             <button key={v.id} onClick={() => setActiveView(v.id)} style={{
               padding: "6px 14px", borderRadius: 20, cursor: "pointer",
@@ -55,7 +56,7 @@ export const AppHeader = memo(function AppHeader({ config, activeView, setActive
         </div>
 
         {/* Desktop totals */}
-        <div className="desktop-totals" style={{ display: "flex", alignItems: "center", gap: 5 }}>
+        <div style={{ display: isMobileNav ? "none" : "flex", alignItems: "center", gap: 5 }}>
           {PAYMENT_METHODS.map(pm => {
             const t = totalByMethod(pm.id)
             return (
@@ -83,7 +84,7 @@ export const AppHeader = memo(function AppHeader({ config, activeView, setActive
         {onLogout && (
           <button onClick={onLogout} style={{ padding:"4px 10px", borderRadius:16, border:`1px solid ${C.border}`, background:"transparent", color:C.textSoft, fontSize:9, cursor:"pointer", fontFamily:"Georgia,serif", flexShrink:0 }}>Salir</button>
         )}
-        <div className="desktop-savebadge" style={{
+        <div style={{ display: isMobileNav ? "none" : "flex",
           padding: "4px 10px", borderRadius: 16, minWidth: 90, textAlign: "center", flexShrink: 0,
           background: saveStatus === "saving" ? "#f5f5f5" : saveStatus === "saved" ? C.greenPale : saveStatus === "error" ? "#fde8e8" : "transparent",
           border: `1px solid ${saveStatus === "saving" ? "#ddd" : saveStatus === "saved" ? C.greenMint : saveStatus === "error" ? "#f4b0b0" : "transparent"}`,
@@ -106,8 +107,8 @@ export const AppHeader = memo(function AppHeader({ config, activeView, setActive
 
       {/* Mobile totals strip */}
       {activeView === "turnos" && (
-        <div className="mobile-totals-strip" style={{
-          display: "none",
+        <div style={{
+          display: isMobileNav && activeView === "turnos" ? "flex" : "none",
           background: C.white, borderBottom: `1px solid ${C.border}`,
           padding: "8px 12px", gap: 6, overflowX: "auto",
           WebkitOverflowScrolling: "touch", flexShrink: 0,
@@ -143,8 +144,8 @@ export const AppHeader = memo(function AppHeader({ config, activeView, setActive
       {/* Bottom nav (mobile) */}
       <nav className="bottom-nav" style={{
         position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 99999,
+        justifyContent: "space-around", alignItems: "stretch",
         background: C.white, borderTop: `2px solid ${C.greenMint}`,
-        display: "flex", justifyContent: "space-around", alignItems: "stretch",
         height: 62, boxShadow: "0 -4px 20px rgba(58,125,68,.10)",
         paddingBottom: "env(safe-area-inset-bottom)",
       }}>
