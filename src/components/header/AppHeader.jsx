@@ -142,7 +142,7 @@ export const AppHeader = memo(function AppHeader({ config, activeView, setActive
 
       {/* Bottom nav (mobile) */}
       <nav className="bottom-nav" style={{
-        position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 150,
+        position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 99999,
         background: C.white, borderTop: `2px solid ${C.greenMint}`,
         display: "flex", justifyContent: "space-around", alignItems: "stretch",
         height: 62, boxShadow: "0 -4px 20px rgba(58,125,68,.10)",
