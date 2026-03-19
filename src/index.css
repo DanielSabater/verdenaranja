@@ -27,6 +27,8 @@ select { appearance: auto; }
   .mobile-totals-strip { display: flex !important; }
   .date-nav-pills      { display: none !important; }
   .date-nav-compact    { display: flex !important; }
+  /* Ensure all view content has space for the fixed bottom nav */
+  .pv-bg, .pv-view { padding-bottom: 80px !important; }
 }
 
 /* ── Modales bottom sheet en mobile ── */
