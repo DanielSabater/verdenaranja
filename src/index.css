@@ -23,7 +23,7 @@ select { appearance: auto; }
   .desktop-nav         { display: none !important; }
   .desktop-totals      { display: none !important; }
   .desktop-savebadge   { display: none !important; }
-  .main-scroll         { padding-bottom: 80px; }
+  .main-scroll         { padding-bottom: 80px; min-height: 100vh; }
   .mobile-totals-strip { display: flex !important; }
   .date-nav-pills      { display: none !important; }
   .date-nav-compact    { display: flex !important; }
@@ -66,3 +66,8 @@ select { appearance: auto; }
 
 /* ── Vista background ── */
 .pv-bg { background: #fdfaf6; min-height: calc(100vh - 56px); }
+
+@media (max-width: 900px) {
+  .pv-bg { padding-bottom: 80px; }
+  .pv-view { padding-bottom: 80px; }
+}
