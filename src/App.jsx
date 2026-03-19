@@ -33,7 +33,7 @@ export default function App() {
     setSession(null)
   }
 
-  if (!session) return <Login onLogin={handleLogin} />
+
 
   const {
     loaded, saveStatus,
@@ -270,6 +270,13 @@ export default function App() {
 
   return (
     <div className="main-content main-scroll" style={{ minHeight: "100vh", background: C.cream, fontFamily: "'Georgia','Times New Roman',serif", color: C.text, userSelect: draggingKey ? "none" : "auto" }}>
+
+      {/* Login overlay */}
+      {!session && (
+        <div style={{ position:"fixed", inset:0, zIndex:9999, background:C.cream }}>
+          <Login onLogin={handleLogin} />
+        </div>
+      )}
 
       <AppHeader
         config={config} activeView={activeView}
