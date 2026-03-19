@@ -315,7 +315,7 @@ export default function App() {
       )}
 
       {activeView === "contabilidad" && (
-        <div key="v-cont" className="pv-view pv-bg"><ContabilidadView
+        <div key="v-cont" className="pv-view pv-bg main-scroll"><ContabilidadView
           allData={allData} professionals={professionals} comisionPct={comisionPct}
           gastos={gastos} setGastos={setGastos}
           sueldos={sueldos} setSueldos={setSueldos}
@@ -329,8 +329,8 @@ export default function App() {
         /></div>
       )}
 
-      {activeView === "config" && <div key="v-cfg" className="pv-view pv-bg"><ConfigView config={config} setConfig={setConfig} /></div>}
-      {activeView === "clientes" && <div key="v-cli" className="pv-view pv-bg"><ClientesView clientes={clientes} setClientes={setClientes} allData={allData} /></div>}
+      {activeView === "config" && <div key="v-cfg" className="pv-view pv-bg main-scroll"><ConfigView config={config} setConfig={setConfig} /></div>}
+      {activeView === "clientes" && <div key="v-cli" className="pv-view pv-bg main-scroll"><ClientesView clientes={clientes} setClientes={setClientes} allData={allData} /></div>}
 
       <AppModals
         modal={modal} setModal={setModal}
