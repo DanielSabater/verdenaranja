@@ -13,15 +13,6 @@ async function signIn(email, password) {
   return res.json()
 }
 
-async function signUp(email, password) {
-  const res = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
-    method: "POST",
-    headers: { apikey: SUPABASE_ANON, "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
-  })
-  return res.json()
-}
-
 export default function Login({ onLogin }) {
   const [email,    setEmail]    = useState("")
   const [password, setPassword] = useState("")
@@ -38,7 +29,7 @@ export default function Login({ onLogin }) {
 
   const handleSubmit = async () => {
     if (!email.trim() || !password.trim()) { setError("Completá todos los campos"); return }
-    setLoading(true); setError(""); setSuccess("")
+    setLoading(true); setError("")
     try {
       const data = await signIn(email, password)
       if (data.error) { setError("Email o contraseña incorrectos"); return }
