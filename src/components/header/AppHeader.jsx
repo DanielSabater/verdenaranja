@@ -3,7 +3,7 @@ import { C } from "../../constants/colors.js"
 import { PAYMENT_METHODS } from "../../constants/data.js"
 import { fmt } from "../../utils/appointments.js"
 
-export const AppHeader = memo(function AppHeader({ config, activeView, setActiveView, saveStatus, totalByMethod, grandTotal, grandEarnings }) {
+export const AppHeader = memo(function AppHeader({ config, activeView, setActiveView, saveStatus, totalByMethod, grandTotal, grandEarnings, onLogout }) {
   const VIEWS = [
     { id: "turnos",       icon: "📅", label: "Turnos" },
     { id: "contabilidad", icon: "📊", label: "Contabilidad" },
@@ -80,6 +80,9 @@ export const AppHeader = memo(function AppHeader({ config, activeView, setActive
         </div>
 
         {/* Save badge (desktop) */}
+        {onLogout && (
+          <button onClick={onLogout} style={{ padding:"4px 10px", borderRadius:16, border:`1px solid ${C.border}`, background:"transparent", color:C.textSoft, fontSize:9, cursor:"pointer", fontFamily:"Georgia,serif", flexShrink:0 }}>Salir</button>
+        )}
         <div className="desktop-savebadge" style={{
           padding: "4px 10px", borderRadius: 16, minWidth: 90, textAlign: "center", flexShrink: 0,
           background: saveStatus === "saving" ? "#f5f5f5" : saveStatus === "saved" ? C.greenPale : saveStatus === "error" ? "#fde8e8" : "transparent",

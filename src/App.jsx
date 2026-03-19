@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useMemo } from "react"
+import { useState, useRef, useCallback, useMemo, useEffect } from "react"
 import { C } from "./constants/colors.js"
 import { PAYMENT_METHODS, HOURS } from "./constants/data.js"
 import { cellKey, apptTotal, apptDur } from "./utils/appointments.js"
@@ -12,11 +12,28 @@ import { AppModals } from "./components/modals/AppModals.jsx"
 import ContabilidadView from "./components/views/ContabilidadView.jsx"
 import ConfigView from "./components/views/ConfigView.jsx"
 import ClientesView from "./components/views/ClientesView.jsx"
+import Login from "./components/Login.jsx"
 
 const CELL_H = 50
 
 export default function App() {
   const isMobile = useIsMobile()
+  const [session, setSession] = useState(() => {
+    const t = localStorage.getItem("pv_token")
+    return t ? { token: t } : null
+  })
+
+  const handleLogin = (token, user) => {
+    localStorage.setItem("pv_token", token)
+    setSession({ token, user })
+  }
+
+  const handleLogout = () => {
+    localStorage.removeItem("pv_token")
+    setSession(null)
+  }
+
+  if (!session) return <Login onLogin={handleLogin} />
 
   const {
     loaded, saveStatus,
@@ -256,6 +273,7 @@ export default function App() {
 
       <AppHeader
         config={config} activeView={activeView}
+        onLogout={handleLogout}
         setActiveView={(v) => { setActiveView(v); setCalendarOpen(false) }}
         saveStatus={saveStatus} totalByMethod={totalByMethod}
         grandTotal={grandTotal} grandEarnings={grandEarnings}
