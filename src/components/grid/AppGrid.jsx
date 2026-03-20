@@ -121,7 +121,7 @@ export function AppGrid({
         </thead>
         <tbody>
           {HOURS.map((hour, hIdx) => (
-            <tr key={hour} style={{ background: hIdx%2===0?C.white:C.cream }}>
+            <tr key={hour} style={{ background: hIdx%2===0?C.white:C.cream, height:64 }}>
               {professionals.map(prof => {
                 const k    = cellKey(prof.id, hour)
                 const appt = appointments[k]
@@ -256,7 +256,7 @@ export function AppGrid({
                         </div>
                       )
                     })() : (
-                      <div style={{ height:42, borderRadius:7, display:"flex", alignItems:"center", justifyContent:"center", color: isTarget && dropValid ? C.green : (isTarget ? "#e06060" : C.textSoft), fontSize: isTarget ? 22 : 10, letterSpacing:"0.5px", transition:"all .12s" }}>
+                      <div style={{ height:58, borderRadius:7, display:"flex", alignItems:"center", justifyContent:"center", color: isTarget && dropValid ? C.green : (isTarget ? "#e06060" : C.textSoft), fontSize: isTarget ? 22 : 10, letterSpacing:"0.5px", transition:"all .12s" }}>
                         {isTarget ? (dropValid ? "✓" : "✕") : (hour.endsWith(":00") || hour.endsWith(":30") ? hour : "")}
                       </div>
                     )}

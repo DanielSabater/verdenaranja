@@ -14,7 +14,7 @@ import ConfigView from "./components/views/ConfigView.jsx"
 import ClientesView from "./components/views/ClientesView.jsx"
 import Login from "./components/Login.jsx"
 
-const CELL_H = 50
+const CELL_H = 64
 
 export default function App() {
   const isMobile = useIsMobile()
@@ -272,7 +272,7 @@ export default function App() {
 
   return (
     <div style={{ display:"flex", flexDirection:"column", height:"100vh", background: C.cream, fontFamily: "'Georgia','Times New Roman',serif", color: C.text, userSelect: draggingKey ? "none" : "auto" }}>
-      <div className="main-content" style={{ flex:1, overflowY:"auto", WebkitOverflowScrolling:"touch", paddingBottom: 72 }}>
+      <div className="main-content" style={{ flex:1, overflowY:"auto", WebkitOverflowScrolling:"touch" }}>
 
 
 
@@ -357,12 +357,8 @@ export default function App() {
       />
     </div>
 
+      </div>
       <nav className="bottom-nav" style={{
-        position: "fixed",
-        left: 0,
-        right: 0,
-        bottom: 0,
-        zIndex: 200,
         flexShrink: 0,
         justifyContent: "space-around", alignItems: "stretch",
         background: C.white, borderTop: `2px solid ${C.greenMint}`,
