@@ -141,33 +141,6 @@ export const AppHeader = memo(function AppHeader({ config, activeView, setActive
         </div>
       )}
 
-      {/* Bottom nav (mobile) */}
-      <nav className="bottom-nav" style={{
-        flexShrink: 0,
-        justifyContent: "space-around", alignItems: "stretch",
-        background: C.white, borderTop: `2px solid ${C.greenMint}`,
-        height: 62, boxShadow: "0 -4px 20px rgba(58,125,68,.10)",
-        paddingBottom: "env(safe-area-inset-bottom)",
-      }}>
-        {[
-          { id: "turnos",       icon: "📅", label: "Turnos" },
-          { id: "contabilidad", icon: "📊", label: "Contab." },
-          { id: "clientes",     icon: "👥", label: "Clientes" },
-          { id: "config",       icon: "⚙️", label: "Config" },
-        ].map(v => (
-          <button key={v.id} onClick={() => setActiveView(v.id)} style={{
-            flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-            gap: 2, border: "none", background: "transparent", cursor: "pointer", padding: "6px 4px",
-            color: activeView === v.id ? C.green : C.textSoft, position: "relative",
-          }}>
-            {activeView === v.id && (
-              <div style={{ position: "absolute", top: 0, left: "20%", right: "20%", height: 3, borderRadius: "0 0 3px 3px", background: C.green }} />
-            )}
-            <div style={{ fontSize: 20 }}>{v.icon}</div>
-            <div style={{ fontSize: 9, letterSpacing: "1px", textTransform: "uppercase", fontFamily: "Georgia,serif", fontWeight: activeView === v.id ? "bold" : "normal" }}>{v.label}</div>
-          </button>
-        ))}
-      </nav>
     </>
   )
 })
