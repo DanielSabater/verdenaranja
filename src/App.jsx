@@ -279,10 +279,10 @@ export default function App() {
         saveStatus={saveStatus} totalByMethod={totalByMethod}
         grandTotal={grandTotal} grandEarnings={grandEarnings}
       />
-      <div className="main-content" style={{ flex:1, overflowY:"auto", WebkitOverflowScrolling:"touch" }}>
+      <div className="main-content" style={{ flex:1, overflow:"hidden", display:"flex", flexDirection:"column" }}>
 
       {activeView === "turnos" && (
-        <div key="v-turnos" className="pv-view pv-bg" style={{ display:"flex", flexDirection:"column", height:"calc(100vh - 56px)" }}>
+        <div key="v-turnos" className="pv-view pv-bg" style={{ display:"flex", flexDirection:"column", flex:1, overflow:"hidden" }}>
           <div style={{ flexShrink:0 }}><DateNav
             currentDate={currentDate} setCurrentDate={setCurrentDate}
             calendarOpen={calendarOpen} setCalendarOpen={setCalendarOpen}
@@ -315,7 +315,7 @@ export default function App() {
       )}
 
       {activeView === "contabilidad" && (
-        <div key="v-cont" className="pv-view pv-bg main-scroll"><ContabilidadView
+        <div key="v-cont" className="pv-view pv-bg" style={{ overflowY:"auto", flex:1 }}><ContabilidadView
           allData={allData} professionals={professionals} comisionPct={comisionPct}
           gastos={gastos} setGastos={setGastos}
           sueldos={sueldos} setSueldos={setSueldos}
@@ -329,8 +329,8 @@ export default function App() {
         /></div>
       )}
 
-      {activeView === "config" && <div key="v-cfg" className="pv-view pv-bg main-scroll"><ConfigView config={config} setConfig={setConfig} /></div>}
-      {activeView === "clientes" && <div key="v-cli" className="pv-view pv-bg main-scroll"><ClientesView clientes={clientes} setClientes={setClientes} allData={allData} /></div>}
+      {activeView === "config" && <div key="v-cfg" className="pv-view pv-bg" style={{ overflowY:"auto", flex:1 }}><ConfigView config={config} setConfig={setConfig} /></div>}
+      {activeView === "clientes" && <div key="v-cli" className="pv-view pv-bg" style={{ overflowY:"auto", flex:1 }}><ClientesView clientes={clientes} setClientes={setClientes} allData={allData} /></div>}
 
 
       {/* Bottom nav (mobile) */}
