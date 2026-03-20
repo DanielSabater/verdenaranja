@@ -357,8 +357,6 @@ export default function App() {
         modalSubtotal={modalSubtotal} modalDuration={modalDuration}
         appointments={appointments}
       />
-    </div>
-
       </div>
       <nav className="bottom-nav" style={{
         flexShrink: 0,
