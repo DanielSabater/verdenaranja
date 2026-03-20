@@ -152,7 +152,7 @@ export function AppGrid({
                   })()
 
                   const isBlocked = !appt && (isOccupied(prof.id, hour) || isCoveredByResize)
-                  if (isBlocked) return null;
+                  if (isBlocked) return <td key={prof.id} style={{ height:50, minHeight:50, maxHeight:50, padding:0, border:`1px solid ${C.border}` }} />;
 
                   const isDragging = draggingKey === k;
                   const isTarget   = dropTarget?.profId===prof.id && dropTarget?.hour===hour;
@@ -167,9 +167,7 @@ export function AppGrid({
                     <td key={prof.id} rowSpan={1}
                       style={{
                         padding:0,
-                        height: 50,
-                        minHeight: 50,
-                        maxHeight: 50,
+                        height: 50, minHeight: 50, maxHeight: 50,
                         verticalAlign:"top",
                         position:"relative",
                         overflow:"visible",
@@ -202,8 +200,8 @@ export function AppGrid({
                           onDragStart={e => { if(resizePreview){e.preventDefault();return;} onDragStart(e, k); }}
                           onDragEnd={onDragEnd}
                           style={{
-                            position:"absolute", top:3, left:3, right:3,
-                            height: `${(liveResizeSpan||span||1)*50 - 6}px`,
+                            position:"absolute", top:2, left:2, right:2,
+                            height: `${(liveResizeSpan||span||1)*50 - 4}px`,
                             zIndex:10, borderRadius:9,
                             background: appt.paid
                               ? `linear-gradient(135deg,${C.greenPale},#d8f0dc)`
