@@ -272,10 +272,6 @@ export default function App() {
 
   return (
     <div style={{ display:"flex", flexDirection:"column", height:"100vh", background: C.cream, fontFamily: "'Georgia','Times New Roman',serif", color: C.text, userSelect: draggingKey ? "none" : "auto" }}>
-      <div className="main-content" style={{ flex:1, overflowY:"auto", WebkitOverflowScrolling:"touch" }}>
-
-
-
       <AppHeader
         config={config} activeView={activeView}
         onLogout={handleLogout}
@@ -284,81 +280,86 @@ export default function App() {
         grandTotal={grandTotal} grandEarnings={grandEarnings}
       />
 
-      {activeView === "turnos" && (
-        <div key="v-turnos" className="pv-view pv-bg" style={{ display:"flex", flexDirection:"column", height:"100%" }}>
-          <div style={{ flexShrink:0 }}><DateNav
-            currentDate={currentDate} setCurrentDate={setCurrentDate}
-            calendarOpen={calendarOpen} setCalendarOpen={setCalendarOpen}
-            calViewDate={calViewDate} setCalViewDate={setCalViewDate}
-            allData={allData}
-          /></div>
+      <div className="main-content" style={{ flex:1, overflowY:"auto", WebkitOverflowScrolling:"touch", paddingBottom: 78 }}>
 
-          <div style={{ flex:1, overflowY:"auto", overflowX:"auto", WebkitOverflowScrolling:"touch" }}>
-          {(draggingKey || resizePreview) && (
-            <div style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", background: resizePreview ? "rgba(58,125,68,.92)" : dropTarget ? (dropValid ? "rgba(58,125,68,.92)" : "rgba(200,60,60,.88)") : "rgba(40,40,40,.82)", color: "#fff", borderRadius: 30, padding: "8px 22px", fontSize: 12, letterSpacing: "1px", zIndex: 300, boxShadow: "0 4px 20px rgba(0,0,0,.25)", pointerEvents: "none" }}>
-              {resizePreview ? "↕ Soltá para confirmar" : dropTarget ? (dropValid ? "✅ Soltar para mover aquí" : "🚫 Horario ocupado") : "☝️ Arrastrá a un nuevo horario"}
+        {activeView === "turnos" && (
+          <div key="v-turnos" className="pv-view pv-bg" style={{ display:"flex", flexDirection:"column", minHeight:"100%" }}>
+            <div style={{ flexShrink:0 }}><DateNav
+              currentDate={currentDate} setCurrentDate={setCurrentDate}
+              calendarOpen={calendarOpen} setCalendarOpen={setCalendarOpen}
+              calViewDate={calViewDate} setCalViewDate={setCalViewDate}
+              allData={allData}
+            /></div>
+
+            <div style={{ flex:1, overflowY:"auto", overflowX:"auto", WebkitOverflowScrolling:"touch" }}>
+              {(draggingKey || resizePreview) && (
+                <div style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", background: resizePreview ? "rgba(58,125,68,.92)" : dropTarget ? (dropValid ? "rgba(58,125,68,.92)" : "rgba(200,60,60,.88)") : "rgba(40,40,40,.82)", color: "#fff", borderRadius: 30, padding: "8px 22px", fontSize: 12, letterSpacing: "1px", zIndex: 300, boxShadow: "0 4px 20px rgba(0,0,0,.25)", pointerEvents: "none" }}>
+                  {resizePreview ? "↕ Soltá para confirmar" : dropTarget ? (dropValid ? "✅ Soltar para mover aquí" : "🚫 Horario ocupado") : "☝️ Arrastrá a un nuevo horario"}
+                </div>
+              )}
+
+              <AppGrid
+                professionals={professionals} appointments={appointments} isMobile={isMobile}
+                draggingKey={draggingKey} dropTarget={dropTarget} dropValid={dropValid} resizePreview={resizePreview}
+                isOccupied={isOccupied} spanOf={spanOf}
+                onDragStart={onDragStart} onDragEnd={onDragEnd} onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}
+                onResizeStart={onResizeStart}
+                paidAppts={paidAppts} totalByProf={totalByProf} earningsByProf={earningsByProf} comisionPct={comisionPct}
+                onCellClick={(profId, hour) => { setModal({ profId, hour, editKey: null }); setChosenServices([]); setClientName(""); setFilterCat("all"); setApptNotes(""); setApptTip("") }}
+                onEdit={(key, appt) => { setModal({ profId: appt.profId, hour: appt.hour, editKey: key }); setChosenServices([...appt.services]); setClientName(appt.client); setFilterCat("all"); setApptNotes(appt.notes || ""); setApptTip("") }}
+                onPay={(key) => { const a = appointments[key]; if (a?.paymentSplits?.length) setPaymentSplits(a.paymentSplits.map(s => ({ ...s }))); else setPaymentSplits([{ methodId: "efectivo", amount: apptTotal(a) }]); setPayModal(key) }}
+                onDelete={(key) => setDeleteKey(key)}
+                CELL_H={CELL_H}
+              />
             </div>
-          )}
-
-          <AppGrid
-            professionals={professionals} appointments={appointments} isMobile={isMobile}
-            draggingKey={draggingKey} dropTarget={dropTarget} dropValid={dropValid} resizePreview={resizePreview}
-            isOccupied={isOccupied} spanOf={spanOf}
-            onDragStart={onDragStart} onDragEnd={onDragEnd} onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}
-            onResizeStart={onResizeStart}
-            paidAppts={paidAppts} totalByProf={totalByProf} earningsByProf={earningsByProf} comisionPct={comisionPct}
-            onCellClick={(profId, hour) => { setModal({ profId, hour, editKey: null }); setChosenServices([]); setClientName(""); setFilterCat("all"); setApptNotes(""); setApptTip("") }}
-            onEdit={(key, appt) => { setModal({ profId: appt.profId, hour: appt.hour, editKey: key }); setChosenServices([...appt.services]); setClientName(appt.client); setFilterCat("all"); setApptNotes(appt.notes || ""); setApptTip("") }}
-            onPay={(key) => { const a = appointments[key]; if (a?.paymentSplits?.length) setPaymentSplits(a.paymentSplits.map(s => ({ ...s }))); else setPaymentSplits([{ methodId: "efectivo", amount: apptTotal(a) }]); setPayModal(key) }}
-            onDelete={(key) => setDeleteKey(key)}
-            CELL_H={CELL_H}
-          />
           </div>
-        </div>
-      )}
+        )}
 
-      {activeView === "contabilidad" && (
-        <div key="v-cont" className="pv-view pv-bg main-scroll"><ContabilidadView
-          allData={allData} professionals={professionals} comisionPct={comisionPct}
-          gastos={gastos} setGastos={setGastos}
-          sueldos={sueldos} setSueldos={setSueldos}
-          sueldoPeriod={sueldoPeriod} setSueldoPeriod={setSueldoPeriod}
-          contPeriod={contPeriod} setContPeriod={setContPeriod}
-          contFrom={contFrom} setContFrom={setContFrom}
-          contTo={contTo} setContTo={setContTo}
-          gastoModal={gastoModal} setGastoModal={setGastoModal}
-          gastoForm={gastoForm} setGastoForm={setGastoForm}
-          editGastoId={editGastoId} setEditGastoId={setEditGastoId}
-        /></div>
-      )}
+        {activeView === "contabilidad" && (
+          <div key="v-cont" className="pv-view pv-bg main-scroll"><ContabilidadView
+            allData={allData} professionals={professionals} comisionPct={comisionPct}
+            gastos={gastos} setGastos={setGastos}
+            sueldos={sueldos} setSueldos={setSueldos}
+            sueldoPeriod={sueldoPeriod} setSueldoPeriod={setSueldoPeriod}
+            contPeriod={contPeriod} setContPeriod={setContPeriod}
+            contFrom={contFrom} setContFrom={setContFrom}
+            contTo={contTo} setContTo={setContTo}
+            gastoModal={gastoModal} setGastoModal={setGastoModal}
+            gastoForm={gastoForm} setGastoForm={setGastoForm}
+            editGastoId={editGastoId} setEditGastoId={setEditGastoId}
+          /></div>
+        )}
 
-      {activeView === "config" && <div key="v-cfg" className="pv-view pv-bg main-scroll"><ConfigView config={config} setConfig={setConfig} /></div>}
-      {activeView === "clientes" && <div key="v-cli" className="pv-view pv-bg main-scroll"><ClientesView clientes={clientes} setClientes={setClientes} allData={allData} /></div>}
+        {activeView === "config" && <div key="v-cfg" className="pv-view pv-bg main-scroll"><ConfigView config={config} setConfig={setConfig} /></div>}
+        {activeView === "clientes" && <div key="v-cli" className="pv-view pv-bg main-scroll"><ClientesView clientes={clientes} setClientes={setClientes} allData={allData} /></div>}
 
-
-      {/* Bottom nav (mobile) */}
-
-      <AppModals
-        modal={modal} setModal={setModal}
-        payModal={payModal} setPayModal={setPayModal}
-        deleteKey={deleteKey} setDeleteKey={setDeleteKey}
-        clientName={clientName} setClientName={setClientName}
-        apptNotes={apptNotes} setApptNotes={setApptNotes}
-        apptTip={apptTip} setApptTip={setApptTip}
-        clientes={clientes} setClientes={setClientes}
-        chosenServices={chosenServices} setChosenServices={setChosenServices}
-        filterCat={filterCat} setFilterCat={setFilterCat}
-        paymentSplits={paymentSplits} setPaymentSplits={setPaymentSplits}
-        professionals={professionals}
-        services={services} filteredServices={filteredServices}
-        saveAppt={saveAppt} confirmPay={confirmPay} doDelete={doDelete}
-        addSplit={addSplit} removeSplit={removeSplit} updateSplit={updateSplit}
-        toggleService={toggleService} removeService={removeService}
-        modalSubtotal={modalSubtotal} modalDuration={modalDuration}
-        appointments={appointments}
-      />
+        <AppModals
+          modal={modal} setModal={setModal}
+          payModal={payModal} setPayModal={setPayModal}
+          deleteKey={deleteKey} setDeleteKey={setDeleteKey}
+          clientName={clientName} setClientName={setClientName}
+          apptNotes={apptNotes} setApptNotes={setApptNotes}
+          apptTip={apptTip} setApptTip={setApptTip}
+          clientes={clientes} setClientes={setClientes}
+          chosenServices={chosenServices} setChosenServices={setChosenServices}
+          filterCat={filterCat} setFilterCat={setFilterCat}
+          paymentSplits={paymentSplits} setPaymentSplits={setPaymentSplits}
+          professionals={professionals}
+          services={services} filteredServices={filteredServices}
+          saveAppt={saveAppt} confirmPay={confirmPay} doDelete={doDelete}
+          addSplit={addSplit} removeSplit={removeSplit} updateSplit={updateSplit}
+          toggleService={toggleService} removeService={removeService}
+          modalSubtotal={modalSubtotal} modalDuration={modalDuration}
+          appointments={appointments}
+        />
       </div>
+
       <nav className="bottom-nav" style={{
+        position: "fixed",
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 200,
         flexShrink: 0,
         justifyContent: "space-around", alignItems: "stretch",
         background: C.white, borderTop: `2px solid ${C.greenMint}`,
