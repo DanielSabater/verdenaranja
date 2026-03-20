@@ -271,7 +271,8 @@ export default function App() {
   if (!session) return <Login onLogin={handleLogin} />
 
   return (
-    <div className="main-content main-scroll" style={{ minHeight: "100vh", background: C.cream, fontFamily: "'Georgia','Times New Roman',serif", color: C.text, userSelect: draggingKey ? "none" : "auto", visibility: session ? "visible" : "hidden" }}>
+    <div style={{ display:"flex", flexDirection:"column", height:"100vh", background: C.cream, fontFamily: "'Georgia','Times New Roman',serif", color: C.text, userSelect: draggingKey ? "none" : "auto" }}>
+      <div className="main-content" style={{ flex:1, overflowY:"auto", WebkitOverflowScrolling:"touch" }}>
 
 
 
@@ -334,6 +335,29 @@ export default function App() {
 
 
       {/* Bottom nav (mobile) */}
+
+      <AppModals
+        modal={modal} setModal={setModal}
+        payModal={payModal} setPayModal={setPayModal}
+        deleteKey={deleteKey} setDeleteKey={setDeleteKey}
+        clientName={clientName} setClientName={setClientName}
+        apptNotes={apptNotes} setApptNotes={setApptNotes}
+        apptTip={apptTip} setApptTip={setApptTip}
+        clientes={clientes} setClientes={setClientes}
+        chosenServices={chosenServices} setChosenServices={setChosenServices}
+        filterCat={filterCat} setFilterCat={setFilterCat}
+        paymentSplits={paymentSplits} setPaymentSplits={setPaymentSplits}
+        professionals={professionals}
+        services={services} filteredServices={filteredServices}
+        saveAppt={saveAppt} confirmPay={confirmPay} doDelete={doDelete}
+        addSplit={addSplit} removeSplit={removeSplit} updateSplit={updateSplit}
+        toggleService={toggleService} removeService={removeService}
+        modalSubtotal={modalSubtotal} modalDuration={modalDuration}
+        appointments={appointments}
+      />
+    </div>
+
+      </div>
       <nav className="bottom-nav" style={{
         flexShrink: 0,
         justifyContent: "space-around", alignItems: "stretch",
@@ -360,26 +384,5 @@ export default function App() {
           </button>
         ))}
       </nav>
-
-      <AppModals
-        modal={modal} setModal={setModal}
-        payModal={payModal} setPayModal={setPayModal}
-        deleteKey={deleteKey} setDeleteKey={setDeleteKey}
-        clientName={clientName} setClientName={setClientName}
-        apptNotes={apptNotes} setApptNotes={setApptNotes}
-        apptTip={apptTip} setApptTip={setApptTip}
-        clientes={clientes} setClientes={setClientes}
-        chosenServices={chosenServices} setChosenServices={setChosenServices}
-        filterCat={filterCat} setFilterCat={setFilterCat}
-        paymentSplits={paymentSplits} setPaymentSplits={setPaymentSplits}
-        professionals={professionals}
-        services={services} filteredServices={filteredServices}
-        saveAppt={saveAppt} confirmPay={confirmPay} doDelete={doDelete}
-        addSplit={addSplit} removeSplit={removeSplit} updateSplit={updateSplit}
-        toggleService={toggleService} removeService={removeService}
-        modalSubtotal={modalSubtotal} modalDuration={modalDuration}
-        appointments={appointments}
-      />
-    </div>
   )
 }
