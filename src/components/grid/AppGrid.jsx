@@ -164,12 +164,15 @@ export function AppGrid({
                   }
 
                   return (
-                    <td key={prof.id} rowSpan={liveResizeSpan || span || 1}
+                    <td key={prof.id} rowSpan={1}
                       style={{
-                        padding:3,
-                        height: appt ? `${(liveResizeSpan||span||1)*50}px` : 50,
-                        minHeight: 50, maxHeight: appt ? "none" : 50,
-                        verticalAlign:"middle",
+                        padding:0,
+                        height: 50,
+                        minHeight: 50,
+                        maxHeight: 50,
+                        verticalAlign:"top",
+                        position:"relative",
+                        overflow:"visible",
                         border:`1px solid ${C.border}`,
                         background: cellBg,
                         transition:"background .12s",
@@ -199,7 +202,9 @@ export function AppGrid({
                           onDragStart={e => { if(resizePreview){e.preventDefault();return;} onDragStart(e, k); }}
                           onDragEnd={onDragEnd}
                           style={{
-                            height:"100%", borderRadius:9,
+                            position:"absolute", top:3, left:3, right:3,
+                            height: `${(liveResizeSpan||span||1)*50 - 6}px`,
+                            zIndex:10, borderRadius:9,
                             background: appt.paid
                               ? `linear-gradient(135deg,${C.greenPale},#d8f0dc)`
                               : `linear-gradient(135deg,${C.orangePale},#fde8d4)`,
