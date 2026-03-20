@@ -42,10 +42,10 @@ export function AppGrid({
   return (
     <div className="grid-scroll" style={{ overflowX:"auto", padding:"16px 8px 36px", WebkitOverflowScrolling:"touch" }}>
       <table style={{ borderCollapse:"collapse", tableLayout:"fixed", width:"100%", minWidth: isMobile ? `${professionals.length*80}px` : `${professionals.length*140}px` }}>
-        <thead>
+        <thead style={{ position:"sticky", top:0, zIndex:100 }}>
           <tr>
             {professionals.map(p => (
-              <th key={p.id} style={{ padding: isMobile?"6px 2px":"10px 5px", borderBottom:`2px solid ${C.border}`, width:`${100/professionals.length}%`, minWidth: isMobile?80:140, position:"relative" }}>
+              <th key={p.id} style={{ padding: isMobile?"6px 2px":"10px 5px", borderBottom:`2px solid ${C.border}`, width:`${100/professionals.length}%`, minWidth: isMobile?80:140, position:"relative", background:C.white }}>
                 <div onClick={() => setProfPopup(profPopup===p.id ? null : p.id)}
                   style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:3, cursor:"pointer" }}>
                   <div style={{
