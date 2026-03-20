@@ -133,7 +133,7 @@ export function AppGrid({
           </thead>
           <tbody>
             {HOURS.map((hour, hIdx) => (
-              <tr key={hour} style={{ background: hIdx%2===0?C.white:C.cream }}>
+              <tr key={hour} style={{ background: hIdx%2===0?C.white:C.cream, height:50 }}>
 
                 {professionals.map(prof => {
                   const k      = cellKey(prof.id, hour);
@@ -168,6 +168,7 @@ export function AppGrid({
                       style={{
                         padding:3,
                         height: appt ? `${(liveResizeSpan||span||1)*50}px` : 50,
+                        minHeight: 50, maxHeight: appt ? "none" : 50,
                         verticalAlign:"middle",
                         border:`1px solid ${C.border}`,
                         background: cellBg,
