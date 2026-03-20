@@ -14,7 +14,7 @@ import ConfigView from "./components/views/ConfigView.jsx"
 import ClientesView from "./components/views/ClientesView.jsx"
 import Login from "./components/Login.jsx"
 
-const CELL_H = 110
+const CELL_H = 50
 
 export default function App() {
   const isMobile = useIsMobile()
