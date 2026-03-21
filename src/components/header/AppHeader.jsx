@@ -153,13 +153,13 @@ export const AppHeader = memo(function AppHeader({
           borderTop:`2px solid ${C.greenMint}`,
           boxShadow:"0 -2px 12px rgba(58,125,68,.08)",
           display:"flex", alignItems:"center",
-          padding:"6px 8px", gap:4,
+          padding:"4px 4px", gap:0,
         }}>
           {/* Prev month arrow */}
           <button onClick={prevMonth} style={{ width:32, height:46, borderRadius:10, border:`1px solid ${C.border}`, background:C.white, color:C.green, fontSize:16, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>‹</button>
 
           {/* Days — scrollable center */}
-          <div style={{ flex:1, overflowX:"auto", WebkitOverflowScrolling:"touch", display:"flex", alignItems:"center", gap:3, justifyContent:"center" }}>
+          <div style={{ flex:1, overflowX:"auto", WebkitOverflowScrolling:"touch", display:"flex", alignItems:"center", gap:2, justifyContent:"center" }}>
             {(() => {
               const [y, m] = currentDate.split("-").map(Number)
               const days = new Date(y, m, 0).getDate()
@@ -198,7 +198,7 @@ export const AppHeader = memo(function AppHeader({
           <button onClick={nextMonth} style={{ width:32, height:46, borderRadius:10, border:`1px solid ${C.border}`, background:C.white, color:C.green, fontSize:16, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>›</button>
 
           {/* HOY + 📅 */}
-          <div style={{ display:"flex", flexDirection:"column", gap:3, flexShrink:0 }}>
+          <div style={{ display:"flex", flexDirection:"column", gap:2, flexShrink:0, marginLeft:4 }}>
             {currentDate !== tKey && (
               <button onClick={() => setCurrentDate(tKey)} style={{ width:38, height:21, borderRadius:7, border:`1.5px solid ${C.border}`, background:C.white, fontSize:8, fontWeight:"bold", color:C.green, cursor:"pointer", fontFamily:"Georgia,serif", letterSpacing:"1px" }}>HOY</button>
             )}
