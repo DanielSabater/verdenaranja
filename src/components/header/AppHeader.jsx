@@ -77,13 +77,7 @@ export const AppHeader = memo(function AppHeader({
           </div>
           <div style={{ width:8, height:8, borderRadius:"50%", flexShrink:0, background:saveStatus==="saving"?"#ccc":saveStatus==="saved"?C.green:saveStatus==="error"?"#c04040":"transparent", opacity:saveStatus==="idle"?0:1, transition:"opacity .3s ease" }} />
 
-          {/* Hoy + Calendar buttons */}
-          {activeView === "turnos" && (<>
-            {currentDate !== tKey && (
-              <button onClick={() => setCurrentDate(tKey)} style={{ width:38, height:38, borderRadius:12, flexShrink:0, border:`2px solid ${C.border}`, background:C.white, fontSize:9, fontWeight:"bold", color:C.green, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"Georgia,serif", letterSpacing:"1px" }}>HOY</button>
-            )}
-            <button onClick={() => setCalendarOpen(v => !v)} style={{ width:38, height:38, borderRadius:12, flexShrink:0, border:`2px solid ${calendarOpen?C.green:C.border}`, background:calendarOpen?`linear-gradient(135deg,${C.green},${C.greenLight})`:C.white, fontSize:18, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", boxShadow:calendarOpen?`0 4px 12px rgba(58,125,68,.3)`:"none", transition:"all .18s" }}>📅</button>
-          </>)}
+
         </div>
       </header>
 
@@ -155,9 +149,6 @@ export const AppHeader = memo(function AppHeader({
           display:"flex", alignItems:"center",
           padding:"4px 4px", gap:0,
         }}>
-          {/* Prev month arrow */}
-          <button onClick={prevMonth} style={{ width:32, height:46, borderRadius:10, border:`1px solid ${C.border}`, background:C.white, color:C.green, fontSize:16, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>‹</button>
-
           {/* Days — scrollable center */}
           <div style={{ flex:1, overflowX:"auto", WebkitOverflowScrolling:"touch", display:"flex", alignItems:"center", gap:2, justifyContent:"center" }}>
             {(() => {
@@ -194,15 +185,12 @@ export const AppHeader = memo(function AppHeader({
             })()}
           </div>
 
-          {/* Next month arrow */}
-          <button onClick={nextMonth} style={{ width:32, height:46, borderRadius:10, border:`1px solid ${C.border}`, background:C.white, color:C.green, fontSize:16, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>›</button>
-
-          {/* HOY + 📅 */}
-          <div style={{ display:"flex", flexDirection:"column", gap:2, flexShrink:0, marginLeft:4 }}>
+          {/* HOY + 📅 side by side */}
+          <div style={{ display:"flex", flexDirection:"row", gap:3, flexShrink:0, marginLeft:4 }}>
             {currentDate !== tKey && (
-              <button onClick={() => setCurrentDate(tKey)} style={{ width:38, height:21, borderRadius:7, border:`1.5px solid ${C.border}`, background:C.white, fontSize:8, fontWeight:"bold", color:C.green, cursor:"pointer", fontFamily:"Georgia,serif", letterSpacing:"1px" }}>HOY</button>
+              <button onClick={() => setCurrentDate(tKey)} style={{ width:38, height:46, borderRadius:10, border:`1.5px solid ${C.border}`, background:C.white, fontSize:8, fontWeight:"bold", color:C.green, cursor:"pointer", fontFamily:"Georgia,serif", letterSpacing:"1px", display:"flex", alignItems:"center", justifyContent:"center" }}>HOY</button>
             )}
-            <button onClick={() => setCalendarOpen(v => !v)} style={{ width:38, height: currentDate!==tKey ? 21 : 46, borderRadius:7, border:`1.5px solid ${calendarOpen?C.green:C.border}`, background:calendarOpen?`linear-gradient(135deg,${C.green},${C.greenLight})`:C.white, fontSize:16, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", transition:"all .18s" }}>📅</button>
+            <button onClick={() => setCalendarOpen(v => !v)} style={{ width:38, height:46, borderRadius:10, border:`1.5px solid ${calendarOpen?C.green:C.border}`, background:calendarOpen?`linear-gradient(135deg,${C.green},${C.greenLight})`:C.white, fontSize:18, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", transition:"all .18s" }}>📅</button>
           </div>
         </div>
       )}
