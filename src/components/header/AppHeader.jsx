@@ -147,8 +147,8 @@ export const AppHeader = memo(function AppHeader({
 
       {/* Bottom date strip — fixed, all days of month */}
       {activeView === "turnos" && currentDate && (
-        <div style={{
-          position:"fixed", bottom:62, left:0, right:0,
+        <div className="date-strip" style={{
+          position:"fixed", bottom:0, left:0, right:0,
           zIndex:98, background:C.white,
           borderTop:`2px solid ${C.greenMint}`,
           boxShadow:"0 -2px 12px rgba(58,125,68,.08)",

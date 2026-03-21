@@ -62,3 +62,9 @@ select { appearance: auto; }
 
 .pv-view { animation: pvFade 0.2s ease forwards; }
 .pv-bg   { background: #fdfaf6; }
+
+/* Date strip - always at bottom, above nav on mobile */
+.date-strip { bottom: 0 !important; }
+@media (max-width: 900px) {
+  .date-strip { bottom: 62px !important; }
+}
