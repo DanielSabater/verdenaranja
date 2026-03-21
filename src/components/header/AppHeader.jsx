@@ -2,7 +2,7 @@ import { memo } from "react"
 import { C } from "../../constants/colors.js"
 import { PAYMENT_METHODS } from "../../constants/data.js"
 import { fmt } from "../../utils/appointments.js"
-import { DIAS_ES, MESES_ES, todayKey, fmtDate, getWeekDays, nextWorkDay } from "../../utils/dates.js"
+import { MESES_ES, todayKey, fmtDate, nextWorkDay } from "../../utils/dates.js"
 
 export const AppHeader = memo(function AppHeader({
   config, activeView, setActiveView, saveStatus, totalByMethod, grandTotal, grandEarnings, onLogout,
@@ -10,8 +10,6 @@ export const AppHeader = memo(function AppHeader({
 }) {
   const isMobileNav = typeof window !== "undefined" && window.innerWidth <= 900
   const tKey     = todayKey()
-  const weekDays = getWeekDays(currentDate)
-
   const VIEWS = [
     { id: "turnos",       icon: "📅", label: "Turnos" },
     { id: "contabilidad", icon: "📊", label: "Contabilidad" },
@@ -53,24 +51,6 @@ export const AppHeader = memo(function AppHeader({
           ))}
         </div>
 
-        {/* Date nav pills — desktop, turnos only */}
-        {activeView === "turnos" && currentDate && (
-          <div className="desktop-nav" style={{ gap:3, alignItems:"center" }}>
-            <button style={btnNav} onClick={() => setCurrentDate(d => nextWorkDay(d, -1))}>‹</button>
-            {weekDays.map(dk => {
-              const d=new Date(dk+"T12:00:00"), isCur=dk===currentDate, isT=dk===tKey, has=Object.keys((allData||{})[dk]||{}).length>0
-              return (
-                <button key={dk} onClick={() => setCurrentDate(dk)} style={{ padding:"4px 7px", borderRadius:10, cursor:"pointer", flexShrink:0, border:`2px solid ${isCur?C.green:isT?C.greenMint:"transparent"}`, background:isCur?`linear-gradient(135deg,${C.green},${C.greenLight})`:isT?C.greenPale:"transparent", color:isCur?"#fff":isT?C.green:C.textSoft, fontSize:9, fontFamily:"Georgia,serif", position:"relative", minWidth:38, textAlign:"center" }}>
-                  <div style={{ letterSpacing:"1px", textTransform:"uppercase" }}>{DIAS_ES[d.getDay()].slice(0,3)}</div>
-                  <div style={{ fontSize:12, fontWeight:"bold" }}>{d.getDate()}</div>
-                  {has && <div style={{ position:"absolute", bottom:2, left:"50%", transform:"translateX(-50%)", width:4, height:4, borderRadius:"50%", background:isCur?"rgba(255,255,255,.8)":C.green }} />}
-                </button>
-              )
-            })}
-            <button style={btnNav} onClick={() => setCurrentDate(d => nextWorkDay(d, +1))}>›</button>
-          </div>
-        )}
-
         {/* Desktop totals */}
         <div className="desktop-totals" style={{ alignItems:"center", gap:5 }}>
           {PAYMENT_METHODS.map(pm => { const t=totalByMethod(pm.id); return (
@@ -97,10 +77,13 @@ export const AppHeader = memo(function AppHeader({
           </div>
           <div style={{ width:8, height:8, borderRadius:"50%", flexShrink:0, background:saveStatus==="saving"?"#ccc":saveStatus==="saved"?C.green:saveStatus==="error"?"#c04040":"transparent", opacity:saveStatus==="idle"?0:1, transition:"opacity .3s ease" }} />
 
-          {/* Calendar button */}
-          {activeView === "turnos" && (
+          {/* Hoy + Calendar buttons */}
+          {activeView === "turnos" && (<>
+            {currentDate !== tKey && (
+              <button onClick={() => setCurrentDate(tKey)} style={{ width:38, height:38, borderRadius:12, flexShrink:0, border:`2px solid ${C.border}`, background:C.white, fontSize:9, fontWeight:"bold", color:C.green, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"Georgia,serif", letterSpacing:"1px" }}>HOY</button>
+            )}
             <button onClick={() => setCalendarOpen(v => !v)} style={{ width:38, height:38, borderRadius:12, flexShrink:0, border:`2px solid ${calendarOpen?C.green:C.border}`, background:calendarOpen?`linear-gradient(135deg,${C.green},${C.greenLight})`:C.white, fontSize:18, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", boxShadow:calendarOpen?`0 4px 12px rgba(58,125,68,.3)`:"none", transition:"all .18s" }}>📅</button>
-          )}
+          </>)}
         </div>
       </header>
 
@@ -113,6 +96,7 @@ export const AppHeader = memo(function AppHeader({
             {currentDate === tKey && <div style={{ fontSize:9, color:C.textSoft }}>Hoy</div>}
           </div>
           <button style={btnNav} onClick={() => setCurrentDate(d => nextWorkDay(d, +1))}>›</button>
+          {currentDate !== tKey && <button onClick={() => setCurrentDate(tKey)} style={{ width:34, height:34, borderRadius:10, border:`2px solid ${C.border}`, background:C.white, fontSize:8, fontWeight:"bold", color:C.green, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"Georgia,serif" }}>HOY</button>}
           <button onClick={() => setCalendarOpen(v => !v)} style={{ width:34, height:34, borderRadius:10, border:`2px solid ${calendarOpen?C.green:C.border}`, background:calendarOpen?`linear-gradient(135deg,${C.green},${C.greenLight})`:C.white, fontSize:16, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>📅</button>
         </div>
       )}
