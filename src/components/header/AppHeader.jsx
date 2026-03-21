@@ -144,6 +144,54 @@ export const AppHeader = memo(function AppHeader({
           </div>
         </>
       )}
+
+      {/* Bottom date strip — fixed, all days of month */}
+      {activeView === "turnos" && currentDate && (
+        <div style={{
+          position:"fixed", bottom:0, left:0, right:0,
+          zIndex:98, background:C.white,
+          borderTop:`2px solid ${C.greenMint}`,
+          boxShadow:"0 -2px 12px rgba(58,125,68,.08)",
+          overflowX:"auto", WebkitOverflowScrolling:"touch",
+          display:"flex", alignItems:"center", gap:3,
+          padding:"6px 10px 6px",
+          paddingBottom:"calc(6px + env(safe-area-inset-bottom))",
+        }}>
+          {(() => {
+            const [y, m] = currentDate.split("-").map(Number)
+            const days = new Date(y, m, 0).getDate()
+            return Array.from({ length: days }, (_, i) => {
+              const day = i + 1
+              const dk  = `${y}-${String(m).padStart(2,"0")}-${String(day).padStart(2,"0")}`
+              const d   = new Date(dk + "T12:00:00")
+              const dow = d.getDay()
+              const isSun = dow === 0
+              const isCur = dk === currentDate
+              const isT   = dk === tKey
+              const has   = Object.keys((allData||{})[dk]||{}).length > 0
+              return (
+                <button key={dk} disabled={isSun} onClick={() => !isSun && setCurrentDate(dk)} style={{
+                  minWidth:36, height:46, borderRadius:10, flexShrink:0,
+                  border:`2px solid ${isCur?C.green:isT?C.greenMint:"transparent"}`,
+                  background: isCur?`linear-gradient(135deg,${C.green},${C.greenLight})`:isT?C.greenPale:has?"#f5faf5":"transparent",
+                  color: isCur?"#fff":isSun?"#ddd":isT?C.green:C.textSoft,
+                  fontSize:9, fontFamily:"Georgia,serif", cursor:isSun?"default":"pointer",
+                  display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
+                  gap:1, padding:"0 4px", position:"relative",
+                  transition:"all .12s",
+                }}>
+                  <div style={{ fontSize:8, letterSpacing:"1px", textTransform:"uppercase", opacity:.7 }}>
+                    {["Do","Lu","Ma","Mi","Ju","Vi","Sá"][dow]}
+                  </div>
+                  <div style={{ fontSize:13, fontWeight: isCur||isT?"bold":"normal" }}>{day}</div>
+                  {has && <div style={{ position:"absolute", bottom:3, left:"50%", transform:"translateX(-50%)", width:4, height:4, borderRadius:"50%", background:isCur?"rgba(255,255,255,.8)":C.green }} />}
+                </button>
+              )
+            })
+          })()}
+        </div>
+      )}
+
     </>
   )
 })
