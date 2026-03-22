@@ -85,11 +85,13 @@ export default function ContabilidadView({
   // ── sueldos ────────────────────────────────────────────────────────────────
   const sueldoKey   = (profId) => `${profId}||${sueldoPeriod}`
   const profSueldo  = (profId) => safeSueldos[sueldoKey(profId)] || { pagado:false, monto:"", fecha:"" }
-  const profStats = (profId) => {
+  const profStats = (profId, diasFilter) => {
     let facturado=0, turnos=0, propinas=0
     const diasSet = new Set()
     Object.entries(safeAllData).forEach(([dk, dayData]) => {
       if (!dk.startsWith(sueldoPeriod)) return
+      // If diasFilter is set (not "all"), only count selected days
+      if (diasFilter && diasFilter !== "all" && !diasFilter.includes(dk)) return
       Object.values(dayData).forEach(appt => {
         if (appt.paid && appt.profId === profId) {
           facturado += apptTotal(appt)
@@ -101,7 +103,7 @@ export default function ContabilidadView({
     })
     return { facturado, turnos, propinas, dias: diasSet.size, comision: facturado * (comisionPct/100) }
   }
-  const earningsInMonth = (profId) => profStats(profId).comision
+  const earningsInMonth = (profId) => profStats(profId, "all").comision
   const changeSueldoMonth = (delta) => {
     const [y,m] = sueldoPeriod.split("-").map(Number)
     const d = new Date(y, m-1+delta, 1)
@@ -309,7 +311,8 @@ export default function ContabilidadView({
           <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(280px, 1fr))", gap:14 }}>
             {safeProfessionals.map(p => {
               const sd    = profSueldo(p.id)
-              const stats = profStats(p.id)
+              const selectedDays = sd.dias || "all"
+              const stats = profStats(p.id, selectedDays)
 
               // Days of this month for day selector
               const [sy, sm] = sueldoPeriod.split("-").map(Number)
@@ -321,7 +324,6 @@ export default function ContabilidadView({
                 return { day, dk, dow: d.getDay() }
               }).filter(d => d.dow !== 0) // exclude sundays
 
-              const selectedDays = sd.dias || "all" // "all" or array of dk strings
               const toggleDay = (dk) => {
                 const curr = sd.dias || "all"
                 let next
@@ -366,7 +368,7 @@ export default function ContabilidadView({
                     <div style={{ marginBottom:12 }}>
                       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
                         <div style={{ fontSize:8, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase" }}>Días a pagar</div>
-                        <button onClick={() => setSueldos(p2=>({...p2,[sueldoKey(p.id)]:{...profSueldo(p.id), dias:"all"}}))} style={{ fontSize:8, color:isAllDays?C.green:C.textSoft, background:"transparent", border:`1px solid ${isAllDays?C.green:C.border}`, borderRadius:6, padding:"2px 8px", cursor:"pointer", fontFamily:"Georgia,serif" }}>
+                        <button onClick={() => setSueldos(p2=>({...p2,[sueldoKey(p.id)]:{...profSueldo(p.id), dias: isAllDays ? [] : "all"}}))} style={{ fontSize:8, color:isAllDays?C.green:C.textSoft, background:isAllDays?C.greenPale:"transparent", border:`1px solid ${isAllDays?C.green:C.border}`, borderRadius:6, padding:"2px 8px", cursor:"pointer", fontFamily:"Georgia,serif" }}>
                           {isAllDays?"✓ Mes completo":"Mes completo"}
                         </button>
                       </div>
