@@ -286,7 +286,7 @@ export default function App() {
       <div className="main-content" style={{ flex:1, overflow:"hidden", display:"flex", flexDirection:"column" }}>
 
       {activeView === "turnos" && (
-        <div key="v-turnos" className="pv-view pv-bg" style={{ display:"flex", flexDirection:"column", flex:1, overflow:"hidden", paddingBottom:130 }}>
+        <div key="v-turnos" className="pv-view pv-bg" style={{ display:"flex", flexDirection:"column", flex:1, overflow:"hidden", paddingBottom:70 }}>
           <div style={{ flex:1, overflowY:"auto", overflowX:"auto", WebkitOverflowScrolling:"touch" }}>
           {(draggingKey || resizePreview) && (
             <div style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", background: resizePreview ? "rgba(58,125,68,.92)" : dropTarget ? (dropValid ? "rgba(58,125,68,.92)" : "rgba(200,60,60,.88)") : "rgba(40,40,40,.82)", color: "#fff", borderRadius: 30, padding: "8px 22px", fontSize: 12, letterSpacing: "1px", zIndex: 300, boxShadow: "0 4px 20px rgba(0,0,0,.25)", pointerEvents: "none" }}>
