@@ -113,7 +113,7 @@ export const AppHeader = memo(function AppHeader({
       {calendarOpen && activeView === "turnos" && (
         <>
           <div onClick={() => setCalendarOpen(false)} style={{ position:"fixed", inset:0, zIndex:299 }} />
-          <div onClick={e=>e.stopPropagation()} style={{ position:"fixed", top:64, right:12, zIndex:300, background:C.white, borderRadius:16, border:`1.5px solid ${C.greenMint}`, boxShadow:"0 12px 40px rgba(58,125,68,.18)", padding:"16px 20px 20px", display:"flex", flexDirection:"column", alignItems:"center" }}>
+          <div onClick={e=>e.stopPropagation()} style={{ position:"fixed", bottom:76, right:12, width:320, maxWidth:"92vw", zIndex:300, background:C.white, borderRadius:16, border:`1.5px solid ${C.greenMint}`, boxShadow:"0 12px 40px rgba(58,125,68,.18)", padding:"16px 20px 20px", display:"flex", flexDirection:"column", alignItems:"center" }}>
             <div style={{ display:"flex", alignItems:"center", gap:16, marginBottom:14 }}>
               <button onClick={prevMonth} style={{ width:30, height:30, borderRadius:"50%", border:`1px solid ${C.border}`, background:C.white, color:C.green, fontSize:16, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>‹</button>
               <div style={{ fontSize:14, color:C.text, fontWeight:"bold", minWidth:160, textAlign:"center" }}>{MESES_ES[vm-1].charAt(0).toUpperCase()+MESES_ES[vm-1].slice(1)} {vy}</div>
