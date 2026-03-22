@@ -29,9 +29,9 @@ select { appearance: auto; }
   .desktop-nav         { display: none !important; }
   .desktop-totals      { display: none !important; }
   .desktop-savebadge   { display: none !important; }
-  .mobile-totals-strip { display: flex !important; }
+  .mobile-totals-strip { display: none !important; }
   .date-nav-pills      { display: none !important; }
-  .date-nav-compact    { display: flex !important; }
+  .date-nav-compact    { display: none !important; }
 }
 
 /* ── Modales bottom sheet en mobile ── */

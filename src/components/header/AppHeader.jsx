@@ -81,20 +81,6 @@ export const AppHeader = memo(function AppHeader({
         </div>
       </header>
 
-      {/* Mobile: date nav strip */}
-      {activeView === "turnos" && currentDate && (
-        <div className="date-nav-compact" style={{ background:C.white, borderBottom:`1px solid ${C.border}`, padding:"8px 12px", alignItems:"center", gap:8, justifyContent:"space-between", flexShrink:0 }}>
-          <button style={btnNav} onClick={() => setCurrentDate(d => nextWorkDay(d, -1))}>‹</button>
-          <div style={{ textAlign:"center", flex:1 }}>
-            <div style={{ fontSize:12, color:C.green, fontWeight:"bold" }}>{fmtDate(currentDate)}</div>
-            {currentDate === tKey && <div style={{ fontSize:9, color:C.textSoft }}>Hoy</div>}
-          </div>
-          <button style={btnNav} onClick={() => setCurrentDate(d => nextWorkDay(d, +1))}>›</button>
-          {currentDate !== tKey && <button onClick={() => setCurrentDate(tKey)} style={{ width:34, height:34, borderRadius:10, border:`2px solid ${C.border}`, background:C.white, fontSize:8, fontWeight:"bold", color:C.green, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"Georgia,serif" }}>HOY</button>}
-          <button onClick={() => setCalendarOpen(v => !v)} style={{ width:34, height:34, borderRadius:10, border:`2px solid ${calendarOpen?C.green:C.border}`, background:calendarOpen?`linear-gradient(135deg,${C.green},${C.greenLight})`:C.white, fontSize:16, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>📅</button>
-        </div>
-      )}
-
       {/* Mobile totals strip */}
       {activeView === "turnos" && (
         <div className="mobile-totals-strip" style={{ background:C.white, borderBottom:`1px solid ${C.border}`, padding:"8px 12px", gap:6, overflowX:"auto", WebkitOverflowScrolling:"touch", flexShrink:0 }}>
