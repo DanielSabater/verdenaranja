@@ -237,15 +237,17 @@ export default function App() {
     const { profId, hour, editKey } = modal
     const k    = editKey || cellKey(profId, hour)
     const prev = appointments[editKey] || {}
-    setAppointments(p => { const next = { ...p }; if (editKey && editKey !== k) delete next[editKey]; next[k] = { profId, hour, client: clientName.trim(), services: chosenServices, notes: apptNotes.trim(), paid: prev.paid || false, payMethod: prev.payMethod || null }; return next })
+    setAppointments(p => { const next = { ...p }; if (editKey && editKey !== k) delete next[editKey]; next[k] = { profId, hour, client: clientName.trim(), services: chosenServices, notes: apptNotes.trim(), paid: prev.paid || false, payMethod: prev.payMethod || null, tip: parseFloat(apptTip) || 0 }; return next })
     setModal(null)
   }
 
   const confirmPay = () => {
     const total   = apptTotal(appointments[payModal])
+    const tipAmount = parseFloat(apptTip) || 0
+    const totalWithTip = total + tipAmount
     const sumPaid = paymentSplits.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0)
-    if (Math.abs(sumPaid - total) > 1 || paymentSplits.some(r => !r.methodId || !(parseFloat(r.amount) > 0))) return
-    setAppointments(p => ({ ...p, [payModal]: { ...p[payModal], paid: true, payMethod: paymentSplits[0].methodId, paymentSplits } }))
+    if (Math.abs(sumPaid - totalWithTip) > 1 || paymentSplits.some(r => !r.methodId || !(parseFloat(r.amount) > 0))) return
+    setAppointments(p => ({ ...p, [payModal]: { ...p[payModal], paid: true, payMethod: paymentSplits[0].methodId, paymentSplits, tip: tipAmount } }))
     setPayModal(null)
   }
 
@@ -253,8 +255,7 @@ export default function App() {
     const usedMids = paymentSplits.map(r => r.methodId)
     const avail    = PAYMENT_METHODS.find(m => !usedMids.includes(m.id))
     if (!avail) return
-    const remaining = Math.max(0, apptTotal(appointments[payModal]) - paymentSplits.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0))
-    setPaymentSplits(p => [...p, { methodId: avail.id, amount: remaining }])
+    setPaymentSplits(p => [...p, { methodId: avail.id, amount: "" }])
   }
   const removeSplit = (idx) => setPaymentSplits(p => p.filter((_, i) => i !== idx))
   const updateSplit = (idx, field, value) => setPaymentSplits(p => p.map((r, i) => i === idx ? { ...r, [field]: value } : r))
@@ -302,8 +303,8 @@ export default function App() {
             onResizeStart={onResizeStart}
             paidAppts={paidAppts} totalByProf={totalByProf} earningsByProf={earningsByProf} comisionPct={comisionPct}
             onCellClick={(profId, hour) => { setModal({ profId, hour, editKey: null }); setChosenServices([]); setClientName(""); setFilterCat("all"); setApptNotes(""); setApptTip("") }}
-            onEdit={(key, appt) => { setModal({ profId: appt.profId, hour: appt.hour, editKey: key }); setChosenServices([...appt.services]); setClientName(appt.client); setFilterCat("all"); setApptNotes(appt.notes || ""); setApptTip("") }}
-            onPay={(key) => { const a = appointments[key]; if (a?.paymentSplits?.length) setPaymentSplits(a.paymentSplits.map(s => ({ ...s }))); else setPaymentSplits([{ methodId: "efectivo", amount: apptTotal(a) }]); setPayModal(key) }}
+            onEdit={(key, appt) => { setModal({ profId: appt.profId, hour: appt.hour, editKey: key }); setChosenServices([...appt.services]); setClientName(appt.client); setFilterCat("all"); setApptNotes(appt.notes || ""); setApptTip(appt.tip || "") }}
+            onPay={(key) => { const a = appointments[key]; if (a?.paymentSplits?.length) setPaymentSplits(a.paymentSplits.map(s => ({ ...s }))); else setPaymentSplits([{ methodId: "efectivo", amount: apptTotal(a) + (a.tip || 0) }]); setApptTip(a.tip || ""); setPayModal(key) }}
             onDelete={(key) => setDeleteKey(key)}
             CELL_H={CELL_H}
           />
