@@ -85,16 +85,23 @@ export default function ContabilidadView({
   // ── sueldos ────────────────────────────────────────────────────────────────
   const sueldoKey   = (profId) => `${profId}||${sueldoPeriod}`
   const profSueldo  = (profId) => safeSueldos[sueldoKey(profId)] || { pagado:false, monto:"", fecha:"" }
-  const earningsInMonth = (profId) => {
-    let total = 0
+  const profStats = (profId) => {
+    let facturado=0, turnos=0, propinas=0
+    const diasSet = new Set()
     Object.entries(safeAllData).forEach(([dk, dayData]) => {
       if (!dk.startsWith(sueldoPeriod)) return
       Object.values(dayData).forEach(appt => {
-        if (appt.paid && appt.profId === profId) total += apptTotal(appt) * (comisionPct/100)
+        if (appt.paid && appt.profId === profId) {
+          facturado += apptTotal(appt)
+          propinas  += appt.tip || 0
+          turnos++
+          diasSet.add(dk)
+        }
       })
     })
-    return total
+    return { facturado, turnos, propinas, dias: diasSet.size, comision: facturado * (comisionPct/100) }
   }
+  const earningsInMonth = (profId) => profStats(profId).comision
   const changeSueldoMonth = (delta) => {
     const [y,m] = sueldoPeriod.split("-").map(Number)
     const d = new Date(y, m-1+delta, 1)
@@ -291,35 +298,114 @@ export default function ContabilidadView({
       {/* ── SUELDOS ── */}
       {seccion==="sueldos" && (
         <div>
+          {/* Month nav */}
           <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:20 }}>
             <button onClick={()=>changeSueldoMonth(-1)} style={{ padding:"6px 14px", borderRadius:20, border:`1.5px solid ${C.border}`, background:C.white, cursor:"pointer", fontFamily:"Georgia,serif" }}>‹</button>
-            <div style={{ fontSize:16, color:C.text }}>{MESES_ES[parseInt(sueldoPeriod.split("-")[1])-1]} {sueldoPeriod.split("-")[0]}</div>
+            <div style={{ fontSize:16, color:C.text, fontWeight:"bold" }}>{MESES_ES[parseInt(sueldoPeriod.split("-")[1])-1]} {sueldoPeriod.split("-")[0]}</div>
             <button onClick={()=>changeSueldoMonth(1)} style={{ padding:"6px 14px", borderRadius:20, border:`1.5px solid ${C.border}`, background:C.white, cursor:"pointer", fontFamily:"Georgia,serif" }}>›</button>
           </div>
 
-          <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+          {/* Grid de profesionales */}
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(280px, 1fr))", gap:14 }}>
             {safeProfessionals.map(p => {
-              const sd     = profSueldo(p.id)
-              const earned = earningsInMonth(p.id)
+              const sd    = profSueldo(p.id)
+              const stats = profStats(p.id)
+
+              // Days of this month for day selector
+              const [sy, sm] = sueldoPeriod.split("-").map(Number)
+              const daysInMonth = new Date(sy, sm, 0).getDate()
+              const allDays = Array.from({length: daysInMonth}, (_,i) => {
+                const day = i+1
+                const dk = `${sy}-${String(sm).padStart(2,"0")}-${String(day).padStart(2,"0")}`
+                const d  = new Date(dk+"T12:00:00")
+                return { day, dk, dow: d.getDay() }
+              }).filter(d => d.dow !== 0) // exclude sundays
+
+              const selectedDays = sd.dias || "all" // "all" or array of dk strings
+              const toggleDay = (dk) => {
+                const curr = sd.dias || "all"
+                let next
+                if (curr === "all") {
+                  next = allDays.map(d=>d.dk).filter(d=>d!==dk)
+                } else {
+                  next = curr.includes(dk) ? curr.filter(d=>d!==dk) : [...curr, dk]
+                  if (next.length === allDays.length) next = "all"
+                }
+                setSueldos(p2=>({...p2,[sueldoKey(p.id)]:{...profSueldo(p.id), dias:next}}))
+              }
+              const isAllDays = selectedDays === "all"
+              const activeDays = isAllDays ? allDays.length : (selectedDays?.length || 0)
+
               return (
-                <div key={p.id} style={{ background:sd.pagado?C.greenPale:C.white, border:`1.5px solid ${sd.pagado?C.green:C.border}`, borderRadius:14, padding:"16px 18px" }}>
-                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
-                    <div style={{ fontSize:15, color:C.text }}>{p.emoji} {p.name}</div>
-                    <div style={{ fontSize:12, color:C.gold, fontWeight:"bold" }}>Ganó {fmt(earned)}</div>
+                <div key={p.id} style={{ background:sd.pagado?C.greenPale:C.white, border:`2px solid ${sd.pagado?C.green:C.border}`, borderRadius:16, overflow:"hidden" }}>
+
+                  {/* Header */}
+                  <div style={{ padding:"14px 16px", borderBottom:`1px solid ${C.border}`, display:"flex", justifyContent:"space-between", alignItems:"center", background:sd.pagado?`linear-gradient(135deg,${C.green},${C.greenLight})`:"transparent" }}>
+                    <div style={{ fontSize:16, color:sd.pagado?"#fff":C.text }}>{p.emoji} {p.name}</div>
+                    <div style={{ fontSize:10, color:sd.pagado?"rgba(255,255,255,.8)":C.textSoft }}>{comisionPct}% comisión</div>
                   </div>
-                  {sd.pagado
-                    ? <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                        <div style={{ fontSize:12, color:C.green }}>✅ Pagado {fmt(sd.monto)} — {sd.fecha}</div>
-                        <button onClick={()=>desmarcarSueldo(p.id)} style={{ fontSize:10, color:C.textSoft, background:"transparent", border:`1px solid ${C.border}`, borderRadius:8, padding:"4px 12px", cursor:"pointer", fontFamily:"Georgia,serif" }}>Desmarcar</button>
-                      </div>
-                    : <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-                        <div style={{ position:"relative", flex:1 }}>
-                          <span style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", color:C.textSoft, fontSize:13 }}>$</span>
-                          <input type="number" value={sd.monto} onChange={e=>setSueldos(p2=>({...p2,[sueldoKey(p.id)]:{...profSueldo(p.id),monto:e.target.value}}))} placeholder="0" style={{...inputStyle,paddingLeft:24}}/>
+
+                  <div style={{ padding:"14px 16px" }}>
+                    {/* Stats grid */}
+                    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:14 }}>
+                      {[
+                        ["📅 Días trab.", activeDays, C.textSoft],
+                        ["🎯 Turnos",     stats.turnos,  C.green],
+                        ["💰 Facturado",  fmt(stats.facturado), C.orange],
+                        ["🎁 Propinas",   fmt(stats.propinas),  C.gold],
+                        ["✨ Comisión",   fmt(stats.comision),  C.green, true],
+                      ].map(([label, val, col, wide]) => (
+                        <div key={label} style={{ background:C.cream, borderRadius:8, padding:"6px 10px", gridColumn: wide?"1/-1":"auto" }}>
+                          <div style={{ fontSize:8, color:C.textSoft, letterSpacing:"1px" }}>{label}</div>
+                          <div style={{ fontSize:wide?16:13, fontWeight:"bold", color:col }}>{val}</div>
                         </div>
-                        <button onClick={()=>pagarSueldo(p.id)} disabled={!sd.monto} style={{ padding:"9px 16px", borderRadius:10, border:"none", background:sd.monto?`linear-gradient(135deg,${C.green},${C.greenLight})`:"#e8e8e8", color:sd.monto?"#fff":"#bbb", fontSize:10, cursor:sd.monto?"pointer":"not-allowed", fontFamily:"Georgia,serif", whiteSpace:"nowrap" }}>✅ Marcar pagado</button>
+                      ))}
+                    </div>
+
+                    {/* Day selector */}
+                    <div style={{ marginBottom:12 }}>
+                      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
+                        <div style={{ fontSize:8, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase" }}>Días a pagar</div>
+                        <button onClick={() => setSueldos(p2=>({...p2,[sueldoKey(p.id)]:{...profSueldo(p.id), dias:"all"}}))} style={{ fontSize:8, color:isAllDays?C.green:C.textSoft, background:"transparent", border:`1px solid ${isAllDays?C.green:C.border}`, borderRadius:6, padding:"2px 8px", cursor:"pointer", fontFamily:"Georgia,serif" }}>
+                          {isAllDays?"✓ Mes completo":"Mes completo"}
+                        </button>
                       </div>
-                  }
+                      <div style={{ display:"flex", flexWrap:"wrap", gap:3 }}>
+                        {allDays.map(({day, dk, dow}) => {
+                          const isSelected = isAllDays || (selectedDays?.includes(dk))
+                          const hasWork = Object.values(safeAllData[dk]||{}).some(a=>a.paid&&a.profId===p.id)
+                          return (
+                            <button key={dk} onClick={()=>toggleDay(dk)} style={{
+                              width:28, height:28, borderRadius:7, fontSize:9, fontFamily:"Georgia,serif",
+                              border:`1.5px solid ${isSelected?C.green:C.border}`,
+                              background: isSelected?(hasWork?`linear-gradient(135deg,${C.green},${C.greenLight})`:C.greenPale):"#f5f5f5",
+                              color: isSelected?"#fff":C.textSoft,
+                              cursor:"pointer", fontWeight:hasWork?"bold":"normal",
+                              position:"relative",
+                            }}>
+                              {day}
+                              {hasWork && isSelected && <div style={{ position:"absolute", bottom:1, left:"50%", transform:"translateX(-50%)", width:3, height:3, borderRadius:"50%", background:"rgba(255,255,255,.8)" }}/>}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Pago */}
+                    {sd.pagado
+                      ? <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", background:C.greenPale, borderRadius:10, padding:"10px 12px" }}>
+                          <div style={{ fontSize:12, color:C.green }}>✅ Pagado {fmt(sd.monto)} — {sd.fecha}</div>
+                          <button onClick={()=>desmarcarSueldo(p.id)} style={{ fontSize:10, color:C.textSoft, background:"transparent", border:`1px solid ${C.border}`, borderRadius:8, padding:"4px 10px", cursor:"pointer", fontFamily:"Georgia,serif" }}>Desmarcar</button>
+                        </div>
+                      : <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+                          <div style={{ position:"relative", flex:1 }}>
+                            <span style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", color:C.textSoft, fontSize:13 }}>$</span>
+                            <input type="number" value={sd.monto} onChange={e=>setSueldos(p2=>({...p2,[sueldoKey(p.id)]:{...profSueldo(p.id),monto:e.target.value}}))} placeholder={String(Math.round(stats.comision))} style={{...inputStyle, paddingLeft:24, fontSize:13}}/>
+                          </div>
+                          <button onClick={()=>pagarSueldo(p.id)} disabled={!sd.monto} style={{ padding:"9px 14px", borderRadius:10, border:"none", background:sd.monto?`linear-gradient(135deg,${C.green},${C.greenLight})`:"#e8e8e8", color:sd.monto?"#fff":"#bbb", fontSize:10, cursor:sd.monto?"pointer":"not-allowed", fontFamily:"Georgia,serif", whiteSpace:"nowrap", flexShrink:0 }}>✅ Pagar</button>
+                        </div>
+                    }
+                  </div>
                 </div>
               )
             })}
