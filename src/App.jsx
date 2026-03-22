@@ -75,6 +75,7 @@ export default function App() {
   const [apptNotes,      setApptNotes]      = useState("")
   const [apptTip,        setApptTip]        = useState("")
   const [paymentSplits,  setPaymentSplits]  = useState([])
+  const [searchTerm,     setSearchTerm]     = useState("")
 
   const [draggingKey,   setDraggingKey]   = useState(null)
   const [dropTarget,    setDropTarget]    = useState(null)
@@ -112,7 +113,7 @@ export default function App() {
   const grandTotal    = useMemo(() => paidAppts.reduce((s, a) => s + apptTotal(a), 0), [paidAppts])
   const grandEarnings = useMemo(() => professionals.reduce((s, p) => s + earningsByProf(p.id), 0), [professionals, earningsByProf])
 
-  const filteredServices = filterCat === "all" ? services : services.filter(s => s.category === filterCat)
+  const filteredServices = services.filter(s => (filterCat === "all" || s.category === filterCat) && s.name.toLowerCase().includes(searchTerm.toLowerCase()))
   const modalSubtotal    = chosenServices.reduce((s, sv) => s + sv.price, 0)
   const modalDuration    = chosenServices.reduce((s, sv) => s + sv.duration, 0)
 
@@ -229,8 +230,8 @@ export default function App() {
     window.addEventListener("mousemove", onMove); window.addEventListener("mouseup", onUp)
   }
 
-  const toggleService = (svc) => setChosenServices(prev => prev.find(x => x.id === svc.id) ? prev.filter(x => x.id !== svc.id) : [...prev, svc])
-  const removeService = (id) => setChosenServices(prev => prev.filter(x => x.id !== id))
+  const toggleService = (svc) => setChosenServices(prev => [...prev, { ...svc, uniqueId: Date.now() + Math.random() }])
+  const removeService = (uniqueId) => setChosenServices(prev => prev.filter(x => x.uniqueId !== uniqueId))
 
   const saveAppt = () => {
     if (!chosenServices.length || !clientName.trim()) return
@@ -343,6 +344,7 @@ export default function App() {
         clientes={clientes} setClientes={setClientes}
         chosenServices={chosenServices} setChosenServices={setChosenServices}
         filterCat={filterCat} setFilterCat={setFilterCat}
+        searchTerm={searchTerm} setSearchTerm={setSearchTerm}
         paymentSplits={paymentSplits} setPaymentSplits={setPaymentSplits}
         professionals={professionals}
         services={services} filteredServices={filteredServices}

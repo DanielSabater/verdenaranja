@@ -39,6 +39,7 @@ export function AppModals({
   apptNotes, setApptNotes,
   chosenServices,
   filterCat, setFilterCat,
+  searchTerm, setSearchTerm,
   paymentSplits,
   filteredServices, services,
   saveAppt, confirmPay, doDelete,
@@ -130,13 +131,13 @@ export function AppModals({
                 </div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
                   {chosenServices.map(sv => (
-                    <div key={sv.id} style={{
+                    <div key={sv.uniqueId} style={{
                       display: "flex", alignItems: "center", gap: 5,
                       background: C.greenPale, border: `1px solid ${C.greenMint}`,
                       borderRadius: 20, padding: "4px 10px", fontSize: 11, color: C.green,
                     }}>
                       {sv.icon} {sv.name}
-                      <span onClick={() => removeService(sv.id)} style={{ cursor: "pointer", color: "#a0b8a4", fontWeight: "bold", marginLeft: 2 }}>×</span>
+                      <span onClick={() => removeService(sv.uniqueId)} style={{ cursor: "pointer", color: "#a0b8a4", fontWeight: "bold", marginLeft: 2 }}>×</span>
                     </div>
                   ))}
                 </div>
@@ -147,6 +148,13 @@ export function AppModals({
             )}
 
             <Field label="Agregar servicio">
+              <input
+                type="text"
+                placeholder="Buscar servicios..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                style={{ ...inputStyle, marginBottom: 8 }}
+              />
               <div style={{ display: "flex", gap: 5, marginBottom: 8, flexWrap: "wrap" }}>
                 {["all", "manos", "pies", "combo"].map(cat => (
                   <button key={cat} onClick={() => setFilterCat(cat)} style={{
