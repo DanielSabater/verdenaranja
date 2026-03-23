@@ -181,6 +181,7 @@ export function AppGrid({
                           draggable={!resizePreview}
                           onDragStart={e => { if(resizePreview){e.preventDefault();return;} onDragStart(e, k) }}
                           onDragEnd={onDragEnd}
+                          onDoubleClick={e => { if(!resizePreview) { e.stopPropagation(); onEdit(k, appointments[k]); }}}
                           style={{
                             height:"100%", borderRadius:9,
                             background: appt.paid
@@ -241,7 +242,6 @@ export function AppGrid({
                           </div>
 
                           <div style={{ display:"flex", gap:3, marginTop:4, marginBottom:8 }}>
-                            <button onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();onEdit(k, appointments[k])}} style={smallBtn(C.green)}>{isMobile?"✏️":"✏️ Editar"}</button>
                             {appt.paid
                               ? <button onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();onPay(k)}} style={smallBtn("#7a9e7a")}>{isMobile?"✏️":"✏️ Pago"}</button>
                               : <button onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();onPay(k)}} style={smallBtn(C.orange)}>{isMobile?"💰":"💰 Abonar"}</button>
