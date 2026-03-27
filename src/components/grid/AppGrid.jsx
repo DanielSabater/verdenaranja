@@ -241,12 +241,12 @@ export function AppGrid({
                             )}
                           </div>
 
-                          <div style={{ display:"flex", gap:3, marginTop:4, marginBottom:8 }}>
+                          <div style={{ display:"flex", justifyContent:"flex-end", alignItems:"center", gap:3, marginTop:4, marginBottom:8 }}>
+                            <button onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();onDelete(k)}} style={{ width:22, borderRadius:6, border:`1px solid ${C.border}`, background:"rgba(255,255,255,.8)", color:"#c0a0a0", fontSize:9, cursor:"pointer" }}>✕</button>
                             {appt.paid
                               ? <button onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();onPay(k)}} style={smallBtn("#7a9e7a")}>{isMobile?"✏️":"✏️ Pago"}</button>
                               : <button onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();onPay(k)}} style={smallBtn(C.orange)}>{isMobile?"💰":"💰 Abonar"}</button>
                             }
-                            <button onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();onDelete(k)}} style={{ width:22, borderRadius:6, border:`1px solid ${C.border}`, background:"rgba(255,255,255,.8)", color:"#c0a0a0", fontSize:9, cursor:"pointer" }}>✕</button>
                           </div>
 
                           <div onMouseDown={e => { e.stopPropagation(); onResizeStart(e, k, "bottom") }}
