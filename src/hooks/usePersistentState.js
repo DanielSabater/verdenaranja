@@ -6,12 +6,20 @@ const SUPABASE_ANON = import.meta.env.VITE_SUPABASE_ANON_KEY
 const TABLE         = "perlaverde_data"
 
 async function dbRead(id) {
-  const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/${TABLE}?id=eq.${id}&select=data`,
-    { headers: { apikey: SUPABASE_ANON, Authorization: `Bearer ${SUPABASE_ANON}` } }
-  )
-  const rows = await res.json()
-  return rows?.[0]?.data ?? null
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 5000)
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/${TABLE}?id=eq.${id}&select=data`,
+      { headers: { apikey: SUPABASE_ANON, Authorization: `Bearer ${SUPABASE_ANON}` }, signal: controller.signal }
+    )
+    const rows = await res.json()
+    return rows?.[0]?.data ?? null
+  } catch(e) {
+    return null
+  } finally {
+    clearTimeout(timeout)
+  }
 }
 
 async function dbWrite(id, data) {
@@ -39,6 +47,7 @@ async function loadAll() {
 }
 
 export function usePersistentState() {
+  const pausePolling = useRef(false)
   const [loaded,     setLoaded]     = useState(false)
   const hasLoaded = useRef(false)
   const [saveStatus, setSaveStatus] = useState("idle")
@@ -53,6 +62,15 @@ export function usePersistentState() {
 
   // ── Load on mount ─────────────────────────────────────────────────────────
   useEffect(() => {
+    // Fallback: if Supabase takes too long, load anyway
+    const fallback = setTimeout(() => {
+      if (!hasLoaded.current) {
+        setLoaded(true)
+        hasLoaded.current = true
+        initialized.current = true
+      }
+    }, 6000)
+
     loadAll().then(({ ad, gs, ss, cf, cl }) => {
       if (ad) setAllData(ad)
       if (gs) setGastos(gs)
@@ -67,28 +85,11 @@ export function usePersistentState() {
       setLoaded(true)
       hasLoaded.current = true
       initialized.current = true
-    })
+    }).finally(() => clearTimeout(fallback))
   }, [])
 
-  // ── Realtime via polling cada 5s ──────────────────────────────────────────
-  useEffect(() => {
-    if (!loaded) return
-    const interval = setInterval(async () => {
-      // Solo recargar si no hay un guardado en progreso
-      if (saveStatus === "saving") return
-      try {
-        const { ad, gs, ss, cf, cl } = await loadAll()
-        if (ad) setAllData(ad)
-        if (gs) setGastos(gs)
-        if (ss) setSueldos(ss)
-        if (cf) setConfig(prev => ({ ...prev, ...cf }))
-        if (cl) setClientes(cl)
-      } catch (e) {
-        // silencioso
-      }
-    }, 5000)
-    return () => clearInterval(interval)
-  }, [loaded, saveStatus])
+  // Polling desactivado para no saturar Supabase free tier
+  // Los datos se sincronizan al cargar la página
 
   // ── Auto-save debounced 1s ────────────────────────────────────────────────
   useEffect(() => {
@@ -121,5 +122,6 @@ export function usePersistentState() {
     sueldos,   setSueldos,
     config,    setConfig,
     clientes,  setClientes,
+    pausePolling,
   }
 }
