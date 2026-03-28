@@ -223,7 +223,7 @@ export function AppModals({
               </ModalHeader>
 
               <div style={{ background: C.cream, borderRadius: 10, padding: "10px 13px", marginBottom: 16, border: `1px solid ${C.border}` }}>
-                {appt.services.map((sv, i) => (
+                {(appt.services||[]).map((sv, i) => (
                   <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: C.textSoft, lineHeight: 1.8 }}>
                     <span>{sv.icon} {sv.name}</span>
                     <span style={{ color: C.text }}>{fmt(sv.price)}</span>
@@ -337,7 +337,7 @@ export function AppModals({
             {appointments[deleteKey] && (
               <div style={{ fontSize: 12, color: C.textSoft, marginBottom: 20 }}>
                 {appointments[deleteKey].client}<br />
-                {appointments[deleteKey].services.map(s => s.name).join(", ")}
+                {(appointments[deleteKey]?.services||[]).map(s => s.name).join(", ")}
                 {appointments[deleteKey].paid && (
                   <div style={{ color: "#d44a4a", marginTop: 4, fontSize: 11 }}>⚠️ Este turno ya fue abonado</div>
                 )}

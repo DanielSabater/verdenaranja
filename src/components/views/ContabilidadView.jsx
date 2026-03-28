@@ -13,10 +13,10 @@ export default function ContabilidadView({
 }) {
   const [seccion, setSeccion] = useState("resumen")
 
-  const safeAllData       = allData       || {}
-  const safeGastos        = gastos        || []
-  const safeSueldos       = sueldos       || {}
-  const safeProfessionals = professionals || []
+  const safeAllData       = allData && typeof allData === "object" && !Array.isArray(allData) ? allData : {}
+  const safeGastos        = Array.isArray(gastos) ? gastos : []
+  const safeSueldos       = sueldos && typeof sueldos === "object" && !Array.isArray(sueldos) ? sueldos : {}
+  const safeProfessionals = Array.isArray(professionals) ? professionals : []
 
   // ── period filter ──────────────────────────────────────────────────────────
   const { rangeFrom, rangeTo } = useMemo(() => {
@@ -48,8 +48,9 @@ export default function ContabilidadView({
     let total = 0
     Object.entries(safeAllData).forEach(([dk, dayData]) => {
       if (!inRange(dk)) return
-      Object.values(dayData).forEach(appt => {
-        if (!appt.paid) return
+      const safeDayData = dayData || {}
+      Object.values(safeDayData).forEach(appt => {
+        if (!appt?.paid) return
         const t = apptTotal(appt)
         total += t
         byProf[appt.profId] = (byProf[appt.profId] || 0) + t
@@ -75,7 +76,8 @@ export default function ContabilidadView({
       const d = new Date(); d.setDate(d.getDate() - i)
       const k = toDateKey(d)
       const dayData = safeAllData[k] || {}
-      const income = Object.values(dayData).filter(a=>a.paid).reduce((s,a)=>s+apptTotal(a),0)
+      const safeDayData = dayData || {}
+      const income = Object.values(safeDayData).filter(a=>a?.paid).reduce((s,a)=>s+apptTotal(a),0)
       days.push({ k, label: `${d.getDate()}/${d.getMonth()+1}`, income })
     }
     return days
@@ -92,8 +94,9 @@ export default function ContabilidadView({
       if (!dk.startsWith(sueldoPeriod)) return
       // If diasFilter is set (not "all"), only count selected days
       if (diasFilter && diasFilter !== "all" && !diasFilter.includes(dk)) return
-      Object.values(dayData).forEach(appt => {
-        if (appt.paid && appt.profId === profId) {
+      const safeDayData = dayData || {}
+      Object.values(safeDayData).forEach(appt => {
+        if (appt?.paid && appt.profId === profId) {
           facturado += apptTotal(appt)
           propinas  += appt.tip || 0
           turnos++
@@ -160,7 +163,7 @@ export default function ContabilidadView({
           {/* KPI cards */}
           <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:14 }}>
             {[
-              { label:"💰 Ingresos", val:totalIncome, bg:`linear-gradient(135deg,${C.green},${C.greenLight})`, sub:`${Object.values(safeAllData).flatMap(d=>Object.values(d)).filter(a=>a.paid&&inRange(Object.entries(safeAllData).find(([,v])=>Object.values(v).includes(a))?.[0]||"")).length} turnos pagados` },
+              { label:"💰 Ingresos", val:totalIncome, bg:`linear-gradient(135deg,${C.green},${C.greenLight})`, sub:`${Object.values(safeAllData).flatMap(day=>Object.values(day||{})).filter(a=>a?.paid&&inRange(Object.entries(safeAllData).find(([,v])=>Object.values(v||{}).includes(a))?.[0]||"")).length} turnos pagados` },
               { label:"💸 Gastos",   val:totalGastos, bg:`linear-gradient(135deg,${C.orange},${C.orangeLight})`, sub:`${gastosRange.length} registros` },
               { label:"📈 Resultado",val:netResult,   bg:netResult>=0?`linear-gradient(135deg,#2d6a36,${C.green})`:`linear-gradient(135deg,#a03030,#c04040)`, sub:netResult>=0?"Período positivo ✅":"Período negativo ⚠️" },
             ].map(({ label, val, bg, sub }) => (

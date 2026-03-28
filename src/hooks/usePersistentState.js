@@ -72,11 +72,11 @@ export function usePersistentState() {
     }, 6000)
 
     loadAll().then(({ ad, gs, ss, cf, cl }) => {
-      if (ad) setAllData(ad)
-      if (gs) setGastos(gs)
-      if (ss) setSueldos(ss)
-      if (cf) setConfig(prev => ({ ...prev, ...cf }))
-      if (cl) setClientes(cl)
+      if (ad && typeof ad === "object" && !Array.isArray(ad)) setAllData(ad)
+      if (Array.isArray(gs)) setGastos(gs)
+      if (ss && typeof ss === "object" && !Array.isArray(ss)) setSueldos(ss)
+      if (cf && typeof cf === "object" && !Array.isArray(cf)) setConfig(prev => ({ ...prev, ...cf }))
+      if (Array.isArray(cl)) setClientes(cl)
       setLoaded(true)
       hasLoaded.current = true
       initialized.current = true

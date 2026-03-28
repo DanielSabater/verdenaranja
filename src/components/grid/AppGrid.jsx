@@ -216,7 +216,7 @@ export function AppGrid({
 
                           <div style={{ overflow:"hidden", marginTop:2 }}>
                             <div style={{ fontSize:11, fontWeight:"bold", color:C.text, marginBottom:1, paddingRight:12, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{appt.client}</div>
-                            {appt.services.map((sv,i)=>(
+                            {(appt.services||[]).map((sv,i)=>(
                               <div key={i} style={{ fontSize:9, color:appt.paid?C.green:C.orange, lineHeight:1.4, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{sv.icon} {sv.name}</div>
                             ))}
                             {appt.notes && (
