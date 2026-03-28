@@ -40,7 +40,7 @@ export function AppGrid({
   }
 
   return (
-    <div className="grid-scroll" style={{ overflowX:"auto", padding:"16px 8px 36px", WebkitOverflowScrolling:"touch", minHeight:"100%" }}>
+    <div className="grid-scroll" style={{ overflowX:"auto", padding:"16px 8px 0", WebkitOverflowScrolling:"touch", minHeight:"100%" }}>
       <table style={{ borderCollapse:"collapse", tableLayout:"fixed", width:"100%", minWidth: isMobile ? `${professionals.length*80}px` : `${professionals.length*140}px` }}>
         <thead>
           <tr>

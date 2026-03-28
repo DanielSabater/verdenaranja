@@ -173,9 +173,20 @@ export const AppHeader = memo(function AppHeader({
 
           {/* HOY + 📅 side by side */}
           <div style={{ display:"flex", flexDirection:"row", gap:3, flexShrink:0, marginLeft:4 }}>
-            {currentDate !== tKey && (
-              <button onClick={() => setCurrentDate(tKey)} style={{ width:38, height:46, borderRadius:10, border:`1.5px solid ${C.border}`, background:C.white, fontSize:8, fontWeight:"bold", color:C.green, cursor:"pointer", fontFamily:"Georgia,serif", letterSpacing:"1px", display:"flex", alignItems:"center", justifyContent:"center" }}>HOY</button>
-            )}
+            <button
+              onClick={() => setCurrentDate(tKey)}
+              disabled={currentDate === tKey}
+              style={{
+                width:38, height:46, borderRadius:10,
+                border:`1.5px solid ${currentDate === tKey ? C.green : C.border}`,
+                background: currentDate === tKey ? C.greenPale : C.white,
+                fontSize:8, fontWeight:"bold",
+                color: C.green,
+                opacity: currentDate === tKey ? 0.75 : 1,
+                cursor: currentDate === tKey ? "default" : "pointer",
+                fontFamily:"Georgia,serif", letterSpacing:"1px", display:"flex", alignItems:"center", justifyContent:"center",
+              }}
+            >HOY</button>
             <button onClick={() => setCalendarOpen(v => !v)} style={{ width:38, height:46, borderRadius:10, border:`1.5px solid ${calendarOpen?C.green:C.border}`, background:calendarOpen?`linear-gradient(135deg,${C.green},${C.greenLight})`:C.white, fontSize:18, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", transition:"all .18s" }}>📅</button>
           </div>
         </div>
