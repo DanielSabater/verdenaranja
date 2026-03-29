@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { C } from "../../constants/colors.js"
+import { PAYMENT_METHODS } from "../../constants/data.js"
 import { GhostBtn, SolidBtn, Field, inputStyle } from "../ui/index.jsx"
 
 export default function ClientesView({ clientes, setClientes, allData }) {
@@ -44,14 +45,42 @@ export default function ClientesView({ clientes, setClientes, allData }) {
     const rows = []
     Object.entries(safeD).forEach(([fecha, day]) => {
       Object.values(day).forEach(a => {
-        if ((a.client||"").toLowerCase() === name.toLowerCase())
-          rows.push({ fecha, servicios:(a.services||[]).map(s=>s.name).join(", ")||"—", total:a.paid?(a.services||[]).reduce((s,x)=>s+(x.price||0),0):null, paid:a.paid })
+        if ((a.client||"").toLowerCase() === name.toLowerCase()) {
+          rows.push({
+            fecha: formatDate(fecha),
+            hora: a.hour || "--:--",
+            servicios: (a.services||[]).map(s => s.name).join(", ") || "—",
+            total: a.paid ? (a.services||[]).reduce((s,x) => s + (x.price||0), 0) : null,
+            pago: formatPayment(a),
+            paid: a.paid,
+          })
+        }
       })
     })
-    return rows.sort((a,b) => b.fecha.localeCompare(a.fecha)).slice(0,15)
+    return rows.sort((a,b) => b.fecha.localeCompare(a.fecha) || a.hora.localeCompare(b.hora)).slice(0,15)
   }
 
   const fmt = (n) => n != null ? `$${Number(n).toLocaleString("es-AR")}` : "—"
+  const formatDate = (fecha) => {
+    if (!fecha) return "—"
+    const parts = fecha.split("-")
+    return parts.length === 3 ? `${parts[2]}-${parts[1]}-${parts[0]}` : fecha
+  }
+  const formatPayment = (appt) => {
+    if (appt?.paymentSplits?.length) {
+      return appt.paymentSplits
+        .map(sp => {
+          const pm = PAYMENT_METHODS.find(m => m.id === sp.methodId)
+          return `${pm?.icon || ""} ${pm?.label || sp.methodId} ${fmt(sp.amount)}`.trim()
+        })
+        .join(" + ")
+    }
+    if (appt?.payMethod) {
+      const pm = PAYMENT_METHODS.find(m => m.id === appt.payMethod)
+      return `${pm?.icon || ""} ${pm?.label || appt.payMethod}`.trim()
+    }
+    return appt?.paid ? "✅ Pagado" : "⏳ Sin pago"
+  }
 
   const openNew  = ()    => { setForm({name:"",phone:"",notes:""}); setNewMode(true);  setModal(true) }
   const openEdit = (c,e) => { e.stopPropagation(); setForm({name:c.name,phone:c.phone||"",notes:c.notes||""}); setNewMode(false); setSelected(c); setModal(true) }
@@ -148,9 +177,15 @@ export default function ClientesView({ clientes, setClientes, allData }) {
                       {getHistorial(c.name).length===0
                         ? <div style={{ fontSize:11, color:C.textSoft, fontStyle:"italic" }}>Sin turnos registrados aún</div>
                         : getHistorial(c.name).map((h,i)=>(
-                            <div key={i} style={{ display:"flex", justifyContent:"space-between", fontSize:11, padding:"5px 0", borderBottom:`1px solid ${C.greenPale}`, color:C.textSoft }}>
-                              <span><span style={{ color:C.text }}>{h.fecha}</span> · {h.servicios}</span>
-                              <span style={{ fontWeight:"bold", color:h.paid?C.orange:C.textSoft, marginLeft:10, flexShrink:0 }}>{h.paid?fmt(h.total):"Sin pagar"}</span>
+                            <div key={i} style={{ padding:"8px 0", borderBottom:`1px solid ${C.greenPale}`, color:C.textSoft }}>
+                              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", fontSize:11, color:C.textSoft }}>
+                                <span>{h.fecha} · {h.hora}</span>
+                                <span style={{ fontWeight:"bold", color:h.paid?C.orange:C.textSoft }}>{h.paid?fmt(h.total):"Sin pagar"}</span>
+                              </div>
+                              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:6, fontSize:10, color:C.textSoft, gap:10, flexWrap:"wrap" }}>
+                                <span>{h.servicios}</span>
+                                <span style={{ whiteSpace:"nowrap" }}>{h.pago}</span>
+                              </div>
                             </div>
                           ))
                       }
