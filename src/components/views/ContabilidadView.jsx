@@ -42,10 +42,11 @@ export default function ContabilidadView({
   const inRange = (k) => k >= rangeFrom && k <= rangeTo
 
   // ── calculations ───────────────────────────────────────────────────────────
-  const { totalIncome, incomeByProf, incomeByMethod } = useMemo(() => {
+  const { totalIncome, incomeByProf, incomeByMethod, totalTurns } = useMemo(() => {
     const byProf = {}, byMethod = {}
     safeProfessionals.forEach(p => { byProf[p.id] = 0 })
     let total = 0
+    let turns = 0
     Object.entries(safeAllData).forEach(([dk, dayData]) => {
       if (!inRange(dk)) return
       const safeDayData = dayData || {}
@@ -53,6 +54,7 @@ export default function ContabilidadView({
         if (!appt?.paid) return
         const t = apptTotal(appt)
         total += t
+        turns += 1
         byProf[appt.profId] = (byProf[appt.profId] || 0) + t
         if (appt.paymentSplits?.length) {
           appt.paymentSplits.forEach(s => { byMethod[s.methodId] = (byMethod[s.methodId]||0) + (parseFloat(s.amount)||0) })
@@ -61,7 +63,7 @@ export default function ContabilidadView({
         }
       })
     })
-    return { totalIncome: total, incomeByProf: byProf, incomeByMethod: byMethod }
+    return { totalIncome: total, incomeByProf: byProf, incomeByMethod: byMethod, totalTurns: turns }
   }, [safeAllData, safeProfessionals, rangeFrom, rangeTo])
 
   const gastosRange  = safeGastos.filter(g => inRange(g.fecha))
@@ -69,20 +71,57 @@ export default function ContabilidadView({
   const netResult    = totalIncome - totalGastos
   const maxProf      = Math.max(...safeProfessionals.map(p => incomeByProf[p.id]||0), 1)
 
-  // ── daily income for bar chart (last 14 days) ──────────────────────────────
-  const dailyData = useMemo(() => {
+  // ── period-based chart data ──────────────────────────────────────────────
+  const chartRange = useMemo(() => {
+    if (!rangeFrom || !rangeTo) return []
+    const from = new Date(rangeFrom + "T12:00:00")
+    const to = new Date(rangeTo + "T12:00:00")
+    if (isNaN(from) || isNaN(to) || from > to) return []
     const days = []
-    for (let i = 13; i >= 0; i--) {
-      const d = new Date(); d.setDate(d.getDate() - i)
-      const k = toDateKey(d)
-      const dayData = safeAllData[k] || {}
-      const safeDayData = dayData || {}
-      const income = Object.values(safeDayData).filter(a=>a?.paid).reduce((s,a)=>s+apptTotal(a),0)
-      days.push({ k, label: `${d.getDate()}/${d.getMonth()+1}`, income })
+    const cursor = new Date(from)
+    while (cursor <= to) {
+      days.push({ k: toDateKey(cursor), label: `${cursor.getDate()}/${cursor.getMonth()+1}` })
+      cursor.setDate(cursor.getDate() + 1)
     }
-    return days
-  }, [safeAllData])
-  const maxDay = Math.max(...dailyData.map(d=>d.income), 1)
+    return days.length > 31 ? days.slice(-31) : days
+  }, [rangeFrom, rangeTo])
+
+  const dailyData = useMemo(() => {
+    return chartRange.map(({ k, label }) => {
+      const dayData = safeAllData[k] || {}
+      const income = Object.values(dayData).filter(a => a?.paid).reduce((s, a) => s + apptTotal(a), 0)
+      return { k, label, income }
+    })
+  }, [chartRange, safeAllData])
+
+  const maxDay = Math.max(...dailyData.map(d => d.income), 1)
+
+  const turnosChart = useMemo(() => {
+    return safeProfessionals.map((prof) => ({
+      ...prof,
+      values: chartRange.map(({ k }) =>
+        Object.values(safeAllData[k] || {}).filter(a => a?.paid && a.profId === prof.id).length
+      ),
+    }))
+  }, [safeProfessionals, safeAllData, chartRange])
+
+  const maxTurns = Math.max(1, ...turnosChart.flatMap(p => p.values))
+  const chartWidth = Math.max(320, chartRange.length * 24 + 48)
+  const chartInnerWidth = chartWidth - 48
+  const labelEvery = Math.max(1, Math.ceil(chartRange.length / 12))
+  const workCountByProf = turnosChart.reduce((acc, prof) => ({
+    ...acc,
+    [prof.id]: prof.values.reduce((sum, value) => sum + value, 0),
+  }), {})
+  const topWorker = safeProfessionals.reduce((winner, prof) => {
+    if (!winner) return prof
+    return (workCountByProf[prof.id] || 0) > (workCountByProf[winner.id] || 0) ? prof : winner
+  }, safeProfessionals[0] || null)
+  const busiestDay = chartRange.reduce((best, current) => {
+    const count = Object.values(safeAllData[current.k] || {}).filter(a => a?.paid).length
+    if (!best || count > best.count) return { ...current, count }
+    return best
+  }, null)
 
   // ── sueldos ────────────────────────────────────────────────────────────────
   const sueldoKey   = (profId) => `${profId}||${sueldoPeriod}`
@@ -175,9 +214,87 @@ export default function ContabilidadView({
             ))}
           </div>
 
+          <div style={{ display:"grid", gap:14, marginTop:8 }}>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+              <div style={{ background:C.white, borderRadius:16, padding:"20px 22px", border:`1px solid ${C.border}` }}>
+                <div style={{ fontSize:9, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase", marginBottom:12 }}>Quien trabajó más</div>
+                {topWorker ? (
+                  <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+                    <div style={{ width:48, height:48, borderRadius:18, background:`linear-gradient(135deg,${C.greenPale},${C.greenMint})`, display:"grid", placeItems:"center", fontSize:24 }}>{topWorker.emoji}</div>
+                    <div>
+                      <div style={{ fontSize:15, fontWeight:"bold", color:C.text }}>{topWorker.name}</div>
+                      <div style={{ fontSize:12, color:C.textSoft, marginTop:6 }}>{workCountByProf[topWorker.id] || 0} turnos en este período</div>
+                      <div style={{ fontSize:12, color:C.textSoft }}>{fmt(incomeByProf[topWorker.id] || 0)} facturados</div>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ fontSize:12, color:C.textSoft }}>No hay datos de turnos pagados aún.</div>
+                )}
+              </div>
+              <div style={{ background:C.white, borderRadius:16, padding:"20px 22px", border:`1px solid ${C.border}` }}>
+                <div style={{ fontSize:9, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase", marginBottom:12 }}>Día más productivo</div>
+                {busiestDay ? (
+                  <div>
+                    <div style={{ fontSize:15, fontWeight:"bold", color:C.text }}>{busiestDay.label}</div>
+                    <div style={{ marginTop:8, fontSize:12, color:C.textSoft }}>{busiestDay.count} turnos pagados</div>
+                  </div>
+                ) : (
+                  <div style={{ fontSize:12, color:C.textSoft }}>Sin datos disponibles</div>
+                )}
+              </div>
+            </div>
+
+            <div style={{ background:C.white, borderRadius:16, padding:"20px 22px", border:`1px solid ${C.border}` }}>
+              <div style={{ fontSize:9, letterSpacing:"3px", color:C.textSoft, textTransform:"uppercase", marginBottom:16 }}>
+                Turnos por profesional {contPeriod === "dia" ? "(Hoy)" : contPeriod === "semana" ? "(Semana)" : contPeriod === "mes" ? "(Mes)" : contPeriod === "custom" ? "(Período)" : "(Todo)"}
+              </div>
+              <div style={{ width:"100%", display:"flex", justifyContent:"center" }}>
+                <svg viewBox={`0 0 ${chartWidth} 180`} style={{ width:"100%", maxWidth:"100%", height:180, display:"block", margin:"0 auto" }}>
+                  {[...Array(6)].map((_, idx) => {
+                    const y = 20 + idx * 24
+                    return <line key={idx} x1={24} y1={y} x2={chartWidth - 24} y2={y} stroke="#eee" strokeWidth="1" />
+                  })}
+                  <path d={`M24 160 L${chartWidth - 24} 160`} stroke="#ccc" strokeWidth="1" />
+                  {turnosChart.map((prof, idx) => {
+                    const color = [C.green, C.orange, C.gold, C.greenLight, C.orangeLight][idx % 5]
+                    const points = prof.values.map((value, i) => {
+                      const x = 24 + (chartInnerWidth / Math.max(chartRange.length - 1, 1)) * i
+                      const y = 160 - (value / maxTurns) * 120
+                      return `${i===0?"M":"L"} ${x} ${y}`
+                    }).join(" ")
+                    return (
+                      <g key={prof.id}>
+                        <path d={points} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        {prof.values.map((value, i) => {
+                          const x = 24 + (chartInnerWidth / Math.max(chartRange.length - 1, 1)) * i
+                          const y = 160 - (value / maxTurns) * 120
+                          return <circle key={i} cx={x} cy={y} r="4" fill={color} />
+                        })}
+                      </g>
+                    )
+                  })}
+                  {chartRange.map((day, i) => {
+                    const x = 24 + (chartInnerWidth / Math.max(chartRange.length - 1, 1)) * i
+                    if (i % labelEvery !== 0 && i !== chartRange.length - 1) return null
+                    return (
+                      <text key={day.k} x={x} y={176} textAnchor="middle" fontSize="9" fill={C.textSoft}>{day.label}</text>
+                    )
+                  })}
+                </svg>
+              </div>
+              <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginTop:14 }}>
+                {turnosChart.map((prof, idx) => (
+                  <div key={prof.id} style={{ display:"flex", alignItems:"center", gap:6, fontSize:10, color:C.textSoft }}>
+                    <span style={{ width:10, height:10, borderRadius:999, background:[C.green, C.orange, C.gold, C.greenLight, C.orangeLight][idx % 5] }}></span>
+                    <span>{prof.emoji} {prof.name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
           {/* Bar chart — últimos 14 días */}
           <div style={{ background:C.white, borderRadius:16, padding:"20px 22px", border:`1px solid ${C.border}`, boxShadow:`0 2px 12px ${C.shadow}` }}>
-            <div style={{ fontSize:9, letterSpacing:"3px", color:C.textSoft, textTransform:"uppercase", marginBottom:16 }}>Ingresos últimos 14 días</div>
             <div style={{ display:"flex", alignItems:"flex-end", gap:4, height:100 }}>
               {dailyData.map((d, i) => {
                 const h = Math.max(2, (d.income / maxDay) * 90)

@@ -2,6 +2,7 @@ import { useState } from "react"
 import { C } from "../../constants/colors.js"
 import { PAYMENT_METHODS, HOURS } from "../../constants/data.js"
 import { fmt, cellKey, apptTotal, apptDur } from "../../utils/appointments.js"
+import { Overlay, ModalHeader, GhostBtn, modalBox } from "../ui/index.jsx"
 
 const smallBtn = (color) => ({
   padding: "3px 8px", borderRadius: 8, border: "none",
@@ -39,6 +40,18 @@ export function AppGrid({
     return { appts, paid, total, tips, byMethod }
   }
 
+  const renderPaymentMethod = (a) => {
+    if (!a.paid) return "⏳ Pendiente"
+    if (a.paymentSplits?.length) {
+      return a.paymentSplits.map((r, i) => {
+        const pm = PAYMENT_METHODS.find(m => m.id === r.methodId)
+        return <span key={i} style={{ marginRight:6 }}>{pm?.icon} {fmt(r.amount)}</span>
+      })
+    }
+    const pm = PAYMENT_METHODS.find(m => m.id === a.payMethod)
+    return pm ? `${pm.icon} ${pm.label}` : "Pago"
+  }
+
   return (
     <div className="grid-scroll" style={{ overflowX:"auto", padding:"16px 8px 0", WebkitOverflowScrolling:"touch", minHeight:"100%" }}>
       <table style={{ borderCollapse:"collapse", tableLayout:"fixed", width:"100%", minWidth: isMobile ? `${professionals.length*80}px` : `${professionals.length*140}px` }}>
@@ -58,63 +71,6 @@ export function AppGrid({
                   <span style={{ fontSize:11, color: profPopup===p.id ? C.green : C.text, fontWeight: profPopup===p.id ? "bold" : "normal" }}>{p.name}</span>
                 </div>
 
-                {profPopup === p.id && (() => {
-                  const s = getProfSummary(p.id)
-                  return (
-                    <div style={{
-                      position:"absolute", top:"100%", left:"50%", transform:"translateX(-50%)",
-                      zIndex:200, background:C.white, borderRadius:14,
-                      border:`1.5px solid ${C.greenMint}`,
-                      boxShadow:"0 8px 32px rgba(58,125,68,.18)",
-                      padding:"14px 16px", minWidth:200, marginTop:6,
-                      textAlign:"left",
-                    }}>
-                      <div style={{ fontSize:7, letterSpacing:"3px", color:C.orange, textTransform:"uppercase", marginBottom:8 }}>
-                        {p.emoji} {p.name} · hoy
-                      </div>
-                      <div style={{ height:2, background:`linear-gradient(90deg,${C.green},${C.greenMint},transparent)`, marginBottom:10, borderRadius:2 }}/>
-                      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6, marginBottom:10 }}>
-                        {[
-                          ["📅 Turnos",   s.appts.length, C.textSoft],
-                          ["✅ Cobrados", s.paid.length,  C.green],
-                          ["💰 Total",    fmt(s.total),   C.orange],
-                          ["🎁 Propinas", fmt(s.tips),    C.gold],
-                        ].map(([label, val, col]) => (
-                          <div key={label} style={{ background:C.cream, borderRadius:8, padding:"6px 8px" }}>
-                            <div style={{ fontSize:8, color:C.textSoft, letterSpacing:"1px" }}>{label}</div>
-                            <div style={{ fontSize:13, color:col, fontWeight:"bold" }}>{val}</div>
-                          </div>
-                        ))}
-                      </div>
-                      {Object.keys(s.byMethod).length > 0 && (
-                        <div style={{ borderTop:`1px solid ${C.border}`, paddingTop:8, marginTop:4 }}>
-                          <div style={{ fontSize:8, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase", marginBottom:6 }}>Por método</div>
-                          {PAYMENT_METHODS.filter(pm => s.byMethod[pm.id] > 0).map(pm => (
-                            <div key={pm.id} style={{ display:"flex", justifyContent:"space-between", fontSize:11, color:C.textSoft, marginBottom:3 }}>
-                              <span>{pm.icon} {pm.label}</span>
-                              <span style={{ color:pm.color, fontWeight:"bold" }}>{fmt(s.byMethod[pm.id])}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {s.appts.length > 0 && (
-                        <div style={{ borderTop:`1px solid ${C.border}`, paddingTop:8, marginTop:6 }}>
-                          <div style={{ fontSize:8, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase", marginBottom:6 }}>Turnos</div>
-                          {s.appts.map((a,i) => (
-                            <div key={i} style={{ display:"flex", justifyContent:"space-between", fontSize:10, color:C.textSoft, padding:"3px 0", borderBottom:`1px solid ${C.greenPale}` }}>
-                              <span style={{ color:C.text }}>{a.hour} · {a.client}</span>
-                              <span style={{ color: a.paid ? C.green : C.orange }}>{a.paid ? fmt(apptTotal(a)) : "⏳ Pendiente"}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {s.appts.length === 0 && (
-                        <div style={{ fontSize:11, color:C.textSoft, fontStyle:"italic", textAlign:"center", padding:"8px 0" }}>Sin turnos hoy</div>
-                      )}
-                      <button onClick={e=>{e.stopPropagation();setProfPopup(null)}} style={{ marginTop:10, width:"100%", padding:"6px", borderRadius:8, border:`1px solid ${C.border}`, background:C.cream, color:C.textSoft, fontSize:10, cursor:"pointer", fontFamily:"Georgia,serif" }}>Cerrar</button>
-                    </div>
-                  )
-                })()}
               </th>
             ))}
           </tr>
@@ -297,6 +253,86 @@ export function AppGrid({
           </tr>
         </tfoot>
       </table>
+      {profPopup && (() => {
+        const prof = professionals.find(p => p.id === profPopup)
+        if (!prof) return null
+        const s = getProfSummary(prof.id)
+        const sortedAppts = [...s.appts].sort((a,b) => (a.hour||"").localeCompare(b.hour||""))
+        return (
+          <Overlay onClose={() => setProfPopup(null)}>
+            <div className="modal-sheet" style={{ ...modalBox, width: "min(560px, calc(100vw - 32px))", maxHeight: "92vh", display: "flex", flexDirection: "column", padding: 0 }}>
+              <div style={{ padding: 24, overflowY: "auto", maxHeight: "82vh" }}>
+                <ModalHeader emoji={prof.emoji} sub="Resumen de turnos">
+                  {prof.name} · {s.appts.length} turno{s.appts.length !== 1 ? "s" : ""}
+                </ModalHeader>
+
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10, marginBottom: 16 }}>
+                  {[
+                    ["📅 Turnos", s.appts.length, C.textSoft],
+                    ["✅ Cobrados", s.paid.length, C.green],
+                    ["💰 Total", fmt(s.total), C.orange],
+                    ["🎁 Propinas", fmt(s.tips), C.gold],
+                  ].map(([label, val, col]) => (
+                    <div key={label} style={{ background: C.cream, borderRadius: 12, padding: "10px 12px" }}>
+                      <div style={{ fontSize: 9, color: C.textSoft, letterSpacing: "1px" }}>{label}</div>
+                      <div style={{ fontSize: 15, color: col, fontWeight: "bold", marginTop: 6 }}>{val}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {Object.keys(s.byMethod).length > 0 && (
+                  <div style={{ marginBottom: 18 }}>
+                    <div style={{ fontSize: 10, letterSpacing: "2px", color: C.textSoft, textTransform: "uppercase", marginBottom: 8 }}>Por método de pago</div>
+                    <div style={{ display: "grid", gap: 8 }}>
+                      {PAYMENT_METHODS.filter(pm => s.byMethod[pm.id] > 0).map(pm => (
+                        <div key={pm.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11, color: C.textSoft }}>
+                          <span>{pm.icon} {pm.label}</span>
+                          <span style={{ fontWeight: "bold", color: pm.color }}>{fmt(s.byMethod[pm.id])}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ fontSize: 10, letterSpacing: "2px", color: C.textSoft, textTransform: "uppercase", marginBottom: 10 }}>Detalle de turnos</div>
+                {sortedAppts.length > 0 ? (
+                  <div style={{ display: "grid", gap: 10 }}>
+                    {sortedAppts.map((a, index) => (
+                      <div key={index} style={{ borderRadius: 14, border: `1px solid ${C.border}`, padding: 12, background: C.white }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "baseline", marginBottom: 6 }}>
+                          <div style={{ fontSize: 12, fontWeight: "bold", color: C.text }}>{a.hour} · {a.client}</div>
+                          <div style={{ fontSize: 11, color: a.paid ? C.green : C.orange, fontWeight: "bold" }}>
+                            {a.paid ? fmt(apptTotal(a)) : "⏳ Pendiente"}
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+                          {(a.services||[]).map((sv, i) => (
+                            <span key={i} style={{ fontSize: 11, color: C.textSoft, background: C.cream, borderRadius: 10, padding: "4px 8px" }}>
+                              {sv.icon} {sv.name}
+                            </span>
+                          ))}
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", fontSize: 11, color: C.textSoft }}>
+                          <span>{renderPaymentMethod(a)}</span>
+                          {a.tip > 0 && <span style={{ color: C.gold }}>🎁 {fmt(a.tip)}</span>}
+                        </div>
+                        {a.notes && (
+                          <div style={{ marginTop: 8, fontSize: 10, color: C.textSoft, fontStyle: "italic" }}>📝 {a.notes}</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 11, color: C.textSoft, fontStyle: "italic", textAlign: "center", padding: "22px 0" }}>Sin turnos registrados para esta profesional.</div>
+                )}
+              </div>
+              <div style={{ borderTop: `1px solid ${C.border}`, padding: 14, background: C.cream, display: "flex", justifyContent: "flex-end" }}>
+                <GhostBtn onClick={() => setProfPopup(null)}>Cerrar</GhostBtn>
+              </div>
+            </div>
+          </Overlay>
+        )
+      })()}
     </div>
   )
 }
