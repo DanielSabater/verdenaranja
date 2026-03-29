@@ -260,13 +260,13 @@ export function AppGrid({
         const sortedAppts = [...s.appts].sort((a,b) => (a.hour||"").localeCompare(b.hour||""))
         return (
           <Overlay onClose={() => setProfPopup(null)}>
-            <div className="modal-sheet" style={{ ...modalBox, width: "min(560px, calc(100vw - 32px))", maxHeight: "92vh", display: "flex", flexDirection: "column", padding: 0 }}>
+            <div className="modal-sheet" style={{ ...modalBox, width: "min(900px, calc(100vw - 32px))", maxHeight: "92vh", display: "flex", flexDirection: "column", padding: 0 }}>
               <div style={{ padding: 24, overflowY: "auto", maxHeight: "82vh" }}>
                 <ModalHeader emoji={prof.emoji} sub="Resumen de turnos">
                   {prof.name} · {s.appts.length} turno{s.appts.length !== 1 ? "s" : ""}
                 </ModalHeader>
 
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10, marginBottom: 16 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 10, marginBottom: 16 }}>
                   {[
                     ["📅 Turnos", s.appts.length, C.textSoft],
                     ["✅ Cobrados", s.paid.length, C.green],
@@ -283,7 +283,7 @@ export function AppGrid({
                 {Object.keys(s.byMethod).length > 0 && (
                   <div style={{ marginBottom: 18 }}>
                     <div style={{ fontSize: 10, letterSpacing: "2px", color: C.textSoft, textTransform: "uppercase", marginBottom: 8 }}>Por método de pago</div>
-                    <div style={{ display: "grid", gap: 8 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 8 }}>
                       {PAYMENT_METHODS.filter(pm => s.byMethod[pm.id] > 0).map(pm => (
                         <div key={pm.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11, color: C.textSoft }}>
                           <span>{pm.icon} {pm.label}</span>
@@ -296,7 +296,7 @@ export function AppGrid({
 
                 <div style={{ fontSize: 10, letterSpacing: "2px", color: C.textSoft, textTransform: "uppercase", marginBottom: 10 }}>Detalle de turnos</div>
                 {sortedAppts.length > 0 ? (
-                  <div style={{ display: "grid", gap: 10 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 10 }}>
                     {sortedAppts.map((a, index) => (
                       <div key={index} style={{ borderRadius: 14, border: `1px solid ${C.border}`, padding: 12, background: C.white }}>
                         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "baseline", marginBottom: 6 }}>
