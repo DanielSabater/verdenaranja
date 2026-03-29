@@ -33,7 +33,47 @@ select { appearance: auto; }
   .date-nav-pills      { display: none !important; }
   .date-nav-compact    { display: none !important; }
 }
+.clientes-shell {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 20px 16px 160px;
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 24px;
+  align-items: start;
+}
 
+.clientes-shell .clientes-header {
+  width: 100%;
+}
+
+@media (max-width: 920px) {
+  .clientes-shell {
+    display: block;
+    padding: 16px 12px 120px;
+  }
+  .clientes-shell > div {
+    width: 100%;
+  }
+  .clientes-shell .clientes-header {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    align-items: stretch;
+  }
+  .clientes-shell .clientes-header button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .clientes-shell {
+    padding: 14px 10px 100px;
+  }
+  .clientes-shell .clientes-panel-right {
+    margin-top: 18px;
+  }
+}
 /* ── Modales bottom sheet en mobile ── */
 @media (max-width: 640px) {
   .modal-overlay { align-items: flex-end !important; }

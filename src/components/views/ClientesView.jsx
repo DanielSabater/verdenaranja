@@ -64,10 +64,10 @@ export default function ClientesView({ clientes, setClientes, allData }) {
 
   return (
     <div style={{ background: C.cream, minHeight:"100vh", paddingBottom:80 }}>
-      <div style={{ maxWidth:900, margin:"0 auto", padding:"20px 16px 160px", display:"grid", gridTemplateColumns:"320px 1fr", gap:24, alignItems:"start" }}>
+      <div className="clientes-shell" style={{ background: C.cream }}>
 
         {/* Panel izq */}
-        <div>
+        <div className="clientes-panel-left">
           <div style={{ fontSize:8, letterSpacing:"3px", color:C.orange, textTransform:"uppercase", marginBottom:10 }}>✏️ En el modal de turno</div>
           <div style={{ background:C.white, borderRadius:16, padding:20, border:`1px solid ${C.border}`, boxShadow:`0 4px 20px rgba(58,125,68,.07)` }}>
             <div style={{ fontSize:11, color:C.textSoft, marginBottom:12 }}>Al escribir un nombre aparecen las clientas guardadas:</div>
@@ -102,8 +102,8 @@ export default function ClientesView({ clientes, setClientes, allData }) {
         </div>
 
         {/* Panel der */}
-        <div>
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
+        <div className="clientes-panel-right">
+          <div className="clientes-header" style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
             <div>
               <div style={{ fontSize:7, letterSpacing:"3px", color:C.orange, textTransform:"uppercase" }}>Perla Verde</div>
               <div style={{ fontSize:18, color:C.text }}>👥 Clientas ({safe.length})</div>
@@ -111,7 +111,7 @@ export default function ClientesView({ clientes, setClientes, allData }) {
             <button onClick={openNew} style={{ padding:"7px 14px", borderRadius:12, border:"none", background:`linear-gradient(135deg,${C.green},${C.greenLight})`, color:"#fff", fontSize:11, cursor:"pointer", fontFamily:"Georgia,serif" }}>+ Nueva clienta</button>
           </div>
 
-          <div style={{ display:"flex", gap:10, marginBottom:14 }}>
+          <div style={{ display:"flex", gap:10, marginBottom:14, flexWrap:"wrap" }}>
             {[["👥","Clientas",safe.length,C.greenPale,C.green,C.greenMint],["📅","Con turnos",safe.filter(c=>visitCount(c.name)>0).length,"#fdf0e8",C.orange,"#f0c8a0"]].map(([icon,lbl,val,bg,col,brd])=>(
               <div key={lbl} style={{ background:bg, border:`1px solid ${brd}`, borderRadius:10, padding:"7px 14px", textAlign:"center" }}>
                 <div style={{ fontSize:9, color:col, textTransform:"uppercase", letterSpacing:"1px" }}>{icon} {lbl}</div>
