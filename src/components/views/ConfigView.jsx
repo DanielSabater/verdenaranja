@@ -5,7 +5,7 @@ import { GhostBtn, SolidBtn } from "../ui/index.jsx"
 
 // ─── Config View ──────────────────────────────────────────────────────────────
 
-export default function ConfigView({ config, setConfig }) {
+export default function ConfigView({ config, setConfig, allData, gastos, sueldos, clientes }) {
   const [seccion, setSeccion] = useState("empresa");
   const [emojiPicker, setEmojiPicker] = useState(null); // "empresa" | profId | svcId
 
@@ -248,6 +248,49 @@ export default function ConfigView({ config, setConfig }) {
       {/* ── SISTEMA ─────────────────────────────────────────── */}
       {seccion === "sistema" && (
         <SectionCard title="⚙️ Parámetros del sistema">
+
+          <CfgField label="💾 Backup de datos">
+            <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
+              <button onClick={() => {
+                const data = { allData, gastos, sueldos, config, clientes, exportedAt: new Date().toISOString() }
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type:"application/json" })
+                const url  = URL.createObjectURL(blob)
+                const a    = document.createElement("a")
+                a.href     = url
+                a.download = `perlaverde-backup-${new Date().toISOString().slice(0,10)}.json`
+                a.click()
+                URL.revokeObjectURL(url)
+              }} style={{ padding:"10px 18px", borderRadius:12, border:"none", background:`linear-gradient(135deg,${C.green},${C.greenLight})`, color:"#fff", fontSize:12, cursor:"pointer", fontFamily:"Georgia,serif" }}>
+                ⬇️ Descargar backup
+              </button>
+
+              <label style={{ padding:"10px 18px", borderRadius:12, border:`1.5px solid ${C.border}`, background:C.white, color:C.textSoft, fontSize:12, cursor:"pointer", fontFamily:"Georgia,serif", display:"inline-block" }}>
+                ⬆️ Restaurar backup
+                <input type="file" accept=".json" style={{ display:"none" }} onChange={e => {
+                  const file = e.target.files[0]
+                  if (!file) return
+                  const reader = new FileReader()
+                  reader.onload = (ev) => {
+                    try {
+                      const data = JSON.parse(ev.target.result)
+                      if (!data.allData && !data.config) { alert("Archivo de backup inválido"); return }
+                      if (!window.confirm("¿Restaurar backup del " + (data.exportedAt?.slice(0,10) || "?") + "?\nEsto reemplazará todos los datos actuales.")) return
+                      if (data.config)   setConfig(data.config)
+                      if (data.allData)  window.__restoreAllData?.(data.allData)
+                      if (data.gastos)   window.__restoreGastos?.(data.gastos)
+                      if (data.sueldos)  window.__restoreSueldos?.(data.sueldos)
+                      if (data.clientes) window.__restoreClientes?.(data.clientes)
+                      alert("✅ Backup restaurado correctamente. La página se recargará.")
+                      setTimeout(() => window.location.reload(), 1000)
+                    } catch { alert("⚠️ Archivo inválido") }
+                  }
+                  reader.readAsText(file)
+                }} />
+              </label>
+            </div>
+            <div style={{ fontSize:10, color:C.textSoft, marginTop:6 }}>Descargá el backup seguido para no perder datos. Al restaurar se reemplaza todo el contenido actual.</div>
+          </CfgField>
+
           <CfgField label={`Porcentaje de comisión por profesional (actualmente ${config.comisionPct}%)`}>
             <div style={{ display:"flex", alignItems:"center", gap:12 }}>
               <input type="range" min={1} max={100} value={config.comisionPct}

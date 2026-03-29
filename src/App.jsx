@@ -85,6 +85,20 @@ export default function App() {
   const resizeRef = useRef(null)
 
 
+  // Expose restore functions for backup restore
+  useEffect(() => {
+    window.__restoreAllData  = setAllData
+    window.__restoreGastos   = setGastos
+    window.__restoreSueldos  = setSueldos
+    window.__restoreClientes = setClientes
+    return () => {
+      delete window.__restoreAllData
+      delete window.__restoreGastos
+      delete window.__restoreSueldos
+      delete window.__restoreClientes
+    }
+  }, [])
+
   const professionals = config.professionals
   const services      = config.services
   const comisionPct   = config.comisionPct
@@ -328,7 +342,7 @@ export default function App() {
         /></div>
       )}
 
-      {activeView === "config" && <div key="v-cfg" className="pv-view pv-bg" style={{ overflowY:"auto", flex:1 }}><ConfigView config={config} setConfig={setConfig} /></div>}
+      {activeView === "config" && <div key="v-cfg" className="pv-view pv-bg" style={{ overflowY:"auto", flex:1 }}><ConfigView config={config} setConfig={setConfig} allData={allData} gastos={gastos} sueldos={sueldos} clientes={clientes} /></div>}
       {activeView === "clientes" && <div key="v-cli" className="pv-view pv-bg" style={{ overflowY:"auto", flex:1 }}><ClientesView clientes={clientes} setClientes={setClientes} allData={allData} /></div>}
 
 
