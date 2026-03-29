@@ -29,9 +29,9 @@ export function ModalHeader({ emoji, sub, children }) {
   )
 }
 
-export function Field({ label, children }) {
+export function Field({ label, children, style }) {
   return (
-    <div style={{ marginBottom: 13 }}>
+    <div style={{ marginBottom: 13, ...style }}>
       <label style={{ fontSize: 8, letterSpacing: "2.5px", color: C.textSoft, textTransform: "uppercase", display: "block", marginBottom: 6 }}>
         {label}
       </label>

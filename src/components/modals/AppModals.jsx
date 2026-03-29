@@ -69,13 +69,15 @@ export function AppModals({
       {/* ── MODAL NUEVO / EDITAR ── */}
       {modal && (
         <Overlay onClose={() => setModal(null)}>
-          <div className="modal-sheet" style={modalBox}>
-            <ModalHeader
-              emoji={modal.editKey ? "✏️" : "🌿"}
-              sub={modal.editKey ? "Editar turno" : "Nuevo turno"}
-            >
-              {professionals?.find(p => p.id === modal.profId)?.name} · {modal.hour} hs
-            </ModalHeader>
+          <div className="modal-sheet" style={{ ...modalBox, display:"flex", flexDirection:"column", padding:"24px", overflow:"hidden" }}>
+            <div style={{ flex: 1, minHeight: 0, overflowY: "visible", display: "flex", justifyContent: "center" }}>
+            <div style={{ width: "100%", maxWidth: 460 }}>
+              <ModalHeader
+                emoji={modal.editKey ? "✏️" : "🌿"}
+                sub={modal.editKey ? "Editar turno" : "Nuevo turno"}
+              >
+                {professionals?.find(p => p.id === modal.profId)?.name} · {modal.hour} hs
+              </ModalHeader>
 
             <Field label="Nombre del cliente">
               <div style={{ position:"relative" }}>
@@ -147,7 +149,7 @@ export function AppModals({
               </div>
             )}
 
-            <Field label="Agregar servicio">
+            <Field label="Agregar servicio" style={{ marginBottom: 8 }}>
               <input
                 type="text"
                 placeholder="Buscar servicios..."
@@ -169,11 +171,12 @@ export function AppModals({
                   </button>
                 ))}
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 5, maxHeight: 240, overflowY: "auto", paddingRight: 3 }}>
+              <div className="service-scroll" style={{ width: "100%", display: "flex", flexDirection: "column", gap: 5, maxHeight: 240, overflowY: "auto", paddingRight: 3 }}>
                 {filteredServices.map(s => {
                   const isChosen = chosenServices.some(x => x.id === s.id)
                   return (
                     <div key={s.id} onClick={() => toggleService(s)} style={{
+                      width: "100%",
                       display: "flex", justifyContent: "space-between", alignItems: "center",
                       padding: "8px 11px", borderRadius: 10, cursor: "pointer",
                       border: `1.5px solid ${isChosen ? C.green : C.border}`,
@@ -193,7 +196,9 @@ export function AppModals({
               </div>
             </Field>
 
-            <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 8, flexShrink: 0, paddingTop: 8, background: C.white }}>
               <GhostBtn onClick={() => setModal(null)}>Cancelar</GhostBtn>
               <SolidBtn onClick={saveAppt} disabled={!chosenServices.length || !clientName.trim()} color={C.green}>
                 {modal.editKey ? "✏️ Guardar cambios" : "🌿 Confirmar turno"}

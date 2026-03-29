@@ -47,6 +47,24 @@ select { appearance: auto; }
   }
 }
 
+.modal-sheet {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.modal-sheet::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+.service-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.service-scroll::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
 /* ── Grid scroll ── */
 .grid-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
