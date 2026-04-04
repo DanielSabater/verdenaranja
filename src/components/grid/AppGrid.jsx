@@ -146,8 +146,8 @@ export function AppGrid({
                             border: isResizing
                               ? `2px dashed ${C.green}`
                               : `1.5px solid ${appt.paid?C.greenLight:C.orangeLight}`,
-                            padding:"14px 7px 5px",
-                            display:"flex", flexDirection:"column", justifyContent:"space-between",
+                            padding:"6px 7px 6px",
+                            display:"flex", flexDirection:"column",
                             boxShadow: isDragging
                               ? `0 10px 30px rgba(58,125,68,.30)`
                               : `0 2px 8px ${appt.paid?"rgba(58,125,68,.10)":"rgba(232,121,58,.10)"}`,
@@ -160,9 +160,7 @@ export function AppGrid({
                           }}
                         >
                           <div onMouseDown={e => { e.stopPropagation(); onResizeStart(e, k, "top") }}
-                            style={{ position:"absolute", top:0, left:0, right:0, height:10, cursor:"n-resize", zIndex:10, borderRadius:"9px 9px 0 0", display:"flex", alignItems:"center", justifyContent:"center", background: isResizing ? "rgba(58,125,68,.08)" : "transparent" }}>
-                            <div style={{ width:36, height:3, borderRadius:2, background: appt.paid ? C.greenLight : C.orangeLight, opacity:.65 }}/>
-                          </div>
+                            style={{ position:"absolute", top:0, left:0, right:0, height:8, cursor:"n-resize", zIndex:10, borderRadius:"9px 9px 0 0" }} />
 
                           {isResizing && (
                             <div style={{ position:"absolute", top:12, left:"50%", transform:"translateX(-50%)", background:C.green, color:"#fff", borderRadius:8, padding:"2px 8px", fontSize:9, fontWeight:"bold", letterSpacing:"1px", whiteSpace:"nowrap", zIndex:20, pointerEvents:"none", boxShadow:"0 2px 8px rgba(58,125,68,.35)" }}>{liveHour} – {liveEndHour} · {liveDurMins} min</div>
@@ -197,8 +195,8 @@ export function AppGrid({
                             )}
                           </div>
 
-                          <div style={{ display:"flex", justifyContent:"flex-end", alignItems:"center", gap:3, marginTop:4, marginBottom:8 }}>
-                            <button onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();onDelete(k)}} style={{ width:22, borderRadius:6, border:`1px solid ${C.border}`, background:"rgba(255,255,255,.8)", color:"#c0a0a0", fontSize:9, cursor:"pointer" }}>✕</button>
+                          <div style={{ position:"absolute", bottom:16, right:4, display:"flex", alignItems:"center", gap:3, zIndex:5 }}>
+                            <button onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();onDelete(k)}} style={{ width:18, height:18, borderRadius:5, border:`1px solid ${C.border}`, background:"rgba(255,255,255,.8)", color:"#c0a0a0", fontSize:8, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", padding:0 }}>✕</button>
                             {appt.paid
                               ? <button onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();onPay(k)}} style={smallBtn("#7a9e7a")}>{isMobile?"✏️":"✏️ Pago"}</button>
                               : <button onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();onPay(k)}} style={smallBtn(C.orange)}>{isMobile?"💰":"💰 Abonar"}</button>
@@ -206,9 +204,7 @@ export function AppGrid({
                           </div>
 
                           <div onMouseDown={e => { e.stopPropagation(); onResizeStart(e, k, "bottom") }}
-                            style={{ position:"absolute", bottom:0, left:0, right:0, height:14, cursor:"s-resize", zIndex:10, borderRadius:"0 0 9px 9px", display:"flex", alignItems:"center", justifyContent:"center", background: isResizing ? "rgba(58,125,68,.08)" : `linear-gradient(to bottom, transparent, ${appt.paid?"rgba(90,158,102,.07)":"rgba(232,121,58,.07)"})` }}>
-                            <div style={{ width:36, height:3, borderRadius:2, background: appt.paid ? C.greenLight : C.orangeLight, opacity:.7 }}/>
-                          </div>
+                            style={{ position:"absolute", bottom:0, left:0, right:0, height:10, cursor:"s-resize", zIndex:10, borderRadius:"0 0 9px 9px" }} />
                         </div>
                       )
                     })() : (
