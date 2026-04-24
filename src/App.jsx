@@ -238,7 +238,7 @@ export default function App() {
     const { profId, hour, editKey } = modal
     const k    = editKey || cellKey(profId, hour)
     const prev = appointments[editKey] || {}
-    setAppointments(p => { const next = { ...p }; if (editKey && editKey !== k) delete next[editKey]; next[k] = { profId, hour, client: clientName.trim(), services: chosenServices, notes: apptNotes.trim(), paid: prev.paid || false, payMethod: prev.payMethod || null, tip: parseFloat(apptTip) || 0 }; return next })
+    setAppointments(p => { const next = { ...p }; if (editKey && editKey !== k) delete next[editKey]; next[k] = { profId, hour, client: clientName.trim(), services: chosenServices, notes: apptNotes.trim(), paid: prev.paid || false, payMethod: prev.payMethod || null, tip: parseFloat(apptTip) || 0, createdAt: prev.createdAt || new Date().toLocaleTimeString("es-AR", {hour:"2-digit", minute:"2-digit"}) }; return next })
     setModal(null)
   }
 

@@ -182,6 +182,9 @@ export function AppGrid({
                               </span>
                               {" · "}<span style={{ color:C.orange, fontWeight:"bold" }}>{fmt(apptTotal(appt))}</span>
                             </div>
+                            {appt.createdAt && (
+                              <div style={{ fontSize:8, color:C.textSoft, marginTop:1, opacity:.7 }}>🕐 Tomado a las {appt.createdAt}</div>
+                            )}
                             {appt.paid && (
                               <div style={{ fontSize:8, color:C.green, marginTop:1, letterSpacing:".8px" }}>
                                 {appt.paymentSplits?.length > 1
