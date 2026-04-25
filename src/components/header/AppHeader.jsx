@@ -1,7 +1,7 @@
-import { memo } from "react"
+import { memo, useState } from "react"
 import { C } from "../../constants/colors.js"
 import { PAYMENT_METHODS } from "../../constants/data.js"
-import { fmt } from "../../utils/appointments.js"
+import { fmt, apptTotal } from "../../utils/appointments.js"
 import { MESES_ES, todayKey, fmtDate, nextWorkDay } from "../../utils/dates.js"
 
 export const AppHeader = memo(function AppHeader({
@@ -29,6 +29,23 @@ export const AppHeader = memo(function AppHeader({
   const prevMonth = () => { let m=vm-1,y=vy; if(m<1){m=12;y--} setCalViewDate(`${y}-${String(m).padStart(2,"0")}`) }
   const nextMonth = () => { let m=vm+1,y=vy; if(m>12){m=1;y++} setCalViewDate(`${y}-${String(m).padStart(2,"0")}`) }
 
+  const [activeMethod, setActiveMethod] = useState(null)
+
+  // Get appointments for current date by payment method
+  const getApptsByMethod = (methodId) => {
+    const dayData = (allData || {})[currentDate] || {}
+    return Object.values(dayData).filter(a => {
+      if (!a.paid) return false
+      if (a.paymentSplits?.length) return a.paymentSplits.some(s => s.methodId === methodId)
+      return a.payMethod === methodId
+    }).map(a => {
+      const amount = a.paymentSplits?.length
+        ? a.paymentSplits.find(s => s.methodId === methodId)?.amount || 0
+        : apptTotal(a)
+      return { ...a, methodAmount: parseFloat(amount) }
+    }).sort((a, b) => a.hour.localeCompare(b.hour))
+  }
+
   const btnNav = { width:30, height:30, borderRadius:"50%", border:`1px solid ${C.border}`, background:C.white, color:C.green, fontSize:16, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }
 
   return (
@@ -53,10 +70,44 @@ export const AppHeader = memo(function AppHeader({
 
         {/* Desktop totals */}
         <div className="desktop-totals" style={{ alignItems:"center", gap:5 }}>
-          {PAYMENT_METHODS.map(pm => { const t=totalByMethod(pm.id); return (
-            <div key={pm.id} style={{ background:t>0?(pm.id==="mercadopago"?C.mpPale:pm.id==="debito"?C.amberPale:C.greenPale):"#f7f7f7", border:`1px solid ${t>0?(pm.id==="mercadopago"?C.mpMid:pm.id==="debito"?C.amberMid:C.greenMint):"#e8e8e8"}`, borderRadius:9, padding:"5px 9px", textAlign:"center" }}>
-              <div style={{ fontSize:8, color:t>0?pm.color:"#bbb", textTransform:"uppercase" }}>{pm.icon} {pm.label}</div>
-              <div style={{ fontSize:12, fontWeight:"bold", color:t>0?pm.color:"#ccc" }}>{fmt(t)}</div>
+          {PAYMENT_METHODS.map(pm => { const t=totalByMethod(pm.id); const isActive=activeMethod===pm.id; return (
+            <div key={pm.id} style={{ position:"relative" }}>
+              <div onClick={() => setActiveMethod(isActive ? null : pm.id)}
+                style={{ background:t>0?(pm.id==="mercadopago"?C.mpPale:pm.id==="debito"?C.amberPale:C.greenPale):"#f7f7f7", border:`1.5px solid ${isActive?pm.color:(t>0?(pm.id==="mercadopago"?C.mpMid:pm.id==="debito"?C.amberMid:C.greenMint):"#e8e8e8")}`, borderRadius:9, padding:"5px 9px", textAlign:"center", cursor:t>0?"pointer":"default", transition:"all .15s", boxShadow:isActive?`0 4px 12px ${pm.color}33`:"none" }}>
+                <div style={{ fontSize:8, color:t>0?pm.color:"#bbb", textTransform:"uppercase" }}>{pm.icon} {pm.label}</div>
+                <div style={{ fontSize:12, fontWeight:"bold", color:t>0?pm.color:"#ccc" }}>{fmt(t)}{t>0&&<span style={{fontSize:8,marginLeft:3}}>{isActive?"▲":"▼"}</span>}</div>
+              </div>
+
+              {/* Dropdown */}
+              {isActive && t > 0 && (() => {
+                const appts = getApptsByMethod(pm.id)
+                return (
+                  <>
+                    <div onClick={() => setActiveMethod(null)} style={{ position:"fixed", inset:0, zIndex:149 }} />
+                    <div style={{ position:"absolute", top:"calc(100% + 8px)", left:"50%", transform:"translateX(-50%)", zIndex:150, background:C.white, borderRadius:14, border:`1.5px solid ${pm.color}44`, boxShadow:`0 8px 32px ${pm.color}22`, minWidth:260, maxWidth:340, padding:"12px 14px" }}>
+                      <div style={{ fontSize:8, letterSpacing:"2px", color:pm.color, textTransform:"uppercase", marginBottom:8 }}>{pm.icon} {pm.label} — {currentDate}</div>
+                      {appts.length === 0
+                        ? <div style={{ fontSize:11, color:C.textSoft, textAlign:"center", padding:"8px 0" }}>Sin pagos</div>
+                        : <>
+                            {appts.map((a, i) => (
+                              <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"6px 0", borderBottom:`1px solid ${C.greenPale}` }}>
+                                <div>
+                                  <div style={{ fontSize:11, color:C.text, fontWeight:"bold" }}>{a.client}</div>
+                                  <div style={{ fontSize:9, color:C.textSoft }}>{a.hour} · {(a.services||[]).map(s=>s.name).join(", ")}</div>
+                                </div>
+                                <div style={{ fontSize:13, fontWeight:"bold", color:pm.color }}>{fmt(a.methodAmount)}</div>
+                              </div>
+                            ))}
+                            <div style={{ display:"flex", justifyContent:"space-between", marginTop:8, paddingTop:6, borderTop:`2px solid ${pm.color}33` }}>
+                              <div style={{ fontSize:9, color:C.textSoft }}>{appts.length} pago{appts.length!==1?"s":""}</div>
+                              <div style={{ fontSize:13, fontWeight:"bold", color:pm.color }}>{fmt(t)}</div>
+                            </div>
+                          </>
+                      }
+                    </div>
+                  </>
+                )
+              })()}
             </div>
           )})}
           <div style={{ background:grandTotal>0?`linear-gradient(135deg,${C.green},${C.greenLight})`:"#f0f0f0", borderRadius:10, padding:"6px 12px", textAlign:"center" }}>
