@@ -71,8 +71,8 @@ export const AppHeader = memo(function AppHeader({
         {/* Desktop totals */}
         <div className="desktop-totals" style={{ alignItems:"center", gap:5 }}>
           {PAYMENT_METHODS.map(pm => { const t=totalByMethod(pm.id); const isActive=activeMethod===pm.id; return (
-            <div key={pm.id} style={{ position:"relative" }}>
-              <div onClick={() => setActiveMethod(isActive ? null : pm.id)}
+            <div key={pm.id} style={{ position:"relative" }} onMouseEnter={() => setActiveMethod(pm.id)} onMouseLeave={() => setActiveMethod(null)}>
+              <div
                 style={{ background:t>0?(pm.id==="mercadopago"?C.mpPale:pm.id==="debito"?C.amberPale:C.greenPale):"#f7f7f7", border:`1.5px solid ${isActive?pm.color:(t>0?(pm.id==="mercadopago"?C.mpMid:pm.id==="debito"?C.amberMid:C.greenMint):"#e8e8e8")}`, borderRadius:9, padding:"5px 9px", textAlign:"center", cursor:t>0?"pointer":"default", transition:"all .15s", boxShadow:isActive?`0 4px 12px ${pm.color}33`:"none" }}>
                 <div style={{ fontSize:8, color:t>0?pm.color:"#bbb", textTransform:"uppercase" }}>{pm.icon} {pm.label}</div>
                 <div style={{ fontSize:12, fontWeight:"bold", color:t>0?pm.color:"#ccc" }}>{fmt(t)}{t>0&&<span style={{fontSize:8,marginLeft:3}}>{isActive?"▲":"▼"}</span>}</div>
@@ -83,7 +83,6 @@ export const AppHeader = memo(function AppHeader({
                 const appts = getApptsByMethod(pm.id)
                 return (
                   <>
-                    <div onClick={() => setActiveMethod(null)} style={{ position:"fixed", inset:0, zIndex:149 }} />
                     <div style={{ position:"absolute", top:"calc(100% + 8px)", left:"50%", transform:"translateX(-50%)", zIndex:150, background:C.white, borderRadius:14, border:`1.5px solid ${pm.color}44`, boxShadow:`0 8px 32px ${pm.color}22`, minWidth:260, maxWidth:340, padding:"12px 14px" }}>
                       <div style={{ fontSize:8, letterSpacing:"2px", color:pm.color, textTransform:"uppercase", marginBottom:8 }}>{pm.icon} {pm.label} — {currentDate}</div>
                       {appts.length === 0
