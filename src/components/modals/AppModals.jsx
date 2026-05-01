@@ -44,6 +44,7 @@ export function AppModals({
   filteredServices, services,
   saveAppt, confirmPay, doDelete,
   apptTip, setApptTip,
+  apptDiscount, setApptDiscount,
   addSplit, removeSplit, updateSplit,
   toggleService, removeService,
   modalSubtotal, modalDuration,
@@ -229,8 +230,9 @@ export function AppModals({
       {payModal && appointments[payModal] && (() => {
         const appt    = appointments[payModal]
         const total    = apptTotal(appt)
+        const discountAmount = parseFloat(apptDiscount) || 0
         const tipAmount = parseFloat(apptTip) || 0
-        const totalWithTip = total + tipAmount
+        const totalWithTip = Math.max(0, total - discountAmount + tipAmount)
         const sumPaid  = paymentSplits.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0)
         const balance  = totalWithTip - sumPaid
         const balanced = Math.abs(balance) <= 1
@@ -251,6 +253,21 @@ export function AppModals({
                     <span style={{ color: C.text }}>{fmt(sv.price)}</span>
                   </div>
                 ))}
+                {/* Discount row */}
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:8, paddingTop:6, borderTop:`1px solid ${C.border}` }}>
+                  <span style={{ fontSize:11, color:"#c04040" }}>🏷️ Descuento</span>
+                  <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+                    <span style={{ fontSize:11, color:C.textSoft }}>$</span>
+                    <input
+                      type="number"
+                      value={apptDiscount}
+                      onChange={e => setApptDiscount(e.target.value)}
+                      placeholder="0"
+                      style={{ width:80, padding:"4px 8px", border:`1.5px solid ${C.border}`, borderRadius:8, fontSize:12, color:"#c04040", background:C.cream, outline:"none", fontFamily:"Georgia,serif", textAlign:"right" }}
+                    />
+                  </div>
+                </div>
+
                 {/* Tip row */}
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:8, paddingTop:6, borderTop:`1px solid ${C.border}` }}>
                   <span style={{ fontSize:11, color:C.textSoft }}>🎁 Propina</span>
@@ -266,8 +283,8 @@ export function AppModals({
                   </div>
                 </div>
                 <div style={{ borderTop:`1px solid ${C.border}`, marginTop:6, paddingTop:6, display:"flex", justifyContent:"space-between" }}>
-                  <span style={{ fontSize:11, fontWeight:"bold", color:C.text }}>Total{parseFloat(apptTip)>0?` + propina`:""}</span>
-                  <span style={{ fontSize:14, fontWeight:"bold", color:C.orange }}>{fmt(total + (parseFloat(apptTip)||0))}</span>
+                  <span style={{ fontSize:11, fontWeight:"bold", color:C.text }}>Total{discountAmount>0?" c/descuento":""}{tipAmount>0?" + propina":""}</span>
+                  <span style={{ fontSize:14, fontWeight:"bold", color:C.orange }}>{fmt(totalWithTip)}</span>
                 </div>
               </div>
 
