@@ -89,9 +89,12 @@ export function AppGrid({
 
   return (
     <div className="grid-scroll" style={{ overflowX:"auto", padding:"16px 8px 0", WebkitOverflowScrolling:"touch", minHeight:"100%" }}>
-      <table style={{ borderCollapse:"collapse", tableLayout:"fixed", width:"100%", minWidth: isMobile ? `${professionals.length*80}px` : `${professionals.length*140}px` }}>
+      <table style={{ borderCollapse:"collapse", tableLayout:"fixed", width:"100%", minWidth: isMobile ? `${professionals.length*80+52}px` : `${professionals.length*140+52}px` }}>
         <thead>
           <tr>
+            <th style={{ padding:"6px 4px", borderBottom:`2px solid ${C.border}`, width:52, minWidth:52, position:"sticky", top:0, left:0, zIndex:101, background:C.white, borderRight:`2px solid ${C.border}` }}>
+              <div style={{ fontSize:7, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase", textAlign:"center" }}>Hora</div>
+            </th>
             {orderedProfessionals.map(p => (
               <th key={p.id}
                 draggable
@@ -119,6 +122,9 @@ export function AppGrid({
         <tbody>
           {HOURS.map((hour, hIdx) => (
             <tr key={hour} style={{ background: hIdx%2===0?C.white:C.cream }}>
+                <td style={{ padding:"0 4px", textAlign:"center", height:50, verticalAlign:"middle", position:"sticky", left:0, zIndex:5, background: hIdx%2===0?C.white:C.cream, borderRight:`2px solid ${C.border}`, width:52, minWidth:52, whiteSpace:"nowrap" }}>
+                  <span style={{ fontSize: hour.endsWith(":00")?11:9, color: hour.endsWith(":00")?C.green:C.textSoft, fontWeight: hour.endsWith(":00")?"bold":"normal" }}>{hour}</span>
+                </td>
               {orderedProfessionals.map(prof => {
                 const k    = cellKey(prof.id, hour)
                 const appt = appointments[k]
