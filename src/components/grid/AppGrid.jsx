@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { C } from "../../constants/colors.js"
 import { PAYMENT_METHODS, HOURS } from "../../constants/data.js"
 import { fmt, cellKey, apptTotal, apptDur } from "../../utils/appointments.js"
@@ -22,7 +22,42 @@ export function AppGrid({
   onCellClick, onEdit, onPay, onDelete,
   CELL_H,
 }) {
-  const [profPopup, setProfPopup] = useState(null)
+  const [profPopup,  setProfPopup]  = useState(null)
+  const [colOrder,   setColOrder]   = useState(() => { try { const v = localStorage.getItem("pv:colOrder"); return v ? JSON.parse(v) : null } catch { return null } })
+  const [dragCol,    setDragCol]    = useState(null) // profId being dragged
+  const [dragOver,   setDragOverCol] = useState(null) // profId being hovered
+  const dragColRef = useRef(null)
+
+  const orderedProfessionals = (() => {
+    if (!colOrder) return professionals
+    return [...colOrder].map(id => professionals.find(p => p.id === id)).filter(Boolean)
+  })()
+
+  const onColDragStart = (profId) => {
+    setDragCol(profId)
+    dragColRef.current = profId
+  }
+  const onColDragOver = (e, profId) => {
+    e.preventDefault()
+    if (dragColRef.current && dragColRef.current !== profId) setDragOverCol(profId)
+  }
+  const onColDrop = (e, targetId) => {
+    e.preventDefault()
+    const fromId = dragColRef.current
+    if (!fromId || fromId === targetId) { setDragCol(null); setDragOverCol(null); return }
+    const base = colOrder || professionals.map(p => p.id)
+    const from = base.indexOf(fromId)
+    const to   = base.indexOf(targetId)
+    const next = [...base]
+    next.splice(from, 1)
+    next.splice(to, 0, fromId)
+    setColOrder(next)
+    try { localStorage.setItem("pv:colOrder", JSON.stringify(next)) } catch {}
+    setDragCol(null)
+    setDragOverCol(null)
+    dragColRef.current = null
+  }
+  const onColDragEnd = () => { setDragCol(null); setDragOverCol(null); dragColRef.current = null }
 
   const getProfSummary = (profId) => {
     const appts = Object.values(appointments).filter(a => a.profId === profId)
@@ -57,8 +92,14 @@ export function AppGrid({
       <table style={{ borderCollapse:"collapse", tableLayout:"fixed", width:"100%", minWidth: isMobile ? `${professionals.length*80}px` : `${professionals.length*140}px` }}>
         <thead>
           <tr>
-            {professionals.map(p => (
-              <th key={p.id} style={{ padding: isMobile?"6px 2px":"10px 5px", borderBottom:`2px solid ${C.border}`, width:`${100/professionals.length}%`, minWidth: isMobile?80:140, position:"sticky", top:0, zIndex:100, background:C.white }}>
+            {orderedProfessionals.map(p => (
+              <th key={p.id}
+                draggable
+                onDragStart={() => onColDragStart(p.id)}
+                onDragOver={e => onColDragOver(e, p.id)}
+                onDrop={e => onColDrop(e, p.id)}
+                onDragEnd={onColDragEnd}
+                style={{ padding: isMobile?"6px 2px":"10px 5px", borderBottom:`2px solid ${C.border}`, width:`${100/professionals.length}%`, minWidth: isMobile?80:140, position:"sticky", top:0, zIndex:100, background:C.white, transition:"all .2s", opacity: dragCol===p.id ? 0.4 : 1, borderLeft: dragOver===p.id ? `3px solid ${C.green}` : "none", cursor:"grab" }}>
                 <div onClick={() => setProfPopup(profPopup===p.id ? null : p.id)}
                   style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:3, cursor:"pointer" }}>
                   <div style={{
@@ -78,7 +119,7 @@ export function AppGrid({
         <tbody>
           {HOURS.map((hour, hIdx) => (
             <tr key={hour} style={{ background: hIdx%2===0?C.white:C.cream }}>
-              {professionals.map(prof => {
+              {orderedProfessionals.map(prof => {
                 const k    = cellKey(prof.id, hour)
                 const appt = appointments[k]
                 const span = spanOf(prof.id, hour)
@@ -224,7 +265,7 @@ export function AppGrid({
 
         <tfoot>
           <tr style={{ borderTop:`2px solid ${C.greenMint}` }}>
-            {professionals.map(prof => {
+            {orderedProfessionals.map(prof => {
               const t   = totalByProf(prof.id)
               const cnt = paidAppts.filter(a=>a.profId===prof.id).length
               return (
@@ -238,7 +279,7 @@ export function AppGrid({
             })}
           </tr>
           <tr style={{ borderTop:`1px dashed ${C.goldLight}` }}>
-            {professionals.map(prof => {
+            {orderedProfessionals.map(prof => {
               const e = earningsByProf(prof.id)
               return (
                 <td key={prof.id} style={{ padding:"6px 4px", textAlign:"center" }}>
