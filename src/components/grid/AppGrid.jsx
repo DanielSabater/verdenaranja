@@ -89,7 +89,7 @@ export function AppGrid({
 
   return (
     <div className="grid-scroll" style={{ overflowX:"auto", padding:"16px 8px 0", WebkitOverflowScrolling:"touch", minHeight:"100%" }}>
-      <table style={{ borderCollapse:"collapse", tableLayout:"fixed", width:"100%", minWidth: isMobile ? `${professionals.length*80+52}px` : `${professionals.length*140+52}px` }}>
+      <table style={{ borderCollapse:"collapse", tableLayout:"fixed", width:"100%", minWidth: isMobile ? `${professionals.length*80}px` : `${professionals.length*140}px` }}>
         <thead>
           <tr>
             <th style={{ padding:"6px 4px", borderBottom:`2px solid ${C.border}`, width:52, minWidth:52, position:"sticky", top:0, left:0, zIndex:101, background:C.white, borderRight:`2px solid ${C.border}` }}>
@@ -271,6 +271,7 @@ export function AppGrid({
 
         <tfoot>
           <tr style={{ borderTop:`2px solid ${C.greenMint}` }}>
+            <td style={{ position:"sticky", left:0, zIndex:5, background:C.white, borderRight:`2px solid ${C.border}`, width:52 }} />
             {orderedProfessionals.map(prof => {
               const t   = totalByProf(prof.id)
               const cnt = paidAppts.filter(a=>a.profId===prof.id).length
@@ -285,6 +286,7 @@ export function AppGrid({
             })}
           </tr>
           <tr style={{ borderTop:`1px dashed ${C.goldLight}` }}>
+            <td style={{ position:"sticky", left:0, zIndex:5, background:C.white, borderRight:`2px solid ${C.border}`, width:52 }} />
             {orderedProfessionals.map(prof => {
               const e = earningsByProf(prof.id)
               return (
