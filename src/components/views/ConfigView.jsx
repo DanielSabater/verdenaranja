@@ -1,18 +1,40 @@
 import { useState } from "react"
 import { C } from "../../constants/colors.js"
-import { CAT_OPTIONS, EMOJI_SUGGESTIONS } from "../../constants/data.js"
+import { CAT_OPTIONS as CAT_OPTIONS_DEFAULT, EMOJI_SUGGESTIONS } from "../../constants/data.js"
 import { GhostBtn, SolidBtn } from "../ui/index.jsx"
 
 // ─── Config View ──────────────────────────────────────────────────────────────
 
 export default function ConfigView({ config, setConfig, allData, gastos, sueldos, clientes }) {
   const [seccion, setSeccion] = useState("empresa");
-  const [emojiPicker, setEmojiPicker] = useState(null); // "empresa" | profId | svcId
+  const [emojiPicker,  setEmojiPicker]  = useState(null)
+  const [svcFilter,    setSvcFilter]    = useState({ cat:"all", search:"" })
+  const [newSvcModal,  setNewSvcModal]  = useState(false)
+  const [newSvc,       setNewSvc]       = useState({ name:"", duration:0, price:0, category:"manos", icon:"💅" }) // "empresa" | profId | svcId
 
   // Safety guard
   const profs    = config?.professionals || []
   const svcs     = config?.services     || []
 
+
+  // Dynamic categories — merge default + custom ones from config
+  const CAT_OPTIONS = [
+    ...CAT_OPTIONS_DEFAULT,
+    ...((config?.customCategories || []).map(cc => ({ id: cc.id, label: cc.label, icon: cc.icon }))),
+  ]
+
+  const addCustomCategory = () => {
+    const label = prompt("Nombre de la nueva categoría:")
+    if (!label?.trim()) return
+    const icon  = prompt("Ícono (emoji):") || "🌟"
+    const id    = "custom_" + Date.now()
+    setConfig(p => ({ ...p, customCategories: [...(p.customCategories||[]), { id, label: label.trim(), icon }] }))
+  }
+
+  const removeCustomCategory = (id) => {
+    if (!window.confirm("¿Eliminar esta categoría?")) return
+    setConfig(p => ({ ...p, customCategories: (p.customCategories||[]).filter(cc => cc.id !== id) }))
+  }
 
   const updateConfig  = (field, value) => setConfig(p => ({ ...p, [field]: value }));
 
@@ -33,9 +55,16 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
     setConfig(p => ({ ...p, services: p.services.map(s => s.id===id ? {...s,[field]:value} : s) }));
 
   const addSvc = () => {
-    const newId = Date.now();
-    setConfig(p => ({ ...p, services: [...p.services, { id:newId, name:"Nuevo servicio", duration:60, price:5000, category:"manos", icon:"💅" }] }));
-  };
+    setNewSvc({ name:"", duration:0, price:0, category:"manos", icon:"💅" })
+    setNewSvcModal(true)
+  }
+
+  const saveNewSvc = () => {
+    if (!newSvc.name.trim()) return
+    const newId = Date.now()
+    setConfig(p => ({ ...p, services: [...p.services, { id:newId, ...newSvc }] }))
+    setNewSvcModal(false)
+  }
 
   const removeSvc = (id) =>
     setConfig(p => ({ ...p, services: p.services.filter(s => s.id!==id) }));
@@ -165,6 +194,43 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
       {/* ── SERVICIOS ───────────────────────────────────────── */}
       {seccion === "servicios" && (
         <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+
+          {/* Add button + filters at the top */}
+          <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
+            <button onClick={addSvc} style={{
+              padding:"9px 18px", borderRadius:12,
+              border:`2px dashed ${C.greenMint}`, background:"transparent",
+              color:C.green, fontSize:12, cursor:"pointer", fontFamily:"Georgia,serif",
+              letterSpacing:"1px", flexShrink:0,
+            }}>＋ Agregar servicio</button>
+
+            <input
+              placeholder="🔍 Buscar..."
+              value={svcFilter.search}
+              onChange={e => setSvcFilter(p => ({...p, search: e.target.value}))}
+              style={{...cfgInput, flex:1, minWidth:120, fontSize:11}}
+            />
+
+            <select value={svcFilter.cat} onChange={e => setSvcFilter(p => ({...p, cat: e.target.value}))}
+              style={{...cfgInput, fontSize:11, padding:"6px 8px"}}>
+              <option value="all">Todas las categorías</option>
+              {CAT_OPTIONS.map(cat => <option key={cat.id} value={cat.id}>{cat.icon} {cat.label}</option>)}
+            </select>
+            <button onClick={addCustomCategory} style={{ padding:"8px 12px", borderRadius:10, border:`1.5px solid ${C.border}`, background:C.white, color:C.textSoft, fontSize:11, cursor:"pointer", fontFamily:"Georgia,serif", flexShrink:0 }}>＋ Categoría</button>
+          </div>
+
+          {/* Custom categories */}
+          {(config?.customCategories||[]).length > 0 && (
+            <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+              {(config?.customCategories||[]).map(cc => (
+                <div key={cc.id} style={{ display:"flex", alignItems:"center", gap:4, background:C.cream, border:`1px solid ${C.border}`, borderRadius:20, padding:"4px 10px" }}>
+                  <span style={{ fontSize:12 }}>{cc.icon} {cc.label}</span>
+                  <button onClick={() => removeCustomCategory(cc.id)} style={{ border:"none", background:"transparent", color:"#c04040", cursor:"pointer", fontSize:11, padding:0 }}>✕</button>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Column headers */}
           <div style={{ display:"grid", gridTemplateColumns:"44px minmax(100px,1fr) 80px 80px 90px 36px", gap:8, padding:"0 14px", alignItems:"center" }}>
             {["Ícono","Nombre","Duración","Precio","Categoría",""].map((h,i)=>(
@@ -172,7 +238,11 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
             ))}
           </div>
 
-          {svcs.map(svc => (
+          {svcs.filter(svc => {
+            const matchCat = svcFilter.cat === "all" || svc.category === svcFilter.cat
+            const matchSearch = !svcFilter.search || svc.name.toLowerCase().includes(svcFilter.search.toLowerCase())
+            return matchCat && matchSearch
+          }).map(svc => (
             <div key={svc.id} style={{
               background:C.white, border:`1px solid ${C.border}`, borderRadius:12, padding:"10px 14px",
               display:"grid", gridTemplateColumns:"44px 1fr 90px 90px 100px 36px", gap:8, alignItems:"center",
@@ -191,7 +261,7 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
 
               {/* Duration */}
               <div style={{ display:"flex", alignItems:"center", gap:3 }}>
-                <button onClick={()=>updateSvc(svc.id,"duration",Math.max(5,(svc.duration||0)-5))}
+                <button onClick={()=>updateSvc(svc.id,"duration",Math.max(0,(svc.duration||0)-5))}
                   style={{ width:24,height:32,borderRadius:"7px 0 0 7px",border:`1px solid ${C.border}`,background:C.cream,color:C.textSoft,fontSize:14,cursor:"pointer",lineHeight:1 }}>−</button>
                 <div style={{ ...cfgInput, width:"46px", textAlign:"center", borderRadius:0, borderLeft:"none", borderRight:"none", padding:"6px 4px", lineHeight:"20px" }}>
                   {svc.duration}
@@ -209,7 +279,7 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
                   value={Number(svc.price).toLocaleString("es-AR")}
                   onChange={e => {
                     const raw = e.target.value.replace(/\./g,"").replace(/[^\d]/g,"")
-                    updateSvc(svc.id,"price", parseInt(raw)||0)
+                    updateSvc(svc.id,"price", raw === "" ? 0 : parseInt(raw)||0)
                   }}
                   style={{...cfgInput, width:"80px", textAlign:"right"}}
                 />
@@ -222,7 +292,7 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
               </select>
 
               {/* Remove */}
-              <button onClick={()=>removeSvc(svc.id)} style={{
+              <button onClick={()=>{ if(window.confirm(`¿Eliminar "${svc.name}"?`)) removeSvc(svc.id) }} style={{
                 width:32,height:32,borderRadius:"50%",border:"none",
                 background:"#fde8e8",color:"#c04040",fontSize:12,cursor:"pointer",
               }}>✕</button>
@@ -236,12 +306,59 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
             </div>
           ))}
 
-          <button onClick={addSvc} style={{
-            width:"100%", padding:"12px", borderRadius:14,
-            border:`2px dashed ${C.greenMint}`, background:"transparent",
-            color:C.green, fontSize:12, cursor:"pointer", fontFamily:"Georgia,serif",
-            letterSpacing:"1px", transition:"all .15s",
-          }}>＋ Agregar servicio</button>
+          {/* New service modal */}
+          {newSvcModal && (
+            <div style={{ position:"fixed", inset:0, zIndex:400, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(0,0,0,.4)" }}>
+              <div style={{ background:C.white, borderRadius:20, padding:"24px 28px", width:"min(480px,calc(100vw-32px))", boxShadow:"0 20px 60px rgba(0,0,0,.2)" }}>
+                <div style={{ fontSize:14, fontWeight:"bold", color:C.green, marginBottom:18 }}>✨ Nuevo servicio</div>
+
+                <div style={{ marginBottom:12 }}>
+                  <div style={{ fontSize:8, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase", marginBottom:6 }}>Ícono</div>
+                  <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                    {["💅","🦶","🌸","✨","💆","💇","🧖","🪷","🌿","🫧"].map(e => (
+                      <button key={e} onClick={() => setNewSvc(p=>({...p,icon:e}))} style={{ width:36, height:36, borderRadius:10, border:`2px solid ${newSvc.icon===e?C.green:C.border}`, background:newSvc.icon===e?C.greenPale:"transparent", fontSize:18, cursor:"pointer" }}>{e}</button>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ marginBottom:12 }}>
+                  <div style={{ fontSize:8, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase", marginBottom:6 }}>Nombre</div>
+                  <input value={newSvc.name} onChange={e=>setNewSvc(p=>({...p,name:e.target.value}))} placeholder="Ej: Manicura clásica" style={{...cfgInput, width:"100%", boxSizing:"border-box"}} autoFocus />
+                </div>
+
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:12 }}>
+                  <div>
+                    <div style={{ fontSize:8, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase", marginBottom:6 }}>Duración (min)</div>
+                    <div style={{ display:"flex", alignItems:"center", gap:3 }}>
+                      <button onClick={()=>setNewSvc(p=>({...p,duration:Math.max(0,p.duration-5)}))} style={{ width:28,height:32,borderRadius:"7px 0 0 7px",border:`1px solid ${C.border}`,background:C.cream,color:C.textSoft,fontSize:14,cursor:"pointer" }}>−</button>
+                      <div style={{ ...cfgInput, width:50, textAlign:"center", borderRadius:0, borderLeft:"none", borderRight:"none", padding:"6px 4px" }}>{newSvc.duration}</div>
+                      <button onClick={()=>setNewSvc(p=>({...p,duration:p.duration+5}))} style={{ width:28,height:32,borderRadius:"0 7px 7px 0",border:`1px solid ${C.border}`,background:C.cream,color:C.textSoft,fontSize:14,cursor:"pointer" }}>+</button>
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize:8, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase", marginBottom:6 }}>Precio</div>
+                    <div style={{ display:"flex", alignItems:"center", gap:3 }}>
+                      <span style={{ fontSize:12, color:C.textSoft }}>$</span>
+                      <input type="text" value={newSvc.price===0?"":Number(newSvc.price).toLocaleString("es-AR")} onChange={e=>{const raw=e.target.value.replace(/\./g,"").replace(/[^\d]/g,"");setNewSvc(p=>({...p,price:raw===""?0:parseInt(raw)||0}))}} placeholder="0" style={{...cfgInput, width:90, textAlign:"right"}} />
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom:20 }}>
+                  <div style={{ fontSize:8, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase", marginBottom:6 }}>Categoría</div>
+                  <select value={newSvc.category} onChange={e=>setNewSvc(p=>({...p,category:e.target.value}))} style={{...cfgInput, width:"100%", boxSizing:"border-box"}}>
+                    {CAT_OPTIONS.map(cat => <option key={cat.id} value={cat.id}>{cat.icon} {cat.label}</option>)}
+                  </select>
+                </div>
+
+                <div style={{ display:"flex", gap:10 }}>
+                  <button onClick={()=>setNewSvcModal(false)} style={{ flex:1, padding:"10px", borderRadius:12, border:`1.5px solid ${C.border}`, background:C.white, color:C.textSoft, fontSize:12, cursor:"pointer", fontFamily:"Georgia,serif" }}>Cancelar</button>
+                  <button onClick={saveNewSvc} disabled={!newSvc.name.trim()} style={{ flex:2, padding:"10px", borderRadius:12, border:"none", background:newSvc.name.trim()?`linear-gradient(135deg,${C.green},${C.greenLight})`:"#e8e8e8", color:newSvc.name.trim()?"#fff":"#bbb", fontSize:12, cursor:newSvc.name.trim()?"pointer":"not-allowed", fontFamily:"Georgia,serif" }}>✅ Guardar servicio</button>
+                </div>
+              </div>
+            </div>
+          )}
+
         </div>
       )}
 
