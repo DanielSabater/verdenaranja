@@ -21,12 +21,26 @@ export function AppGrid({
   paidAppts, totalByProf, earningsByProf, comisionPct,
   onCellClick, onEdit, onPay, onDelete,
   CELL_H,
+  currentDate,
 }) {
   const [profPopup,  setProfPopup]  = useState(null)
   const [colOrder,   setColOrder]   = useState(() => { try { const v = localStorage.getItem("pv:colOrder"); return v ? JSON.parse(v) : null } catch { return null } })
   const [dragCol,    setDragCol]    = useState(null) // profId being dragged
   const [dragOver,   setDragOverCol] = useState(null) // profId being hovered
   const dragColRef = useRef(null)
+
+  // Check if an hour is outside a professional's schedule for the current date
+  const isOutsideSchedule = (prof, hour) => {
+    if (!prof.schedule) return false
+    const DAYS = ["Do","Lu","Ma","Mi","Ju","Vi","Sá"]
+    // currentDate format: "2026-05-03"
+    const d = currentDate ? new Date(currentDate + "T12:00:00") : new Date()
+    const dayName = DAYS[d.getDay()]
+    const daySchedule = prof.schedule?.[dayName]
+    if (!daySchedule) return false
+    if (!daySchedule.active) return true // doesn't work this day
+    return hour < daySchedule.from || hour >= daySchedule.to
+  }
 
   const orderedProfessionals = (() => {
     if (!colOrder) return professionals
@@ -147,9 +161,10 @@ export function AppGrid({
                 const isDragging = draggingKey === k
                 const isTarget   = dropTarget?.profId===prof.id && dropTarget?.hour===hour
 
-                let cellBg = ""
+                const offSchedule = !appt && isOutsideSchedule(prof, hour)
+                let cellBg = offSchedule ? "rgba(220,60,60,.07)" : ""
                 if (!appt && draggingKey) {
-                  cellBg = isTarget ? (dropValid ? C.dragOver : C.dragBad) : ""
+                  cellBg = isTarget ? (dropValid ? C.dragOver : C.dragBad) : (offSchedule ? "rgba(220,60,60,.07)" : "")
                 }
 
                 return (

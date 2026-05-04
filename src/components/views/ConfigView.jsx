@@ -10,7 +10,8 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
   const [emojiPicker,  setEmojiPicker]  = useState(null)
   const [svcFilter,    setSvcFilter]    = useState({ cat:"all", search:"" })
   const [newSvcModal,  setNewSvcModal]  = useState(false)
-  const [newSvc,       setNewSvc]       = useState({ name:"", duration:0, price:0, category:"manos", icon:"💅" }) // "empresa" | profId | svcId
+  const [newSvc,       setNewSvc]       = useState({ name:"", duration:0, price:0, category:"manos", icon:"💅" })
+  const [scheduleProf, setScheduleProf] = useState(null) // profId being edited // "empresa" | profId | svcId
 
   // Safety guard
   const profs    = config?.professionals || []
@@ -38,6 +39,20 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
 
   const updateConfig  = (field, value) => setConfig(p => ({ ...p, [field]: value }));
 
+  const DAYS = ["Lu","Ma","Mi","Ju","Vi","Sá","Do"]
+  const HOURS_LIST = Array.from({length:23}, (_,i) => { const h=Math.floor(i/2)+8; const m=i%2===0?"00":"30"; return `${String(h).padStart(2,"0")}:${m}` })
+
+  const getProfSchedule = (profId) => {
+    const prof = profs.find(p=>p.id===profId)
+    return prof?.schedule || { Lu:{active:true,from:"09:00",to:"19:00"}, Ma:{active:true,from:"09:00",to:"19:00"}, Mi:{active:true,from:"09:00",to:"19:00"}, Ju:{active:true,from:"09:00",to:"19:00"}, Vi:{active:true,from:"09:00",to:"19:00"}, Sá:{active:true,from:"09:00",to:"19:00"}, Do:{active:false,from:"09:00",to:"19:00"} }
+  }
+
+  const updateProfSchedule = (profId, day, field, value) => {
+    const sched = getProfSchedule(profId)
+    const next  = { ...sched, [day]: { ...sched[day], [field]: value } }
+    updateProf(profId, "schedule", next)
+  }
+
   // ── Professionals ────────────────────────────────────────────────────────
   const updateProf = (id, field, value) =>
     setConfig(p => ({ ...p, professionals: p.professionals.map(pr => pr.id===id ? {...pr,[field]:value} : pr) }));
@@ -47,8 +62,11 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
     setConfig(p => ({ ...p, professionals: [...p.professionals, { id:newId, name:"Nueva profesional", emoji:"🌸" }] }));
   };
 
-  const removeProf = (id) =>
-    setConfig(p => ({ ...p, professionals: p.professionals.filter(pr => pr.id!==id) }));
+  const removeProf = (id) => {
+    const prof = profs.find(p => p.id === id)
+    if (!window.confirm(`¿Eliminar a ${prof?.name || "esta profesional"}? Esta acción no se puede deshacer.`)) return
+    setConfig(p => ({ ...p, professionals: p.professionals.filter(pr => pr.id!==id) }))
+  }
 
   // ── Services ─────────────────────────────────────────────────────────────
   const updateSvc = (id, field, value) =>
@@ -179,6 +197,49 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
               {emojiPicker === prof.id && (
                 <EmojiPicker current={prof.emoji} onSelect={e=>{updateProf(prof.id,"emoji",e);setEmojiPicker(null);}} />
               )}
+
+              {/* Schedule toggle */}
+              <div style={{ marginTop:12, borderTop:`1px solid ${C.border}`, paddingTop:12 }}>
+                <button onClick={() => setScheduleProf(scheduleProf===prof.id ? null : prof.id)}
+                  style={{ fontSize:10, color:scheduleProf===prof.id?C.green:C.textSoft, background:"transparent", border:`1px solid ${scheduleProf===prof.id?C.green:C.border}`, borderRadius:8, padding:"5px 12px", cursor:"pointer", fontFamily:"Georgia,serif" }}>
+                  🕐 {scheduleProf===prof.id ? "Cerrar horario" : "Configurar horario"}
+                </button>
+
+                {scheduleProf === prof.id && (() => {
+                  const sched = getProfSchedule(prof.id)
+                  return (
+                    <div style={{ marginTop:12, display:"flex", flexDirection:"column", gap:8 }}>
+                      {DAYS.map(day => {
+                        const ds = sched[day] || { active:true, from:"09:00", to:"19:00" }
+                        return (
+                          <div key={day} style={{ display:"flex", alignItems:"center", gap:10, background:ds.active?C.cream:"#fdf0f0", borderRadius:10, padding:"8px 12px", border:`1px solid ${ds.active?C.border:"#f4b0b0"}` }}>
+                            <div style={{ width:24, textAlign:"center", fontSize:10, fontWeight:"bold", color:ds.active?C.green:"#c04040" }}>{day}</div>
+                            <button onClick={() => updateProfSchedule(prof.id, day, "active", !ds.active)}
+                              style={{ width:36, height:20, borderRadius:10, border:"none", background:ds.active?C.green:"#ddd", cursor:"pointer", position:"relative", flexShrink:0, transition:"background .2s" }}>
+                              <div style={{ width:16, height:16, borderRadius:"50%", background:"#fff", position:"absolute", top:2, transition:"left .2s", left:ds.active?"18px":"2px" }}/>
+                            </button>
+                            {ds.active ? (
+                              <>
+                                <select value={ds.from} onChange={e=>updateProfSchedule(prof.id,day,"from",e.target.value)}
+                                  style={{ ...cfgInput, padding:"4px 6px", fontSize:11, flex:1 }}>
+                                  {HOURS_LIST.map(h=><option key={h} value={h}>{h}</option>)}
+                                </select>
+                                <span style={{ fontSize:10, color:C.textSoft }}>a</span>
+                                <select value={ds.to} onChange={e=>updateProfSchedule(prof.id,day,"to",e.target.value)}
+                                  style={{ ...cfgInput, padding:"4px 6px", fontSize:11, flex:1 }}>
+                                  {HOURS_LIST.map(h=><option key={h} value={h}>{h}</option>)}
+                                </select>
+                              </>
+                            ) : (
+                              <span style={{ fontSize:10, color:"#c04040", fontStyle:"italic" }}>No trabaja</span>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )
+                })()}
+              </div>
             </SectionCard>
           ))}
 
