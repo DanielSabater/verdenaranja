@@ -14,7 +14,7 @@ import ConfigView from "./components/views/ConfigView.jsx"
 import ClientesView from "./components/views/ClientesView.jsx"
 import Login from "./components/Login.jsx"
 
-const CELL_H = 50
+const CELL_H = 100
 
 export default function App() {
   const isMobile = useIsMobile()
@@ -308,7 +308,6 @@ export default function App() {
             onPay={(key) => { const a = appointments[key]; if (a?.paymentSplits?.length) setPaymentSplits(a.paymentSplits.map(s => ({ ...s }))); else setPaymentSplits([{ methodId: "efectivo", amount: apptTotal(a) + (a.tip || 0) }]); setApptTip(a.tip || ""); setPayModal(key) }}
             onDelete={(key) => setDeleteKey(key)}
             CELL_H={CELL_H}
-            currentDate={currentDate}
           />
           </div>
         </div>

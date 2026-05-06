@@ -135,8 +135,8 @@ export function AppGrid({
         </thead>
         <tbody>
           {HOURS.map((hour, hIdx) => (
-            <tr key={hour} style={{ background: hIdx%2===0?C.white:C.cream }}>
-                <td style={{ padding:"0 4px", textAlign:"center", height:50, verticalAlign:"middle", position:"sticky", left:0, zIndex:5, background: hIdx%2===0?C.white:C.cream, borderRight:`2px solid ${C.border}`, width:52, minWidth:52, whiteSpace:"nowrap" }}>
+            <tr key={hour} style={{ background: hIdx%2===0?C.white:C.cream, height:100 }}>
+                <td style={{ padding:"0 4px", textAlign:"center", height:50, verticalAlign:"middle", position:"sticky", left:0, zIndex:5, background: hIdx%2===0?C.white:C.cream, borderRight:`2px solid ${C.border}`, width:52, minWidth:52, whiteSpace:"nowrap", height:100, verticalAlign:"middle" }}>
                   <span style={{ fontSize: hour.endsWith(":00")?11:9, color: hour.endsWith(":00")?C.green:C.textSoft, fontWeight: hour.endsWith(":00")?"bold":"normal" }}>{hour}</span>
                 </td>
               {orderedProfessionals.map(prof => {
@@ -171,7 +171,7 @@ export function AppGrid({
                   <td key={prof.id} rowSpan={liveResizeSpan || span || 1}
                     style={{
                       padding:3,
-                      height: appt ? `${(liveResizeSpan||span||1)*50}px` : 50,
+                      height: appt ? `${(liveResizeSpan||span||1)*100}px` : 100,
                       verticalAlign:"middle",
                       border:`1px solid ${C.border}`,
                       background: cellBg,
