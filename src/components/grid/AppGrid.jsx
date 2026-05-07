@@ -200,6 +200,7 @@ export function AppGrid({
                           onDragStart={e => { if(resizePreview){e.preventDefault();return;} onDragStart(e, k) }}
                           onDragEnd={onDragEnd}
                           onDoubleClick={e => { if(!resizePreview) { e.stopPropagation(); onEdit(k, appointments[k]); }}}
+                          className={`appt-card${appt.paid?" paid":" unpaid"}`}
                           style={{
                             height:"100%", borderRadius:9,
                             background: appt.paid
