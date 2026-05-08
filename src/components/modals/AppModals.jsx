@@ -111,6 +111,12 @@ export function AppModals({
                   style={{ ...inputStyle, paddingRight: isNewCliente ? 100 : 12 }}
                   onFocus={() => setShowSug(true)}
                   onBlur={() => setTimeout(() => setShowSug(false), 150)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      document.getElementById('search-services-input')?.focus();
+                    }
+                  }}
                 />
                 {isNewCliente && (
                   <button
@@ -174,6 +180,7 @@ export function AppModals({
 
             <Field label="Agregar servicio" style={{ marginBottom: 8 }}>
               <input
+                id="search-services-input"
                 type="text"
                 placeholder="Buscar servicios..."
                 value={searchTerm}
