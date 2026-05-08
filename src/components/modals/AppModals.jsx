@@ -100,8 +100,13 @@ export function AppModals({
             <Field label="Nombre del cliente">
               <div style={{ position:"relative" }}>
                 <input
+                  autoFocus
                   value={clientName}
-                  onChange={e => { setClientName(e.target.value); setShowSug(true) }}
+                  onChange={e => {
+                    const capitalizeName = (str) => str.split(' ').map(word => word ? word.charAt(0).toUpperCase() + word.slice(1) : '').join(' ')
+                    setClientName(capitalizeName(e.target.value))
+                    setShowSug(true)
+                  }}
                   placeholder="Ej: María González"
                   style={{ ...inputStyle, paddingRight: isNewCliente ? 100 : 12 }}
                   onFocus={() => setShowSug(true)}
