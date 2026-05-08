@@ -87,8 +87,8 @@ export function AppModals({
       {/* ── MODAL NUEVO / EDITAR ── */}
       {modal && (
         <Overlay onClose={() => setModal(null)}>
-          <div className="modal-sheet" style={{ ...modalBox, display:"flex", flexDirection:"column", padding:"24px", overflow:"hidden" }}>
-            <div style={{ flex: 1, minHeight: 0, overflowY: "visible", display: "flex", justifyContent: "center" }}>
+          <div className="modal-sheet" style={{ ...modalBox, display:"flex", flexDirection:"column", padding:"24px", overflow:"hidden", height: 680 }}>
+            <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", justifyContent: "center", paddingRight: 4 }}>
             <div style={{ width: "100%", maxWidth: 460 }}>
               <ModalHeader
                 emoji={modal.editKey ? "✏️" : "🌿"}
