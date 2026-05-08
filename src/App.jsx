@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from "react"
 import { C } from "./constants/colors.js"
 import { PAYMENT_METHODS, HOURS } from "./constants/data.js"
-import { cellKey, apptTotal, apptDur } from "./utils/appointments.js"
+import { cellKey, apptTotal, apptDur, apptPaidTotal } from "./utils/appointments.js"
 import { toDateKey, todayKey, isWorkDay } from "./utils/dates.js"
 import { useIsMobile } from "./hooks/useIsMobile.js"
 import { usePersistentState } from "./hooks/usePersistentState.js"
@@ -74,6 +74,7 @@ export default function App() {
   const [filterCat,      setFilterCat]      = useState("all")
   const [apptNotes,      setApptNotes]      = useState("")
   const [apptTip,        setApptTip]        = useState("")
+  const [apptDiscount,   setApptDiscount]   = useState("")
   const [paymentSplits,  setPaymentSplits]  = useState([])
   const [searchTerm,     setSearchTerm]     = useState("")
 
@@ -101,16 +102,16 @@ export default function App() {
     () => Object.values(appointments).filter(a => a.paid),
     [appointments]
   )
-  const totalByProf    = useCallback((pId) => paidAppts.filter(a => a.profId === pId).reduce((s, a) => s + apptTotal(a), 0), [paidAppts])
+  const totalByProf    = useCallback((pId) => paidAppts.filter(a => a.profId === pId).reduce((s, a) => s + apptPaidTotal(a), 0), [paidAppts])
   const earningsByProf = useCallback((pId) => totalByProf(pId) * (comisionPct / 100), [totalByProf, comisionPct])
   const totalByMethod  = useCallback((mid) => paidAppts.reduce((s, a) => {
     if (a.paymentSplits?.length) {
       const split = a.paymentSplits.find(r => r.methodId === mid)
       return s + (split ? parseFloat(split.amount) || 0 : 0)
     }
-    return s + (a.payMethod === mid ? apptTotal(a) : 0)
+    return s + (a.payMethod === mid ? apptPaidTotal(a) : 0)
   }, 0), [paidAppts])
-  const grandTotal    = useMemo(() => paidAppts.reduce((s, a) => s + apptTotal(a), 0), [paidAppts])
+  const grandTotal    = useMemo(() => paidAppts.reduce((s, a) => s + apptPaidTotal(a), 0), [paidAppts])
   const grandEarnings = useMemo(() => professionals.reduce((s, p) => s + earningsByProf(p.id), 0), [professionals, earningsByProf])
 
   const filteredServices = services.filter(s => (filterCat === "all" || s.category === filterCat) && s.name.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -243,12 +244,11 @@ export default function App() {
   }
 
   const confirmPay = () => {
-    const total   = apptTotal(appointments[payModal])
     const tipAmount = parseFloat(apptTip) || 0
-    const totalWithTip = total + tipAmount
-    const sumPaid = paymentSplits.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0)
-    if (Math.abs(sumPaid - totalWithTip) > 1 || paymentSplits.some(r => !r.methodId || !(parseFloat(r.amount) > 0))) return
-    setAppointments(p => ({ ...p, [payModal]: { ...p[payModal], paid: true, payMethod: paymentSplits[0].methodId, paymentSplits, tip: tipAmount } }))
+    const discountAmount = parseFloat(apptDiscount) || 0
+    const validSplits = paymentSplits.filter(r => r.methodId && parseFloat(r.amount) > 0)
+    if (validSplits.length === 0) return
+    setAppointments(p => ({ ...p, [payModal]: { ...p[payModal], paid: true, payMethod: validSplits[0].methodId, paymentSplits: validSplits, tip: tipAmount, discount: discountAmount } }))
     setPayModal(null)
   }
 
@@ -305,7 +305,7 @@ export default function App() {
             paidAppts={paidAppts} totalByProf={totalByProf} earningsByProf={earningsByProf} comisionPct={comisionPct}
             onCellClick={(profId, hour) => { setModal({ profId, hour, editKey: null }); setChosenServices([]); setClientName(""); setFilterCat("all"); setApptNotes(""); setApptTip("") }}
             onEdit={(key, appt) => { setModal({ profId: appt.profId, hour: appt.hour, editKey: key }); setChosenServices([...(appt.services||[])]); setClientName(appt.client); setFilterCat("all"); setApptNotes(appt.notes || ""); setApptTip(appt.tip || "") }}
-            onPay={(key) => { const a = appointments[key]; if (a?.paymentSplits?.length) setPaymentSplits(a.paymentSplits.map(s => ({ ...s }))); else setPaymentSplits([{ methodId: "efectivo", amount: apptTotal(a) + (a.tip || 0) }]); setApptTip(a.tip || ""); setPayModal(key) }}
+            onPay={(key) => { const a = appointments[key]; if (a?.paymentSplits?.length) setPaymentSplits(a.paymentSplits.map(s => ({ ...s }))); else setPaymentSplits([{ methodId: "efectivo", amount: Math.max(0, apptTotal(a) + (a.tip || 0) - (a.discount || 0)) }]); setApptTip(a.tip || ""); setApptDiscount(a.discount || ""); setPayModal(key) }}
             onDelete={(key) => setDeleteKey(key)}
             CELL_H={CELL_H}
           />
@@ -341,6 +341,7 @@ export default function App() {
         clientName={clientName} setClientName={setClientName}
         apptNotes={apptNotes} setApptNotes={setApptNotes}
         apptTip={apptTip} setApptTip={setApptTip}
+        apptDiscount={apptDiscount} setApptDiscount={setApptDiscount}
         clientes={clientes} setClientes={setClientes}
         chosenServices={chosenServices} setChosenServices={setChosenServices}
         filterCat={filterCat} setFilterCat={setFilterCat}

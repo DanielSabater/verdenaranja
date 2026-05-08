@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react"
 import { C } from "../../constants/colors.js"
 import { PAYMENT_METHODS, GASTO_CATS } from "../../constants/data.js"
-import { fmt, apptTotal } from "../../utils/appointments.js"
+import { fmt, apptTotal, apptPaidTotal } from "../../utils/appointments.js"
 import { fmtDate, todayKey, toDateKey, MESES_ES } from "../../utils/dates.js"
 import { Overlay, ModalHeader, Field, GhostBtn, SolidBtn, inputStyle, modalBox } from "../ui/index.jsx"
 
@@ -42,9 +42,9 @@ export default function ContabilidadView({
   const inRange = (k) => k >= rangeFrom && k <= rangeTo
 
   // ── calculations ───────────────────────────────────────────────────────────
-  const { totalIncome, incomeByProf, incomeByMethod, totalTurns } = useMemo(() => {
-    const byProf = {}, byMethod = {}
-    safeProfessionals.forEach(p => { byProf[p.id] = 0 })
+  const { totalIncome, incomeByProf, incomeByMethod, totalTurns, turnsByProf } = useMemo(() => {
+    const byProf = {}, byMethod = {}, turnsByProf = {}
+    safeProfessionals.forEach(p => { byProf[p.id] = 0; turnsByProf[p.id] = 0 })
     let total = 0
     let turns = 0
     Object.entries(safeAllData).forEach(([dk, dayData]) => {
@@ -52,10 +52,11 @@ export default function ContabilidadView({
       const safeDayData = dayData || {}
       Object.values(safeDayData).forEach(appt => {
         if (!appt?.paid) return
-        const t = apptTotal(appt)
+        const t = apptPaidTotal(appt)
         total += t
         turns += 1
         byProf[appt.profId] = (byProf[appt.profId] || 0) + t
+        turnsByProf[appt.profId] = (turnsByProf[appt.profId] || 0) + 1
         if (appt.paymentSplits?.length) {
           appt.paymentSplits.forEach(s => { byMethod[s.methodId] = (byMethod[s.methodId]||0) + (parseFloat(s.amount)||0) })
         } else if (appt.payMethod) {
@@ -63,7 +64,7 @@ export default function ContabilidadView({
         }
       })
     })
-    return { totalIncome: total, incomeByProf: byProf, incomeByMethod: byMethod, totalTurns: turns }
+    return { totalIncome: total, incomeByProf: byProf, turnsByProf, incomeByMethod: byMethod, totalTurns: turns }
   }, [safeAllData, safeProfessionals, rangeFrom, rangeTo])
 
   const gastosRange  = safeGastos.filter(g => inRange(g.fecha))
@@ -89,7 +90,7 @@ export default function ContabilidadView({
   const dailyData = useMemo(() => {
     return chartRange.map(({ k, label }) => {
       const dayData = safeAllData[k] || {}
-      const income = Object.values(dayData).filter(a => a?.paid).reduce((s, a) => s + apptTotal(a), 0)
+      const income = Object.values(dayData).filter(a => a?.paid).reduce((s, a) => s + apptPaidTotal(a), 0)
       return { k, label, income }
     })
   }, [chartRange, safeAllData])
@@ -100,7 +101,7 @@ export default function ContabilidadView({
     return safeProfessionals.map((prof) => ({
       ...prof,
       values: chartRange.map(({ k }) =>
-        Object.values(safeAllData[k] || {}).filter(a => a?.paid && a.profId === prof.id).length
+        Object.values(safeAllData[k] || {}).filter(a => a?.paid && a.profId === prof.id).reduce((s, a) => s + apptPaidTotal(a), 0)
       ),
     }))
   }, [safeProfessionals, safeAllData, chartRange])
@@ -109,13 +110,9 @@ export default function ContabilidadView({
   const chartWidth = Math.max(320, chartRange.length * 24 + 48)
   const chartInnerWidth = chartWidth - 48
   const labelEvery = Math.max(1, Math.ceil(chartRange.length / 12))
-  const workCountByProf = turnosChart.reduce((acc, prof) => ({
-    ...acc,
-    [prof.id]: prof.values.reduce((sum, value) => sum + value, 0),
-  }), {})
   const topWorker = safeProfessionals.reduce((winner, prof) => {
     if (!winner) return prof
-    return (workCountByProf[prof.id] || 0) > (workCountByProf[winner.id] || 0) ? prof : winner
+    return (incomeByProf[prof.id] || 0) > (incomeByProf[winner.id] || 0) ? prof : winner
   }, safeProfessionals[0] || null)
   const busiestDay = chartRange.reduce((best, current) => {
     const count = Object.values(safeAllData[current.k] || {}).filter(a => a?.paid).length
@@ -136,7 +133,7 @@ export default function ContabilidadView({
       const safeDayData = dayData || {}
       Object.values(safeDayData).forEach(appt => {
         if (appt?.paid && appt.profId === profId) {
-          facturado += apptTotal(appt)
+          facturado += apptPaidTotal(appt)
           propinas  += appt.tip || 0
           turnos++
           diasSet.add(dk)
@@ -223,7 +220,7 @@ export default function ContabilidadView({
                     <div style={{ width:48, height:48, borderRadius:18, background:`linear-gradient(135deg,${C.greenPale},${C.greenMint})`, display:"grid", placeItems:"center", fontSize:24 }}>{topWorker.emoji}</div>
                     <div>
                       <div style={{ fontSize:15, fontWeight:"bold", color:C.text }}>{topWorker.name}</div>
-                      <div style={{ fontSize:12, color:C.textSoft, marginTop:6 }}>{workCountByProf[topWorker.id] || 0} turnos en este período</div>
+                      <div style={{ fontSize:12, color:C.textSoft, marginTop:6 }}>{turnsByProf[topWorker.id] || 0} turnos pagados en este período</div>
                       <div style={{ fontSize:12, color:C.textSoft }}>{fmt(incomeByProf[topWorker.id] || 0)} facturados</div>
                     </div>
                   </div>
@@ -246,7 +243,7 @@ export default function ContabilidadView({
 
             <div style={{ background:C.white, borderRadius:16, padding:"20px 22px", border:`1px solid ${C.border}` }}>
               <div style={{ fontSize:9, letterSpacing:"3px", color:C.textSoft, textTransform:"uppercase", marginBottom:16 }}>
-                Turnos por profesional {contPeriod === "dia" ? "(Hoy)" : contPeriod === "semana" ? "(Semana)" : contPeriod === "mes" ? "(Mes)" : contPeriod === "custom" ? "(Período)" : "(Todo)"}
+                Ingresos por profesional {contPeriod === "dia" ? "(Hoy)" : contPeriod === "semana" ? "(Semana)" : contPeriod === "mes" ? "(Mes)" : contPeriod === "custom" ? "(Período)" : "(Todo)"}
               </div>
               <div style={{ width:"100%", display:"flex", justifyContent:"center" }}>
                 <svg viewBox={`0 0 ${chartWidth} 180`} style={{ width:"100%", maxWidth:"100%", height:180, display:"block", margin:"0 auto" }}>

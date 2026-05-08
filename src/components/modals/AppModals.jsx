@@ -358,7 +358,7 @@ export function AppModals({
 
               <div style={{ display: "flex", gap: 8 }}>
                 <GhostBtn onClick={() => setPayModal(null)}>Cancelar</GhostBtn>
-                <SolidBtn onClick={() => { playPaySound(); confirmPay() }} disabled={!balanced} color={appt.paid ? C.green : C.orange}>
+                <SolidBtn onClick={() => { playPaySound(); confirmPay() }} color={appt.paid ? C.green : C.orange}>
                   {appt.paid ? "✏️ Actualizar pago" : "💰 Confirmar pago"}
                 </SolidBtn>
               </div>

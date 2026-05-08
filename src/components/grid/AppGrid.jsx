@@ -1,7 +1,7 @@
 import { useState, useRef } from "react"
 import { C } from "../../constants/colors.js"
 import { PAYMENT_METHODS, HOURS } from "../../constants/data.js"
-import { fmt, cellKey, apptTotal, apptDur } from "../../utils/appointments.js"
+import { fmt, cellKey, apptTotal, apptDur, apptPaidTotal } from "../../utils/appointments.js"
 import { Overlay, ModalHeader, GhostBtn, modalBox } from "../ui/index.jsx"
 
 const smallBtn = (color) => ({
@@ -73,17 +73,35 @@ export function AppGrid({
   }
   const onColDragEnd = () => { setDragCol(null); setDragOverCol(null); dragColRef.current = null }
 
+  const currentTurnKeys = (() => {
+    const keys = new Set()
+    orderedProfessionals.forEach(p => {
+      const pAppts = Object.values(appointments).filter(a => a.profId === p.id)
+      // Ordenamos de arriba hacia abajo (temprano a tarde)
+      pAppts.sort((a, b) => (a.hour || "").localeCompare(b.hour || ""))
+      
+      for (let i = 1; i < pAppts.length; i++) {
+        // El turno actual no está pago, pero el anterior sí
+        if (!pAppts[i].paid && pAppts[i - 1].paid) {
+          keys.add(cellKey(p.id, pAppts[i].hour))
+          break // Solo el primero que cumpla esta condición de arriba hacia abajo
+        }
+      }
+    })
+    return keys
+  })()
+
   const getProfSummary = (profId) => {
     const appts = Object.values(appointments).filter(a => a.profId === profId)
     const paid  = appts.filter(a => a.paid)
-    const total = paid.reduce((s,a) => s + apptTotal(a), 0)
+    const total = paid.reduce((s,a) => s + apptPaidTotal(a), 0)
     const tips  = paid.reduce((s,a) => s + (a.tip||0), 0)
     const byMethod = {}
     paid.forEach(a => {
       if (a.paymentSplits?.length) {
         a.paymentSplits.forEach(sp => { byMethod[sp.methodId] = (byMethod[sp.methodId]||0) + (parseFloat(sp.amount)||0) })
       } else if (a.payMethod) {
-        byMethod[a.payMethod] = (byMethod[a.payMethod]||0) + apptTotal(a)
+        byMethod[a.payMethod] = (byMethod[a.payMethod]||0) + apptPaidTotal(a)
       }
     })
     return { appts, paid, total, tips, byMethod }
@@ -188,6 +206,7 @@ export function AppGrid({
                   >
                     {appt ? (() => {
                       const isResizing  = resizePreview?.key === k
+                      const isCurrentTurn = currentTurnKeys.has(k)
                       const liveSlots   = isResizing ? resizePreview.slots   : (span || 1)
                       const liveHourIdx = isResizing ? resizePreview.hourIdx : HOURS.indexOf(appt.hour)
                       const liveEndIdx  = liveHourIdx + liveSlots
@@ -200,7 +219,7 @@ export function AppGrid({
                           onDragStart={e => { if(resizePreview){e.preventDefault();return;} onDragStart(e, k) }}
                           onDragEnd={onDragEnd}
                           onDoubleClick={e => { if(!resizePreview) { e.stopPropagation(); onEdit(k, appointments[k]); }}}
-                          className={`appt-card${appt.paid?" paid":" unpaid"}`}
+                          className={`appt-card${appt.paid?" paid":" unpaid"}${isCurrentTurn && !isDragging && !isResizing ? " current" : ""}`}
                           style={{
                             height:"100%", borderRadius:9,
                             background: appt.paid
@@ -208,7 +227,9 @@ export function AppGrid({
                               : `linear-gradient(135deg,${C.orangePale},#fde8d4)`,
                             border: isResizing
                               ? `2px dashed ${C.green}`
-                              : `1.5px solid ${appt.paid?C.greenLight:C.orangeLight}`,
+                              : isCurrentTurn && !isDragging
+                                ? `1.5px solid #4a90e2`
+                                : `1.5px solid ${appt.paid?C.greenLight:C.orangeLight}`,
                             padding:"6px 7px 6px",
                             display:"flex", flexDirection:"column",
                             boxShadow: isDragging
@@ -243,7 +264,7 @@ export function AppGrid({
                               <span style={{ color: isResizing ? C.green : C.textSoft, fontWeight: isResizing ? "bold" : "normal", transition:"color .15s" }}>
                                 {isResizing ? `${liveHour} – ${liveEndHour}` : `${apptDur(appt)} min`}
                               </span>
-                              {" · "}<span style={{ color:C.orange, fontWeight:"bold" }}>{fmt(apptTotal(appt))}</span>
+                              {" · "}<span style={{ color:C.orange, fontWeight:"bold" }}>{fmt(appt.paid ? apptPaidTotal(appt) : apptTotal(appt))}</span>
                             </div>
                             {appt.createdAt && (
                               <div style={{ fontSize:8, color:C.textSoft, marginTop:1, opacity:.7 }}>🕐 Tomado a las {appt.createdAt}</div>
@@ -366,7 +387,7 @@ export function AppGrid({
                         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "baseline", marginBottom: 6 }}>
                           <div style={{ fontSize: 12, fontWeight: "bold", color: C.text }}>{a.hour} · {a.client}</div>
                           <div style={{ fontSize: 11, color: a.paid ? C.green : C.orange, fontWeight: "bold" }}>
-                            {a.paid ? fmt(apptTotal(a)) : "⏳ Pendiente"}
+                            {a.paid ? fmt(apptPaidTotal(a)) : "⏳ Pendiente"}
                           </div>
                         </div>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>

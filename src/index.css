@@ -140,3 +140,15 @@ select { appearance: auto; }
 .appt-card.unpaid:hover {
   box-shadow: 0 0 0 2px #e8793a, 0 4px 20px rgba(232,121,58,.35), 0 0 24px rgba(232,121,58,.20) !important;
 }
+
+@keyframes currentTurnPulse {
+  0% { box-shadow: 0 0 0 2px #4a90e2, 0 4px 12px rgba(74, 144, 226, 0.3); }
+  50% { box-shadow: 0 0 0 2px #4a90e2, 0 4px 20px rgba(74, 144, 226, 0.6), 0 0 16px rgba(74, 144, 226, 0.4); }
+  100% { box-shadow: 0 0 0 2px #4a90e2, 0 4px 12px rgba(74, 144, 226, 0.3); }
+}
+.appt-card.current:not(:hover) {
+  animation: currentTurnPulse 2.5s infinite ease-in-out;
+}
+.appt-card.current:hover {
+  box-shadow: 0 0 0 2px #4a90e2, 0 6px 24px rgba(74, 144, 226, 0.6), 0 0 24px rgba(74, 144, 226, 0.4) !important;
+}
