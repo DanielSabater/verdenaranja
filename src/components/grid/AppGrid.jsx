@@ -124,7 +124,7 @@ export function AppGrid({
       <table style={{ borderCollapse:"collapse", tableLayout:"fixed", width:"100%", minWidth: isMobile ? `${professionals.length*80}px` : `${professionals.length*140}px` }}>
         <thead>
           <tr>
-            <th style={{ padding:"6px 4px", borderBottom:`2px solid ${C.border}`, width:52, minWidth:52, position:"sticky", top:0, left:0, zIndex:101, background:C.white, borderRight:`2px solid ${C.border}` }}>
+            <th style={{ padding:"6px 4px", borderBottom:`2px solid ${C.border}`, width:52, minWidth:52, position:"sticky", top:0, left:0, zIndex:101, background:"rgba(255,255,255,0.65)", backdropFilter:"blur(20px)", WebkitBackdropFilter:"blur(20px)", borderRight:`2px solid ${C.border}` }}>
               <div style={{ fontSize:7, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase", textAlign:"center" }}>Hora</div>
             </th>
             {orderedProfessionals.map(p => (
@@ -134,7 +134,7 @@ export function AppGrid({
                 onDragOver={e => onColDragOver(e, p.id)}
                 onDrop={e => onColDrop(e, p.id)}
                 onDragEnd={onColDragEnd}
-                style={{ padding: isMobile?"6px 2px":"10px 5px", borderBottom:`2px solid ${C.border}`, width:`${100/professionals.length}%`, minWidth: isMobile?80:140, position:"sticky", top:0, zIndex:100, background:C.white, transition:"all .2s", opacity: dragCol===p.id ? 0.4 : 1, borderLeft: dragOver===p.id ? `3px solid ${C.green}` : "none", cursor:"grab" }}>
+                style={{ padding: isMobile?"6px 2px":"10px 5px", borderBottom:`2px solid ${C.border}`, width:`${100/professionals.length}%`, minWidth: isMobile?80:140, position:"sticky", top:0, zIndex:100, background:"rgba(255,255,255,0.65)", backdropFilter:"blur(20px)", WebkitBackdropFilter:"blur(20px)", transition:"all .2s", opacity: dragCol===p.id ? 0.4 : 1, borderLeft: dragOver===p.id ? `3px solid ${C.green}` : "none", cursor:"grab" }}>
                 <div onClick={() => setProfPopup(profPopup===p.id ? null : p.id)}
                   style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:3, cursor:"pointer" }}>
                   <div style={{
