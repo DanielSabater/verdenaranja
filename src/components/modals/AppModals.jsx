@@ -54,6 +54,7 @@ export function AppModals({
   allData,
 }) {
   const [showSug, setShowSug] = useState(false)
+  const [serviceHighlightIdx, setServiceHighlightIdx] = useState(0)
 
   // Calculate top 5 most used services across all appointments
   const favoriteServices = (() => {
@@ -184,12 +185,29 @@ export function AppModals({
                 type="text"
                 placeholder="Buscar servicios..."
                 value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
+                onChange={e => { setSearchTerm(e.target.value); setServiceHighlightIdx(0); }}
+                onKeyDown={e => {
+                  const list = filterCat === "favoritos" ? favoriteServices : filteredServices;
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    if (list[serviceHighlightIdx]) {
+                      toggleService(list[serviceHighlightIdx]);
+                      setSearchTerm("");
+                      setServiceHighlightIdx(0);
+                    }
+                  } else if (e.key === "ArrowDown" || (e.key === "Tab" && !e.shiftKey)) {
+                    e.preventDefault();
+                    setServiceHighlightIdx(prev => (prev + 1) % list.length);
+                  } else if (e.key === "ArrowUp" || (e.key === "Tab" && e.shiftKey)) {
+                    e.preventDefault();
+                    setServiceHighlightIdx(prev => (prev - 1 + list.length) % list.length);
+                  }
+                }}
                 style={{ ...inputStyle, marginBottom: 8 }}
               />
               <div style={{ display: "flex", gap: 5, marginBottom: 8, flexWrap: "wrap" }}>
                 {["favoritos", "all", "manos", "pies", "combo"].map(cat => (
-                  <button key={cat} onClick={() => setFilterCat(cat)} style={{
+                  <button key={cat} onClick={() => { setFilterCat(cat); setServiceHighlightIdx(0); }} style={{
                     padding: "4px 9px", borderRadius: 20, cursor: "pointer",
                     border: `1.5px solid ${filterCat === cat ? C.green : C.border}`,
                     background: filterCat === cat ? C.greenPale : C.white,
@@ -202,15 +220,16 @@ export function AppModals({
                 ))}
               </div>
               <div className="service-scroll" style={{ width: "100%", display: "flex", flexDirection: "column", gap: 5, maxHeight: 240, overflowY: "auto", paddingRight: 3 }}>
-                {(filterCat === "favoritos" ? favoriteServices : filteredServices).map(s => {
+                {(filterCat === "favoritos" ? favoriteServices : filteredServices).map((s, idx) => {
                   const isChosen = chosenServices.some(x => x.id === s.id)
+                  const isFirstMatch = idx === serviceHighlightIdx
                   return (
-                    <div key={s.id} onClick={() => toggleService(s)} style={{
+                    <div key={s.id} onClick={() => { toggleService(s); setSearchTerm(""); document.getElementById("search-services-input")?.focus(); }} style={{
                       width: "100%",
                       display: "flex", justifyContent: "space-between", alignItems: "center",
                       padding: "8px 11px", borderRadius: 10, cursor: "pointer",
-                      border: `1.5px solid ${isChosen ? C.green : C.border}`,
-                      background: isChosen ? C.greenPale : C.white, transition: "all .15s",
+                      border: `1.5px solid ${isFirstMatch ? "#4a90e2" : (isChosen ? C.green : C.border)}`,
+                      background: isFirstMatch ? "#eef6ff" : (isChosen ? C.greenPale : C.white), transition: "all .15s",
                     }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
                         <span style={{ fontSize: 15 }}>{isChosen ? "✅" : "⬜"}</span>
