@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react"
 import { C } from '../../constants/colors.js'
 
 export function Overlay({ children, onClose }) {
@@ -86,4 +87,44 @@ export const modalBox = {
   maxHeight: "92vh", overflowY: "auto",
   boxShadow: "0 24px 80px rgba(20,60,30,.16)",
   border: `1px solid ${C.border}`,
+}
+
+export function AnimatedNumber({ value, formatFn = (x) => x, duration = 1500 }) {
+  const [displayValue, setDisplayValue] = useState(value)
+
+  useEffect(() => {
+    // Si la diferencia es muy pequeña, no animamos para ahorrar recursos
+    if (Math.abs(value - displayValue) < 0.5) {
+      setDisplayValue(value)
+      return
+    }
+
+    let startValue = displayValue
+    let startTime = null
+
+    // Easing: starts slow, accelerates, and slows down at the end (easeInOutCubic)
+    const easeInOutCubic = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
+
+    const animate = (timestamp) => {
+      if (!startTime) startTime = timestamp
+      const progress = timestamp - startTime
+      const t = Math.min(progress / duration, 1)
+      
+      const easedT = easeInOutCubic(t)
+      const currentVal = startValue + (value - startValue) * easedT
+      
+      setDisplayValue(currentVal)
+
+      if (t < 1) {
+        requestAnimationFrame(animate)
+      } else {
+        setDisplayValue(value)
+      }
+    }
+
+    const frameId = requestAnimationFrame(animate)
+    return () => cancelAnimationFrame(frameId)
+  }, [value, duration]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  return <>{formatFn(displayValue)}</>
 }

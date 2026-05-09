@@ -2,6 +2,7 @@ import { memo, useState } from "react"
 import { C } from "../../constants/colors.js"
 import { PAYMENT_METHODS } from "../../constants/data.js"
 import { fmt, apptTotal } from "../../utils/appointments.js"
+import { AnimatedNumber } from "../ui/index.jsx"
 import { MESES_ES, todayKey, fmtDate, nextWorkDay } from "../../utils/dates.js"
 
 export const AppHeader = memo(function AppHeader({
@@ -71,11 +72,11 @@ export const AppHeader = memo(function AppHeader({
         {/* Desktop totals */}
         <div className="desktop-totals" style={{ alignItems:"center", gap:5 }}>
           {PAYMENT_METHODS.map(pm => { const t=totalByMethod(pm.id); const isActive=activeMethod===pm.id; return (
-            <div key={pm.id} style={{ position:"relative" }} onMouseEnter={() => setActiveMethod(pm.id)} onMouseLeave={() => setActiveMethod(null)}>
+            <div key={pm.id} style={{ position:"relative", flexShrink:0 }} onMouseEnter={() => setActiveMethod(pm.id)} onMouseLeave={() => setActiveMethod(null)}>
               <div
-                style={{ background:t>0?(pm.id==="mercadopago"?C.mpPale:pm.id==="debito"?C.amberPale:C.greenPale):"#f7f7f7", border:`1.5px solid ${isActive?pm.color:(t>0?(pm.id==="mercadopago"?C.mpMid:pm.id==="debito"?C.amberMid:C.greenMint):"#e8e8e8")}`, borderRadius:9, padding:"5px 9px", textAlign:"center", cursor:t>0?"pointer":"default", transition:"all .15s", boxShadow:isActive?`0 4px 12px ${pm.color}33`:"none" }}>
-                <div style={{ fontSize:8, color:t>0?pm.color:"#bbb", textTransform:"uppercase" }}>{pm.icon} {pm.label}</div>
-                <div style={{ fontSize:12, fontWeight:"bold", color:t>0?pm.color:"#ccc" }}>{fmt(t)}{t>0&&<span style={{fontSize:8,marginLeft:3}}>{isActive?"▲":"▼"}</span>}</div>
+                style={{ background:t>0?(pm.id==="mercadopago"?C.mpPale:pm.id==="debito"?C.amberPale:C.greenPale):"#f7f7f7", border:`1.5px solid ${isActive?pm.color:(t>0?(pm.id==="mercadopago"?C.mpMid:pm.id==="debito"?C.amberMid:C.greenMint):"#e8e8e8")}`, borderRadius:9, padding:"5px 9px", textAlign:"center", minWidth:110, cursor:t>0?"pointer":"default", transition:"all .15s", boxShadow:isActive?`0 4px 12px ${pm.color}33`:"none" }}>
+                <div style={{ fontSize:8, color:t>0?pm.color:"#bbb", textTransform:"uppercase", whiteSpace:"nowrap" }}>{pm.icon} {pm.label}</div>
+                <div style={{ fontSize:12, fontWeight:"bold", color:t>0?pm.color:"#ccc", fontVariantNumeric:"tabular-nums" }}><AnimatedNumber value={t} formatFn={fmt} />{t>0&&<span style={{fontSize:8,marginLeft:3}}>{isActive?"▲":"▼"}</span>}</div>
               </div>
 
               {/* Dropdown */}
@@ -109,13 +110,13 @@ export const AppHeader = memo(function AppHeader({
               })()}
             </div>
           )})}
-          <div style={{ background:grandTotal>0?`linear-gradient(135deg,${C.green},${C.greenLight})`:"#f0f0f0", borderRadius:10, padding:"6px 12px", textAlign:"center" }}>
+          <div style={{ background:grandTotal>0?`linear-gradient(135deg,${C.green},${C.greenLight})`:"#f0f0f0", borderRadius:10, padding:"6px 12px", textAlign:"center", minWidth:120, flexShrink:0 }}>
             <div style={{ fontSize:7, color:grandTotal>0?"rgba(255,255,255,.7)":"#bbb", textTransform:"uppercase" }}>Total</div>
-            <div style={{ fontSize:15, fontWeight:"bold", color:grandTotal>0?C.white:"#ccc" }}>{fmt(grandTotal)}</div>
+            <div style={{ fontSize:15, fontWeight:"bold", color:grandTotal>0?C.white:"#ccc", fontVariantNumeric:"tabular-nums" }}><AnimatedNumber value={grandTotal} formatFn={fmt} /></div>
           </div>
-          <div style={{ background:grandEarnings>0?`linear-gradient(135deg,${C.gold},${C.goldLight})`:"#f0f0f0", borderRadius:10, padding:"6px 12px", textAlign:"center" }}>
+          <div style={{ background:grandEarnings>0?`linear-gradient(135deg,${C.gold},${C.goldLight})`:"#f0f0f0", borderRadius:10, padding:"6px 12px", textAlign:"center", minWidth:100, flexShrink:0 }}>
             <div style={{ fontSize:7, color:grandEarnings>0?"rgba(255,255,255,.75)":"#bbb", textTransform:"uppercase" }}>{config.comisionPct}%</div>
-            <div style={{ fontSize:15, fontWeight:"bold", color:grandEarnings>0?C.white:"#ccc" }}>{fmt(grandEarnings)}</div>
+            <div style={{ fontSize:15, fontWeight:"bold", color:grandEarnings>0?C.white:"#ccc", fontVariantNumeric:"tabular-nums" }}><AnimatedNumber value={grandEarnings} formatFn={fmt} /></div>
           </div>
         </div>
 
@@ -135,13 +136,13 @@ export const AppHeader = memo(function AppHeader({
       {activeView === "turnos" && (
         <div className="mobile-totals-strip" style={{ background:C.white, borderBottom:`1px solid ${C.border}`, padding:"8px 12px", gap:6, overflowX:"auto", WebkitOverflowScrolling:"touch", flexShrink:0 }}>
           {PAYMENT_METHODS.map(pm => { const t=totalByMethod(pm.id); return t>0?(
-            <div key={pm.id} style={{ background:pm.id==="mercadopago"?C.mpPale:pm.id==="debito"?C.amberPale:C.greenPale, border:`1px solid ${pm.id==="mercadopago"?C.mpMid:pm.id==="debito"?C.amberMid:C.greenMint}`, borderRadius:9, padding:"5px 10px", textAlign:"center", flexShrink:0 }}>
-              <div style={{ fontSize:8, color:pm.color }}>{pm.icon} {pm.label}</div>
-              <div style={{ fontSize:12, fontWeight:"bold", color:pm.color }}>{fmt(t)}</div>
+            <div key={pm.id} style={{ background:pm.id==="mercadopago"?C.mpPale:pm.id==="debito"?C.amberPale:C.greenPale, border:`1px solid ${pm.id==="mercadopago"?C.mpMid:pm.id==="debito"?C.amberMid:C.greenMint}`, borderRadius:9, padding:"5px 10px", textAlign:"center", minWidth:100, flexShrink:0 }}>
+              <div style={{ fontSize:8, color:pm.color, whiteSpace:"nowrap" }}>{pm.icon} {pm.label}</div>
+              <div style={{ fontSize:12, fontWeight:"bold", color:pm.color, fontVariantNumeric:"tabular-nums" }}><AnimatedNumber value={t} formatFn={fmt} /></div>
             </div>
           ):null})}
-          {grandTotal>0&&<div style={{ background:`linear-gradient(135deg,${C.green},${C.greenLight})`, borderRadius:9, padding:"5px 10px", textAlign:"center", flexShrink:0 }}><div style={{ fontSize:8, color:"rgba(255,255,255,.8)" }}>Total</div><div style={{ fontSize:12, fontWeight:"bold", color:"#fff" }}>{fmt(grandTotal)}</div></div>}
-          {grandEarnings>0&&<div style={{ background:`linear-gradient(135deg,${C.gold},${C.goldLight})`, borderRadius:9, padding:"5px 10px", textAlign:"center", flexShrink:0 }}><div style={{ fontSize:8, color:"rgba(255,255,255,.8)" }}>{config.comisionPct}%</div><div style={{ fontSize:12, fontWeight:"bold", color:"#fff" }}>{fmt(grandEarnings)}</div></div>}
+          {grandTotal>0&&<div style={{ background:`linear-gradient(135deg,${C.green},${C.greenLight})`, borderRadius:9, padding:"5px 10px", textAlign:"center", minWidth:110, flexShrink:0 }}><div style={{ fontSize:8, color:"rgba(255,255,255,.8)" }}>Total</div><div style={{ fontSize:12, fontWeight:"bold", color:"#fff", fontVariantNumeric:"tabular-nums" }}><AnimatedNumber value={grandTotal} formatFn={fmt} /></div></div>}
+          {grandEarnings>0&&<div style={{ background:`linear-gradient(135deg,${C.gold},${C.goldLight})`, borderRadius:9, padding:"5px 10px", textAlign:"center", minWidth:90, flexShrink:0 }}><div style={{ fontSize:8, color:"rgba(255,255,255,.8)" }}>{config.comisionPct}%</div><div style={{ fontSize:12, fontWeight:"bold", color:"#fff", fontVariantNumeric:"tabular-nums" }}><AnimatedNumber value={grandEarnings} formatFn={fmt} /></div></div>}
         </div>
       )}
 

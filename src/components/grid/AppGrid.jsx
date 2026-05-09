@@ -24,6 +24,7 @@ export function AppGrid({
   currentDate,
 }) {
   const [profPopup,  setProfPopup]  = useState(null)
+  const [hoveredClientName, setHoveredClientName] = useState(null)
   const [colOrder,   setColOrder]   = useState(() => { try { const v = localStorage.getItem("pv:colOrder"); return v ? JSON.parse(v) : null } catch { return null } })
   const [dragCol,    setDragCol]    = useState(null) // profId being dragged
   const [dragOver,   setDragOverCol] = useState(null) // profId being hovered
@@ -198,8 +199,14 @@ export function AppGrid({
                       position:"relative",
                     }}
                     onClick={() => !appt && !draggingKey && onCellClick(prof.id, hour)}
-                    onMouseEnter={e => { if(!appt && !draggingKey) e.currentTarget.style.background = C.greenPale }}
-                    onMouseLeave={e => { if(!appt && !draggingKey) e.currentTarget.style.background = "" }}
+                    onMouseEnter={e => { 
+                      if(!appt && !draggingKey) e.currentTarget.style.background = C.greenPale
+                      if(appt && appt.client) setHoveredClientName(appt.client)
+                    }}
+                    onMouseLeave={e => { 
+                      if(!appt && !draggingKey) e.currentTarget.style.background = ""
+                      if(appt && appt.client) setHoveredClientName(null)
+                    }}
                     onDragOver={e => !appt && onDragOver(e, prof.id, hour)}
                     onDragLeave={() => !appt && onDragLeave()}
                     onDrop={e => !appt && onDrop(e, prof.id, hour)}
@@ -219,7 +226,7 @@ export function AppGrid({
                           onDragStart={e => { if(resizePreview){e.preventDefault();return;} onDragStart(e, k) }}
                           onDragEnd={onDragEnd}
                           onDoubleClick={e => { if(!resizePreview) { e.stopPropagation(); onEdit(k, appointments[k]); }}}
-                          className={`appt-card${appt.paid?" paid":" unpaid"}${isCurrentTurn && !isDragging && !isResizing ? " current" : ""}`}
+                          className={`appt-card${appt.paid?" paid":" unpaid"}${isCurrentTurn && !isDragging && !isResizing ? " current" : ""}${hoveredClientName && appt.client === hoveredClientName ? " force-hover" : ""}`}
                           style={{
                             height:"100%", borderRadius:9,
                             background: appt.paid
