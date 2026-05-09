@@ -285,7 +285,10 @@ export function AppGrid({
                           <div style={{ position:"absolute", bottom:16, right:4, display:"flex", alignItems:"center", gap:3, zIndex:5 }}>
                             <button onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();onDelete(k)}} style={{ width:18, height:18, borderRadius:5, border:`1px solid ${C.border}`, background:"rgba(255,255,255,.8)", color:"#c0a0a0", fontSize:8, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", padding:0 }}>✕</button>
                             {appt.paid
-                              ? <button onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();onPay(k)}} style={smallBtn("#7a9e7a")}>{isMobile?"✏️":"✏️ Pago"}</button>
+                              ? (() => {
+                                  const pmColor = PAYMENT_METHODS.find(m => m.id === appt.payMethod)?.color || "#7a9e7a"
+                                  return <button onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();onPay(k)}} style={smallBtn(pmColor)}>{isMobile?"✏️":"✏️ Pago"}</button>
+                                })()
                               : <button onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();onPay(k)}} style={smallBtn(C.orange)}>{isMobile?"💰":"💰 Abonar"}</button>
                             }
                           </div>
