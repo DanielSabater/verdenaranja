@@ -124,9 +124,24 @@ export default function App() {
       if (k === ignoreKey) continue
       const [pid, h] = k.split("||")
       if (parseInt(pid) !== profId) continue
-      const idx   = HOURS.indexOf(h)
-      const slots = a.manualSlots ?? Math.ceil(apptDur(a) / 30)
-      for (let s = 1; s < slots; s++) if (HOURS[idx + s] === hour) return true
+      const startIdx = HOURS.indexOf(h)
+      const requestedSlots = a.manualSlots ?? Math.ceil(apptDur(a) / 30)
+      
+      let actualSlots = requestedSlots
+      for (let s = 1; s < requestedSlots; s++) {
+        const checkHour = HOURS[startIdx + s]
+        if (!checkHour) { actualSlots = s; break }
+        const checkKey = cellKey(profId, checkHour)
+        if (appointments[checkKey] && checkKey !== ignoreKey) {
+          actualSlots = s
+          break
+        }
+      }
+      
+      const targetIdx = HOURS.indexOf(hour)
+      if (targetIdx > startIdx && targetIdx < startIdx + actualSlots) {
+        return true
+      }
     }
     return false
   }, [appointments])
@@ -134,13 +149,9 @@ export default function App() {
   const canDrop = useCallback((dragKey, targetProfId, targetHour) => {
     const a = appointments[dragKey]
     if (!a) return false
-    const slots = a.manualSlots ?? Math.ceil(apptDur(a) / 30)
-    const idx   = HOURS.indexOf(targetHour)
-    if (idx < 0 || idx + slots > HOURS.length) return false
-    for (let s = 0; s < slots; s++) {
-      if (isOccupied(targetProfId, HOURS[idx + s], dragKey)) return false
-    }
-    return true
+    const idx = HOURS.indexOf(targetHour)
+    if (idx < 0) return false
+    return !isOccupied(targetProfId, targetHour, dragKey)
   }, [appointments, isOccupied])
 
   const spanOf = (profId, hour) => {
@@ -148,7 +159,21 @@ export default function App() {
     const a = appointments[k]
     if (!a) return null
     if (resizePreview?.key === k) return resizePreview.slots
-    return a.manualSlots ?? Math.max(1, Math.ceil(apptDur(a) / 30))
+    
+    const requestedSlots = a.manualSlots ?? Math.max(1, Math.ceil(apptDur(a) / 30))
+    const startIdx = HOURS.indexOf(hour)
+    let actualSlots = requestedSlots
+    
+    for (let s = 1; s < requestedSlots; s++) {
+      const checkHour = HOURS[startIdx + s]
+      if (!checkHour) { actualSlots = s; break }
+      const checkKey = cellKey(profId, checkHour)
+      if (appointments[checkKey]) {
+        actualSlots = s
+        break
+      }
+    }
+    return actualSlots
   }
 
   const onDragStart = (e, key) => { setDraggingKey(key); dragNode.current = key; e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", key) }
