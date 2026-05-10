@@ -177,21 +177,23 @@ export const AppHeader = memo(function AppHeader({
       )}
 
       {/* Bottom date strip — fixed, all days of month */}
-      {activeView === "turnos" && currentDate && (
-        <div className="date-strip" style={{
-          position:"fixed", bottom:0, left:0, right:0,
-          zIndex:98, background:C.white,
-          borderTop:`2px solid ${C.greenMint}`,
-          boxShadow:"0 -2px 12px rgba(58,125,68,.08)",
-          display:"flex", alignItems:"center",
-          padding:"4px 4px", gap:0,
-        }}>
-          {/* Days — scrollable center */}
-          <div style={{ flex:1, overflowX:"auto", WebkitOverflowScrolling:"touch", display:"flex", alignItems:"center", gap:2, justifyContent:"center" }}>
-            {(() => {
-              const [y, m] = currentDate.split("-").map(Number)
-              const days = new Date(y, m, 0).getDate()
-              return Array.from({ length: days }, (_, i) => {
+      {activeView === "turnos" && currentDate && (() => {
+        const [y, m] = currentDate.split("-").map(Number)
+        const monthName = MESES_ES[m - 1]
+        const daysInMonth = new Date(y, m, 0).getDate()
+
+        return (
+          <div className="date-strip" style={{
+            position:"fixed", bottom:0, left:0, right:0,
+            zIndex:98, background:C.white,
+            borderTop:`2px solid ${C.greenMint}`,
+            boxShadow:"0 -2px 12px rgba(58,125,68,.08)",
+            display:"flex", alignItems:"center",
+            padding:"4px 4px", gap:0,
+          }}>
+            {/* Days — scrollable center */}
+            <div style={{ flex:1, overflowX:"auto", WebkitOverflowScrolling:"touch", display:"flex", alignItems:"center", gap:2, justifyContent:"center" }}>
+              {Array.from({ length: daysInMonth }, (_, i) => {
                 const day = i + 1
                 const dk  = `${y}-${String(m).padStart(2,"0")}-${String(day).padStart(2,"0")}`
                 const d   = new Date(dk + "T12:00:00")
@@ -218,30 +220,34 @@ export const AppHeader = memo(function AppHeader({
                     {has && <div style={{ position:"absolute", bottom:3, left:"50%", transform:"translateX(-50%)", width:4, height:4, borderRadius:"50%", background:isCur?"rgba(255,255,255,.8)":C.green }} />}
                   </button>
                 )
-              })
-            })()}
-          </div>
+              })}
+            </div>
 
-          {/* HOY + 📅 side by side */}
-          <div style={{ display:"flex", flexDirection:"row", gap:3, flexShrink:0, marginLeft:4 }}>
-            <button
-              onClick={() => setCurrentDate(tKey)}
-              disabled={currentDate === tKey}
-              style={{
-                width:38, height:46, borderRadius:10,
-                border:`1.5px solid ${currentDate === tKey ? C.green : C.border}`,
-                background: currentDate === tKey ? C.greenPale : C.white,
-                fontSize:8, fontWeight:"bold",
-                color: C.green,
-                opacity: currentDate === tKey ? 0.75 : 1,
-                cursor: currentDate === tKey ? "default" : "pointer",
-                fontFamily:"Georgia,serif", letterSpacing:"1px", display:"flex", alignItems:"center", justifyContent:"center",
-              }}
-            >HOY</button>
-            <button onClick={() => setCalendarOpen(v => !v)} style={{ width:38, height:46, borderRadius:10, border:`1.5px solid ${calendarOpen?C.green:C.border}`, background:calendarOpen?`linear-gradient(135deg,${C.green},${C.greenLight})`:C.white, fontSize:18, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", transition:"all .18s" }}>📅</button>
+            {/* Month + HOY + 📅 */}
+            <div style={{ display:"flex", flexDirection:"row", gap:3, flexShrink:0, marginLeft:4, alignItems:"center" }}>
+              <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", marginRight:6, minWidth:65 }}>
+                <div style={{ fontSize:11, color:C.green, fontWeight:"bold", textTransform:"uppercase", letterSpacing:".8px" }}>{monthName}</div>
+                <div style={{ fontSize:9, color:C.textSoft, opacity:.8, marginTop:-1 }}>{y}</div>
+              </div>
+              <button
+                onClick={() => setCurrentDate(tKey)}
+                disabled={currentDate === tKey}
+                style={{
+                  width:38, height:46, borderRadius:10,
+                  border:`1.5px solid ${currentDate === tKey ? C.green : C.border}`,
+                  background: currentDate === tKey ? C.greenPale : C.white,
+                  fontSize:8, fontWeight:"bold",
+                  color: C.green,
+                  opacity: currentDate === tKey ? 0.75 : 1,
+                  cursor: currentDate === tKey ? "default" : "pointer",
+                  fontFamily:"Georgia,serif", letterSpacing:"1px", display:"flex", alignItems:"center", justifyContent:"center",
+                }}
+              >HOY</button>
+              <button onClick={() => setCalendarOpen(v => !v)} style={{ width:38, height:46, borderRadius:10, border:`1.5px solid ${calendarOpen?C.green:C.border}`, background:calendarOpen?`linear-gradient(135deg,${C.green},${C.greenLight})`:C.white, fontSize:18, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", transition:"all .18s" }}>📅</button>
+            </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
     </>
   )
