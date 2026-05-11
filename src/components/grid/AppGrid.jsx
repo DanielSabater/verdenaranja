@@ -25,17 +25,17 @@ export function AppGrid({
   CELL_H,
   currentDate,
 }) {
-  const [profPopup,  setProfPopup]  = useState(null)
+  const [profPopup, setProfPopup] = useState(null)
   const [hoveredClientName, setHoveredClientName] = useState(null)
-  const [colOrder,   setColOrder]   = useState(() => { try { const v = localStorage.getItem("pv:colOrder"); return v ? JSON.parse(v) : null } catch { return null } })
-  const [dragCol,    setDragCol]    = useState(null) // profId being dragged
-  const [dragOver,   setDragOverCol] = useState(null) // profId being hovered
+  const [colOrder, setColOrder] = useState(() => { try { const v = localStorage.getItem("pv:colOrder"); return v ? JSON.parse(v) : null } catch { return null } })
+  const [dragCol, setDragCol] = useState(null) // profId being dragged
+  const [dragOver, setDragOverCol] = useState(null) // profId being hovered
   const dragColRef = useRef(null)
 
   // Check if an hour is outside a professional's schedule for the current date
   const isOutsideSchedule = (prof, hour) => {
     if (!prof.schedule) return false
-    const DAYS = ["Do","Lu","Ma","Mi","Ju","Vi","Sá"]
+    const DAYS = ["Do", "Lu", "Ma", "Mi", "Ju", "Vi", "Sá"]
     // currentDate format: "2026-05-03"
     const d = currentDate ? new Date(currentDate + "T12:00:00") : new Date()
     const dayName = DAYS[d.getDay()]
@@ -64,12 +64,12 @@ export function AppGrid({
     if (!fromId || fromId === targetId) { setDragCol(null); setDragOverCol(null); return }
     const base = colOrder || professionals.map(p => p.id)
     const from = base.indexOf(fromId)
-    const to   = base.indexOf(targetId)
+    const to = base.indexOf(targetId)
     const next = [...base]
     next.splice(from, 1)
     next.splice(to, 0, fromId)
     setColOrder(next)
-    try { localStorage.setItem("pv:colOrder", JSON.stringify(next)) } catch {}
+    try { localStorage.setItem("pv:colOrder", JSON.stringify(next)) } catch { }
     setDragCol(null)
     setDragOverCol(null)
     dragColRef.current = null
@@ -82,7 +82,7 @@ export function AppGrid({
       const pAppts = Object.values(appointments).filter(a => a.profId === p.id)
       // Ordenamos de arriba hacia abajo (temprano a tarde)
       pAppts.sort((a, b) => (a.hour || "").localeCompare(b.hour || ""))
-      
+
       for (let i = 1; i < pAppts.length; i++) {
         // El turno actual no está pago, pero el anterior sí
         if (!pAppts[i].paid && pAppts[i - 1].paid) {
@@ -96,15 +96,15 @@ export function AppGrid({
 
   const getProfSummary = (profId) => {
     const appts = Object.values(appointments).filter(a => a.profId === profId)
-    const paid  = appts.filter(a => a.paid)
-    const total = paid.reduce((s,a) => s + apptPaidTotal(a), 0)
-    const tips  = paid.reduce((s,a) => s + (a.tip||0), 0)
+    const paid = appts.filter(a => a.paid)
+    const total = paid.reduce((s, a) => s + apptPaidTotal(a), 0)
+    const tips = paid.reduce((s, a) => s + (a.tip || 0), 0)
     const byMethod = {}
     paid.forEach(a => {
       if (a.paymentSplits?.length) {
-        a.paymentSplits.forEach(sp => { byMethod[sp.methodId] = (byMethod[sp.methodId]||0) + (parseFloat(sp.amount)||0) })
+        a.paymentSplits.forEach(sp => { byMethod[sp.methodId] = (byMethod[sp.methodId] || 0) + (parseFloat(sp.amount) || 0) })
       } else if (a.payMethod) {
-        byMethod[a.payMethod] = (byMethod[a.payMethod]||0) + apptPaidTotal(a)
+        byMethod[a.payMethod] = (byMethod[a.payMethod] || 0) + apptPaidTotal(a)
       }
     })
     return { appts, paid, total, tips, byMethod }
@@ -115,7 +115,7 @@ export function AppGrid({
     if (a.paymentSplits?.length) {
       return a.paymentSplits.map((r, i) => {
         const pm = PAYMENT_METHODS.find(m => m.id === r.methodId)
-        return <span key={i} style={{ marginRight:6 }}>{pm?.icon} {fmt(r.amount)}</span>
+        return <span key={i} style={{ marginRight: 6 }}>{pm?.icon} {fmt(r.amount)}</span>
       })
     }
     const pm = PAYMENT_METHODS.find(m => m.id === a.payMethod)
@@ -123,12 +123,12 @@ export function AppGrid({
   }
 
   return (
-    <div className="grid-scroll" style={{ overflow:"auto", padding:"0 8px 60px", WebkitOverflowScrolling:"touch", maxHeight:"100%", scrollSnapType: isMobile ? "x mandatory" : "none", scrollPaddingLeft: 60, scrollPaddingBottom: 60 }}>
-      <table style={{ borderCollapse:"collapse", tableLayout:"fixed", width:"100%", minWidth: isMobile ? `calc(52px + ${professionals.length} * calc((100vw - 70px) / 2))` : `calc(52px + ${professionals.length*140}px)` }}>
+    <div className="grid-scroll" style={{ overflow: "auto", padding: isMobile ? "0 8px 120px" : "0 8px 8px", WebkitOverflowScrolling: "touch", maxHeight: "100%", scrollSnapType: isMobile ? "x mandatory" : "none", scrollPaddingLeft: 60, scrollPaddingBottom: isMobile ? 120 : 0 }}>
+      <table style={{ borderCollapse: "collapse", tableLayout: "fixed", width: "100%", minWidth: isMobile ? `calc(52px + ${professionals.length} * calc((100vw - 70px) / 2))` : `calc(52px + ${professionals.length * 140}px)` }}>
         <thead>
           <tr>
-            <th style={{ padding:"6px 4px", borderBottom:`2px solid ${C.border}`, width:52, minWidth:52, position:"sticky", top:0, left:0, zIndex:101, background:"rgba(255,255,255,0.65)", backdropFilter:"blur(20px)", WebkitBackdropFilter:"blur(20px)", borderRight:`2px solid ${C.border}` }}>
-              <div style={{ fontSize:7, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase", textAlign:"center" }}>Hora</div>
+            <th style={{ padding: "6px 4px", borderBottom: `2px solid ${C.border}`, width: 52, minWidth: 52, position: "sticky", top: 0, left: 0, zIndex: 101, background: "rgba(255,255,255,0.65)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", borderRight: `2px solid ${C.border}` }}>
+              <div style={{ fontSize: 7, letterSpacing: "2px", color: C.textSoft, textTransform: "uppercase", textAlign: "center" }}>Hora</div>
             </th>
             {orderedProfessionals.map((p, idx) => (
               <th key={p.id}
@@ -137,17 +137,17 @@ export function AppGrid({
                 onDragOver={e => onColDragOver(e, p.id)}
                 onDrop={e => onColDrop(e, p.id)}
                 onDragEnd={onColDragEnd}
-                style={{ padding: isMobile?"6px 2px":"10px 5px", borderBottom:`2px solid ${C.border}`, width:`${100/professionals.length}%`, minWidth: isMobile?"calc((100vw - 70px) / 2)":140, position:"sticky", top:0, zIndex:100, background:"rgba(255,255,255,0.65)", backdropFilter:"blur(20px)", WebkitBackdropFilter:"blur(20px)", transition:"all .2s", opacity: dragCol===p.id ? 0.4 : 1, borderLeft: dragOver===p.id ? `3px solid ${C.green}` : "none", cursor:"grab", scrollSnapAlign: isMobile ? (idx % 2 === 0 ? "start" : "none") : "none", scrollSnapStop: isMobile ? "always" : "normal" }}>
-                <div onClick={() => setProfPopup(profPopup===p.id ? null : p.id)}
-                  style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:3, cursor:"pointer" }}>
+                style={{ padding: isMobile ? "6px 2px" : "10px 5px", borderBottom: `2px solid ${C.border}`, width: `${100 / professionals.length}%`, minWidth: isMobile ? "calc((100vw - 70px) / 2)" : 140, position: "sticky", top: 0, zIndex: 100, background: "rgba(255,255,255,0.65)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", transition: "all .2s", opacity: dragCol === p.id ? 0.4 : 1, borderLeft: dragOver === p.id ? `3px solid ${C.green}` : "none", cursor: "grab", scrollSnapAlign: isMobile ? (idx % 2 === 0 ? "start" : "none") : "none", scrollSnapStop: isMobile ? "always" : "normal" }}>
+                <div onClick={() => setProfPopup(profPopup === p.id ? null : p.id)}
+                  style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, cursor: "pointer" }}>
                   <div style={{
-                    width:36, height:36, borderRadius:"50%",
-                    background: profPopup===p.id ? `linear-gradient(135deg,${C.green},${C.greenLight})` : `linear-gradient(135deg,${C.greenPale},${C.greenMint})`,
-                    border:`2px solid ${profPopup===p.id ? C.green : C.greenLight}`,
-                    display:"flex", alignItems:"center", justifyContent:"center", fontSize:16,
-                    transition:"all .2s",
+                    width: 36, height: 36, borderRadius: "50%",
+                    background: profPopup === p.id ? `linear-gradient(135deg,${C.green},${C.greenLight})` : `linear-gradient(135deg,${C.greenPale},${C.greenMint})`,
+                    border: `2px solid ${profPopup === p.id ? C.green : C.greenLight}`,
+                    display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16,
+                    transition: "all .2s",
                   }}>{p.emoji}</div>
-                  <span style={{ fontSize:11, color: profPopup===p.id ? C.green : C.text, fontWeight: profPopup===p.id ? "bold" : "normal" }}>{p.name}</span>
+                  <span style={{ fontSize: 11, color: profPopup === p.id ? C.green : C.text, fontWeight: profPopup === p.id ? "bold" : "normal" }}>{p.name}</span>
                 </div>
 
               </th>
@@ -156,12 +156,12 @@ export function AppGrid({
         </thead>
         <tbody>
           {HOURS.map((hour, hIdx) => (
-            <tr key={hour} style={{ background: hIdx%2===0?C.white:C.cream, height:100 }}>
-                <td style={{ padding:"0 4px", textAlign:"center", height:50, verticalAlign:"middle", position:"sticky", left:0, zIndex:5, background: hIdx%2===0?C.white:C.cream, borderRight:`2px solid ${C.border}`, width:52, minWidth:52, whiteSpace:"nowrap", height:100, verticalAlign:"middle" }}>
-                  <span style={{ fontSize: hour.endsWith(":00")?11:9, color: hour.endsWith(":00")?C.green:C.textSoft, fontWeight: hour.endsWith(":00")?"bold":"normal" }}>{hour}</span>
-                </td>
+            <tr key={hour} style={{ background: hIdx % 2 === 0 ? C.white : C.cream, height: 100 }}>
+              <td style={{ padding: "0 4px", textAlign: "center", height: 50, verticalAlign: "middle", position: "sticky", left: 0, zIndex: 5, background: hIdx % 2 === 0 ? C.white : C.cream, borderRight: `2px solid ${C.border}`, width: 52, minWidth: 52, whiteSpace: "nowrap", height: 100, verticalAlign: "middle" }}>
+                <span style={{ fontSize: hour.endsWith(":00") ? 11 : 9, color: hour.endsWith(":00") ? C.green : C.textSoft, fontWeight: hour.endsWith(":00") ? "bold" : "normal" }}>{hour}</span>
+              </td>
               {orderedProfessionals.map(prof => {
-                const k    = cellKey(prof.id, hour)
+                const k = cellKey(prof.id, hour)
                 const appt = appointments[k]
                 const span = spanOf(prof.id, hour)
 
@@ -171,8 +171,8 @@ export function AppGrid({
                   const [rpid] = resizePreview.key.split("||")
                   if (parseInt(rpid) !== prof.id) return false
                   const rStart = resizePreview.hourIdx
-                  const rEnd   = rStart + resizePreview.slots
-                  const hi     = HOURS.indexOf(hour)
+                  const rEnd = rStart + resizePreview.slots
+                  const hi = HOURS.indexOf(hour)
                   return hi > rStart && hi < rEnd
                 })()
 
@@ -180,7 +180,7 @@ export function AppGrid({
                 if (isBlocked) return null
 
                 const isDragging = draggingKey === k
-                const isTarget   = dropTarget?.profId===prof.id && dropTarget?.hour===hour
+                const isTarget = dropTarget?.profId === prof.id && dropTarget?.hour === hour
 
                 const offSchedule = !appt && isOutsideSchedule(prof, hour)
                 let cellBg = offSchedule ? "rgba(220,60,60,.07)" : ""
@@ -191,46 +191,46 @@ export function AppGrid({
                 return (
                   <td key={prof.id} rowSpan={liveResizeSpan || span || 1}
                     style={{
-                      padding:3,
-                      height: appt ? `${(liveResizeSpan||span||1)*100}px` : 100,
-                      verticalAlign:"middle",
-                      border:`1px solid ${C.border}`,
+                      padding: 3,
+                      height: appt ? `${(liveResizeSpan || span || 1) * 100}px` : 100,
+                      verticalAlign: "middle",
+                      border: `1px solid ${C.border}`,
                       background: cellBg,
-                      transition:"background .12s",
+                      transition: "background .12s",
                       cursor: appt ? "grab" : (draggingKey ? "default" : "pointer"),
-                      position:"relative",
+                      position: "relative",
                     }}
                     onClick={() => !appt && !draggingKey && onCellClick(prof.id, hour)}
-                    onMouseEnter={e => { 
-                      if(!appt && !draggingKey) e.currentTarget.style.background = C.greenPale
-                      if(appt && appt.client) setHoveredClientName(appt.client)
+                    onMouseEnter={e => {
+                      if (!appt && !draggingKey) e.currentTarget.style.background = C.greenPale
+                      if (appt && appt.client) setHoveredClientName(appt.client)
                     }}
-                    onMouseLeave={e => { 
-                      if(!appt && !draggingKey) e.currentTarget.style.background = ""
-                      if(appt && appt.client) setHoveredClientName(null)
+                    onMouseLeave={e => {
+                      if (!appt && !draggingKey) e.currentTarget.style.background = ""
+                      if (appt && appt.client) setHoveredClientName(null)
                     }}
                     onDragOver={e => !appt && onDragOver(e, prof.id, hour)}
                     onDragLeave={() => !appt && onDragLeave()}
                     onDrop={e => !appt && onDrop(e, prof.id, hour)}
                   >
                     {appt ? (() => {
-                      const isResizing  = resizePreview?.key === k
+                      const isResizing = resizePreview?.key === k
                       const isCurrentTurn = currentTurnKeys.has(k)
-                      const liveSlots   = isResizing ? resizePreview.slots   : (span || 1)
+                      const liveSlots = isResizing ? resizePreview.slots : (span || 1)
                       const liveHourIdx = isResizing ? resizePreview.hourIdx : HOURS.indexOf(appt.hour)
-                      const liveEndIdx  = liveHourIdx + liveSlots
-                      const liveHour    = HOURS[liveHourIdx] || appt.hour
+                      const liveEndIdx = liveHourIdx + liveSlots
+                      const liveHour = HOURS[liveHourIdx] || appt.hour
                       const liveEndHour = liveEndIdx < HOURS.length ? HOURS[liveEndIdx] : "20:00"
                       const liveDurMins = liveSlots * 30
                       return (
                         <div
                           draggable={!resizePreview}
-                          onDragStart={e => { if(resizePreview){e.preventDefault();return;} onDragStart(e, k) }}
+                          onDragStart={e => { if (resizePreview) { e.preventDefault(); return; } onDragStart(e, k) }}
                           onDragEnd={onDragEnd}
-                          onDoubleClick={e => { if(!resizePreview) { e.stopPropagation(); onEdit(k, appointments[k]); }}}
-                          className={`appt-card${appt.paid?" paid":" unpaid"}${isCurrentTurn && !isDragging && !isResizing ? " current" : ""}${hoveredClientName && appt.client === hoveredClientName ? " force-hover" : ""}`}
+                          onDoubleClick={e => { if (!resizePreview) { e.stopPropagation(); onEdit(k, appointments[k]); } }}
+                          className={`appt-card${appt.paid ? " paid" : " unpaid"}${isCurrentTurn && !isDragging && !isResizing ? " current" : ""}${hoveredClientName && appt.client === hoveredClientName ? " force-hover" : ""}`}
                           style={{
-                            height:"100%", borderRadius:9,
+                            height: "100%", borderRadius: 9,
                             background: appt.paid
                               ? `linear-gradient(135deg,${C.greenPale},#d8f0dc)`
                               : `linear-gradient(135deg,${C.orangePale},#fde8d4)`,
@@ -238,76 +238,76 @@ export function AppGrid({
                               ? `2px dashed ${C.green}`
                               : isCurrentTurn && !isDragging
                                 ? `1.5px solid #4a90e2`
-                                : `1.5px solid ${appt.paid?C.greenLight:C.orangeLight}`,
-                            padding:"6px 7px 6px",
-                            display:"flex", flexDirection:"column",
+                                : `1.5px solid ${appt.paid ? C.greenLight : C.orangeLight}`,
+                            padding: "6px 7px 6px",
+                            display: "flex", flexDirection: "column",
                             boxShadow: isDragging
                               ? `0 10px 30px rgba(58,125,68,.30)`
-                              : `0 2px 8px ${appt.paid?"rgba(58,125,68,.10)":"rgba(232,121,58,.10)"}`,
+                              : `0 2px 8px ${appt.paid ? "rgba(58,125,68,.10)" : "rgba(232,121,58,.10)"}`,
                             opacity: isDragging ? 0.45 : 1,
                             transform: isDragging ? "scale(0.97)" : "scale(1)",
                             transition: isResizing ? "none" : "opacity .15s, box-shadow .15s, transform .15s",
-                            cursor:"grab",
-                            position:"relative",
-                            overflow:"visible",
+                            cursor: "grab",
+                            position: "relative",
+                            overflow: "visible",
                           }}
                         >
                           <div onMouseDown={e => { e.stopPropagation(); onResizeStart(e, k, "top") }}
-                            style={{ position:"absolute", top:0, left:0, right:0, height:8, cursor:"n-resize", zIndex:10, borderRadius:"9px 9px 0 0" }} />
+                            style={{ position: "absolute", top: 0, left: 0, right: 0, height: 8, cursor: "n-resize", zIndex: 10, borderRadius: "9px 9px 0 0" }} />
 
                           {isResizing && (
-                            <div style={{ position:"absolute", top:12, left:"50%", transform:"translateX(-50%)", background:C.green, color:"#fff", borderRadius:8, padding:"2px 8px", fontSize:9, fontWeight:"bold", letterSpacing:"1px", whiteSpace:"nowrap", zIndex:20, pointerEvents:"none", boxShadow:"0 2px 8px rgba(58,125,68,.35)" }}>{liveHour} – {liveEndHour} · {liveDurMins} min</div>
+                            <div style={{ position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)", background: C.green, color: "#fff", borderRadius: 8, padding: "2px 8px", fontSize: 9, fontWeight: "bold", letterSpacing: "1px", whiteSpace: "nowrap", zIndex: 20, pointerEvents: "none", boxShadow: "0 2px 8px rgba(58,125,68,.35)" }}>{liveHour} – {liveEndHour} · {liveDurMins} min</div>
                           )}
 
-                          <div style={{ position:"absolute", top:4, right:5, fontSize:9, color:"rgba(100,130,100,.4)", pointerEvents:"none" }}>⠿</div>
+                          <div style={{ position: "absolute", top: 4, right: 5, fontSize: 9, color: "rgba(100,130,100,.4)", pointerEvents: "none" }}>⠿</div>
 
-                          <div style={{ overflow:"hidden", marginTop:2 }}>
-                            <div style={{ fontSize:11, fontWeight:"bold", color:C.text, marginBottom:1, paddingRight:12, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{appt.client}</div>
-                            {(appt.services||[]).map((sv,i)=>(
-                              <div key={i} style={{ fontSize:9, color:appt.paid?C.green:C.orange, lineHeight:1.4, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{sv.icon} {sv.name}</div>
+                          <div style={{ overflow: "hidden", marginTop: 2 }}>
+                            <div style={{ fontSize: 11, fontWeight: "bold", color: C.text, marginBottom: 1, paddingRight: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{appt.client}</div>
+                            {(appt.services || []).map((sv, i) => (
+                              <div key={i} style={{ fontSize: 9, color: appt.paid ? C.green : C.orange, lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sv.icon} {sv.name}</div>
                             ))}
                             {appt.notes && (
-                              <div style={{ fontSize:9, color:C.textSoft, fontStyle:"italic", marginTop:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>📝 {appt.notes}</div>
+                              <div style={{ fontSize: 9, color: C.textSoft, fontStyle: "italic", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>📝 {appt.notes}</div>
                             )}
-                            <div style={{ fontSize:9, color:C.textSoft, marginTop:2 }}>
-                              <span style={{ color: isResizing ? C.green : C.textSoft, fontWeight: isResizing ? "bold" : "normal", transition:"color .15s" }}>
+                            <div style={{ fontSize: 9, color: C.textSoft, marginTop: 2 }}>
+                              <span style={{ color: isResizing ? C.green : C.textSoft, fontWeight: isResizing ? "bold" : "normal", transition: "color .15s" }}>
                                 {isResizing ? `${liveHour} – ${liveEndHour}` : `${apptDur(appt)} min`}
                               </span>
-                              {" · "}<span style={{ color:C.orange, fontWeight:"bold" }}>{fmt(appt.paid ? apptPaidTotal(appt) : apptTotal(appt))}</span>
+                              {" · "}<span style={{ color: C.orange, fontWeight: "bold" }}>{fmt(appt.paid ? apptPaidTotal(appt) : apptTotal(appt))}</span>
                             </div>
                             {appt.createdAt && (
-                              <div style={{ fontSize:8, color:C.textSoft, marginTop:1, opacity:.7 }}>🕐 Tomado a las {appt.createdAt}</div>
+                              <div style={{ fontSize: 8, color: C.textSoft, marginTop: 1, opacity: .7 }}>🕐 Tomado a las {appt.createdAt}</div>
                             )}
                             {appt.paid && (
-                              <div style={{ fontSize:8, color:C.green, marginTop:1, letterSpacing:".8px" }}>
+                              <div style={{ fontSize: 8, color: C.green, marginTop: 1, letterSpacing: ".8px" }}>
                                 {appt.paymentSplits?.length > 1
-                                  ? appt.paymentSplits.map((r,i)=>{ const pm = PAYMENT_METHODS.find(m=>m.id===r.methodId); return <span key={i} style={{ marginRight:3 }}>{pm?.icon} {fmt(r.amount)}</span> })
-                                  : <>✓ {PAYMENT_METHODS.find(m=>m.id===appt.payMethod)?.icon} {PAYMENT_METHODS.find(m=>m.id===appt.payMethod)?.label}</>
+                                  ? appt.paymentSplits.map((r, i) => { const pm = PAYMENT_METHODS.find(m => m.id === r.methodId); return <span key={i} style={{ marginRight: 3 }}>{pm?.icon} {fmt(r.amount)}</span> })
+                                  : <>✓ {PAYMENT_METHODS.find(m => m.id === appt.payMethod)?.icon} {PAYMENT_METHODS.find(m => m.id === appt.payMethod)?.label}</>
                                 }
                               </div>
                             )}
                             {appt.tip > 0 && (
-                              <div style={{ fontSize:8, color:C.gold, marginTop:1 }}>🎁 Propina: {fmt(appt.tip)}</div>
+                              <div style={{ fontSize: 8, color: C.gold, marginTop: 1 }}>🎁 Propina: {fmt(appt.tip)}</div>
                             )}
                           </div>
 
-                          <div style={{ position:"absolute", bottom: isMobile ? 4 : 6, right: isMobile ? 4 : 6, display:"flex", alignItems:"center", gap: isMobile ? 3 : 4, zIndex:5 }}>
-                            <button onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();onDelete(k)}} style={{ width:22, height:22, borderRadius:6, border:`1px solid ${C.border}`, background:"rgba(255,255,255,.9)", color:"#c0a0a0", fontSize:10, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", padding:0 }}>✕</button>
+                          <div style={{ position: "absolute", bottom: isMobile ? 4 : 6, right: isMobile ? 4 : 6, display: "flex", alignItems: "center", gap: isMobile ? 3 : 4, zIndex: 5 }}>
+                            <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); onDelete(k) }} style={{ width: 22, height: 22, borderRadius: 6, border: `1px solid ${C.border}`, background: "rgba(255,255,255,.9)", color: "#c0a0a0", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>✕</button>
                             {appt.paid
                               ? (() => {
-                                  const pmColor = PAYMENT_METHODS.find(m => m.id === appt.payMethod)?.color || "#7a9e7a"
-                                  return <button onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();onPay(k)}} style={smallBtn(pmColor, isMobile)}>{isMobile?"✏️":"✏️ Pago"}</button>
-                                })()
-                              : <button onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();onPay(k)}} style={smallBtn(C.orange, isMobile)}>{isMobile?"💰":"💰 Abonar"}</button>
+                                const pmColor = PAYMENT_METHODS.find(m => m.id === appt.payMethod)?.color || "#7a9e7a"
+                                return <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); onPay(k) }} style={smallBtn(pmColor, isMobile)}>{isMobile ? "✏️" : "✏️ Pago"}</button>
+                              })()
+                              : <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); onPay(k) }} style={smallBtn(C.orange, isMobile)}>{isMobile ? "💰" : "💰 Abonar"}</button>
                             }
                           </div>
 
                           <div onMouseDown={e => { e.stopPropagation(); onResizeStart(e, k, "bottom") }}
-                            style={{ position:"absolute", bottom:0, left:0, right:0, height:10, cursor:"s-resize", zIndex:10, borderRadius:"0 0 9px 9px" }} />
+                            style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 10, cursor: "s-resize", zIndex: 10, borderRadius: "0 0 9px 9px" }} />
                         </div>
                       )
                     })() : (
-                      <div style={{ height:42, borderRadius:7, display:"flex", alignItems:"center", justifyContent:"center", color: isTarget && dropValid ? C.green : (isTarget ? "#e06060" : C.textSoft), fontSize: isTarget ? 22 : 10, letterSpacing:"0.5px", transition:"all .12s" }}>
+                      <div style={{ height: 42, borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center", color: isTarget && dropValid ? C.green : (isTarget ? "#e06060" : C.textSoft), fontSize: isTarget ? 22 : 10, letterSpacing: "0.5px", transition: "all .12s" }}>
                         {isTarget ? (dropValid ? "✓" : "✕") : (hour.endsWith(":00") || hour.endsWith(":30") ? hour : "")}
                       </div>
                     )}
@@ -319,30 +319,30 @@ export function AppGrid({
         </tbody>
 
         <tfoot>
-          <tr style={{ borderTop:`2px solid ${C.greenMint}` }}>
-            <td style={{ position:"sticky", left:0, zIndex:5, background:C.white, borderRight:`2px solid ${C.border}`, width:52 }} />
+          <tr style={{ borderTop: `2px solid ${C.greenMint}` }}>
+            <td style={{ position: "sticky", left: 0, zIndex: 5, background: C.white, borderRight: `2px solid ${C.border}`, width: 52 }} />
             {orderedProfessionals.map(prof => {
-              const t   = totalByProf(prof.id)
-              const cnt = paidAppts.filter(a=>a.profId===prof.id).length
+              const t = totalByProf(prof.id)
+              const cnt = paidAppts.filter(a => a.profId === prof.id).length
               return (
-                <td key={prof.id} style={{ padding:"6px 4px", textAlign:"center" }}>
-                  <div style={{ background:t>0?C.greenPale:"#f5f5f5", border:`1px solid ${t>0?C.greenMint:"#e5e5e5"}`, borderRadius:10, padding:"6px 4px", transition:"all .3s" }}>
-                    <div style={{ fontSize:14, fontWeight:"bold", color:t>0?C.green:"#ccc" }}>{fmt(t)}</div>
-                    <div style={{ fontSize:8, color:t>0?C.textSoft:"#ccc", letterSpacing:"1px" }}>{cnt} abonado{cnt!==1?"s":""}</div>
+                <td key={prof.id} style={{ padding: "6px 4px", textAlign: "center" }}>
+                  <div style={{ background: t > 0 ? C.greenPale : "#f5f5f5", border: `1px solid ${t > 0 ? C.greenMint : "#e5e5e5"}`, borderRadius: 10, padding: "6px 4px", transition: "all .3s" }}>
+                    <div style={{ fontSize: 14, fontWeight: "bold", color: t > 0 ? C.green : "#ccc" }}>{fmt(t)}</div>
+                    <div style={{ fontSize: 8, color: t > 0 ? C.textSoft : "#ccc", letterSpacing: "1px" }}>{cnt} abonado{cnt !== 1 ? "s" : ""}</div>
                   </div>
                 </td>
               )
             })}
           </tr>
-          <tr style={{ borderTop:`1px dashed ${C.goldLight}` }}>
-            <td style={{ position:"sticky", left:0, zIndex:5, background:C.white, borderRight:`2px solid ${C.border}`, width:52 }} />
+          <tr style={{ borderTop: `1px dashed ${C.goldLight}` }}>
+            <td style={{ position: "sticky", left: 0, zIndex: 5, background: C.white, borderRight: `2px solid ${C.border}`, width: 52 }} />
             {orderedProfessionals.map(prof => {
               const e = earningsByProf(prof.id)
               return (
-                <td key={prof.id} style={{ padding:"6px 4px", textAlign:"center" }}>
-                  <div style={{ background:e>0?C.goldPale:"#f5f5f5", border:`1px solid ${e>0?C.goldLight:"#e5e5e5"}`, borderRadius:10, padding:"6px 4px", transition:"all .3s" }}>
-                    <div style={{ fontSize:13, fontWeight:"bold", color:e>0?C.gold:"#ccc" }}>{fmt(e)}</div>
-                    <div style={{ fontSize:8, color:e>0?"#b07820":"#ccc", letterSpacing:"1px" }}>ganancia</div>
+                <td key={prof.id} style={{ padding: "6px 4px", textAlign: "center" }}>
+                  <div style={{ background: e > 0 ? C.goldPale : "#f5f5f5", border: `1px solid ${e > 0 ? C.goldLight : "#e5e5e5"}`, borderRadius: 10, padding: "6px 4px", transition: "all .3s" }}>
+                    <div style={{ fontSize: 13, fontWeight: "bold", color: e > 0 ? C.gold : "#ccc" }}>{fmt(e)}</div>
+                    <div style={{ fontSize: 8, color: e > 0 ? "#b07820" : "#ccc", letterSpacing: "1px" }}>ganancia</div>
                   </div>
                 </td>
               )
@@ -354,7 +354,7 @@ export function AppGrid({
         const prof = professionals.find(p => p.id === profPopup)
         if (!prof) return null
         const s = getProfSummary(prof.id)
-        const sortedAppts = [...s.appts].sort((a,b) => (a.hour||"").localeCompare(b.hour||""))
+        const sortedAppts = [...s.appts].sort((a, b) => (a.hour || "").localeCompare(b.hour || ""))
         return (
           <Overlay onClose={() => setProfPopup(null)}>
             <div className="modal-sheet" style={{ ...modalBox, width: "min(900px, calc(100vw - 32px))", maxHeight: "92vh", display: "flex", flexDirection: "column", padding: 0 }}>
@@ -403,7 +403,7 @@ export function AppGrid({
                           </div>
                         </div>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
-                          {(a.services||[]).map((sv, i) => (
+                          {(a.services || []).map((sv, i) => (
                             <span key={i} style={{ fontSize: 11, color: C.textSoft, background: C.cream, borderRadius: 10, padding: "4px 8px" }}>
                               {sv.icon} {sv.name}
                             </span>

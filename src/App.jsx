@@ -50,45 +50,45 @@ export default function App() {
     return toDateKey(d)
   })
   const [calendarOpen, setCalendarOpen] = useState(false)
-  const [calViewDate, setCalViewDate]   = useState(() => {
+  const [calViewDate, setCalViewDate] = useState(() => {
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
   })
-  const [activeView,   setActiveView]   = useState("turnos")
-  const [contPeriod,   setContPeriod]   = useState("mes")
-  const [contFrom,     setContFrom]     = useState("")
-  const [contTo,       setContTo]       = useState("")
-  const [gastoModal,   setGastoModal]   = useState(false)
-  const [gastoForm,    setGastoForm]    = useState({ descripcion: "", monto: "", categoria: "insumos", fecha: todayKey() })
-  const [editGastoId,  setEditGastoId]  = useState(null)
+  const [activeView, setActiveView] = useState("turnos")
+  const [contPeriod, setContPeriod] = useState("mes")
+  const [contFrom, setContFrom] = useState("")
+  const [contTo, setContTo] = useState("")
+  const [gastoModal, setGastoModal] = useState(false)
+  const [gastoForm, setGastoForm] = useState({ descripcion: "", monto: "", categoria: "insumos", fecha: todayKey() })
+  const [editGastoId, setEditGastoId] = useState(null)
   const [sueldoPeriod, setSueldoPeriod] = useState(() => {
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
   })
 
-  const [modal,          setModal]          = useState(null)
-  const [payModal,       setPayModal]       = useState(null)
-  const [deleteKey,      setDeleteKey]      = useState(null)
-  const [clientName,     setClientName]     = useState("")
+  const [modal, setModal] = useState(null)
+  const [payModal, setPayModal] = useState(null)
+  const [deleteKey, setDeleteKey] = useState(null)
+  const [clientName, setClientName] = useState("")
   const [chosenServices, setChosenServices] = useState([])
-  const [filterCat,      setFilterCat]      = useState("all")
-  const [apptNotes,      setApptNotes]      = useState("")
-  const [apptTip,        setApptTip]        = useState("")
-  const [apptDiscount,   setApptDiscount]   = useState("")
-  const [paymentSplits,  setPaymentSplits]  = useState([])
-  const [searchTerm,     setSearchTerm]     = useState("")
+  const [filterCat, setFilterCat] = useState("all")
+  const [apptNotes, setApptNotes] = useState("")
+  const [apptTip, setApptTip] = useState("")
+  const [apptDiscount, setApptDiscount] = useState("")
+  const [paymentSplits, setPaymentSplits] = useState([])
+  const [searchTerm, setSearchTerm] = useState("")
 
-  const [draggingKey,   setDraggingKey]   = useState(null)
-  const [dropTarget,    setDropTarget]    = useState(null)
-  const [dropValid,     setDropValid]     = useState(false)
+  const [draggingKey, setDraggingKey] = useState(null)
+  const [dropTarget, setDropTarget] = useState(null)
+  const [dropValid, setDropValid] = useState(false)
   const [resizePreview, setResizePreview] = useState(null)
-  const dragNode  = useRef(null)
+  const dragNode = useRef(null)
   const resizeRef = useRef(null)
 
 
   const professionals = config.professionals
-  const services      = config.services
-  const comisionPct   = config.comisionPct
+  const services = config.services
+  const comisionPct = config.comisionPct
 
   const appointments = allData[currentDate] || {}
   const setAppointments = (updater) =>
@@ -102,21 +102,21 @@ export default function App() {
     () => Object.values(appointments).filter(a => a.paid),
     [appointments]
   )
-  const totalByProf    = useCallback((pId) => paidAppts.filter(a => a.profId === pId).reduce((s, a) => s + apptPaidTotal(a), 0), [paidAppts])
+  const totalByProf = useCallback((pId) => paidAppts.filter(a => a.profId === pId).reduce((s, a) => s + apptPaidTotal(a), 0), [paidAppts])
   const earningsByProf = useCallback((pId) => totalByProf(pId) * (comisionPct / 100), [totalByProf, comisionPct])
-  const totalByMethod  = useCallback((mid) => paidAppts.reduce((s, a) => {
+  const totalByMethod = useCallback((mid) => paidAppts.reduce((s, a) => {
     if (a.paymentSplits?.length) {
       const split = a.paymentSplits.find(r => r.methodId === mid)
       return s + (split ? parseFloat(split.amount) || 0 : 0)
     }
     return s + (a.payMethod === mid ? apptPaidTotal(a) : 0)
   }, 0), [paidAppts])
-  const grandTotal    = useMemo(() => paidAppts.reduce((s, a) => s + apptPaidTotal(a), 0), [paidAppts])
+  const grandTotal = useMemo(() => paidAppts.reduce((s, a) => s + apptPaidTotal(a), 0), [paidAppts])
   const grandEarnings = useMemo(() => professionals.reduce((s, p) => s + earningsByProf(p.id), 0), [professionals, earningsByProf])
 
   const filteredServices = services.filter(s => (filterCat === "all" || s.category === filterCat) && s.name.toLowerCase().includes(searchTerm.toLowerCase()))
-  const modalSubtotal    = chosenServices.reduce((s, sv) => s + sv.price, 0)
-  const modalDuration    = chosenServices.reduce((s, sv) => s + sv.duration, 0)
+  const modalSubtotal = chosenServices.reduce((s, sv) => s + sv.price, 0)
+  const modalDuration = chosenServices.reduce((s, sv) => s + sv.duration, 0)
 
   const isOccupied = useCallback((profId, hour, ignoreKey = null) => {
     if (appointments[cellKey(profId, hour)] && cellKey(profId, hour) !== ignoreKey) return true
@@ -126,7 +126,7 @@ export default function App() {
       if (parseInt(pid) !== profId) continue
       const startIdx = HOURS.indexOf(h)
       const requestedSlots = a.manualSlots ?? Math.ceil(apptDur(a) / 30)
-      
+
       let actualSlots = requestedSlots
       for (let s = 1; s < requestedSlots; s++) {
         const checkHour = HOURS[startIdx + s]
@@ -137,7 +137,7 @@ export default function App() {
           break
         }
       }
-      
+
       const targetIdx = HOURS.indexOf(hour)
       if (targetIdx > startIdx && targetIdx < startIdx + actualSlots) {
         return true
@@ -159,11 +159,11 @@ export default function App() {
     const a = appointments[k]
     if (!a) return null
     if (resizePreview?.key === k) return resizePreview.slots
-    
+
     const requestedSlots = a.manualSlots ?? Math.max(1, Math.ceil(apptDur(a) / 30))
     const startIdx = HOURS.indexOf(hour)
     let actualSlots = requestedSlots
-    
+
     for (let s = 1; s < requestedSlots; s++) {
       const checkHour = HOURS[startIdx + s]
       if (!checkHour) { actualSlots = s; break }
@@ -177,9 +177,9 @@ export default function App() {
   }
 
   const onDragStart = (e, key) => { setDraggingKey(key); dragNode.current = key; e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", key) }
-  const onDragEnd   = () => { setDraggingKey(null); setDropTarget(null); setDropValid(false); dragNode.current = null }
+  const onDragEnd = () => { setDraggingKey(null); setDropTarget(null); setDropValid(false); dragNode.current = null }
   const onDragLeave = () => { setDropTarget(null); setDropValid(false) }
-  const onDragOver  = (e, profId, hour) => {
+  const onDragOver = (e, profId, hour) => {
     e.preventDefault()
     const key = dragNode.current; if (!key) return
     const valid = canDrop(key, profId, hour)
@@ -200,9 +200,9 @@ export default function App() {
 
   const onResizeStart = (e, key, edge) => {
     e.preventDefault(); e.stopPropagation()
-    const appt        = appointments[key]
+    const appt = appointments[key]
     const origHourIdx = HOURS.indexOf(appt.hour)
-    const origSlots   = Math.max(1, Math.ceil(apptDur(appt) / 30))
+    const origSlots = Math.max(1, Math.ceil(apptDur(appt) / 30))
     resizeRef.current = { key, edge, startY: e.clientY, origHourIdx, origSlots, profId: appt.profId }
     setResizePreview({ key, hourIdx: origHourIdx, slots: origSlots })
     const onMove = (ev) => {
@@ -213,10 +213,10 @@ export default function App() {
       let hourIdx, slots
       if (r.edge === "bottom") {
         hourIdx = r.origHourIdx
-        slots   = Math.min(Math.max(1, r.origSlots + delta), HOURS.length - r.origHourIdx)
+        slots = Math.min(Math.max(1, r.origSlots + delta), HOURS.length - r.origHourIdx)
       } else {
         hourIdx = Math.max(0, Math.min(r.origHourIdx + delta, r.origHourIdx + r.origSlots - 1))
-        slots   = Math.max(1, r.origSlots - (hourIdx - r.origHourIdx))
+        slots = Math.max(1, r.origSlots - (hourIdx - r.origHourIdx))
       }
 
       // Clamp slots so we never overlap another appointment
@@ -235,7 +235,7 @@ export default function App() {
           if (!h || isOccupied(r.profId, h, r.key)) { minIdx = i + 1 }
         }
         hourIdx = Math.max(hourIdx, minIdx)
-        slots   = Math.max(1, r.origSlots - (hourIdx - r.origHourIdx))
+        slots = Math.max(1, r.origSlots - (hourIdx - r.origHourIdx))
       }
 
       setResizePreview({ key: r.key, hourIdx, slots })
@@ -262,7 +262,7 @@ export default function App() {
   const saveAppt = () => {
     if (!chosenServices.length || !clientName.trim()) return
     const { profId, hour, editKey } = modal
-    const k    = editKey || cellKey(profId, hour)
+    const k = editKey || cellKey(profId, hour)
     const prev = appointments[editKey] || {}
     setAppointments(p => { const next = { ...p }; if (editKey && editKey !== k) delete next[editKey]; next[k] = { profId, hour, client: clientName.trim(), services: chosenServices, notes: apptNotes.trim(), paid: prev.paid || false, payMethod: prev.payMethod || null, tip: parseFloat(apptTip) || 0 }; return next })
     setModal(null)
@@ -279,7 +279,7 @@ export default function App() {
 
   const addSplit = () => {
     const usedMids = paymentSplits.map(r => r.methodId)
-    const avail    = PAYMENT_METHODS.find(m => !usedMids.includes(m.id))
+    const avail = PAYMENT_METHODS.find(m => !usedMids.includes(m.id))
     if (!avail) return
     setPaymentSplits(p => [...p, { methodId: avail.id, amount: "" }])
   }
@@ -290,15 +290,15 @@ export default function App() {
 
   // Show loading only on very first load, not on session changes
   if (!loaded) return (
-    <div style={{ minHeight:"100vh", background:C.cream, display:"flex", alignItems:"center", justifyContent:"center" }}>
-      <div style={{ width:52, height:52, borderRadius:"50%", background:`linear-gradient(135deg,${C.green},${C.greenLight})`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:26, animation:"spin 1.2s linear infinite" }}>🌿</div>
+    <div style={{ minHeight: "100vh", background: C.cream, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ width: 52, height: 52, borderRadius: "50%", background: `linear-gradient(135deg,${C.green},${C.greenLight})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, animation: "spin 1.2s linear infinite" }}>🌿</div>
     </div>
   )
 
   if (!session) return <Login onLogin={handleLogin} />
 
   return (
-    <div style={{ display:"flex", flexDirection:"column", height:"100vh", background: C.cream, fontFamily: "'Georgia','Times New Roman',serif", color: C.text, userSelect: draggingKey ? "none" : "auto" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: C.cream, fontFamily: "'Georgia','Times New Roman',serif", color: C.text, userSelect: draggingKey ? "none" : "auto" }}>
       <AppHeader
         config={config} activeView={activeView}
         onLogout={handleLogout}
@@ -310,77 +310,77 @@ export default function App() {
         calViewDate={calViewDate} setCalViewDate={setCalViewDate}
         allData={allData}
       />
-      <div className="main-content" style={{ flex:1, overflow:"hidden", display:"flex", flexDirection:"column" }}>
+      <div className="main-content" style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
 
-      {activeView === "turnos" && (
-        <div key="v-turnos" className="pv-view pv-bg" style={{ display:"flex", flexDirection:"column", flex:1, overflow:"hidden", paddingBottom:56 }}>
-          <div style={{ flex:1, overflow:"hidden", display:"flex", flexDirection:"column" }}>
-          {(draggingKey || resizePreview) && (
-            <div style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", background: resizePreview ? "rgba(58,125,68,.92)" : dropTarget ? (dropValid ? "rgba(58,125,68,.92)" : "rgba(200,60,60,.88)") : "rgba(40,40,40,.82)", color: "#fff", borderRadius: 30, padding: "8px 22px", fontSize: 12, letterSpacing: "1px", zIndex: 300, boxShadow: "0 4px 20px rgba(0,0,0,.25)", pointerEvents: "none" }}>
-              {resizePreview ? "↕ Soltá para confirmar" : dropTarget ? (dropValid ? "✅ Soltar para mover aquí" : "🚫 Horario ocupado") : "☝️ Arrastrá a un nuevo horario"}
+        {activeView === "turnos" && (
+          <div key="v-turnos" className="pv-view pv-bg" style={{ display: "flex", flexDirection: "column", flex: 1, overflow: "hidden", paddingBottom: 48 }}>
+            <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+              {(draggingKey || resizePreview) && (
+                <div style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", background: resizePreview ? "rgba(58,125,68,.92)" : dropTarget ? (dropValid ? "rgba(58,125,68,.92)" : "rgba(200,60,60,.88)") : "rgba(40,40,40,.82)", color: "#fff", borderRadius: 30, padding: "8px 22px", fontSize: 12, letterSpacing: "1px", zIndex: 300, boxShadow: "0 4px 20px rgba(0,0,0,.25)", pointerEvents: "none" }}>
+                  {resizePreview ? "↕ Soltá para confirmar" : dropTarget ? (dropValid ? "✅ Soltar para mover aquí" : "🚫 Horario ocupado") : "☝️ Arrastrá a un nuevo horario"}
+                </div>
+              )}
+
+              <AppGrid
+                professionals={professionals} appointments={appointments} isMobile={isMobile}
+                draggingKey={draggingKey} dropTarget={dropTarget} dropValid={dropValid} resizePreview={resizePreview}
+                isOccupied={isOccupied} spanOf={spanOf}
+                onDragStart={onDragStart} onDragEnd={onDragEnd} onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}
+                onResizeStart={onResizeStart}
+                paidAppts={paidAppts} totalByProf={totalByProf} earningsByProf={earningsByProf} comisionPct={comisionPct}
+                onCellClick={(profId, hour) => { setModal({ profId, hour, editKey: null }); setChosenServices([]); setClientName(""); setFilterCat("all"); setApptNotes(""); setApptTip("") }}
+                onEdit={(key, appt) => { setModal({ profId: appt.profId, hour: appt.hour, editKey: key }); setChosenServices([...(appt.services || [])]); setClientName(appt.client); setFilterCat("all"); setApptNotes(appt.notes || ""); setApptTip(appt.tip || "") }}
+                onPay={(key) => { const a = appointments[key]; if (a?.paymentSplits?.length) setPaymentSplits(a.paymentSplits.map(s => ({ ...s }))); else setPaymentSplits([{ methodId: "efectivo", amount: Math.max(0, apptTotal(a) + (a.tip || 0) - (a.discount || 0)) }]); setApptTip(a.tip || ""); setApptDiscount(a.discount || ""); setPayModal(key) }}
+                onDelete={(key) => setDeleteKey(key)}
+                CELL_H={CELL_H}
+              />
             </div>
-          )}
-
-          <AppGrid
-            professionals={professionals} appointments={appointments} isMobile={isMobile}
-            draggingKey={draggingKey} dropTarget={dropTarget} dropValid={dropValid} resizePreview={resizePreview}
-            isOccupied={isOccupied} spanOf={spanOf}
-            onDragStart={onDragStart} onDragEnd={onDragEnd} onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}
-            onResizeStart={onResizeStart}
-            paidAppts={paidAppts} totalByProf={totalByProf} earningsByProf={earningsByProf} comisionPct={comisionPct}
-            onCellClick={(profId, hour) => { setModal({ profId, hour, editKey: null }); setChosenServices([]); setClientName(""); setFilterCat("all"); setApptNotes(""); setApptTip("") }}
-            onEdit={(key, appt) => { setModal({ profId: appt.profId, hour: appt.hour, editKey: key }); setChosenServices([...(appt.services||[])]); setClientName(appt.client); setFilterCat("all"); setApptNotes(appt.notes || ""); setApptTip(appt.tip || "") }}
-            onPay={(key) => { const a = appointments[key]; if (a?.paymentSplits?.length) setPaymentSplits(a.paymentSplits.map(s => ({ ...s }))); else setPaymentSplits([{ methodId: "efectivo", amount: Math.max(0, apptTotal(a) + (a.tip || 0) - (a.discount || 0)) }]); setApptTip(a.tip || ""); setApptDiscount(a.discount || ""); setPayModal(key) }}
-            onDelete={(key) => setDeleteKey(key)}
-            CELL_H={CELL_H}
-          />
           </div>
-        </div>
-      )}
+        )}
 
-      {activeView === "contabilidad" && (
-        <div key="v-cont" className="pv-view pv-bg" style={{ overflowY:"auto", flex:1 }}><ContabilidadView
-          allData={allData} professionals={professionals} comisionPct={comisionPct}
-          gastos={gastos} setGastos={setGastos}
-          sueldos={sueldos} setSueldos={setSueldos}
-          sueldoPeriod={sueldoPeriod} setSueldoPeriod={setSueldoPeriod}
-          contPeriod={contPeriod} setContPeriod={setContPeriod}
-          contFrom={contFrom} setContFrom={setContFrom}
-          contTo={contTo} setContTo={setContTo}
-          gastoModal={gastoModal} setGastoModal={setGastoModal}
-          gastoForm={gastoForm} setGastoForm={setGastoForm}
-          editGastoId={editGastoId} setEditGastoId={setEditGastoId}
-        /></div>
-      )}
+        {activeView === "contabilidad" && (
+          <div key="v-cont" className="pv-view pv-bg" style={{ overflowY: "auto", flex: 1 }}><ContabilidadView
+            allData={allData} professionals={professionals} comisionPct={comisionPct}
+            gastos={gastos} setGastos={setGastos}
+            sueldos={sueldos} setSueldos={setSueldos}
+            sueldoPeriod={sueldoPeriod} setSueldoPeriod={setSueldoPeriod}
+            contPeriod={contPeriod} setContPeriod={setContPeriod}
+            contFrom={contFrom} setContFrom={setContFrom}
+            contTo={contTo} setContTo={setContTo}
+            gastoModal={gastoModal} setGastoModal={setGastoModal}
+            gastoForm={gastoForm} setGastoForm={setGastoForm}
+            editGastoId={editGastoId} setEditGastoId={setEditGastoId}
+          /></div>
+        )}
 
-      {activeView === "config" && <div key="v-cfg" className="pv-view pv-bg" style={{ overflowY:"auto", flex:1 }}><ConfigView config={config} setConfig={setConfig} /></div>}
-      {activeView === "clientes" && <div key="v-cli" className="pv-view pv-bg" style={{ overflowY:"auto", flex:1 }}><ClientesView clientes={clientes} setClientes={setClientes} allData={allData} /></div>}
+        {activeView === "config" && <div key="v-cfg" className="pv-view pv-bg" style={{ overflowY: "auto", flex: 1 }}><ConfigView config={config} setConfig={setConfig} /></div>}
+        {activeView === "clientes" && <div key="v-cli" className="pv-view pv-bg" style={{ overflowY: "auto", flex: 1 }}><ClientesView clientes={clientes} setClientes={setClientes} allData={allData} /></div>}
 
 
-      {/* Bottom nav (mobile) */}
+        {/* Bottom nav (mobile) */}
 
-      <AppModals
-        modal={modal} setModal={setModal}
-        payModal={payModal} setPayModal={setPayModal}
-        deleteKey={deleteKey} setDeleteKey={setDeleteKey}
-        clientName={clientName} setClientName={setClientName}
-        apptNotes={apptNotes} setApptNotes={setApptNotes}
-        apptTip={apptTip} setApptTip={setApptTip}
-        apptDiscount={apptDiscount} setApptDiscount={setApptDiscount}
-        clientes={clientes} setClientes={setClientes}
-        chosenServices={chosenServices} setChosenServices={setChosenServices}
-        filterCat={filterCat} setFilterCat={setFilterCat}
-        searchTerm={searchTerm} setSearchTerm={setSearchTerm}
-        paymentSplits={paymentSplits} setPaymentSplits={setPaymentSplits}
-        professionals={professionals}
-        services={services} filteredServices={filteredServices}
-        saveAppt={saveAppt} confirmPay={confirmPay} doDelete={doDelete}
-        addSplit={addSplit} removeSplit={removeSplit} updateSplit={updateSplit}
-        toggleService={toggleService} removeService={removeService}
-        modalSubtotal={modalSubtotal} modalDuration={modalDuration}
-        appointments={appointments}
-        allData={allData}
-      />
+        <AppModals
+          modal={modal} setModal={setModal}
+          payModal={payModal} setPayModal={setPayModal}
+          deleteKey={deleteKey} setDeleteKey={setDeleteKey}
+          clientName={clientName} setClientName={setClientName}
+          apptNotes={apptNotes} setApptNotes={setApptNotes}
+          apptTip={apptTip} setApptTip={setApptTip}
+          apptDiscount={apptDiscount} setApptDiscount={setApptDiscount}
+          clientes={clientes} setClientes={setClientes}
+          chosenServices={chosenServices} setChosenServices={setChosenServices}
+          filterCat={filterCat} setFilterCat={setFilterCat}
+          searchTerm={searchTerm} setSearchTerm={setSearchTerm}
+          paymentSplits={paymentSplits} setPaymentSplits={setPaymentSplits}
+          professionals={professionals}
+          services={services} filteredServices={filteredServices}
+          saveAppt={saveAppt} confirmPay={confirmPay} doDelete={doDelete}
+          addSplit={addSplit} removeSplit={removeSplit} updateSplit={updateSplit}
+          toggleService={toggleService} removeService={removeService}
+          modalSubtotal={modalSubtotal} modalDuration={modalDuration}
+          appointments={appointments}
+          allData={allData}
+        />
       </div>{/* end main-content */}
       <nav className="bottom-nav" style={{
         position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 100,
@@ -391,10 +391,10 @@ export default function App() {
         paddingBottom: "env(safe-area-inset-bottom)",
       }}>
         {[
-          { id: "turnos",       icon: "📅", label: "Turnos" },
+          { id: "turnos", icon: "📅", label: "Turnos" },
           { id: "contabilidad", icon: "📊", label: "Contab." },
-          { id: "clientes",     icon: "👥", label: "Clientes" },
-          { id: "config",       icon: "⚙️", label: "Config" },
+          { id: "clientes", icon: "👥", label: "Clientes" },
+          { id: "config", icon: "⚙️", label: "Config" },
         ].map(v => (
           <button key={v.id} onClick={() => { setActiveView(v.id); setCalendarOpen(false) }} style={{
             flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
