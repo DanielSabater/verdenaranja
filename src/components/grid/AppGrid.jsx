@@ -4,13 +4,14 @@ import { PAYMENT_METHODS, HOURS } from "../../constants/data.js"
 import { fmt, cellKey, apptTotal, apptDur, apptPaidTotal } from "../../utils/appointments.js"
 import { Overlay, ModalHeader, GhostBtn, modalBox } from "../ui/index.jsx"
 
-const smallBtn = (color) => ({
-  padding: "6px 12px", borderRadius: 8, border: "none",
-  background: color, color: "#fff", fontSize: 10,
+const smallBtn = (color, isMobile) => ({
+  padding: isMobile ? "4px 8px" : "6px 12px", borderRadius: 8, border: "none",
+  background: color, color: "#fff", fontSize: isMobile ? 12 : 10,
   letterSpacing: "1px", cursor: "pointer",
   fontFamily: "Georgia,serif", opacity: 0.92,
   transition: "opacity .15s",
   fontWeight: "bold",
+  display: "flex", alignItems: "center", justifyContent: "center",
 })
 
 export function AppGrid({
@@ -290,14 +291,14 @@ export function AppGrid({
                             )}
                           </div>
 
-                          <div style={{ position:"absolute", bottom:6, right:6, display:"flex", alignItems:"center", gap:4, zIndex:5 }}>
+                          <div style={{ position:"absolute", bottom: isMobile ? 4 : 6, right: isMobile ? 4 : 6, display:"flex", alignItems:"center", gap: isMobile ? 3 : 4, zIndex:5 }}>
                             <button onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();onDelete(k)}} style={{ width:22, height:22, borderRadius:6, border:`1px solid ${C.border}`, background:"rgba(255,255,255,.9)", color:"#c0a0a0", fontSize:10, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", padding:0 }}>✕</button>
                             {appt.paid
                               ? (() => {
                                   const pmColor = PAYMENT_METHODS.find(m => m.id === appt.payMethod)?.color || "#7a9e7a"
-                                  return <button onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();onPay(k)}} style={smallBtn(pmColor)}>{isMobile?"✏️":"✏️ Pago"}</button>
+                                  return <button onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();onPay(k)}} style={smallBtn(pmColor, isMobile)}>{isMobile?"✏️":"✏️ Pago"}</button>
                                 })()
-                              : <button onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();onPay(k)}} style={smallBtn(C.orange)}>{isMobile?"💰":"💰 Abonar"}</button>
+                              : <button onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();onPay(k)}} style={smallBtn(C.orange, isMobile)}>{isMobile?"💰":"💰 Abonar"}</button>
                             }
                           </div>
 
