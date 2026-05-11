@@ -5,11 +5,12 @@ import { fmt, cellKey, apptTotal, apptDur, apptPaidTotal } from "../../utils/app
 import { Overlay, ModalHeader, GhostBtn, modalBox } from "../ui/index.jsx"
 
 const smallBtn = (color) => ({
-  padding: "3px 8px", borderRadius: 8, border: "none",
-  background: color, color: "#fff", fontSize: 9,
+  padding: "6px 12px", borderRadius: 8, border: "none",
+  background: color, color: "#fff", fontSize: 10,
   letterSpacing: "1px", cursor: "pointer",
   fontFamily: "Georgia,serif", opacity: 0.92,
   transition: "opacity .15s",
+  fontWeight: "bold",
 })
 
 export function AppGrid({
@@ -289,8 +290,8 @@ export function AppGrid({
                             )}
                           </div>
 
-                          <div style={{ position:"absolute", bottom:16, right:4, display:"flex", alignItems:"center", gap:3, zIndex:5 }}>
-                            <button onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();onDelete(k)}} style={{ width:18, height:18, borderRadius:5, border:`1px solid ${C.border}`, background:"rgba(255,255,255,.8)", color:"#c0a0a0", fontSize:8, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", padding:0 }}>✕</button>
+                          <div style={{ position:"absolute", bottom:6, right:6, display:"flex", alignItems:"center", gap:4, zIndex:5 }}>
+                            <button onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();onDelete(k)}} style={{ width:22, height:22, borderRadius:6, border:`1px solid ${C.border}`, background:"rgba(255,255,255,.9)", color:"#c0a0a0", fontSize:10, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", padding:0 }}>✕</button>
                             {appt.paid
                               ? (() => {
                                   const pmColor = PAYMENT_METHODS.find(m => m.id === appt.payMethod)?.color || "#7a9e7a"

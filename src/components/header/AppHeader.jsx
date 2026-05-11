@@ -179,6 +179,8 @@ export const AppHeader = memo(function AppHeader({
       {/* Bottom date strip — fixed, all days of month */}
       {activeView === "turnos" && currentDate && (() => {
         const [y, m] = currentDate.split("-").map(Number)
+        const [ty, tm] = tKey.split("-").map(Number)
+        const isDiffMonth = y !== ty || m !== tm
         const monthName = MESES_ES[m - 1]
         const daysInMonth = new Date(y, m, 0).getDate()
 
@@ -226,7 +228,7 @@ export const AppHeader = memo(function AppHeader({
             {/* Month + HOY + 📅 */}
             <div style={{ display:"flex", flexDirection:"row", gap:3, flexShrink:0, marginLeft:4, alignItems:"center" }}>
               <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", marginRight:6, minWidth:65 }}>
-                <div style={{ fontSize:11, color:C.green, fontWeight:"bold", textTransform:"uppercase", letterSpacing:".8px" }}>{monthName}</div>
+                <div style={{ fontSize:11, color: isDiffMonth ? "#e63946" : C.green, fontWeight:"bold", textTransform:"uppercase", letterSpacing:".8px" }}>{monthName}</div>
                 <div style={{ fontSize:9, color:C.textSoft, opacity:.8, marginTop:-1 }}>{y}</div>
               </div>
               <button
