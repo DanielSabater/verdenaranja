@@ -170,7 +170,7 @@ export default function ContabilidadView({
   const TABS = [{ id:"resumen", label:"📊 Resumen" }, { id:"gastos", label:"💸 Gastos" }, { id:"sueldos", label:"👩 Sueldos" }]
 
   return (
-    <div style={{ maxWidth:960, margin:"0 auto", padding:"20px 16px 160px" }}>
+    <div style={{ width:"100%", maxWidth:1440, margin:"0 auto", padding:"20px 24px 160px", boxSizing:"border-box" }}>
 
       {/* Period selector */}
       <div style={{ display:"flex", gap:6, marginBottom:20, flexWrap:"wrap", alignItems:"center" }}>
@@ -194,127 +194,116 @@ export default function ContabilidadView({
 
       {/* ── RESUMEN ── */}
       {seccion==="resumen" && (
-        <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(400px, 1fr))", gap:20, alignItems:"start" }}>
 
-          {/* KPI cards */}
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:14 }}>
-            {[
-              { label:"💰 Ingresos", val:totalIncome, bg:`linear-gradient(135deg,${C.green},${C.greenLight})`, sub:`${Object.values(safeAllData).flatMap(day=>Object.values(day||{})).filter(a=>a?.paid&&inRange(Object.entries(safeAllData).find(([,v])=>Object.values(v||{}).includes(a))?.[0]||"")).length} turnos pagados` },
-              { label:"💸 Gastos",   val:totalGastos, bg:`linear-gradient(135deg,${C.orange},${C.orangeLight})`, sub:`${gastosRange.length} registros` },
-              { label:"📈 Resultado",val:netResult,   bg:netResult>=0?`linear-gradient(135deg,#2d6a36,${C.green})`:`linear-gradient(135deg,#a03030,#c04040)`, sub:netResult>=0?"Período positivo ✅":"Período negativo ⚠️" },
-            ].map(({ label, val, bg, sub }) => (
-              <div key={label} style={{ background:bg, borderRadius:16, padding:"20px 22px", color:"#fff", boxShadow:"0 8px 24px rgba(0,0,0,.12)" }}>
-                <div style={{ fontSize:9, letterSpacing:"2px", textTransform:"uppercase", opacity:.8, marginBottom:6 }}>{label}</div>
-                <div style={{ fontSize:28, fontWeight:"bold", letterSpacing:"-1px" }}>{fmt(val)}</div>
-                <div style={{ fontSize:10, opacity:.7, marginTop:4 }}>{sub}</div>
-              </div>
-            ))}
-          </div>
-
-          <div style={{ display:"grid", gap:14, marginTop:8 }}>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
-              <div style={{ background:C.white, borderRadius:16, padding:"20px 22px", border:`1px solid ${C.border}` }}>
-                <div style={{ fontSize:9, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase", marginBottom:12 }}>Quien trabajó más</div>
-                {topWorker ? (
-                  <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-                    <div style={{ width:48, height:48, borderRadius:18, background:`linear-gradient(135deg,${C.greenPale},${C.greenMint})`, display:"grid", placeItems:"center", fontSize:24 }}>{topWorker.emoji}</div>
-                    <div>
-                      <div style={{ fontSize:15, fontWeight:"bold", color:C.text }}>{topWorker.name}</div>
-                      <div style={{ fontSize:12, color:C.textSoft, marginTop:6 }}>{turnsByProf[topWorker.id] || 0} turnos pagados en este período</div>
-                      <div style={{ fontSize:12, color:C.textSoft }}>{fmt(incomeByProf[topWorker.id] || 0)} facturados</div>
-                    </div>
-                  </div>
-                ) : (
-                  <div style={{ fontSize:12, color:C.textSoft }}>No hay datos de turnos pagados aún.</div>
-                )}
-              </div>
-              <div style={{ background:C.white, borderRadius:16, padding:"20px 22px", border:`1px solid ${C.border}` }}>
-                <div style={{ fontSize:9, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase", marginBottom:12 }}>Día más productivo</div>
-                {busiestDay ? (
-                  <div>
-                    <div style={{ fontSize:15, fontWeight:"bold", color:C.text }}>{busiestDay.label}</div>
-                    <div style={{ marginTop:8, fontSize:12, color:C.textSoft }}>{busiestDay.count} turnos pagados</div>
-                  </div>
-                ) : (
-                  <div style={{ fontSize:12, color:C.textSoft }}>Sin datos disponibles</div>
-                )}
-              </div>
+          {/* Col 1: KPIs & Totals */}
+          <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(200px, 1fr))", gap:14 }}>
+              {[
+                { label:"💰 Ingresos", val:totalIncome, bg:`linear-gradient(135deg,${C.green},${C.greenLight})`, sub:`${Object.values(safeAllData).flatMap(day=>Object.values(day||{})).filter(a=>a?.paid&&inRange(Object.entries(safeAllData).find(([,v])=>Object.values(v||{}).includes(a))?.[0]||"")).length} turnos` },
+                { label:"💸 Gastos",   val:totalGastos, bg:`linear-gradient(135deg,${C.orange},${C.orangeLight})`, sub:`${gastosRange.length} registros` },
+                { label:"📈 Resultado",val:netResult,   bg:netResult>=0?`linear-gradient(135deg,#2d6a36,${C.green})`:`linear-gradient(135deg,#a03030,#c04040)`, sub:netResult>=0?"Positivo ✅":"Negativo ⚠️" },
+              ].map(({ label, val, bg, sub }) => (
+                <div key={label} style={{ background:bg, borderRadius:16, padding:"18px 20px", color:"#fff", boxShadow:"0 8px 24px rgba(0,0,0,.12)" }}>
+                  <div style={{ fontSize:8, letterSpacing:"1.5px", textTransform:"uppercase", opacity:.8, marginBottom:4 }}>{label}</div>
+                  <div style={{ fontSize:24, fontWeight:"bold", letterSpacing:"-1px" }}>{fmt(val)}</div>
+                  <div style={{ fontSize:9, opacity:.7, marginTop:4 }}>{sub}</div>
+                </div>
+              ))}
             </div>
 
-            <div style={{ background:C.white, borderRadius:16, padding:"20px 22px", border:`1px solid ${C.border}` }}>
-              <div style={{ fontSize:9, letterSpacing:"3px", color:C.textSoft, textTransform:"uppercase", marginBottom:16 }}>
-                Ingresos por profesional {contPeriod === "dia" ? "(Hoy)" : contPeriod === "semana" ? "(Semana)" : contPeriod === "mes" ? "(Mes)" : contPeriod === "custom" ? "(Período)" : "(Todo)"}
-              </div>
+            <div style={{ background:C.white, borderRadius:16, padding:"18px 20px", border:`1px solid ${C.border}` }}>
+              <div style={{ fontSize:9, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase", marginBottom:12 }}>Quien trabajó más</div>
+              {topWorker ? (
+                <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+                  <div style={{ width:44, height:44, borderRadius:14, background:`linear-gradient(135deg,${C.greenPale},${C.greenMint})`, display:"grid", placeItems:"center", fontSize:22 }}>{topWorker.emoji}</div>
+                  <div>
+                    <div style={{ fontSize:14, fontWeight:"bold", color:C.text }}>{topWorker.name}</div>
+                    <div style={{ fontSize:11, color:C.textSoft }}>{turnsByProf[topWorker.id] || 0} turnos · {fmt(incomeByProf[topWorker.id] || 0)}</div>
+                  </div>
+                </div>
+              ) : <div style={{ fontSize:11, color:C.textSoft }}>Sin datos</div>}
+            </div>
+
+            <div style={{ background:C.white, borderRadius:16, padding:"18px 20px", border:`1px solid ${C.border}` }}>
+              <div style={{ fontSize:9, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase", marginBottom:12 }}>Día más productivo</div>
+              {busiestDay ? (
+                <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+                  <div style={{ width:44, height:44, borderRadius:14, background:`linear-gradient(135deg,${C.mpPale},${C.mpMid})`, display:"grid", placeItems:"center", fontSize:18, color:C.white }}>📅</div>
+                  <div>
+                    <div style={{ fontSize:14, fontWeight:"bold", color:C.text }}>{busiestDay.label}</div>
+                    <div style={{ fontSize:11, color:C.textSoft }}>{busiestDay.count} turnos pagados</div>
+                  </div>
+                </div>
+              ) : <div style={{ fontSize:11, color:C.textSoft }}>Sin datos</div>}
+            </div>
+          </div>
+
+          {/* Col 2: Performance Charts */}
+          <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
+            <div style={{ background:C.white, borderRadius:16, padding:"18px 20px", border:`1px solid ${C.border}` }}>
+              <div style={{ fontSize:8, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase", marginBottom:14 }}>Ingresos por profesional</div>
               <div style={{ width:"100%", display:"flex", justifyContent:"center" }}>
-                <svg viewBox={`0 0 ${chartWidth} 180`} style={{ width:"100%", maxWidth:"100%", height:180, display:"block", margin:"0 auto" }}>
+                <svg viewBox={`0 0 ${chartWidth} 220`} style={{ width:"100%", maxWidth:"100%", height:220, display:"block" }}>
                   {[...Array(6)].map((_, idx) => {
-                    const y = 20 + idx * 24
-                    return <line key={idx} x1={24} y1={y} x2={chartWidth - 24} y2={y} stroke="#eee" strokeWidth="1" />
+                    const y = 20 + idx * 36
+                    return <line key={idx} x1={24} y1={y} x2={chartWidth - 24} y2={y} stroke="#f2f2f2" strokeWidth="1" />
                   })}
-                  <path d={`M24 160 L${chartWidth - 24} 160`} stroke="#ccc" strokeWidth="1" />
+                  <path d={`M24 200 L${chartWidth - 24} 200`} stroke="#ddd" strokeWidth="1" />
                   {turnosChart.map((prof, idx) => {
                     const color = [C.green, C.orange, C.gold, C.greenLight, C.orangeLight][idx % 5]
                     const points = prof.values.map((value, i) => {
                       const x = 24 + (chartInnerWidth / Math.max(chartRange.length - 1, 1)) * i
-                      const y = 160 - (value / maxTurns) * 120
+                      const y = 200 - (value / maxTurns) * 160
                       return `${i===0?"M":"L"} ${x} ${y}`
                     }).join(" ")
                     return (
                       <g key={prof.id}>
-                        <path d={points} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        <path d={points} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
                         {prof.values.map((value, i) => {
                           const x = 24 + (chartInnerWidth / Math.max(chartRange.length - 1, 1)) * i
-                          const y = 160 - (value / maxTurns) * 120
-                          return <circle key={i} cx={x} cy={y} r="4" fill={color} />
+                          const y = 200 - (value / maxTurns) * 160
+                          return <circle key={i} cx={x} cy={y} r="3.5" fill={color} />
                         })}
                       </g>
                     )
                   })}
-                  {chartRange.map((day, i) => {
-                    const x = 24 + (chartInnerWidth / Math.max(chartRange.length - 1, 1)) * i
-                    if (i % labelEvery !== 0 && i !== chartRange.length - 1) return null
-                    return (
-                      <text key={day.k} x={x} y={176} textAnchor="middle" fontSize="9" fill={C.textSoft}>{day.label}</text>
-                    )
-                  })}
                 </svg>
               </div>
-              <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginTop:14 }}>
+              <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginTop:12 }}>
                 {turnosChart.map((prof, idx) => (
-                  <div key={prof.id} style={{ display:"flex", alignItems:"center", gap:6, fontSize:10, color:C.textSoft }}>
-                    <span style={{ width:10, height:10, borderRadius:999, background:[C.green, C.orange, C.gold, C.greenLight, C.orangeLight][idx % 5] }}></span>
-                    <span>{prof.emoji} {prof.name}</span>
+                  <div key={prof.id} style={{ display:"flex", alignItems:"center", gap:5, fontSize:9, color:C.textSoft }}>
+                    <span style={{ width:8, height:8, borderRadius:99, background:[C.green, C.orange, C.gold, C.greenLight, C.orangeLight][idx % 5] }}></span>
+                    <span>{prof.name}</span>
                   </div>
                 ))}
               </div>
             </div>
-          </div>
 
-          {/* Bar chart — últimos 14 días */}
-          <div style={{ background:C.white, borderRadius:16, padding:"20px 22px", border:`1px solid ${C.border}`, boxShadow:`0 2px 12px ${C.shadow}` }}>
-            <div style={{ display:"flex", alignItems:"flex-end", gap:4, height:100 }}>
-              {dailyData.map((d, i) => {
-                const h = Math.max(2, (d.income / maxDay) * 90)
-                const isToday = d.k === toDateKey(new Date())
-                return (
-                  <div key={i} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
-                    {d.income > 0 && (
-                      <div style={{ fontSize:7, color:C.textSoft, whiteSpace:"nowrap" }}>{fmt(d.income).replace("$","")}</div>
-                    )}
-                    <div style={{ width:"100%", height:h, borderRadius:"4px 4px 0 0", background:isToday?`linear-gradient(180deg,${C.orange},${C.orangeLight})`:d.income>0?`linear-gradient(180deg,${C.green},${C.greenLight})`:"#f0f0f0", transition:"height .3s ease", position:"relative" }}/>
-                    <div style={{ fontSize:7, color:isToday?C.orange:C.textSoft, fontWeight:isToday?"bold":"normal" }}>{d.label}</div>
-                  </div>
-                )
-              })}
+            <div style={{ background:C.white, borderRadius:16, padding:"18px 20px", border:`1px solid ${C.border}`, boxShadow:`0 2px 12px ${C.shadow}`, overflow:"hidden" }}>
+              <div style={{ fontSize:8, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase", marginBottom:12 }}>Actividad diaria ({dailyData.length} d)</div>
+              <div style={{ display:"flex", alignItems:"flex-end", gap:2, height:140, paddingBottom:20, position:"relative" }}>
+                {dailyData.map((d, i) => {
+                  const h = Math.max(2, (d.income / maxDay) * 120)
+                  const isToday = d.k === todayKey()
+                  const showLabel = dailyData.length <= 14 || i % Math.ceil(dailyData.length / 10) === 0 || i === dailyData.length - 1
+                  return (
+                    <div key={i} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", height:"100%", justifyContent:"flex-end", position:"relative" }}>
+                      <div style={{ width:"100%", height:h, borderRadius:"2px 2px 0 0", background:isToday?`linear-gradient(180deg,${C.orange},${C.orangeLight})`:d.income>0?`linear-gradient(180deg,${C.green},${C.greenLight})`:"#f5f5f5", transition:"height .3s ease" }}/>
+                      {showLabel && (
+                        <div style={{ position:"absolute", bottom:-16, fontSize:7, color:isToday?C.orange:C.textSoft, fontWeight:isToday?"bold":"normal", whiteSpace:"nowrap" }}>{d.label}</div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           </div>
 
-          {/* Por método + por profesional */}
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
-
-            {/* Métodos */}
-            <div style={{ background:C.white, borderRadius:16, padding:"20px 22px", border:`1px solid ${C.border}` }}>
-              <div style={{ fontSize:9, letterSpacing:"3px", color:C.textSoft, textTransform:"uppercase", marginBottom:14 }}>Por método de pago</div>
+          {/* Col 3: Breakdown Breakdown */}
+          <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
+            <div style={{ background:C.white, borderRadius:16, padding:"18px 20px", border:`1px solid ${C.border}` }}>
+              <div style={{ fontSize:9, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase", marginBottom:14 }}>Por método de pago</div>
               {PAYMENT_METHODS.map(pm => {
                 const t = incomeByMethod[pm.id] || 0
                 const pct = totalIncome > 0 ? (t/totalIncome)*100 : 0
@@ -324,17 +313,16 @@ export default function ContabilidadView({
                       <span style={{ fontSize:11, color:C.text }}>{pm.icon} {pm.label}</span>
                       <span style={{ fontSize:11, fontWeight:"bold", color:t>0?pm.color:C.textSoft }}>{fmt(t)}</span>
                     </div>
-                    <div style={{ height:6, background:"#f0f0f0", borderRadius:3, overflow:"hidden" }}>
-                      <div style={{ height:"100%", width:`${pct}%`, background:pm.color, borderRadius:3, transition:"width .4s ease" }}/>
+                    <div style={{ height:5, background:"#f5f5f5", borderRadius:3, overflow:"hidden" }}>
+                      <div style={{ height:"100%", width:`${pct}%`, background:pm.color, borderRadius:3, transition:"width .5s ease" }}/>
                     </div>
                   </div>
                 )
               })}
             </div>
 
-            {/* Profesionales */}
-            <div style={{ background:C.white, borderRadius:16, padding:"20px 22px", border:`1px solid ${C.border}` }}>
-              <div style={{ fontSize:9, letterSpacing:"3px", color:C.textSoft, textTransform:"uppercase", marginBottom:14 }}>Por profesional</div>
+            <div style={{ background:C.white, borderRadius:16, padding:"18px 20px", border:`1px solid ${C.border}` }}>
+              <div style={{ fontSize:9, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase", marginBottom:14 }}>Comisiones profesionales</div>
               {safeProfessionals.map(p => {
                 const inc = incomeByProf[p.id] || 0
                 const com = inc * (comisionPct/100)
@@ -345,14 +333,15 @@ export default function ContabilidadView({
                       <span style={{ fontSize:11, color:C.text }}>{p.emoji} {p.name}</span>
                       <span style={{ fontSize:10, color:C.textSoft }}>{fmt(inc)} <span style={{ color:C.gold }}>· {fmt(com)}</span></span>
                     </div>
-                    <div style={{ height:6, background:"#f0f0f0", borderRadius:3, overflow:"hidden" }}>
-                      <div style={{ height:"100%", width:`${pct}%`, background:`linear-gradient(90deg,${C.green},${C.greenLight})`, borderRadius:3, transition:"width .4s ease" }}/>
+                    <div style={{ height:5, background:"#f5f5f5", borderRadius:3, overflow:"hidden" }}>
+                      <div style={{ height:"100%", width:`${pct}%`, background:`linear-gradient(90deg,${C.green},${C.greenLight})`, borderRadius:3, transition:"width .5s ease" }}/>
                     </div>
                   </div>
                 )
               })}
             </div>
           </div>
+
         </div>
       )}
 
