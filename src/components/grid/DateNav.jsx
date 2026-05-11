@@ -14,7 +14,7 @@ export function DateNav({ currentDate, setCurrentDate, calendarOpen, setCalendar
   const cells     = []
   for (let i = 0; i < startDow; i++) cells.push(null)
   for (let d = 1; d <= lastDay.getDate(); d++) cells.push(d)
-  while (cells.length % 7 !== 0) cells.push(null)
+  while (cells.length < 42) cells.push(null)
 
   const prevMonth = () => {
     let m = vm - 1, y = vy
@@ -125,7 +125,7 @@ export function DateNav({ currentDate, setCurrentDate, calendarOpen, setCalendar
           {/* Calendar grid */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(7,36px)", gap: 4 }}>
             {cells.map((day, idx) => {
-              if (!day) return <div key={idx} />
+              if (!day) return <div key={idx} style={{ width: 36, height: 36 }} />
               const dow      = idx % 7
               const isSun    = dow === 6
               const dk       = `${vy}-${String(vm).padStart(2, "0")}-${String(day).padStart(2, "0")}`

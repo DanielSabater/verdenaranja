@@ -25,7 +25,7 @@ export const AppHeader = memo(function AppHeader({
   const cells = []
   for (let i = 0; i < startDow; i++) cells.push(null)
   for (let d = 1; d <= lastDay.getDate(); d++) cells.push(d)
-  while (cells.length % 7 !== 0) cells.push(null)
+  while (cells.length < 42) cells.push(null)
 
   const prevMonth = () => { let m = vm - 1, y = vy; if (m < 1) { m = 12; y-- } setCalViewDate(`${y}-${String(m).padStart(2, "0")}`) }
   const nextMonth = () => { let m = vm + 1, y = vy; if (m > 12) { m = 1; y++ } setCalViewDate(`${y}-${String(m).padStart(2, "0")}`) }
@@ -175,7 +175,7 @@ export const AppHeader = memo(function AppHeader({
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(7,36px)", gap: 4 }}>
               {cells.map((day, idx) => {
-                if (!day) return <div key={idx} />
+                if (!day) return <div key={idx} style={{ width: 36, height: 36 }} />
                 const dow = idx % 7, isSun = dow === 6, dk = `${vy}-${String(vm).padStart(2, "0")}-${String(day).padStart(2, "0")}`, isCur = dk === currentDate, isToday = dk === tKey, hasAppts = Object.keys((allData || {})[dk] || {}).length > 0
                 return (
                   <button key={idx} disabled={isSun} onClick={() => { setCurrentDate(dk); setCalendarOpen(false) }} style={{ width: 36, height: 36, borderRadius: 10, position: "relative", border: `2px solid ${isCur ? C.green : isToday ? C.greenMint : "transparent"}`, background: isCur ? `linear-gradient(135deg,${C.green},${C.greenLight})` : isToday ? C.greenPale : hasAppts ? C.cream : "transparent", color: isCur ? "#fff" : isSun ? "#e0cece" : isToday ? C.green : C.text, fontSize: 12, fontWeight: isCur || isToday ? "bold" : "normal", cursor: isSun ? "not-allowed" : "pointer", fontFamily: "Georgia,serif", transition: "all .12s" }}>

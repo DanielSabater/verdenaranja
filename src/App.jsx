@@ -54,6 +54,13 @@ export default function App() {
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
   })
+
+  useEffect(() => {
+    if (calendarOpen) {
+      const d = new Date()
+      setCalViewDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`)
+    }
+  }, [calendarOpen])
   const [activeView, setActiveView] = useState("turnos")
   const [contPeriod, setContPeriod] = useState("mes")
   const [contFrom, setContFrom] = useState("")
