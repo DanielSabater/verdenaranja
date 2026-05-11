@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { C } from "../../constants/colors.js"
 import { PAYMENT_METHODS } from "../../constants/data.js"
 import { GhostBtn, SolidBtn, Field, inputStyle } from "../ui/index.jsx"
@@ -12,6 +12,9 @@ export default function ClientesView({ clientes, setClientes, allData }) {
   const [apptName, setApptName] = useState("")
   const [showSug,  setShowSug]  = useState(false)
   const [savedMsg, setSavedMsg] = useState(false)
+
+  const [sortBy, setSortBy] = useState("alpha") // alpha, freq, spent, recent
+  const [filterSvc, setFilterSvc] = useState("all")
 
   const safe  = clientes || []
   const safeD = allData  || {}
@@ -29,9 +32,41 @@ export default function ClientesView({ clientes, setClientes, allData }) {
     setShowSug(false)
   }
 
-  const filtered = safe.filter(c =>
-    c.name.toLowerCase().includes(search.toLowerCase()) || (c.phone||"").includes(search)
-  )
+  const enriched = useMemo(() => {
+    return safe.map(c => {
+      let visits = 0, totalSpent = 0, lastVisit = null
+      const svcs = new Set()
+      Object.entries(safeD).forEach(([fecha, day]) => {
+        Object.values(day).forEach(a => {
+          if ((a.client||"").toLowerCase() === c.name.toLowerCase()) {
+            visits++
+            if (a.paid) totalSpent += (a.services||[]).reduce((s,x) => s + (x.price||0), 0)
+            if (!lastVisit || fecha > lastVisit) lastVisit = fecha
+            ;(a.services||[]).forEach(s => svcs.add(s.name))
+          }
+        })
+      })
+      return { ...c, visits, totalSpent, lastVisit, servicesTaken: Array.from(svcs) }
+    })
+  }, [safe, safeD])
+
+  const allServices = useMemo(() => {
+    const s = new Set(); enriched.forEach(c => c.servicesTaken.forEach(x => s.add(x))); return Array.from(s).sort()
+  }, [enriched])
+
+  const finalFiltered = useMemo(() => {
+    let list = enriched.filter(c => 
+      (c.name.toLowerCase().includes(search.toLowerCase()) || (c.phone||"").includes(search)) &&
+      (filterSvc === "all" || c.servicesTaken.includes(filterSvc))
+    )
+
+    if (sortBy === "alpha") list.sort((a,b) => a.name.localeCompare(b.name))
+    else if (sortBy === "freq") list.sort((a,b) => b.visits - a.visits)
+    else if (sortBy === "spent") list.sort((a,b) => b.totalSpent - a.totalSpent)
+    else if (sortBy === "recent") list.sort((a,b) => (b.lastVisit||"").localeCompare(a.lastVisit||""))
+    
+    return list
+  }, [enriched, search, filterSvc, sortBy])
 
   const visitCount = (name) => {
     let n = 0
@@ -149,30 +184,63 @@ export default function ClientesView({ clientes, setClientes, allData }) {
             ))}
           </div>
 
-          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Buscar por nombre o teléfono..." style={{...inputStyle, marginBottom:12}}/>
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Buscar por nombre o teléfono..." style={{...inputStyle, marginBottom:10}}/>
 
-          {filtered.length===0 && <div style={{ textAlign:"center", color:C.textSoft, fontSize:13, padding:30 }}>{search?"Sin resultados":"Sin clientas guardadas aún"}</div>}
+          <div style={{ display:"flex", gap:8, marginBottom:16, flexWrap:"wrap", alignItems:"center" }}>
+            <div style={{ fontSize:9, color:C.textSoft, textTransform:"uppercase", letterSpacing:"1px" }}>Ordenar:</div>
+            <select value={sortBy} onChange={e=>setSortBy(e.target.value)} style={{ padding:"4px 8px", borderRadius:8, border:`1px solid ${C.border}`, background:C.white, fontSize:11, color:C.text, outline:"none", cursor:"pointer" }}>
+              <option value="alpha">A-Z (Alfabético)</option>
+              <option value="freq">Más frecuentes</option>
+              <option value="spent">Mayores ingresos</option>
+              <option value="recent">Última visita</option>
+            </select>
+
+            <div style={{ fontSize:9, color:C.textSoft, textTransform:"uppercase", letterSpacing:"1px", marginLeft:8 }}>Servicio:</div>
+            <select value={filterSvc} onChange={e=>setFilterSvc(e.target.value)} style={{ padding:"4px 8px", borderRadius:8, border:`1px solid ${C.border}`, background:C.white, fontSize:11, color:C.text, outline:"none", cursor:"pointer" }}>
+              <option value="all">Todos los servicios</option>
+              {allServices.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+
+          {finalFiltered.length===0 && <div style={{ textAlign:"center", color:C.textSoft, fontSize:13, padding:30 }}>{search||filterSvc!=="all"?"Sin resultados":"Sin clientas guardadas aún"}</div>}
 
           <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-            {filtered.map(c => {
+            {finalFiltered.map(c => {
               const active = selected?.id === c.id
-              const visits = visitCount(c.name)
+              const visits = c.visits
+              const isVIP  = visits >= 5 || c.totalSpent > 50000
+              const isInactive = c.lastVisit && (new Date() - new Date(c.lastVisit)) > 1000*60*60*24*90 // 90 dias
               return (
                 <div key={c.id} onClick={()=>setSelected(active?null:c)} style={{ background:active?C.greenPale:C.white, border:`1.5px solid ${active?C.green:C.border}`, borderRadius:12, padding:"11px 14px", cursor:"pointer", transition:"all .15s" }}>
                   <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
                     <div style={{ flex:1 }}>
-                      <div style={{ fontSize:14, color:C.text, fontWeight:active?"bold":"normal" }}>{c.name}</div>
+                      <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                        <div style={{ fontSize:14, color:C.text, fontWeight:active?"bold":"normal" }}>{c.name}</div>
+                        {isVIP && <span title="Clienta recurrente / VIP" style={{ fontSize:14 }}>💎</span>}
+                        {isInactive && <span title="No viene hace +3 meses" style={{ fontSize:9, background:"#fff0f0", color:"#e63946", padding:"1px 5px", borderRadius:4, fontWeight:"bold", border:"1px solid #ffcccc" }}>INACTIVA</span>}
+                      </div>
                       {c.phone && <div style={{ fontSize:11, color:C.textSoft, marginTop:2 }}>📞 {c.phone}</div>}
                       {c.notes && <div style={{ fontSize:11, color:C.textSoft, marginTop:2, fontStyle:"italic" }}>"{c.notes}"</div>}
                     </div>
                     <div style={{ display:"flex", gap:6, alignItems:"center", flexShrink:0, marginLeft:10 }}>
-                      <div style={{ fontSize:9, background:visits>0?C.greenMint:"#f0f0f0", color:visits>0?C.green:C.textSoft, padding:"2px 8px", borderRadius:8 }}>{visits>0?`${visits} turnos`:"sin turnos"}</div>
+                      <div style={{ fontSize:9, background:visits>0?C.greenMint:"#f0f0f0", color:visits>0?C.green:C.textSoft, padding:"2px 8px", borderRadius:8, fontWeight:visits>=5?"bold":"normal" }}>{visits>0?`${visits} turnos`:"sin turnos"}</div>
                       <button onClick={e=>openEdit(c,e)} style={{ padding:"3px 8px", borderRadius:8, border:`1px solid ${C.border}`, background:C.white, color:C.textSoft, fontSize:10, cursor:"pointer", fontFamily:"Georgia,serif" }}>✏️</button>
                       <button onClick={e=>{e.stopPropagation();setClientes(p=>p.filter(x=>x.id!==c.id));if(selected?.id===c.id)setSelected(null)}} style={{ padding:"3px 8px", borderRadius:8, border:"none", background:"#fde8e8", color:"#c04040", fontSize:10, cursor:"pointer" }}>🗑️</button>
                     </div>
                   </div>
                   {active && (
                     <div style={{ marginTop:12, borderTop:`1px solid ${C.greenMint}`, paddingTop:12 }}>
+                      <div style={{ display:"flex", justifyContent:"space-between", marginBottom:10 }}>
+                        <div>
+                          <div style={{ fontSize:8, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase" }}>Total invertido</div>
+                          <div style={{ fontSize:14, color:C.green, fontWeight:"bold" }}>{fmt(c.totalSpent)}</div>
+                        </div>
+                        <div style={{ textAlign:"right" }}>
+                          <div style={{ fontSize:8, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase" }}>Última visita</div>
+                          <div style={{ fontSize:11, color:C.text }}>{formatDate(c.lastVisit)}</div>
+                        </div>
+                      </div>
+
                       <div style={{ fontSize:8, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase", marginBottom:8 }}>Historial</div>
                       {getHistorial(c.name).length===0
                         ? <div style={{ fontSize:11, color:C.textSoft, fontStyle:"italic" }}>Sin turnos registrados aún</div>
