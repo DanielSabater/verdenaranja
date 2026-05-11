@@ -35,10 +35,12 @@ export const AppHeader = memo(function AppHeader({
 
   useEffect(() => {
     if (activeView === "turnos" && dateStripRef.current) {
-      const activeBtn = dateStripRef.current.querySelector('[data-active="true"]')
-      if (activeBtn) {
-        activeBtn.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" })
-      }
+      setTimeout(() => {
+        const activeBtn = dateStripRef.current.querySelector('[data-active="true"]')
+        if (activeBtn) {
+          activeBtn.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" })
+        }
+      }, 100)
     }
   }, [currentDate, activeView])
 
