@@ -278,9 +278,10 @@ export default function App() {
   const confirmPay = () => {
     const tipAmount = parseFloat(apptTip) || 0
     const discountAmount = parseFloat(apptDiscount) || 0
-    const validSplits = paymentSplits.filter(r => r.methodId && parseFloat(r.amount) > 0)
-    if (validSplits.length === 0) return
-    setAppointments(p => ({ ...p, [payModal]: { ...p[payModal], paid: true, payMethod: validSplits[0].methodId, paymentSplits: validSplits, tip: tipAmount, discount: discountAmount } }))
+    // Allow 0 as a valid amount
+    const validSplits = paymentSplits.filter(r => r.methodId && r.amount !== "" && !isNaN(parseFloat(r.amount)))
+    
+    setAppointments(p => ({ ...p, [payModal]: { ...p[payModal], paid: true, payMethod: validSplits[0]?.methodId || "efectivo", paymentSplits: validSplits, tip: tipAmount, discount: discountAmount } }))
     setPayModal(null)
   }
 

@@ -42,14 +42,22 @@ export default function ContabilidadView({
   const inRange = (k) => k >= rangeFrom && k <= rangeTo
 
   // ── calculations ───────────────────────────────────────────────────────────
-  const { totalIncome, incomeByProf, incomeByMethod, totalTurns, turnsByProf } = useMemo(() => {
-    const byProf = {}, byMethod = {}, turnsByProf = {}
+  const { totalIncome, incomeByProf, incomeByMethod, totalTurns, turnsByProf, incomeByService, countByService, incomeByDOW } = useMemo(() => {
+    const byProf = {}, byMethod = {}, turnsByProf = {}, byService = {}, countService = {}, byDOW = {}
     safeProfessionals.forEach(p => { byProf[p.id] = 0; turnsByProf[p.id] = 0 })
+    // Initialize DOW (0-6)
+    for (let i=0; i<7; i++) byDOW[i] = 0
+
     let total = 0
     let turns = 0
     Object.entries(safeAllData).forEach(([dk, dayData]) => {
       if (!inRange(dk)) return
       const safeDayData = dayData || {}
+      
+      // DOW calculation
+      const dateObj = new Date(dk + "T12:00:00")
+      const dow = dateObj.getDay()
+
       Object.values(safeDayData).forEach(appt => {
         if (!appt?.paid) return
         const t = apptPaidTotal(appt)
@@ -57,6 +65,17 @@ export default function ContabilidadView({
         turns += 1
         byProf[appt.profId] = (byProf[appt.profId] || 0) + t
         turnsByProf[appt.profId] = (turnsByProf[appt.profId] || 0) + 1
+        byDOW[dow] = (byDOW[dow] || 0) + t
+
+        // Service stats
+        if (appt.services?.length) {
+          appt.services.forEach(s => {
+            const price = parseFloat(s.price) || 0
+            byService[s.name] = (byService[s.name] || 0) + price
+            countService[s.name] = (countService[s.name] || 0) + 1
+          })
+        }
+
         if (appt.paymentSplits?.length) {
           appt.paymentSplits.forEach(s => { byMethod[s.methodId] = (byMethod[s.methodId]||0) + (parseFloat(s.amount)||0) })
         } else if (appt.payMethod) {
@@ -64,8 +83,10 @@ export default function ContabilidadView({
         }
       })
     })
-    return { totalIncome: total, incomeByProf: byProf, turnsByProf, incomeByMethod: byMethod, totalTurns: turns }
+    return { totalIncome: total, incomeByProf: byProf, turnsByProf, incomeByMethod: byMethod, totalTurns: turns, incomeByService: byService, countByService: countService, incomeByDOW: byDOW }
   }, [safeAllData, safeProfessionals, rangeFrom, rangeTo])
+
+  const avgTicket = totalTurns > 0 ? totalIncome / totalTurns : 0
 
   const gastosRange  = safeGastos.filter(g => inRange(g.fecha))
   const totalGastos  = gastosRange.reduce((s,g) => s+(parseFloat(g.monto)||0), 0)
@@ -151,7 +172,7 @@ export default function ContabilidadView({
 
   // ── gasto handlers ─────────────────────────────────────────────────────────
   const saveGasto = () => {
-    if (!gastoForm.descripcion.trim() || !gastoForm.monto) return
+    if (!gastoForm.descripcion.trim() || gastoForm.monto === "") return
     if (editGastoId) {
       setGastos(p => p.map(g => g.id===editGastoId ? {...g,...gastoForm} : g))
       setEditGastoId(null)
@@ -200,9 +221,10 @@ export default function ContabilidadView({
           <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
             <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(200px, 1fr))", gap:14 }}>
               {[
-                { label:"💰 Ingresos", val:totalIncome, bg:`linear-gradient(135deg,${C.green},${C.greenLight})`, sub:`${Object.values(safeAllData).flatMap(day=>Object.values(day||{})).filter(a=>a?.paid&&inRange(Object.entries(safeAllData).find(([,v])=>Object.values(v||{}).includes(a))?.[0]||"")).length} turnos` },
+                { label:"💰 Ingresos", val:totalIncome, bg:`linear-gradient(135deg,${C.green},${C.greenLight})`, sub:`${totalTurns} turnos` },
                 { label:"💸 Gastos",   val:totalGastos, bg:`linear-gradient(135deg,${C.orange},${C.orangeLight})`, sub:`${gastosRange.length} registros` },
                 { label:"📈 Resultado",val:netResult,   bg:netResult>=0?`linear-gradient(135deg,#2d6a36,${C.green})`:`linear-gradient(135deg,#a03030,#c04040)`, sub:netResult>=0?"Positivo ✅":"Negativo ⚠️" },
+                { label:"🎫 Ticket Prom.", val:avgTicket, bg:`linear-gradient(135deg,${C.gold},${C.goldLight})`, sub:"Promedio por cliente" },
               ].map(({ label, val, bg, sub }) => (
                 <div key={label} style={{ background:bg, borderRadius:16, padding:"18px 20px", color:"#fff", boxShadow:"0 8px 24px rgba(0,0,0,.12)" }}>
                   <div style={{ fontSize:8, letterSpacing:"1.5px", textTransform:"uppercase", opacity:.8, marginBottom:4 }}>{label}</div>
@@ -298,10 +320,48 @@ export default function ContabilidadView({
                 })}
               </div>
             </div>
+            <div style={{ background:C.white, borderRadius:16, padding:"18px 20px", border:`1px solid ${C.border}` }}>
+              <div style={{ fontSize:8, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase", marginBottom:14 }}>Rendimiento por día de semana</div>
+              <div style={{ display:"flex", alignItems:"flex-end", justifyContent:"space-between", height:120, gap:8, paddingBottom:20 }}>
+                {["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"].map((label, dow) => {
+                  const val = incomeByDOW[dow] || 0
+                  const maxDOW = Math.max(...Object.values(incomeByDOW), 1)
+                  const h = (val / maxDOW) * 80
+                  return (
+                    <div key={label} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:6 }}>
+                      <div style={{ width:"100%", height:h, borderRadius:4, background:val>0?`linear-gradient(180deg,${C.green},${C.greenLight})`:"#f0f0f0", transition:"height .4s" }}/>
+                      <div style={{ fontSize:8, color:C.textSoft }}>{label}</div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
           </div>
 
           {/* Col 3: Breakdown Breakdown */}
           <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
+            <div style={{ background:C.white, borderRadius:16, padding:"18px 20px", border:`1px solid ${C.border}` }}>
+              <div style={{ fontSize:9, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase", marginBottom:14 }}>Top Servicios (Facturación)</div>
+              {Object.entries(incomeByService)
+                .sort(([,a],[,b]) => b-a)
+                .slice(0, 5)
+                .map(([name, val]) => {
+                  const pct = totalIncome > 0 ? (val/totalIncome)*100 : 0
+                  return (
+                    <div key={name} style={{ marginBottom:12 }}>
+                      <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+                        <span style={{ fontSize:11, color:C.text }}>{name} <span style={{ fontSize:9, color:C.textSoft }}>({countByService[name]})</span></span>
+                        <span style={{ fontSize:11, fontWeight:"bold", color:C.green }}>{fmt(val)}</span>
+                      </div>
+                      <div style={{ height:5, background:"#f5f5f5", borderRadius:3, overflow:"hidden" }}>
+                        <div style={{ height:"100%", width:`${pct}%`, background:C.green, borderRadius:3, transition:"width .5s ease" }}/>
+                      </div>
+                    </div>
+                  )
+                })}
+              {Object.keys(incomeByService).length === 0 && <div style={{ fontSize:11, color:C.textSoft }}>Sin datos</div>}
+            </div>
+
             <div style={{ background:C.white, borderRadius:16, padding:"18px 20px", border:`1px solid ${C.border}` }}>
               <div style={{ fontSize:9, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase", marginBottom:14 }}>Por método de pago</div>
               {PAYMENT_METHODS.map(pm => {
@@ -510,7 +570,7 @@ export default function ContabilidadView({
                             <span style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", color:C.textSoft, fontSize:13 }}>$</span>
                             <input type="number" value={sd.monto} onChange={e=>setSueldos(p2=>({...p2,[sueldoKey(p.id)]:{...profSueldo(p.id),monto:e.target.value}}))} placeholder={String(Math.round(stats.comision))} style={{...inputStyle, paddingLeft:24, fontSize:13}}/>
                           </div>
-                          <button onClick={()=>pagarSueldo(p.id)} disabled={!sd.monto} style={{ padding:"9px 14px", borderRadius:10, border:"none", background:sd.monto?`linear-gradient(135deg,${C.green},${C.greenLight})`:"#e8e8e8", color:sd.monto?"#fff":"#bbb", fontSize:10, cursor:sd.monto?"pointer":"not-allowed", fontFamily:"Georgia,serif", whiteSpace:"nowrap", flexShrink:0 }}>✅ Pagar</button>
+                          <button onClick={()=>pagarSueldo(p.id)} disabled={sd.monto === ""} style={{ padding:"9px 14px", borderRadius:10, border:"none", background:sd.monto !== ""?`linear-gradient(135deg,${C.green},${C.greenLight})` : "#e8e8e8", color:sd.monto !== ""?"#fff":"#bbb", fontSize:10, cursor:sd.monto !== ""?"pointer":"not-allowed", fontFamily:"Georgia,serif", whiteSpace:"nowrap", flexShrink:0 }}>✅ Pagar</button>
                         </div>
                     }
                   </div>
@@ -543,7 +603,7 @@ export default function ContabilidadView({
             </Field>
             <div style={{ display:"flex", gap:8, marginTop:8 }}>
               <GhostBtn onClick={()=>{ setGastoModal(false); setEditGastoId(null) }}>Cancelar</GhostBtn>
-              <SolidBtn onClick={saveGasto} disabled={!gastoForm.descripcion.trim()||!gastoForm.monto} color={C.orange}>{editGastoId?"✅ Guardar cambios":"💸 Registrar gasto"}</SolidBtn>
+              <SolidBtn onClick={saveGasto} disabled={!gastoForm.descripcion.trim() || gastoForm.monto === ""} color={C.orange}>{editGastoId?"✅ Guardar cambios":"💸 Registrar gasto"}</SolidBtn>
             </div>
           </div>
         </Overlay>
