@@ -137,7 +137,7 @@ export function AppGrid({
                 onDragOver={e => onColDragOver(e, p.id)}
                 onDrop={e => onColDrop(e, p.id)}
                 onDragEnd={onColDragEnd}
-                style={{ padding: isMobile?"6px 2px":"10px 5px", borderBottom:`2px solid ${C.border}`, width:`${100/professionals.length}%`, minWidth: isMobile?"calc((100vw - 70px) / 2)":140, position:"sticky", top:0, zIndex:100, background:"rgba(255,255,255,0.65)", backdropFilter:"blur(20px)", WebkitBackdropFilter:"blur(20px)", transition:"all .2s", opacity: dragCol===p.id ? 0.4 : 1, borderLeft: dragOver===p.id ? `3px solid ${C.green}` : "none", cursor:"grab", scrollSnapAlign: isMobile ? (idx % 2 === 0 ? "start" : "none") : "none" }}>
+                style={{ padding: isMobile?"6px 2px":"10px 5px", borderBottom:`2px solid ${C.border}`, width:`${100/professionals.length}%`, minWidth: isMobile?"calc((100vw - 70px) / 2)":140, position:"sticky", top:0, zIndex:100, background:"rgba(255,255,255,0.65)", backdropFilter:"blur(20px)", WebkitBackdropFilter:"blur(20px)", transition:"all .2s", opacity: dragCol===p.id ? 0.4 : 1, borderLeft: dragOver===p.id ? `3px solid ${C.green}` : "none", cursor:"grab", scrollSnapAlign: isMobile ? (idx % 2 === 0 ? "start" : "none") : "none", scrollSnapStop: isMobile ? "always" : "normal" }}>
                 <div onClick={() => setProfPopup(profPopup===p.id ? null : p.id)}
                   style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:3, cursor:"pointer" }}>
                   <div style={{

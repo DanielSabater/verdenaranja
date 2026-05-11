@@ -1,4 +1,4 @@
-import { memo, useState } from "react"
+import { memo, useState, useRef, useEffect } from "react"
 import { C } from "../../constants/colors.js"
 import { PAYMENT_METHODS } from "../../constants/data.js"
 import { fmt, apptTotal } from "../../utils/appointments.js"
@@ -31,6 +31,16 @@ export const AppHeader = memo(function AppHeader({
   const nextMonth = () => { let m=vm+1,y=vy; if(m>12){m=1;y++} setCalViewDate(`${y}-${String(m).padStart(2,"0")}`) }
 
   const [activeMethod, setActiveMethod] = useState(null)
+  const dateStripRef = useRef(null)
+
+  useEffect(() => {
+    if (activeView === "turnos" && dateStripRef.current) {
+      const activeBtn = dateStripRef.current.querySelector('[data-active="true"]')
+      if (activeBtn) {
+        activeBtn.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" })
+      }
+    }
+  }, [currentDate, activeView])
 
   // Get appointments for current date by payment method
   const getApptsByMethod = (methodId) => {
@@ -194,7 +204,7 @@ export const AppHeader = memo(function AppHeader({
             padding:"4px 4px", gap:0,
           }}>
             {/* Days — scrollable center */}
-            <div style={{ flex:1, overflowX:"auto", WebkitOverflowScrolling:"touch", display:"flex", alignItems:"center", gap:2, justifyContent:"center" }}>
+            <div ref={dateStripRef} style={{ flex:1, overflowX:"auto", WebkitOverflowScrolling:"touch", display:"flex", alignItems:"center", gap:2, justifyContent: (daysInMonth < 6) ? "center" : "flex-start" }}>
               {Array.from({ length: daysInMonth }, (_, i) => {
                 const day = i + 1
                 const dk  = `${y}-${String(m).padStart(2,"0")}-${String(day).padStart(2,"0")}`
@@ -205,7 +215,7 @@ export const AppHeader = memo(function AppHeader({
                 const isT   = dk === tKey
                 const has   = Object.keys((allData||{})[dk]||{}).length > 0
                 return (
-                  <button key={dk} disabled={isSun} onClick={() => !isSun && setCurrentDate(dk)} style={{
+                  <button key={dk} data-active={isCur} disabled={isSun} onClick={() => !isSun && setCurrentDate(dk)} style={{
                     minWidth:36, height:46, borderRadius:10, flexShrink:0,
                     border:`2px solid ${isCur?C.green:isT?C.greenMint:"transparent"}`,
                     background: isCur?`linear-gradient(135deg,${C.green},${C.greenLight})`:isT?C.greenPale:has?"#f5faf5":"transparent",
