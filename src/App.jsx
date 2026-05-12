@@ -267,7 +267,7 @@ export default function App() {
   const removeService = (uniqueId) => setChosenServices(prev => prev.filter(x => x.uniqueId !== uniqueId))
 
   const saveAppt = () => {
-    if (!chosenServices.length || !clientName.trim()) return
+    if (!clientName.trim()) return
     const { profId, hour, editKey } = modal
     const k = editKey || cellKey(profId, hour)
     const prev = appointments[editKey] || {}

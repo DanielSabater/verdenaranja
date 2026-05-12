@@ -249,7 +249,7 @@ export function AppModals({
           </div>
           <div style={{ display: "flex", gap: 8, flexShrink: 0, paddingTop: 8, background: C.white }}>
               <GhostBtn onClick={() => setModal(null)}>Cancelar</GhostBtn>
-              <SolidBtn onClick={saveAppt} disabled={!chosenServices.length || !clientName.trim()} color={C.green}>
+              <SolidBtn onClick={saveAppt} disabled={!clientName.trim()} color={C.green}>
                 {modal.editKey ? "✏️ Guardar cambios" : "🌿 Confirmar turno"}
               </SolidBtn>
             </div>
