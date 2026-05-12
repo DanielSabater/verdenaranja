@@ -275,12 +275,29 @@ export default function App() {
     setModal(null)
   }
 
+  const quickBlock = (profId, hour, slots = 1, reason = "BLOQUEADO") => {
+    const k = cellKey(profId, hour)
+    setAppointments(p => ({
+      ...p,
+      [k]: {
+        profId, hour,
+        client: reason,
+        services: [],
+        notes: "",
+        paid: false,
+        isBlocked: true,
+        manualSlots: slots,
+        manualDur: slots * 30
+      }
+    }))
+  }
+
   const confirmPay = () => {
     const tipAmount = parseFloat(apptTip) || 0
     const discountAmount = parseFloat(apptDiscount) || 0
     // Allow 0 as a valid amount
     const validSplits = paymentSplits.filter(r => r.methodId && r.amount !== "" && !isNaN(parseFloat(r.amount)))
-    
+
     setAppointments(p => ({ ...p, [payModal]: { ...p[payModal], paid: true, payMethod: validSplits[0]?.methodId || "efectivo", paymentSplits: validSplits, tip: tipAmount, discount: discountAmount } }))
     setPayModal(null)
   }
@@ -335,6 +352,7 @@ export default function App() {
                 isOccupied={isOccupied} spanOf={spanOf}
                 onDragStart={onDragStart} onDragEnd={onDragEnd} onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}
                 onResizeStart={onResizeStart}
+                quickBlock={quickBlock}
                 paidAppts={paidAppts} totalByProf={totalByProf} earningsByProf={earningsByProf} comisionPct={comisionPct}
                 onCellClick={(profId, hour) => { setModal({ profId, hour, editKey: null }); setChosenServices([]); setClientName(""); setFilterCat("all"); setApptNotes(""); setApptTip("") }}
                 onEdit={(key, appt) => { setModal({ profId: appt.profId, hour: appt.hour, editKey: key }); setChosenServices([...(appt.services || [])]); setClientName(appt.client); setFilterCat("all"); setApptNotes(appt.notes || ""); setApptTip(appt.tip || "") }}

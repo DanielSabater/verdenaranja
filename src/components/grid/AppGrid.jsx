@@ -24,12 +24,14 @@ export function AppGrid({
   onCellClick, onEdit, onPay, onDelete,
   CELL_H,
   currentDate,
+  quickBlock,
 }) {
   const [profPopup, setProfPopup] = useState(null)
   const [hoveredClientName, setHoveredClientName] = useState(null)
   const [colOrder, setColOrder] = useState(() => { try { const v = localStorage.getItem("pv:colOrder"); return v ? JSON.parse(v) : null } catch { return null } })
   const [dragCol, setDragCol] = useState(null) // profId being dragged
   const [dragOver, setDragOverCol] = useState(null) // profId being hovered
+  const [menuPos, setMenuPos] = useState(null) // { x, y, profId, hour, hasAppt }
   const dragColRef = useRef(null)
 
   // Check if an hour is outside a professional's schedule for the current date
@@ -122,6 +124,11 @@ export function AppGrid({
     return pm ? `${pm.icon} ${pm.label}` : "Pago"
   }
 
+  const handleContextMenu = (e, profId, hour, hasAppt) => {
+    e.preventDefault()
+    setMenuPos({ x: e.clientX, y: e.clientY, profId, hour, hasAppt })
+  }
+
   return (
     <div className="grid-scroll" style={{ overflow: "auto", padding: isMobile ? "0 8px 120px" : "0 8px 8px", WebkitOverflowScrolling: "touch", maxHeight: "100%", scrollSnapType: isMobile ? "x mandatory" : "none", scrollPaddingLeft: 60, scrollPaddingBottom: isMobile ? 120 : 0 }}>
       <table style={{ borderCollapse: "collapse", tableLayout: "fixed", width: "100%", minWidth: isMobile ? `calc(52px + ${professionals.length} * calc((100vw - 70px) / 2))` : `calc(52px + ${professionals.length * 140}px)` }}>
@@ -209,6 +216,7 @@ export function AppGrid({
                       if (!appt && !draggingKey) e.currentTarget.style.background = ""
                       if (appt && appt.client) setHoveredClientName(null)
                     }}
+                    onContextMenu={e => handleContextMenu(e, prof.id, hour, !!appt)}
                     onDragOver={e => !appt && onDragOver(e, prof.id, hour)}
                     onDragLeave={() => !appt && onDragLeave()}
                     onDrop={e => !appt && onDrop(e, prof.id, hour)}
@@ -231,14 +239,18 @@ export function AppGrid({
                           className={`appt-card${appt.paid ? " paid" : " unpaid"}${isCurrentTurn && !isDragging && !isResizing ? " current" : ""}${hoveredClientName && appt.client === hoveredClientName ? " force-hover" : ""}`}
                           style={{
                             height: "100%", borderRadius: 9,
-                            background: appt.paid
-                              ? `linear-gradient(135deg,${C.greenPale},#d8f0dc)`
-                              : `linear-gradient(135deg,${C.orangePale},#fde8d4)`,
-                            border: isResizing
-                              ? `2px dashed ${C.green}`
-                              : isCurrentTurn && !isDragging
-                                ? `1.5px solid #4a90e2`
-                                : `1.5px solid ${appt.paid ? C.greenLight : C.orangeLight}`,
+                            background: appt.isBlocked
+                              ? `linear-gradient(135deg, ${C.redPale}, #ffccc7)`
+                              : appt.paid
+                                ? `linear-gradient(135deg,${C.greenPale},#d8f0dc)`
+                                : `linear-gradient(135deg,${C.orangePale},#fde8d4)`,
+                            border: appt.isBlocked
+                              ? `1.5px solid ${C.redLight}`
+                              : isResizing
+                                ? `2px dashed ${C.green}`
+                                : isCurrentTurn && !isDragging
+                                  ? `1.5px solid #4a90e2`
+                                  : `1.5px solid ${appt.paid ? C.greenLight : C.orangeLight}`,
                             padding: "6px 7px 6px",
                             display: "flex", flexDirection: "column",
                             boxShadow: isDragging
@@ -262,23 +274,25 @@ export function AppGrid({
                           <div style={{ position: "absolute", top: 4, right: 5, fontSize: 9, color: "rgba(100,130,100,.4)", pointerEvents: "none" }}>⠿</div>
 
                           <div style={{ overflow: "hidden", marginTop: 2 }}>
-                            <div style={{ fontSize: 11, fontWeight: "bold", color: C.text, marginBottom: 1, paddingRight: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{appt.client}</div>
-                            {(appt.services || []).map((sv, i) => (
+                            <div style={{ fontSize: 11, fontWeight: "bold", color: appt.isBlocked ? C.red : C.text, marginBottom: 1, paddingRight: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {appt.isBlocked ? `🚫 ${appt.client}` : appt.client}
+                            </div>
+                            {!appt.isBlocked && (appt.services || []).map((sv, i) => (
                               <div key={i} style={{ fontSize: 9, color: appt.paid ? C.green : C.orange, lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sv.icon} {sv.name}</div>
                             ))}
                             {appt.notes && (
-                              <div style={{ fontSize: 9, color: C.textSoft, fontStyle: "italic", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>📝 {appt.notes}</div>
+                              <div style={{ fontSize: 9, color: appt.isBlocked ? C.red : C.textSoft, fontStyle: "italic", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", opacity: appt.isBlocked ? 0.8 : 1 }}>📝 {appt.notes}</div>
                             )}
                             <div style={{ fontSize: 9, color: C.textSoft, marginTop: 2 }}>
                               <span style={{ color: isResizing ? C.green : C.textSoft, fontWeight: isResizing ? "bold" : "normal", transition: "color .15s" }}>
                                 {isResizing ? `${liveHour} – ${liveEndHour}` : `${apptDur(appt)} min`}
                               </span>
-                              {" · "}<span style={{ color: C.orange, fontWeight: "bold" }}>{fmt(appt.paid ? apptPaidTotal(appt) : apptTotal(appt))}</span>
+                              {!appt.isBlocked && <>{" · "}<span style={{ color: C.orange, fontWeight: "bold" }}>{fmt(appt.paid ? apptPaidTotal(appt) : apptTotal(appt))}</span></>}
                             </div>
                             {appt.createdAt && (
                               <div style={{ fontSize: 8, color: C.textSoft, marginTop: 1, opacity: .7 }}>🕐 Tomado a las {appt.createdAt}</div>
                             )}
-                            {appt.paid && (
+                            {!appt.isBlocked && appt.paid && (
                               <div style={{ fontSize: 8, color: C.green, marginTop: 1, letterSpacing: ".8px" }}>
                                 {appt.paymentSplits?.length > 1
                                   ? appt.paymentSplits.map((r, i) => { const pm = PAYMENT_METHODS.find(m => m.id === r.methodId); return <span key={i} style={{ marginRight: 3 }}>{pm?.icon} {fmt(r.amount)}</span> })
@@ -286,21 +300,23 @@ export function AppGrid({
                                 }
                               </div>
                             )}
-                            {appt.tip > 0 && (
+                            {!appt.isBlocked && appt.tip > 0 && (
                               <div style={{ fontSize: 8, color: C.gold, marginTop: 1 }}>🎁 Propina: {fmt(appt.tip)}</div>
                             )}
                           </div>
 
-                          <div style={{ position: "absolute", bottom: isMobile ? 4 : 6, right: isMobile ? 4 : 6, display: "flex", alignItems: "center", gap: isMobile ? 3 : 4, zIndex: 5 }}>
-                            <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); onDelete(k) }} style={{ width: 22, height: 22, borderRadius: 6, border: `1px solid ${C.border}`, background: "rgba(255,255,255,.9)", color: "#c0a0a0", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>✕</button>
-                            {appt.paid
-                              ? (() => {
-                                const pmColor = PAYMENT_METHODS.find(m => m.id === appt.payMethod)?.color || "#7a9e7a"
-                                return <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); onPay(k) }} style={smallBtn(pmColor, isMobile)}>{isMobile ? "✏️" : "✏️ Pago"}</button>
-                              })()
-                              : <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); onPay(k) }} style={smallBtn(C.orange, isMobile)}>{isMobile ? "💰" : "💰 Abonar"}</button>
-                            }
-                          </div>
+                          {!appt.isBlocked && (
+                            <div style={{ position: "absolute", bottom: isMobile ? 4 : 6, right: isMobile ? 4 : 6, display: "flex", alignItems: "center", gap: isMobile ? 3 : 4, zIndex: 5 }}>
+                              <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); onDelete(k) }} style={{ width: 22, height: 22, borderRadius: 6, border: `1px solid ${C.border}`, background: "rgba(255,255,255,.9)", color: "#c0a0a0", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>✕</button>
+                              {appt.paid
+                                ? (() => {
+                                  const pmColor = PAYMENT_METHODS.find(m => m.id === appt.payMethod)?.color || "#7a9e7a"
+                                  return <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); onPay(k) }} style={smallBtn(pmColor, isMobile)}>{isMobile ? "✏️" : "✏️ Pago"}</button>
+                                })()
+                                : <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); onPay(k) }} style={smallBtn(C.orange, isMobile)}>{isMobile ? "💰" : "💰 Abonar"}</button>
+                              }
+                            </div>
+                          )}
 
                           <div onMouseDown={e => { e.stopPropagation(); onResizeStart(e, k, "bottom") }}
                             style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 10, cursor: "s-resize", zIndex: 10, borderRadius: "0 0 9px 9px" }} />
@@ -430,6 +446,34 @@ export function AppGrid({
           </Overlay>
         )
       })()}
+
+      {menuPos && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999 }} onClick={() => setMenuPos(null)}>
+          <div style={{
+            position: "absolute", top: menuPos.y, left: menuPos.x,
+            background: C.white, borderRadius: 12, border: `1px solid ${C.border}`,
+            boxShadow: "0 8px 30px rgba(0,0,0,0.15)", overflow: "hidden",
+            width: 160, padding: 4, display: "flex", flexDirection: "column", gap: 2,
+            animation: "popIn .15s ease-out"
+          }} onClick={e => e.stopPropagation()}>
+            {!menuPos.hasAppt ? (
+              <>
+                <div style={{ fontSize: 9, color: C.textSoft, padding: "6px 10px", letterSpacing: "1px", textTransform: "uppercase" }}>Bloqueo Rápido</div>
+                <button onClick={() => { quickBlock(menuPos.profId, menuPos.hour, 1); setMenuPos(null) }} style={{ padding: "8px 12px", background: "transparent", border: "none", borderRadius: 8, textAlign: "left", fontSize: 12, cursor: "pointer", color: C.text }}>🔴 30 min</button>
+                <button onClick={() => { quickBlock(menuPos.profId, menuPos.hour, 2); setMenuPos(null) }} style={{ padding: "8px 12px", background: "transparent", border: "none", borderRadius: 8, textAlign: "left", fontSize: 12, cursor: "pointer", color: C.text }}>🔴 1 hora</button>
+                <button onClick={() => { quickBlock(menuPos.profId, menuPos.hour, 4); setMenuPos(null) }} style={{ padding: "8px 12px", background: "transparent", border: "none", borderRadius: 8, textAlign: "left", fontSize: 12, cursor: "pointer", color: C.text }}>🔴 2 horas</button>
+                <button onClick={() => { quickBlock(menuPos.profId, menuPos.hour, 6); setMenuPos(null) }} style={{ padding: "8px 12px", background: "transparent", border: "none", borderRadius: 8, textAlign: "left", fontSize: 12, cursor: "pointer", color: C.text }}>🔴 3 horas</button>
+                <div style={{ borderTop: `1px solid ${C.border}`, margin: "2px 4px" }} />
+                <button onClick={() => { quickBlock(menuPos.profId, HOURS[0], HOURS.length); setMenuPos(null) }} style={{ padding: "8px 12px", background: "transparent", border: "none", borderRadius: 8, textAlign: "left", fontSize: 12, cursor: "pointer", color: C.red, fontWeight: "bold" }}>🚫 Todo el día</button>
+              </>
+            ) : (
+              <>
+                <button onClick={() => { onDelete(cellKey(menuPos.profId, menuPos.hour)); setMenuPos(null) }} style={{ padding: "8px 12px", background: "transparent", border: "none", borderRadius: 8, textAlign: "left", fontSize: 12, cursor: "pointer", color: "#d44a4a" }}>🗑️ Eliminar turno</button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

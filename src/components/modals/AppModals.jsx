@@ -24,9 +24,9 @@ function playPaySound() {
       // fallback to next URL if first fails
       _cachedAudio = new Audio(CASH_SOUND_URLS[1])
       _cachedAudio.volume = 0.7
-      _cachedAudio.play().catch(() => {})
+      _cachedAudio.play().catch(() => { })
     })
-  } catch(e) {}
+  } catch (e) { }
 }
 
 
@@ -61,7 +61,7 @@ export function AppModals({
     const counts = {}
     Object.values(allData || {}).forEach(dayData => {
       Object.values(dayData).forEach(appt => {
-        ;(appt.services || []).forEach(sv => {
+        ; (appt.services || []).forEach(sv => {
           counts[sv.id] = (counts[sv.id] || 0) + 1
         })
       })
@@ -79,7 +79,7 @@ export function AppModals({
     !safeClientes.some(cl => cl.name.toLowerCase() === clientName.trim().toLowerCase())
   const saveNewCliente = () => {
     if (!clientName.trim()) return
-    setClientes(p => [...(p||[]), { id: Date.now(), name: clientName.trim(), phone:"", notes:"" }])
+    setClientes(p => [...(p || []), { id: Date.now(), name: clientName.trim(), phone: "", notes: "" }])
   }
 
 
@@ -88,166 +88,166 @@ export function AppModals({
       {/* ── MODAL NUEVO / EDITAR ── */}
       {modal && (
         <Overlay onClose={() => setModal(null)}>
-          <div className="modal-sheet" style={{ ...modalBox, display:"flex", flexDirection:"column", padding:"24px", overflow:"hidden", height: 680 }}>
+          <div className="modal-sheet" style={{ ...modalBox, display: "flex", flexDirection: "column", padding: "24px", overflow: "hidden", height: 680 }}>
             <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", justifyContent: "center", paddingRight: 4 }}>
-            <div style={{ width: "100%", maxWidth: 460 }}>
-              <ModalHeader
-                emoji={modal.editKey ? "✏️" : "🌿"}
-                sub={modal.editKey ? "Editar turno" : "Nuevo turno"}
-              >
-                {professionals?.find(p => p.id === modal.profId)?.name} · {modal.hour} hs
-              </ModalHeader>
+              <div style={{ width: "100%", maxWidth: 460 }}>
+                <ModalHeader
+                  emoji={modal.editKey ? "✏️" : "🌿"}
+                  sub={modal.editKey ? "Editar turno" : "Nuevo turno"}
+                >
+                  {professionals?.find(p => p.id === modal.profId)?.name} · {modal.hour} hs
+                </ModalHeader>
 
-            <Field label="Nombre del cliente">
-              <div style={{ position:"relative" }}>
-                <input
-                  autoFocus
-                  value={clientName}
-                  onChange={e => {
-                    const capitalizeName = (str) => str.split(' ').map(word => word ? word.charAt(0).toUpperCase() + word.slice(1) : '').join(' ')
-                    setClientName(capitalizeName(e.target.value))
-                    setShowSug(true)
-                  }}
-                  placeholder="Ej: María González"
-                  style={{ ...inputStyle, paddingRight: isNewCliente ? 100 : 12 }}
-                  onFocus={() => setShowSug(true)}
-                  onBlur={() => setTimeout(() => setShowSug(false), 150)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      document.getElementById('search-services-input')?.focus();
-                    }
-                  }}
-                />
-                {isNewCliente && (
-                  <button
-                    onMouseDown={saveNewCliente}
-                    style={{ position:"absolute", right:6, top:"50%", transform:"translateY(-50%)", padding:"3px 9px", borderRadius:8, border:"none", background:`linear-gradient(135deg,${C.green},${C.greenLight})`, color:"#fff", fontSize:9, cursor:"pointer", fontFamily:"Georgia,serif" }}
-                  >💾 Guardar</button>
-                )}
-                {showSug && suggestions.length > 0 && (
-                  <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, right:0, zIndex:999, background:C.white, borderRadius:10, border:`1.5px solid ${C.greenMint}`, boxShadow:"0 8px 24px rgba(58,125,68,.14)", overflow:"hidden" }}>
-                    {suggestions.map(cl => (
-                      <div key={cl.id}
-                        onMouseDown={() => { setClientName(cl.name); setShowSug(false) }}
-                        style={{ padding:"9px 14px", cursor:"pointer", borderBottom:`1px solid ${C.greenPale}`, display:"flex", justifyContent:"space-between", alignItems:"center" }}
-                        onMouseEnter={e => e.currentTarget.style.background = C.greenPale}
-                        onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-                      >
-                        <div>
-                          <div style={{ fontSize:13, color:C.text }}>{cl.name}</div>
-                          {cl.phone && <div style={{ fontSize:10, color:C.textSoft }}>{cl.phone}</div>}
-                        </div>
+                <Field label="Nombre del cliente">
+                  <div style={{ position: "relative" }}>
+                    <input
+                      autoFocus
+                      value={clientName}
+                      onChange={e => {
+                        const capitalizeName = (str) => str.split(' ').map(word => word ? word.charAt(0).toUpperCase() + word.slice(1) : '').join(' ')
+                        setClientName(capitalizeName(e.target.value))
+                        setShowSug(true)
+                      }}
+                      placeholder="Ej: María González"
+                      style={{ ...inputStyle, paddingRight: isNewCliente ? 100 : 12 }}
+                      onFocus={() => setShowSug(true)}
+                      onBlur={() => setTimeout(() => setShowSug(false), 150)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          document.getElementById('search-services-input')?.focus();
+                        }
+                      }}
+                    />
+                    {isNewCliente && (
+                      <button
+                        onMouseDown={saveNewCliente}
+                        style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", padding: "3px 9px", borderRadius: 8, border: "none", background: `linear-gradient(135deg,${C.green},${C.greenLight})`, color: "#fff", fontSize: 9, cursor: "pointer", fontFamily: "Georgia,serif" }}
+                      >💾 Guardar</button>
+                    )}
+                    {showSug && suggestions.length > 0 && (
+                      <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 999, background: C.white, borderRadius: 10, border: `1.5px solid ${C.greenMint}`, boxShadow: "0 8px 24px rgba(58,125,68,.14)", overflow: "hidden" }}>
+                        {suggestions.map(cl => (
+                          <div key={cl.id}
+                            onMouseDown={() => { setClientName(cl.name); setShowSug(false) }}
+                            style={{ padding: "9px 14px", cursor: "pointer", borderBottom: `1px solid ${C.greenPale}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}
+                            onMouseEnter={e => e.currentTarget.style.background = C.greenPale}
+                            onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                          >
+                            <div>
+                              <div style={{ fontSize: 13, color: C.text }}>{cl.name}</div>
+                              {cl.phone && <div style={{ fontSize: 10, color: C.textSoft }}>{cl.phone}</div>}
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    )}
+                  </div>
+                  {isNewCliente && <div style={{ fontSize: 10, color: C.textSoft, marginTop: 4 }}>✨ Clienta nueva — guardá para la próxima</div>}
+                </Field>
+
+                <Field label="Observaciones">
+                  <textarea
+                    value={apptNotes}
+                    onChange={e => setApptNotes(e.target.value)}
+                    placeholder="Ej: cliente pide diseño especial, alergia a X producto..."
+                    rows={2}
+                    style={{ ...inputStyle, resize: "vertical", fontSize: 12 }}
+                  />
+                </Field>
+
+                {chosenServices.length > 0 && (
+                  <div style={{ marginBottom: 12 }}>
+                    <div style={{ fontSize: 8, letterSpacing: "2px", color: C.textSoft, textTransform: "uppercase", marginBottom: 6 }}>
+                      Servicios seleccionados
+                    </div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                      {chosenServices.map(sv => (
+                        <div key={sv.uniqueId} style={{
+                          display: "flex", alignItems: "center", gap: 5,
+                          background: C.greenPale, border: `1px solid ${C.greenMint}`,
+                          borderRadius: 20, padding: "4px 10px", fontSize: 11, color: C.green,
+                        }}>
+                          {sv.icon} {sv.name}
+                          <span onClick={() => removeService(sv.uniqueId)} style={{ cursor: "pointer", color: "#a0b8a4", fontWeight: "bold", marginLeft: 2 }}>×</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ fontSize: 11, color: C.orange, marginTop: 6, textAlign: "right" }}>
+                      {modalDuration} min · <strong>{fmt(modalSubtotal)}</strong>
+                    </div>
                   </div>
                 )}
-              </div>
-              {isNewCliente && <div style={{ fontSize:10, color:C.textSoft, marginTop:4 }}>✨ Clienta nueva — guardá para la próxima</div>}
-            </Field>
 
-            <Field label="Observaciones">
-              <textarea
-                value={apptNotes}
-                onChange={e => setApptNotes(e.target.value)}
-                placeholder="Ej: cliente pide diseño especial, alergia a X producto..."
-                rows={2}
-                style={{ ...inputStyle, resize:"vertical", fontSize:12 }}
-              />
-            </Field>
-
-            {chosenServices.length > 0 && (
-              <div style={{ marginBottom: 12 }}>
-                <div style={{ fontSize: 8, letterSpacing: "2px", color: C.textSoft, textTransform: "uppercase", marginBottom: 6 }}>
-                  Servicios seleccionados
-                </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-                  {chosenServices.map(sv => (
-                    <div key={sv.uniqueId} style={{
-                      display: "flex", alignItems: "center", gap: 5,
-                      background: C.greenPale, border: `1px solid ${C.greenMint}`,
-                      borderRadius: 20, padding: "4px 10px", fontSize: 11, color: C.green,
-                    }}>
-                      {sv.icon} {sv.name}
-                      <span onClick={() => removeService(sv.uniqueId)} style={{ cursor: "pointer", color: "#a0b8a4", fontWeight: "bold", marginLeft: 2 }}>×</span>
-                    </div>
-                  ))}
-                </div>
-                <div style={{ fontSize: 11, color: C.orange, marginTop: 6, textAlign: "right" }}>
-                  {modalDuration} min · <strong>{fmt(modalSubtotal)}</strong>
-                </div>
-              </div>
-            )}
-
-            <Field label="Agregar servicio" style={{ marginBottom: 8 }}>
-              <input
-                id="search-services-input"
-                type="text"
-                placeholder="Buscar servicios..."
-                value={searchTerm}
-                onChange={e => { setSearchTerm(e.target.value); setServiceHighlightIdx(0); }}
-                onKeyDown={e => {
-                  const list = filterCat === "favoritos" ? favoriteServices : filteredServices;
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    if (list[serviceHighlightIdx]) {
-                      toggleService(list[serviceHighlightIdx]);
-                      setSearchTerm("");
-                      setServiceHighlightIdx(0);
-                    }
-                  } else if (e.key === "ArrowDown" || (e.key === "Tab" && !e.shiftKey)) {
-                    e.preventDefault();
-                    setServiceHighlightIdx(prev => (prev + 1) % list.length);
-                  } else if (e.key === "ArrowUp" || (e.key === "Tab" && e.shiftKey)) {
-                    e.preventDefault();
-                    setServiceHighlightIdx(prev => (prev - 1 + list.length) % list.length);
-                  }
-                }}
-                style={{ ...inputStyle, marginBottom: 8 }}
-              />
-              <div style={{ display: "flex", gap: 5, marginBottom: 8, flexWrap: "wrap" }}>
-                {["favoritos", "all", "manos", "pies", "combo"].map(cat => (
-                  <button key={cat} onClick={() => { setFilterCat(cat); setServiceHighlightIdx(0); }} style={{
-                    padding: "4px 9px", borderRadius: 20, cursor: "pointer",
-                    border: `1.5px solid ${filterCat === cat ? C.green : C.border}`,
-                    background: filterCat === cat ? C.greenPale : C.white,
-                    color: filterCat === cat ? C.green : C.textSoft,
-                    fontSize: 9, letterSpacing: "1px", textTransform: "uppercase",
-                    fontFamily: "Georgia,serif", transition: "all .15s",
-                  }}>
-                    {cat === "favoritos" ? "⭐ Favoritos" : cat === "all" ? "Todos" : cat === "manos" ? "💅 Manos" : cat === "pies" ? "🦶 Pies" : "🌸 Combo"}
-                  </button>
-                ))}
-              </div>
-              <div className="service-scroll" style={{ width: "100%", display: "flex", flexDirection: "column", gap: 5, maxHeight: 240, overflowY: "auto", paddingRight: 3 }}>
-                {(filterCat === "favoritos" ? favoriteServices : filteredServices).map((s, idx) => {
-                  const isChosen = chosenServices.some(x => x.id === s.id)
-                  const isFirstMatch = idx === serviceHighlightIdx
-                  return (
-                    <div key={s.id} onClick={() => { toggleService(s); setSearchTerm(""); document.getElementById("search-services-input")?.focus(); }} style={{
-                      width: "100%",
-                      display: "flex", justifyContent: "space-between", alignItems: "center",
-                      padding: "8px 11px", borderRadius: 10, cursor: "pointer",
-                      border: `1.5px solid ${isFirstMatch ? "#4a90e2" : (isChosen ? C.green : C.border)}`,
-                      background: isFirstMatch ? "#eef6ff" : (isChosen ? C.greenPale : C.white), transition: "all .15s",
-                    }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                        <span style={{ fontSize: 15 }}>{isChosen ? "✅" : "⬜"}</span>
-                        <div>
-                          <span style={{ fontSize: 12, color: C.text }}>{s.icon} {s.name}</span>
-                          <span style={{ fontSize: 9, color: C.textSoft, marginLeft: 6 }}>{s.duration} min</span>
+                <Field label="Agregar servicio" style={{ marginBottom: 8 }}>
+                  <input
+                    id="search-services-input"
+                    type="text"
+                    placeholder="Buscar servicios..."
+                    value={searchTerm}
+                    onChange={e => { setSearchTerm(e.target.value); setServiceHighlightIdx(0); }}
+                    onKeyDown={e => {
+                      const list = filterCat === "favoritos" ? favoriteServices : filteredServices;
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        if (list[serviceHighlightIdx]) {
+                          toggleService(list[serviceHighlightIdx]);
+                          setSearchTerm("");
+                          setServiceHighlightIdx(0);
+                        }
+                      } else if (e.key === "ArrowDown" || (e.key === "Tab" && !e.shiftKey)) {
+                        e.preventDefault();
+                        setServiceHighlightIdx(prev => (prev + 1) % list.length);
+                      } else if (e.key === "ArrowUp" || (e.key === "Tab" && e.shiftKey)) {
+                        e.preventDefault();
+                        setServiceHighlightIdx(prev => (prev - 1 + list.length) % list.length);
+                      }
+                    }}
+                    style={{ ...inputStyle, marginBottom: 8 }}
+                  />
+                  <div style={{ display: "flex", gap: 5, marginBottom: 8, flexWrap: "wrap" }}>
+                    {["favoritos", "all", "manos", "pies", "combo"].map(cat => (
+                      <button key={cat} onClick={() => { setFilterCat(cat); setServiceHighlightIdx(0); }} style={{
+                        padding: "4px 9px", borderRadius: 20, cursor: "pointer",
+                        border: `1.5px solid ${filterCat === cat ? C.green : C.border}`,
+                        background: filterCat === cat ? C.greenPale : C.white,
+                        color: filterCat === cat ? C.green : C.textSoft,
+                        fontSize: 9, letterSpacing: "1px", textTransform: "uppercase",
+                        fontFamily: "Georgia,serif", transition: "all .15s",
+                      }}>
+                        {cat === "favoritos" ? "⭐ Favoritos" : cat === "all" ? "Todos" : cat === "manos" ? "💅 Manos" : cat === "pies" ? "🦶 Pies" : "🌸 Combo"}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="service-scroll" style={{ width: "100%", display: "flex", flexDirection: "column", gap: 5, maxHeight: 240, overflowY: "auto", paddingRight: 3 }}>
+                    {(filterCat === "favoritos" ? favoriteServices : filteredServices).map((s, idx) => {
+                      const isChosen = chosenServices.some(x => x.id === s.id)
+                      const isFirstMatch = idx === serviceHighlightIdx
+                      return (
+                        <div key={s.id} onClick={() => { toggleService(s); setSearchTerm(""); document.getElementById("search-services-input")?.focus(); }} style={{
+                          width: "100%",
+                          display: "flex", justifyContent: "space-between", alignItems: "center",
+                          padding: "8px 11px", borderRadius: 10, cursor: "pointer",
+                          border: `1.5px solid ${isFirstMatch ? "#4a90e2" : (isChosen ? C.green : C.border)}`,
+                          background: isFirstMatch ? "#eef6ff" : (isChosen ? C.greenPale : C.white), transition: "all .15s",
+                        }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                            <span style={{ fontSize: 15 }}>{isChosen ? "✅" : "⬜"}</span>
+                            <div>
+                              <span style={{ fontSize: 12, color: C.text }}>{s.icon} {s.name}</span>
+                              <span style={{ fontSize: 9, color: C.textSoft, marginLeft: 6 }}>{s.duration} min</span>
+                            </div>
+                          </div>
+                          <span style={{ fontSize: 12, color: C.orange, fontWeight: "bold" }}>{fmt(s.price)}</span>
                         </div>
-                      </div>
-                      <span style={{ fontSize: 12, color: C.orange, fontWeight: "bold" }}>{fmt(s.price)}</span>
-                    </div>
-                  )
-                })}
-              </div>
-            </Field>
+                      )
+                    })}
+                  </div>
+                </Field>
 
+              </div>
             </div>
-          </div>
-          <div style={{ display: "flex", gap: 8, flexShrink: 0, paddingTop: 8, background: C.white }}>
+            <div style={{ display: "flex", gap: 8, flexShrink: 0, paddingTop: 8, background: C.white }}>
               <GhostBtn onClick={() => setModal(null)}>Cancelar</GhostBtn>
               <SolidBtn onClick={saveAppt} disabled={!clientName.trim()} color={C.green}>
                 {modal.editKey ? "✏️ Guardar cambios" : "🌿 Confirmar turno"}
@@ -259,17 +259,17 @@ export function AppModals({
 
       {/* ── MODAL PAGO ── */}
       {payModal && appointments[payModal] && (() => {
-        const appt    = appointments[payModal]
-        const total    = apptTotal(appt)
+        const appt = appointments[payModal]
+        const total = apptTotal(appt)
         const discountAmount = parseFloat(apptDiscount) || 0
         const tipAmount = parseFloat(apptTip) || 0
         const totalWithTip = Math.max(0, total - discountAmount + tipAmount)
-        const sumPaid  = paymentSplits.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0)
-        const balance  = totalWithTip - sumPaid
+        const sumPaid = paymentSplits.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0)
+        const balance = totalWithTip - sumPaid
         const balanced = Math.abs(balance) <= 1
         // eslint-disable-next-line no-unused-vars
         const usedMids = paymentSplits.map(r => r.methodId)
-        const canAdd   = PAYMENT_METHODS.some(m => !usedMids.includes(m.id))
+        const canAdd = PAYMENT_METHODS.some(m => !usedMids.includes(m.id))
         return (
           <Overlay onClose={() => setPayModal(null)}>
             <div className="modal-sheet" style={{ ...modalBox, maxWidth: 500, width: "calc(100vw - 32px)" }}>
@@ -278,44 +278,44 @@ export function AppModals({
               </ModalHeader>
 
               <div style={{ background: C.cream, borderRadius: 10, padding: "10px 13px", marginBottom: 16, border: `1px solid ${C.border}` }}>
-                {(appt.services||[]).map((sv, i) => (
+                {(appt.services || []).map((sv, i) => (
                   <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: C.textSoft, lineHeight: 1.8 }}>
                     <span>{sv.icon} {sv.name}</span>
                     <span style={{ color: C.text }}>{fmt(sv.price)}</span>
                   </div>
                 ))}
                 {/* Discount row */}
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:8, paddingTop:6, borderTop:`1px solid ${C.border}` }}>
-                  <span style={{ fontSize:11, color:"#c04040" }}>🏷️ Descuento</span>
-                  <div style={{ display:"flex", alignItems:"center", gap:4 }}>
-                    <span style={{ fontSize:11, color:C.textSoft }}>$</span>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8, paddingTop: 6, borderTop: `1px solid ${C.border}` }}>
+                  <span style={{ fontSize: 11, color: "#c04040" }}>🏷️ Descuento</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <span style={{ fontSize: 11, color: C.textSoft }}>$</span>
                     <input
                       type="number"
                       value={apptDiscount}
                       onChange={e => setApptDiscount(e.target.value)}
                       placeholder="0"
-                      style={{ width:80, padding:"4px 8px", border:`1.5px solid ${C.border}`, borderRadius:8, fontSize:12, color:"#c04040", background:C.cream, outline:"none", fontFamily:"Georgia,serif", textAlign:"right" }}
+                      style={{ width: 80, padding: "4px 8px", border: `1.5px solid ${C.border}`, borderRadius: 8, fontSize: 12, color: "#c04040", background: C.cream, outline: "none", fontFamily: "Georgia,serif", textAlign: "right" }}
                     />
                   </div>
                 </div>
 
                 {/* Tip row */}
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:8, paddingTop:6, borderTop:`1px solid ${C.border}` }}>
-                  <span style={{ fontSize:11, color:C.textSoft }}>🎁 Propina</span>
-                  <div style={{ display:"flex", alignItems:"center", gap:4 }}>
-                    <span style={{ fontSize:11, color:C.textSoft }}>$</span>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8, paddingTop: 6, borderTop: `1px solid ${C.border}` }}>
+                  <span style={{ fontSize: 11, color: C.textSoft }}>🎁 Propina</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <span style={{ fontSize: 11, color: C.textSoft }}>$</span>
                     <input
                       type="number"
                       value={apptTip}
                       onChange={e => setApptTip(e.target.value)}
                       placeholder="0"
-                      style={{ width:80, padding:"4px 8px", border:`1.5px solid ${C.border}`, borderRadius:8, fontSize:12, color:C.text, background:C.cream, outline:"none", fontFamily:"Georgia,serif", textAlign:"right" }}
+                      style={{ width: 80, padding: "4px 8px", border: `1.5px solid ${C.border}`, borderRadius: 8, fontSize: 12, color: C.text, background: C.cream, outline: "none", fontFamily: "Georgia,serif", textAlign: "right" }}
                     />
                   </div>
                 </div>
-                <div style={{ borderTop:`1px solid ${C.border}`, marginTop:6, paddingTop:6, display:"flex", justifyContent:"space-between" }}>
-                  <span style={{ fontSize:11, fontWeight:"bold", color:C.text }}>Total{discountAmount>0?" c/descuento":""}{tipAmount>0?" + propina":""}</span>
-                  <span style={{ fontSize:14, fontWeight:"bold", color:C.orange }}>{fmt(totalWithTip)}</span>
+                <div style={{ borderTop: `1px solid ${C.border}`, marginTop: 6, paddingTop: 6, display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ fontSize: 11, fontWeight: "bold", color: C.text }}>Total{discountAmount > 0 ? " c/descuento" : ""}{tipAmount > 0 ? " + propina" : ""}</span>
+                  <span style={{ fontSize: 14, fontWeight: "bold", color: C.orange }}>{fmt(totalWithTip)}</span>
                 </div>
               </div>
 
@@ -407,7 +407,7 @@ export function AppModals({
             {appointments[deleteKey] && (
               <div style={{ fontSize: 12, color: C.textSoft, marginBottom: 20 }}>
                 {appointments[deleteKey].client}<br />
-                {(appointments[deleteKey]?.services||[]).map(s => s.name).join(", ")}
+                {(appointments[deleteKey]?.services || []).map(s => s.name).join(", ")}
                 {appointments[deleteKey].paid && (
                   <div style={{ color: "#d44a4a", marginTop: 4, fontSize: 11 }}>⚠️ Este turno ya fue abonado</div>
                 )}

@@ -25,4 +25,7 @@ export const C = {
   mpLight:     "#40b8f0",
   mpPale:      "#e6f6fd",
   mpMid:       "#b3e4f8",
+  red:         "#c04040",
+  redLight:    "#f08080",
+  redPale:     "#fff1f0",
 }
