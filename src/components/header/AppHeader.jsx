@@ -205,8 +205,18 @@ export const AppHeader = memo(function AppHeader({
             borderTop: `2px solid ${C.greenMint}`,
             boxShadow: "0 -2px 12px rgba(58,125,68,.08)",
             display: "flex", alignItems: "center",
-            padding: "4px 4px", gap: 0,
+            padding: "4px 8px", gap: 6,
           }}>
+            {/* Prev Month Button */}
+            <button onClick={(e) => {
+              e.stopPropagation()
+              const prev = new Date(y, m - 2, 1)
+              const lastDay = new Date(prev.getFullYear(), prev.getMonth() + 1, 0).getDate()
+              const day = Math.min(new Date(currentDate + "T12:00:00").getDate(), lastDay)
+              const dk = `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`
+              setCurrentDate(dk)
+            }} style={btnNav}>‹</button>
+
             {/* Days — scrollable center */}
             <div ref={dateStripRef} style={{ flex: 1, overflowX: "auto", WebkitOverflowScrolling: "touch", display: "flex", alignItems: "center", gap: 2 }}>
               <div style={{ flex: 1, minWidth: 0 }} />
@@ -261,6 +271,16 @@ export const AppHeader = memo(function AppHeader({
               })}
               <div style={{ flex: 1, minWidth: 0 }} />
             </div>
+
+            {/* Next Month Button */}
+            <button onClick={(e) => {
+              e.stopPropagation()
+              const next = new Date(y, m, 1)
+              const lastDay = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate()
+              const day = Math.min(new Date(currentDate + "T12:00:00").getDate(), lastDay)
+              const dk = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`
+              setCurrentDate(dk)
+            }} style={btnNav}>›</button>
 
             {/* Month + HOY + 📅 */}
             <div style={{ display: "flex", flexDirection: "row", gap: 3, flexShrink: 0, marginLeft: 4, alignItems: "center" }}>
