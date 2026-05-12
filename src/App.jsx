@@ -211,7 +211,7 @@ export default function App() {
     const origHourIdx = HOURS.indexOf(appt.hour)
     const origSlots = Math.max(1, Math.ceil(apptDur(appt) / 30))
     resizeRef.current = { key, edge, startY: e.clientY, origHourIdx, origSlots, profId: appt.profId }
-    setResizePreview({ key, hourIdx: origHourIdx, slots: origSlots })
+    setResizePreview({ key, hourIdx: origHourIdx, slots: origSlots, deltaY: 0, edge, origSlots, origHourIdx, profId: appt.profId })
     const onMove = (ev) => {
       const r = resizeRef.current; if (!r) return
       const delta = Math.round((ev.clientY - r.startY) / CELL_H)
@@ -245,7 +245,7 @@ export default function App() {
         slots = Math.max(1, r.origSlots - (hourIdx - r.origHourIdx))
       }
 
-      setResizePreview({ key: r.key, hourIdx, slots })
+      setResizePreview({ key: r.key, hourIdx, slots, deltaY: ev.clientY - r.startY, edge: r.edge, origSlots: r.origSlots, origHourIdx: r.origHourIdx, profId: r.profId })
     }
     const onUp = () => {
       window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp)

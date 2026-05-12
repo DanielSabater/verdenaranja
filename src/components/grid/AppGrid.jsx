@@ -169,21 +169,20 @@ export function AppGrid({
               </td>
               {orderedProfessionals.map(prof => {
                 const k = cellKey(prof.id, hour)
-                const appt = appointments[k]
-                const span = spanOf(prof.id, hour)
+                const isResizeStart = resizePreview && resizePreview.profId === prof.id && HOURS[resizePreview.hourIdx] === hour
+                const isResizeOriginal = resizePreview && resizePreview.key === k
+                
+                const appt = isResizeStart ? appointments[resizePreview.key] : appointments[k]
+                const span = isResizeStart ? resizePreview.slots : spanOf(prof.id, hour)
 
-                const liveResizeSpan = appt && resizePreview?.key === k ? resizePreview.slots : null
-
-                const isCoveredByResize = !appt && resizePreview && (() => {
-                  const [rpid] = resizePreview.key.split("||")
-                  if (parseInt(rpid) !== prof.id) return false
+                const isCoveredByResize = !isResizeStart && resizePreview && resizePreview.profId === prof.id && (() => {
                   const rStart = resizePreview.hourIdx
                   const rEnd = rStart + resizePreview.slots
                   const hi = HOURS.indexOf(hour)
-                  return hi > rStart && hi < rEnd
+                  return hi >= rStart && hi < rEnd
                 })()
 
-                const isBlocked = !appt && (isOccupied(prof.id, hour) || isCoveredByResize)
+                const isBlocked = (!appt && isOccupied(prof.id, hour)) || isCoveredByResize || (isResizeOriginal && !isResizeStart)
                 if (isBlocked) return null
 
                 const isDragging = draggingKey === k
@@ -196,24 +195,25 @@ export function AppGrid({
                 }
 
                 return (
-                  <td key={prof.id} rowSpan={liveResizeSpan || span || 1}
+                  <td key={prof.id} rowSpan={span || 1}
                     style={{
                       padding: 3,
-                      height: appt ? `${(liveResizeSpan || span || 1) * 100}px` : 100,
+                      height: appt ? `${(span || 1) * 100}px` : 100,
                       verticalAlign: "middle",
                       border: `1px solid ${C.border}`,
                       background: cellBg,
                       transition: "background .12s",
                       cursor: appt ? "grab" : (draggingKey ? "default" : "pointer"),
                       position: "relative",
+                      zIndex: (isResizeStart || draggingKey === k) ? 200 : 1,
                     }}
                     onClick={() => !appt && !draggingKey && onCellClick(prof.id, hour)}
                     onMouseEnter={e => {
-                      if (!appt && !draggingKey) e.currentTarget.style.background = C.greenPale
+                      if (!appt && !draggingKey && !resizePreview) e.currentTarget.style.background = C.greenPale
                       if (appt && appt.client) setHoveredClientName(appt.client)
                     }}
                     onMouseLeave={e => {
-                      if (!appt && !draggingKey) e.currentTarget.style.background = ""
+                      if (!appt && !draggingKey && !resizePreview) e.currentTarget.style.background = ""
                       if (appt && appt.client) setHoveredClientName(null)
                     }}
                     onContextMenu={e => handleContextMenu(e, prof.id, hour, !!appt)}
@@ -236,7 +236,7 @@ export function AppGrid({
                           onDragStart={e => { if (resizePreview) { e.preventDefault(); return; } onDragStart(e, k) }}
                           onDragEnd={onDragEnd}
                           onDoubleClick={e => { if (!resizePreview) { e.stopPropagation(); onEdit(k, appointments[k]); } }}
-                          className={`appt-card${appt.paid ? " paid" : " unpaid"}${isCurrentTurn && !isDragging && !isResizing ? " current" : ""}${hoveredClientName && appt.client === hoveredClientName ? " force-hover" : ""}`}
+                          className={`appt-card${appt.paid ? " paid" : " unpaid"}${isCurrentTurn && !isDragging && !isResizeStart ? " current" : ""}${hoveredClientName && appt.client === hoveredClientName ? " force-hover" : ""}`}
                           style={{
                             height: "100%", borderRadius: 9,
                             background: appt.isBlocked
@@ -246,8 +246,8 @@ export function AppGrid({
                                 : `linear-gradient(135deg,${C.orangePale},#fde8d4)`,
                             border: appt.isBlocked
                               ? `1.5px solid ${C.redLight}`
-                              : isResizing
-                                ? `2px dashed ${C.green}`
+                              : isResizeStart
+                                ? `1.5px solid ${C.greenLight}`
                                 : isCurrentTurn && !isDragging
                                   ? `1.5px solid #4a90e2`
                                   : `1.5px solid ${appt.paid ? C.greenLight : C.orangeLight}`,
@@ -266,6 +266,26 @@ export function AppGrid({
                         >
                           <div onMouseDown={e => { e.stopPropagation(); onResizeStart(e, k, "top") }}
                             style={{ position: "absolute", top: 0, left: 0, right: 0, height: 8, cursor: "n-resize", zIndex: 10, borderRadius: "9px 9px 0 0" }} />
+
+                          {isResizing && (() => {
+                            const snappedChange = resizePreview.edge === "top"
+                              ? (resizePreview.hourIdx - resizePreview.origHourIdx) * 100
+                              : (resizePreview.slots - resizePreview.origSlots) * 100
+                            const visualDelta = resizePreview.deltaY - snappedChange
+                            return (
+                              <div style={{
+                                position: "absolute",
+                                top: resizePreview.edge === "top" ? visualDelta : -2,
+                                bottom: resizePreview.edge === "bottom" ? -visualDelta : -2,
+                                left: -2, right: -2,
+                                border: `2px dashed ${C.green}`,
+                                borderRadius: 9,
+                                pointerEvents: "none",
+                                zIndex: 100,
+                                boxShadow: `0 0 10px rgba(58,125,68,0.2)`
+                              }} />
+                            )
+                          })()}
 
                           {isResizing && (
                             <div style={{ position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)", background: C.green, color: "#fff", borderRadius: 8, padding: "2px 8px", fontSize: 9, fontWeight: "bold", letterSpacing: "1px", whiteSpace: "nowrap", zIndex: 20, pointerEvents: "none", boxShadow: "0 2px 8px rgba(58,125,68,.35)" }}>{liveHour} – {liveEndHour} · {liveDurMins} min</div>
