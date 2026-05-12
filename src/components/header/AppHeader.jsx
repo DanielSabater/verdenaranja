@@ -218,23 +218,44 @@ export const AppHeader = memo(function AppHeader({
                 const isSun = dow === 0
                 const isCur = dk === currentDate
                 const isT = dk === tKey
-                const has = Object.keys((allData || {})[dk] || {}).length > 0
+                
+                // Dynamic Background Logic
+                const dayAppts = Object.values((allData || {})[dk] || {})
+                const totalCount = dayAppts.length
+                const paidCount = dayAppts.filter(a => a.paid).length
+                const ratio = totalCount > 0 ? paidCount / totalCount : 0
+                
+                let dynamicBg = "transparent"
+                let textColor = isSun ? "#ddd" : C.textSoft
+                const useDynamic = config?.dynamicDateColors ?? true
+                
+                if (totalCount > 0 && useDynamic) {
+                  // Interpolate between Orange (232, 121, 58) and Green (58, 125, 68)
+                  const r = Math.round(232 + (58 - 232) * ratio)
+                  const g = Math.round(121 + (125 - 121) * ratio)
+                  const b = Math.round(58 + (68 - 58) * ratio)
+                  const alpha = Math.min(0.15 + (totalCount * 0.12), 0.85)
+                  dynamicBg = `rgba(${r}, ${g}, ${b}, ${alpha})`
+                  if (alpha > 0.6) textColor = "#fff"
+                }
+
                 return (
                   <button key={dk} data-active={isCur} disabled={isSun} onClick={() => !isSun && setCurrentDate(dk)} style={{
                     minWidth: 36, height: 46, borderRadius: 10, flexShrink: 0,
                     border: `2px solid ${isCur ? C.green : isT ? C.greenMint : "transparent"}`,
-                    background: isCur ? `linear-gradient(135deg,${C.green},${C.greenLight})` : isT ? C.greenPale : has ? "#f5faf5" : "transparent",
-                    color: isCur ? "#fff" : isSun ? "#ddd" : isT ? C.green : C.textSoft,
+                    background: isCur ? (useDynamic && totalCount > 0 ? dynamicBg : `linear-gradient(135deg,${C.green},${C.greenLight})`) : (useDynamic ? dynamicBg : (isT ? C.greenPale : totalCount > 0 ? "#f5faf5" : "transparent")),
+                    color: isCur ? "#fff" : textColor,
                     fontSize: 9, fontFamily: "Georgia,serif", cursor: isSun ? "default" : "pointer",
                     display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
                     gap: 1, padding: "0 4px", position: "relative",
-                    transition: "all .12s",
+                    boxShadow: isCur ? `0 4px 12px rgba(0,0,0,.15)` : "none",
+                    transition: "all .2s ease",
                   }}>
                     <div style={{ fontSize: 8, letterSpacing: "1px", textTransform: "uppercase", opacity: .7 }}>
                       {["Do", "Lu", "Ma", "Mi", "Ju", "Vi", "Sá"][dow]}
                     </div>
-                    <div style={{ fontSize: 13, fontWeight: isCur || isT ? "bold" : "normal" }}>{day}</div>
-                    {has && <div style={{ position: "absolute", bottom: 3, left: "50%", transform: "translateX(-50%)", width: 4, height: 4, borderRadius: "50%", background: isCur ? "rgba(255,255,255,.8)" : C.green }} />}
+                    <div style={{ fontSize: 13, fontWeight: isCur || isT || totalCount > 0 ? "bold" : "normal" }}>{day}</div>
+                    {totalCount > 0 && <div style={{ position: "absolute", bottom: 3, left: "50%", transform: "translateX(-50%)", width: 4, height: 4, borderRadius: "50%", background: "rgba(255,255,255,.6)" }} />}
                   </button>
                 )
               })}

@@ -484,6 +484,19 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
               Con {config.comisionPct}% de comisión, sobre $10.000 cada profesional gana <strong style={{color:C.gold}}>${(10000*config.comisionPct/100).toLocaleString("es-AR")}</strong>
             </div>
           </CfgField>
+
+          <CfgField label="🎨 Estética del calendario">
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", background:C.cream, padding:"12px 16px", borderRadius:12, border:`1.5px solid ${C.border}` }}>
+              <div>
+                <div style={{ fontSize:12, color:C.text }}>Colores dinámicos en fechas</div>
+                <div style={{ fontSize:10, color:C.textSoft }}>Pinta el carrusel de fechas según volumen y estado de pago</div>
+              </div>
+              <button onClick={() => updateConfig("dynamicDateColors", !config.dynamicDateColors)}
+                style={{ width:44, height:24, borderRadius:12, border:"none", background:config.dynamicDateColors?C.green:"#ddd", cursor:"pointer", position:"relative", transition:"background .2s" }}>
+                <div style={{ width:20, height:20, borderRadius:"50%", background:"#fff", position:"absolute", top:2, transition:"left .2s", left:config.dynamicDateColors?"22px":"2px" }}/>
+              </button>
+            </div>
+          </CfgField>
         </SectionCard>
       )}
     </div>
