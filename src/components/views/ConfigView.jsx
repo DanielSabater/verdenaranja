@@ -149,7 +149,9 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
 
             {/* Preview */}
             <div style={{ background:C.cream, borderRadius:12, padding:"14px 18px", border:`1px solid ${C.border}`, display:"flex", alignItems:"center", gap:12 }}>
-              <div style={{ width:40,height:40,borderRadius:"50%",background:`linear-gradient(135deg,${C.green},${C.greenLight})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20 }}>{config.empresaEmoji}</div>
+              <div style={{ width:44,height:44,borderRadius:"50%",background:"#fff",border:`1px solid ${C.greenMint}`,display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden" }}>
+                <img src="/logo.png" alt="Logo" style={{ width:"100%",height:"100%",objectFit:"cover" }} />
+              </div>
               <div>
                 <div style={{ fontSize:8,letterSpacing:"3px",color:C.orange,textTransform:"uppercase" }}>{config.empresaSubtitulo}</div>
                 <div style={{ fontSize:18,color:C.green }}>{config.empresaNombre}</div>
@@ -482,6 +484,19 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
             </div>
             <div style={{ fontSize:10,color:C.textSoft,marginTop:6 }}>
               Con {config.comisionPct}% de comisión, sobre $10.000 cada profesional gana <strong style={{color:C.gold}}>${(10000*config.comisionPct/100).toLocaleString("es-AR")}</strong>
+            </div>
+          </CfgField>
+
+          <CfgField label="🎨 Estética del calendario">
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", background:C.cream, padding:"12px 16px", borderRadius:12, border:`1.5px solid ${C.border}` }}>
+              <div>
+                <div style={{ fontSize:12, color:C.text }}>Colores dinámicos en fechas</div>
+                <div style={{ fontSize:10, color:C.textSoft }}>Pinta el carrusel de fechas según volumen y estado de pago</div>
+              </div>
+              <button onClick={() => updateConfig("dynamicDateColors", !config.dynamicDateColors)}
+                style={{ width:44, height:24, borderRadius:12, border:"none", background:config.dynamicDateColors?C.green:"#ddd", cursor:"pointer", position:"relative", transition:"background .2s" }}>
+                <div style={{ width:20, height:20, borderRadius:"50%", background:"#fff", position:"absolute", top:2, transition:"left .2s", left:config.dynamicDateColors?"22px":"2px" }}/>
+              </button>
             </div>
           </CfgField>
         </SectionCard>

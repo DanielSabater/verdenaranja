@@ -66,4 +66,5 @@ export const CONFIG_DEFAULT = {
   comisionPct:      40,
   professionals:    PROFESSIONALS_DEFAULT.map(p => ({ ...p })),
   services:         SERVICES_DEFAULT.map(s => ({ ...s })),
+  dynamicDateColors: true,
 }

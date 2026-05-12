@@ -65,7 +65,9 @@ export const AppHeader = memo(function AppHeader({
 
         {/* Logo */}
         <div style={{ display: "flex", alignItems: "center", gap: 9, flexShrink: 0 }}>
-          <div style={{ width: 36, height: 36, borderRadius: "50%", background: `linear-gradient(135deg,${C.green},${C.greenLight})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>{config.empresaEmoji}</div>
+          <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#fff", border: `1px solid ${C.greenMint}`, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0, boxShadow: `0 2px 8px ${C.shadow}` }}>
+            <img src="/logo.png" alt="Logo" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          </div>
           <div>
             <div style={{ fontSize: 7, letterSpacing: "3px", color: C.orange, textTransform: "uppercase" }}>{config.empresaSubtitulo}</div>
             <div style={{ fontSize: 15, color: C.green, letterSpacing: "1px" }}>{config.empresaNombre}</div>
@@ -205,8 +207,18 @@ export const AppHeader = memo(function AppHeader({
             borderTop: `2px solid ${C.greenMint}`,
             boxShadow: "0 -2px 12px rgba(58,125,68,.08)",
             display: "flex", alignItems: "center",
-            padding: "4px 4px", gap: 0,
+            padding: "4px 8px", gap: 6,
           }}>
+            {/* Prev Month Button */}
+            <button onClick={(e) => {
+              e.stopPropagation()
+              const prev = new Date(y, m - 2, 1)
+              const lastDay = new Date(prev.getFullYear(), prev.getMonth() + 1, 0).getDate()
+              const day = Math.min(new Date(currentDate + "T12:00:00").getDate(), lastDay)
+              const dk = `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`
+              setCurrentDate(dk)
+            }} style={btnNav}>‹</button>
+
             {/* Days — scrollable center */}
             <div ref={dateStripRef} style={{ flex: 1, overflowX: "auto", WebkitOverflowScrolling: "touch", display: "flex", alignItems: "center", gap: 2 }}>
               <div style={{ flex: 1, minWidth: 0 }} />
@@ -218,28 +230,59 @@ export const AppHeader = memo(function AppHeader({
                 const isSun = dow === 0
                 const isCur = dk === currentDate
                 const isT = dk === tKey
-                const has = Object.keys((allData || {})[dk] || {}).length > 0
+                
+                // Dynamic Background Logic
+                const dayAppts = Object.values((allData || {})[dk] || {})
+                const totalCount = dayAppts.length
+                const paidCount = dayAppts.filter(a => a.paid).length
+                const ratio = totalCount > 0 ? paidCount / totalCount : 0
+                
+                let dynamicBg = "transparent"
+                let textColor = isSun ? "#ddd" : C.textSoft
+                const useDynamic = config?.dynamicDateColors ?? true
+                
+                if (totalCount > 0 && useDynamic) {
+                  // Interpolate between Orange (232, 121, 58) and Green (58, 125, 68)
+                  const r = Math.round(232 + (58 - 232) * ratio)
+                  const g = Math.round(121 + (125 - 121) * ratio)
+                  const b = Math.round(58 + (68 - 58) * ratio)
+                  const alpha = Math.min(0.15 + (totalCount * 0.12), 0.85)
+                  dynamicBg = `rgba(${r}, ${g}, ${b}, ${alpha})`
+                  if (alpha > 0.6) textColor = "#fff"
+                }
+
                 return (
                   <button key={dk} data-active={isCur} disabled={isSun} onClick={() => !isSun && setCurrentDate(dk)} style={{
                     minWidth: 36, height: 46, borderRadius: 10, flexShrink: 0,
                     border: `2px solid ${isCur ? C.green : isT ? C.greenMint : "transparent"}`,
-                    background: isCur ? `linear-gradient(135deg,${C.green},${C.greenLight})` : isT ? C.greenPale : has ? "#f5faf5" : "transparent",
-                    color: isCur ? "#fff" : isSun ? "#ddd" : isT ? C.green : C.textSoft,
+                    background: isCur ? (useDynamic && totalCount > 0 ? dynamicBg : `linear-gradient(135deg,${C.green},${C.greenLight})`) : (useDynamic ? dynamicBg : (isT ? C.greenPale : totalCount > 0 ? "#f5faf5" : "transparent")),
+                    color: isCur ? "#fff" : textColor,
                     fontSize: 9, fontFamily: "Georgia,serif", cursor: isSun ? "default" : "pointer",
                     display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
                     gap: 1, padding: "0 4px", position: "relative",
-                    transition: "all .12s",
+                    boxShadow: isCur ? `0 4px 12px rgba(0,0,0,.15)` : "none",
+                    transition: "all .2s ease",
                   }}>
                     <div style={{ fontSize: 8, letterSpacing: "1px", textTransform: "uppercase", opacity: .7 }}>
                       {["Do", "Lu", "Ma", "Mi", "Ju", "Vi", "Sá"][dow]}
                     </div>
-                    <div style={{ fontSize: 13, fontWeight: isCur || isT ? "bold" : "normal" }}>{day}</div>
-                    {has && <div style={{ position: "absolute", bottom: 3, left: "50%", transform: "translateX(-50%)", width: 4, height: 4, borderRadius: "50%", background: isCur ? "rgba(255,255,255,.8)" : C.green }} />}
+                    <div style={{ fontSize: 13, fontWeight: isCur || isT || totalCount > 0 ? "bold" : "normal" }}>{day}</div>
+                    {totalCount > 0 && <div style={{ position: "absolute", bottom: 3, left: "50%", transform: "translateX(-50%)", width: 4, height: 4, borderRadius: "50%", background: "rgba(255,255,255,.6)" }} />}
                   </button>
                 )
               })}
               <div style={{ flex: 1, minWidth: 0 }} />
             </div>
+
+            {/* Next Month Button */}
+            <button onClick={(e) => {
+              e.stopPropagation()
+              const next = new Date(y, m, 1)
+              const lastDay = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate()
+              const day = Math.min(new Date(currentDate + "T12:00:00").getDate(), lastDay)
+              const dk = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`
+              setCurrentDate(dk)
+            }} style={btnNav}>›</button>
 
             {/* Month + HOY + 📅 */}
             <div style={{ display: "flex", flexDirection: "row", gap: 3, flexShrink: 0, marginLeft: 4, alignItems: "center" }}>

@@ -316,7 +316,15 @@ export default function App() {
   // Show loading only on very first load, not on session changes
   if (!loaded) return (
     <div style={{ minHeight: "100vh", background: C.cream, display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div style={{ width: 52, height: 52, borderRadius: "50%", background: `linear-gradient(135deg,${C.green},${C.greenLight})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, animation: "spin 1.2s linear infinite" }}>🌿</div>
+      <div style={{ width: 84, height: 84, borderRadius: "50%", background: "#fff", border: `2px solid ${C.greenMint}`, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", boxShadow: `0 10px 30px rgba(58,125,68,.15)`, animation: "spin 1.8s linear infinite" }}>
+        <img src="/logo.png" alt="Cargando..." style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      </div>
+      <style>{`
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   )
 
