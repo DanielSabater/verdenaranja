@@ -65,7 +65,9 @@ export const AppHeader = memo(function AppHeader({
 
         {/* Logo */}
         <div style={{ display: "flex", alignItems: "center", gap: 9, flexShrink: 0 }}>
-          <div style={{ width: 36, height: 36, borderRadius: "50%", background: `linear-gradient(135deg,${C.green},${C.greenLight})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>{config.empresaEmoji}</div>
+          <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#fff", border: `1px solid ${C.greenMint}`, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0, boxShadow: `0 2px 8px ${C.shadow}` }}>
+            <img src="/logo.png" alt="Logo" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          </div>
           <div>
             <div style={{ fontSize: 7, letterSpacing: "3px", color: C.orange, textTransform: "uppercase" }}>{config.empresaSubtitulo}</div>
             <div style={{ fontSize: 15, color: C.green, letterSpacing: "1px" }}>{config.empresaNombre}</div>

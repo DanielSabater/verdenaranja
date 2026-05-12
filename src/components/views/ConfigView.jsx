@@ -149,7 +149,9 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
 
             {/* Preview */}
             <div style={{ background:C.cream, borderRadius:12, padding:"14px 18px", border:`1px solid ${C.border}`, display:"flex", alignItems:"center", gap:12 }}>
-              <div style={{ width:40,height:40,borderRadius:"50%",background:`linear-gradient(135deg,${C.green},${C.greenLight})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20 }}>{config.empresaEmoji}</div>
+              <div style={{ width:44,height:44,borderRadius:"50%",background:"#fff",border:`1px solid ${C.greenMint}`,display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden" }}>
+                <img src="/logo.png" alt="Logo" style={{ width:"100%",height:"100%",objectFit:"cover" }} />
+              </div>
               <div>
                 <div style={{ fontSize:8,letterSpacing:"3px",color:C.orange,textTransform:"uppercase" }}>{config.empresaSubtitulo}</div>
                 <div style={{ fontSize:18,color:C.green }}>{config.empresaNombre}</div>
