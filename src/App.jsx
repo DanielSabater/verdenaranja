@@ -35,20 +35,20 @@ export default function App() {
 
 
 
-  const {
-    loaded, saveStatus,
-    allData, setAllData,
-    gastos, setGastos,
-    sueldos, setSueldos,
-    config, setConfig,
-    clientes, setClientes,
-  } = usePersistentState()
-
   const [currentDate, setCurrentDate] = useState(() => {
     const d = new Date()
     if (!isWorkDay(d)) d.setDate(d.getDate() + 1)
     return toDateKey(d)
   })
+
+  const {
+    loaded, saveStatus,
+    allData, setAppointments,
+    gastos, setGastos,
+    sueldos, setSueldos,
+    config, setConfig,
+    clientes, setClientes,
+  } = usePersistentState(currentDate)
   const [calendarOpen, setCalendarOpen] = useState(false)
   const [calViewDate, setCalViewDate] = useState(() => {
     const d = new Date()
@@ -98,11 +98,6 @@ export default function App() {
   const comisionPct = config.comisionPct
 
   const appointments = allData[currentDate] || {}
-  const setAppointments = (updater) =>
-    setAllData(prev => ({
-      ...prev,
-      [currentDate]: typeof updater === "function" ? updater(prev[currentDate] || {}) : updater,
-    }))
 
   // ── Memoized so drag state changes don't re-render header ──────────────────
   const paidAppts = useMemo(
