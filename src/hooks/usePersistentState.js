@@ -146,7 +146,6 @@ export function usePersistentState() {
   // ── Auto-save: Supabase + localStorage ───────────────────────────────────
   useEffect(() => {
     if (!initialized.current) return
-    if (!userChanged.current) { userChanged.current = true; return }
 
     setSaveStatus("saving")
     if (saveTimer.current) clearTimeout(saveTimer.current)
