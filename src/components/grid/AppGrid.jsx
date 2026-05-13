@@ -17,6 +17,7 @@ const smallBtn = (color, isMobile) => ({
 export function AppGrid({
   professionals, appointments, isMobile,
   draggingKey, dropTarget, dropValid, resizePreview,
+  remoteEdits,
   isOccupied, spanOf,
   onDragStart, onDragEnd, onDragOver, onDragLeave, onDrop,
   onResizeStart,
@@ -182,8 +183,9 @@ export function AppGrid({
                   return hi >= rStart && hi < rEnd
                 })()
 
-                const isBlocked = (!appt && isOccupied(prof.id, hour)) || isCoveredByResize || (isResizeOriginal && !isResizeStart)
-                if (isBlocked) return null
+                const isEditingRemote = !appt && remoteEdits?.[k]
+                const isBlocked = (!appt && isOccupied(prof.id, hour)) || isCoveredByResize || (isResizeOriginal && !isResizeStart) || isEditingRemote
+                if (isBlocked && !isEditingRemote) return null
 
                 const isDragging = draggingKey === k
                 const isTarget = dropTarget?.profId === prof.id && dropTarget?.hour === hour
@@ -203,25 +205,37 @@ export function AppGrid({
                       border: `1px solid ${C.border}`,
                       background: cellBg,
                       transition: "background .12s",
-                      cursor: appt ? "grab" : (draggingKey ? "default" : "pointer"),
+                      cursor: appt ? "grab" : (draggingKey ? "default" : (isEditingRemote ? "not-allowed" : "pointer")),
                       position: "relative",
                       zIndex: (isResizeStart || draggingKey === k) ? 200 : 1,
-                    }}
-                    onClick={() => !appt && !draggingKey && onCellClick(prof.id, hour)}
-                    onMouseEnter={e => {
-                      if (!appt && !draggingKey && !resizePreview) e.currentTarget.style.background = C.greenPale
-                      if (appt && appt.client) setHoveredClientName(appt.client)
-                    }}
-                    onMouseLeave={e => {
-                      if (!appt && !draggingKey && !resizePreview) e.currentTarget.style.background = ""
-                      if (appt && appt.client) setHoveredClientName(null)
-                    }}
-                    onContextMenu={e => handleContextMenu(e, prof.id, hour, !!appt)}
-                    onDragOver={e => !appt && onDragOver(e, prof.id, hour)}
-                    onDragLeave={() => !appt && onDragLeave()}
-                    onDrop={e => !appt && onDrop(e, prof.id, hour)}
-                  >
-                    {appt ? (() => {
+                  }}
+                  onClick={() => !appt && !draggingKey && onCellClick(prof.id, hour)}
+                  onMouseEnter={e => {
+                    if (!appt && !draggingKey && !resizePreview) e.currentTarget.style.background = C.greenPale
+                    if (appt && appt.client) setHoveredClientName(appt.client)
+                  }}
+                  onMouseLeave={e => {
+                    if (!appt && !draggingKey && !resizePreview) e.currentTarget.style.background = ""
+                    if (appt && appt.client) setHoveredClientName(null)
+                  }}
+                  onContextMenu={e => handleContextMenu(e, prof.id, hour, !!appt)}
+                  onDragOver={e => !appt && onDragOver(e, prof.id, hour)}
+                  onDragLeave={() => !appt && onDragLeave()}
+                  onDrop={e => !appt && onDrop(e, prof.id, hour)}
+                >
+                  {isEditingRemote && (
+                    <div style={{
+                      position: "absolute", inset: 4, borderRadius: 8,
+                      background: "rgba(255, 165, 0, 0.08)",
+                      border: "2.5px dashed rgba(255, 165, 0, 0.4)",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      animation: "pulseEditing 1.8s infinite ease-in-out",
+                      pointerEvents: "none"
+                    }}>
+                      <span style={{ fontSize: 8, fontWeight: "bold", color: "orange", letterSpacing: 1, textShadow: "0 0 5px rgba(255,255,255,0.8)" }}>EDITANDO...</span>
+                    </div>
+                  )}
+                  {appt ? (() => {
                       const isResizing = resizePreview?.key === k
                       const isCurrentTurn = currentTurnKeys.has(k)
                       const liveSlots = isResizing ? resizePreview.slots : (span || 1)

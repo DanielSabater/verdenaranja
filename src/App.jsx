@@ -42,13 +42,15 @@ export default function App() {
   })
 
   const {
-    loaded, saveStatus,
+    loaded, saveStatus, connStatus,
     allData, setAppointments,
     gastos, setGastos,
     sueldos, setSueldos,
     config, setConfig,
     clientes, setClientes,
+    remoteEdits, broadcastEditing
   } = usePersistentState(currentDate)
+
   const [calendarOpen, setCalendarOpen] = useState(false)
   const [calViewDate, setCalViewDate] = useState(() => {
     const d = new Date()
@@ -61,6 +63,7 @@ export default function App() {
       setCalViewDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`)
     }
   }, [calendarOpen])
+
   const [activeView, setActiveView] = useState("turnos")
   const [contPeriod, setContPeriod] = useState("mes")
   const [contFrom, setContFrom] = useState("")
@@ -84,6 +87,18 @@ export default function App() {
   const [apptDiscount, setApptDiscount] = useState("")
   const [paymentSplits, setPaymentSplits] = useState([])
   const [searchTerm, setSearchTerm] = useState("")
+
+  const lastModalKey = useRef(null)
+  useEffect(() => {
+    if (modal) {
+      const k = modal.editKey || cellKey(modal.profId, modal.hour)
+      broadcastEditing(k, true)
+      lastModalKey.current = k
+    } else if (lastModalKey.current) {
+      broadcastEditing(lastModalKey.current, false)
+      lastModalKey.current = null
+    }
+  }, [modal])
 
   const [draggingKey, setDraggingKey] = useState(null)
   const [dropTarget, setDropTarget] = useState(null)
@@ -331,7 +346,7 @@ export default function App() {
         config={config} activeView={activeView}
         onLogout={handleLogout}
         setActiveView={(v) => { setActiveView(v); setCalendarOpen(false) }}
-        saveStatus={saveStatus} totalByMethod={totalByMethod}
+        saveStatus={saveStatus} connStatus={connStatus} totalByMethod={totalByMethod}
         grandTotal={grandTotal} grandEarnings={grandEarnings}
         currentDate={currentDate} setCurrentDate={setCurrentDate}
         calendarOpen={calendarOpen} setCalendarOpen={setCalendarOpen}
@@ -352,6 +367,7 @@ export default function App() {
               <AppGrid
                 professionals={professionals} appointments={appointments} isMobile={isMobile}
                 draggingKey={draggingKey} dropTarget={dropTarget} dropValid={dropValid} resizePreview={resizePreview}
+                remoteEdits={remoteEdits}
                 isOccupied={isOccupied} spanOf={spanOf}
                 onDragStart={onDragStart} onDragEnd={onDragEnd} onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}
                 onResizeStart={onResizeStart}

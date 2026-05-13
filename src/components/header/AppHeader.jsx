@@ -6,7 +6,7 @@ import { AnimatedNumber } from "../ui/index.jsx"
 import { MESES_ES, todayKey, fmtDate, nextWorkDay } from "../../utils/dates.js"
 
 export const AppHeader = memo(function AppHeader({
-  config, activeView, setActiveView, saveStatus, totalByMethod, grandTotal, grandEarnings, onLogout,
+  config, activeView, setActiveView, saveStatus, connStatus, totalByMethod, grandTotal, grandEarnings, onLogout,
   currentDate, setCurrentDate, calendarOpen, setCalendarOpen, calViewDate, setCalViewDate, allData,
 }) {
   const isMobileNav = typeof window !== "undefined" && window.innerWidth <= 900
@@ -135,14 +135,21 @@ export const AppHeader = memo(function AppHeader({
         </div>
 
         {/* Right side */}
-        <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+          {/* Connection Status */}
+          <div style={{ 
+            width: 10, height: 10, borderRadius: "50%", 
+            background: connStatus === "online" ? C.green : connStatus === "connecting" ? "#ffcc00" : "#ff4444",
+            boxShadow: connStatus === "online" ? `0 0 8px ${C.green}88` : "none",
+            transition: "all .3s ease",
+            cursor: "help"
+          }} title={connStatus === "online" ? "Sincronización Activa" : "Reconectando..."} />
+
           {onLogout && <button onClick={onLogout} style={{ padding: "4px 10px", borderRadius: 16, border: `1px solid ${C.border}`, background: "transparent", color: C.textSoft, fontSize: 9, cursor: "pointer", fontFamily: "Georgia,serif" }}>Salir</button>}
+          
           <div className="desktop-savebadge" style={{ padding: "4px 10px", borderRadius: 16, minWidth: 90, textAlign: "center", background: saveStatus === "saving" ? "#f5f5f5" : saveStatus === "saved" ? C.greenPale : saveStatus === "error" ? "#fde8e8" : "transparent", border: `1px solid ${saveStatus === "saving" ? "#ddd" : saveStatus === "saved" ? C.greenMint : saveStatus === "error" ? "#f4b0b0" : "transparent"}`, opacity: saveStatus === "idle" ? 0 : 1, transition: "opacity .3s ease" }}>
             <span style={{ fontSize: 9, color: saveStatus === "saved" ? C.green : saveStatus === "error" ? "#c04040" : "#aaa" }}>{saveStatus === "saving" ? "⏳ Guardando..." : saveStatus === "saved" ? "✓ Guardado" : saveStatus === "error" ? "⚠️ Error" : "✓ Guardado"}</span>
           </div>
-          <div style={{ width: 8, height: 8, borderRadius: "50%", flexShrink: 0, background: saveStatus === "saving" ? "#ccc" : saveStatus === "saved" ? C.green : saveStatus === "error" ? "#c04040" : "transparent", opacity: saveStatus === "idle" ? 0 : 1, transition: "opacity .3s ease" }} />
-
-
         </div>
       </header>
 

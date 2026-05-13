@@ -14,23 +14,23 @@ const LS_KEYS = {
   clientes: "pv:clientes",
   gastos:   "pv:gastos",
   sueldos:  "pv:sueldos",
-  allData:  "pv:allData", // Legacy
 }
 
 function lsRead(key) {
   try {
-    const v = localStorage.getItem(LS_KEYS[key] || `pv:day:${key}`)
+    const v = localStorage.getItem(`pv:${key}`)
     return v ? JSON.parse(v) : null
   } catch { return null }
 }
 
 function lsWrite(key, data) {
-  try { localStorage.setItem(LS_KEYS[key] || `pv:day:${key}`, JSON.stringify(data)) } catch {}
+  try { localStorage.setItem(`pv:${key}`, JSON.stringify(data)) } catch {}
 }
 
 export function usePersistentState(currentDate) {
   const [loaded,     setLoaded]     = useState(false)
   const [saveStatus, setSaveStatus] = useState("idle")
+  const [connStatus, setConnStatus] = useState("connecting") // online, offline, connecting
   
   const [allData,    setAllData]    = useState({})
   const [config,     setConfig]     = useState(() => lsRead("config") || CONFIG_DEFAULT)
@@ -38,127 +38,171 @@ export function usePersistentState(currentDate) {
   const [gastos,     setGastos]     = useState(() => lsRead("gastos") || [])
   const [sueldos,    setSueldos]    = useState(() => lsRead("sueldos") || {})
 
-  const initialized = useRef(false)
-  const lastSync    = useRef({}) // To avoid feedback loops
+  const [remoteEdits, setRemoteEdits] = useState({}) 
+  const sessionId   = useRef(Math.random().toString(36).substring(7))
+  const channelRef  = useRef(null)
+  
+  const lastSaved   = useRef({})
+  const isInitial   = useRef(true)
 
   // ── 1. Initial Load & Realtime Subscription ────────────────────────────────
   useEffect(() => {
-    // Load static collections once
     const loadStatic = async () => {
       const { data } = await supabase.from(TABLE).select("id, data")
-      if (!data) return
+      if (!data) {
+        setLoaded(true)
+        return
+      }
       
       const updates = {}
+      const legacy = data.find(r => r.id === "allData")?.data || {}
+      
       data.forEach(row => {
+        const str = JSON.stringify(row.data)
+        lastSaved.current[row.id] = str
+        
         if (row.id === "config")   setConfig(row.data)
         if (row.id === "clientes") setClientes(row.data)
         if (row.id === "gastos")   setGastos(row.data)
         if (row.id === "sueldos")  setSueldos(row.data)
-        if (row.id === "allData")  updates.legacy = row.data
+        if (row.id.startsWith("day:")) {
+          const dateKey = row.id.replace("day:", "")
+          updates[dateKey] = row.data
+        }
       })
 
-      // Migration: if we have legacy data, we keep it in memory
-      if (updates.legacy) {
-        setAllData(prev => ({ ...updates.legacy, ...prev }))
-      }
-      
+      setAllData(prev => ({ ...legacy, ...updates, ...prev }))
       setLoaded(true)
-      initialized.current = true
+      setTimeout(() => { isInitial.current = false }, 1000)
     }
 
     loadStatic()
 
-    // Subscribe to REALTIME changes
-    const channel = supabase
-      .channel("any")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: TABLE }, payload => handleRemote(payload.new))
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: TABLE }, payload => handleRemote(payload.new))
-      .subscribe()
+    const channel = supabase.channel("perlaverde_realtime", {
+      config: { broadcast: { ack: true } }
+    })
+    
+    channel
+      .on("postgres_changes", { event: "*", schema: "public", table: TABLE }, payload => {
+        const row = payload.new || payload.old
+        if (!row) return
+        const str = JSON.stringify(row.data)
+        if (lastSaved.current[row.id] !== str) {
+          lastSaved.current[row.id] = str
+          if (row.id === "config")   setConfig(row.data)
+          if (row.id === "clientes") setClientes(row.data)
+          if (row.id === "gastos")   setGastos(row.data)
+          if (row.id === "sueldos")  setSueldos(row.data)
+          if (row.id.startsWith("day:")) {
+            const dateKey = row.id.replace("day:", "")
+            setAllData(prev => ({ ...prev, [dateKey]: row.data }))
+          }
+        }
+      })
+      .on("broadcast", { event: "editing" }, ({ payload }) => {
+        if (payload.sessionId === sessionId.current) return
+        setRemoteEdits(prev => {
+          const next = { ...prev }
+          if (payload.isEditing) {
+            next[payload.cellKey] = { timestamp: Date.now(), sessionId: payload.sessionId }
+          } else {
+            delete next[payload.cellKey]
+          }
+          return next
+        })
+      })
+      .subscribe((status) => {
+        setConnStatus(status === "SUBSCRIBED" ? "online" : "offline")
+      })
 
-    function handleRemote(row) {
-      // Don't update if WE just sent this change
-      if (lastSync.current[row.id] === JSON.stringify(row.data)) return
+    channelRef.current = channel
 
-      if (row.id === "config")   setConfig(row.data)
-      if (row.id === "clientes") setClientes(row.data)
-      if (row.id === "gastos")   setGastos(row.data)
-      if (row.id === "sueldos")  setSueldos(row.data)
-      if (row.id.startsWith("day:")) {
-        const dateKey = row.id.replace("day:", "")
-        setAllData(prev => ({ ...prev, [dateKey]: row.data }))
-      }
+    const cleanup = setInterval(() => {
+      setRemoteEdits(prev => {
+        const now = Date.now()
+        const next = { ...prev }
+        let changed = false
+        Object.entries(next).forEach(([k, v]) => {
+          if (now - v.timestamp > 15000) { delete next[k]; changed = true }
+        })
+        return changed ? next : prev
+      })
+    }, 10000)
+
+    return () => { 
+      supabase.removeChannel(channel)
+      clearInterval(cleanup)
     }
-
-    return () => { supabase.removeChannel(channel) }
   }, [])
 
-  // ── 2. Load Specific Day when Date changes ──────────────────────────────────
+  // ── 2. Load Specific Day ────────────────────────────────────────────────────
   useEffect(() => {
-    if (!currentDate) return
-    
+    if (!currentDate || !loaded) return
     const loadDay = async () => {
-      const { data, error } = await supabase.from(TABLE).select("data").eq("id", `day:${currentDate}`).single()
+      const id = `day:${currentDate}`
+      const { data } = await supabase.from(TABLE).select("data").eq("id", id).maybeSingle()
       if (data) {
+        lastSaved.current[id] = JSON.stringify(data.data)
         setAllData(prev => ({ ...prev, [currentDate]: data.data }))
-        lsWrite(currentDate, data.data)
-      } else {
-        // Fallback to localStorage if offline or not found
-        const local = lsRead(currentDate)
-        if (local) setAllData(prev => ({ ...prev, [currentDate]: local }))
       }
     }
-
     if (!allData[currentDate]) loadDay()
-  }, [currentDate])
+  }, [currentDate, loaded])
 
-  // ── 3. Optimized Save Helpers ───────────────────────────────────────────────
-  const saveToCloud = async (id, data) => {
-    const dataStr = JSON.stringify(data)
-    if (lastSync.current[id] === dataStr) return
-    
-    setSaveStatus("saving")
-    lastSync.current[id] = dataStr
-    lsWrite(id.replace("day:", ""), data)
+  // ── 3. Auto-Save Engine ─────────────────────────────────────────────────────
+  useEffect(() => {
+    if (isInitial.current || !loaded) return
+    const saveTimer = setTimeout(async () => {
+      const tasks = []
+      const check = (id, currentVal) => {
+        const str = JSON.stringify(currentVal)
+        if (lastSaved.current[id] !== str) {
+          lastSaved.current[id] = str
+          lsWrite(id.replace("day:", ""), currentVal)
+          tasks.push({ id, data: currentVal, updated_at: new Date().toISOString() })
+        }
+      }
+      check("config", config)
+      check("clientes", clientes)
+      check("gastos", gastos)
+      check("sueldos", sueldos)
+      Object.keys(allData).forEach(date => check(`day:${date}`, allData[date]))
+      if (tasks.length > 0) {
+        setSaveStatus("saving")
+        const { error } = await supabase.from(TABLE).upsert(tasks)
+        if (error) setSaveStatus("error")
+        else { setSaveStatus("saved"); setTimeout(() => setSaveStatus("idle"), 1500) }
+      }
+    }, 1000)
+    return () => clearTimeout(saveTimer)
+  }, [allData, config, clientes, gastos, sueldos, loaded])
 
-    const { error } = await supabase.from(TABLE).upsert({ 
-      id, 
-      data, 
-      updated_at: new Date().toISOString() 
-    })
-
-    if (error) {
-      setSaveStatus("error")
-      console.error(`Error saving ${id}:`, error)
-    } else {
-      setSaveStatus("saved")
-      setTimeout(() => setSaveStatus("idle"), 2000)
-    }
-  }
-
-  // ── 4. Exposed Setters with auto-save ───────────────────────────────────────
-  const wrapSet = (id, setter) => (val) => {
-    setter(prev => {
-      const next = typeof val === "function" ? val(prev) : val
-      saveToCloud(id, next)
-      return next
-    })
-  }
-
+  // ── 4. Exposed Setters ─────────────────────────────────────────────────────
   const setAppointments = (updater) => {
     setAllData(prev => {
-      const currentDay = prev[currentDate] || {}
-      const nextDay = typeof updater === "function" ? updater(currentDay) : updater
-      saveToCloud(`day:${currentDate}`, nextDay)
-      return { ...prev, [currentDate]: nextDay }
+      const current = prev[currentDate] || {}
+      const next = typeof updater === "function" ? updater(current) : updater
+      return { ...prev, [currentDate]: next }
     })
+  }
+
+  const broadcastEditing = (cellKey, isEditing) => {
+    if (channelRef.current) {
+      channelRef.current.send({
+        type: "broadcast",
+        event: "editing",
+        payload: { cellKey, isEditing, sessionId: sessionId.current }
+      })
+    }
   }
 
   return {
-    loaded, saveStatus,
+    loaded, saveStatus, connStatus,
     allData,   setAppointments,
-    config,    setConfig:   wrapSet("config",   setConfig),
-    clientes,  setClientes: wrapSet("clientes", setClientes),
-    gastos,    setGastos:   wrapSet("gastos",   setGastos),
-    sueldos,   setSueldos:  wrapSet("sueldos",  setSueldos),
+    config,    setConfig,
+    clientes,  setClientes,
+    gastos,    setGastos,
+    sueldos,   setSueldos,
+    remoteEdits, broadcastEditing
   }
 }
