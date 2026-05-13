@@ -132,7 +132,7 @@ select { appearance: auto; }
   transition: box-shadow 0.2s ease, transform 0.2s ease !important;
 }
 .appt-card:hover, .appt-card.force-hover {
-  transform: scale(1.01) !important;
+  transform: scale(1.005) !important;
 }
 .appt-card.paid:hover, .appt-card.paid.force-hover {
   box-shadow: 0 0 0 2px #3a7d44, 0 4px 20px rgba(58,125,68,.35), 0 0 24px rgba(58,125,68,.20) !important;
@@ -140,13 +140,16 @@ select { appearance: auto; }
 .appt-card.unpaid:hover, .appt-card.unpaid.force-hover {
   box-shadow: 0 0 0 2px #e8793a, 0 4px 20px rgba(232,121,58,.35), 0 0 24px rgba(232,121,58,.20) !important;
 }
+.appt-card.blocked:hover, .appt-card.blocked.force-hover {
+  box-shadow: none !important;
+}
 
 @keyframes currentTurnPulse {
   0% { box-shadow: 0 0 0 2px #4a90e2, 0 4px 12px rgba(74, 144, 226, 0.3); }
   50% { box-shadow: 0 0 0 2px #4a90e2, 0 4px 20px rgba(74, 144, 226, 0.6), 0 0 16px rgba(74, 144, 226, 0.4); }
   100% { box-shadow: 0 0 0 2px #4a90e2, 0 4px 12px rgba(74, 144, 226, 0.3); }
 }
-.appt-card.current:not(:hover) {
+.appt-card.current:not(.blocked):not(:hover) {
   animation: currentTurnPulse 2.5s infinite ease-in-out;
 }
 .appt-card.current:hover, .appt-card.current.force-hover {

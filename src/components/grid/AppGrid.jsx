@@ -250,7 +250,7 @@ export function AppGrid({
                           onDragStart={e => { if (resizePreview) { e.preventDefault(); return; } onDragStart(e, k) }}
                           onDragEnd={onDragEnd}
                           onDoubleClick={e => { if (!resizePreview) { e.stopPropagation(); onEdit(k, appointments[k]); } }}
-                          className={`appt-card${appt.paid ? " paid" : " unpaid"}${isCurrentTurn && !isDragging && !isResizeStart ? " current" : ""}${hoveredClientName && appt.client === hoveredClientName ? " force-hover" : ""}`}
+                          className={`appt-card${appt.isBlocked ? " blocked" : (appt.paid ? " paid" : " unpaid")}${isCurrentTurn && !isDragging && !isResizeStart ? " current" : ""}${hoveredClientName && appt.client === hoveredClientName ? " force-hover" : ""}`}
                           style={{
                             height: "100%", borderRadius: 9,
                             background: appt.isBlocked
@@ -275,7 +275,7 @@ export function AppGrid({
                             display: "flex", flexDirection: "column",
                             boxShadow: isDragging
                               ? `0 10px 30px rgba(58,125,68,.30)`
-                              : `0 2px 8px ${appt.paid ? "rgba(58,125,68,.10)" : "rgba(232,121,58,.10)"}`,
+                              : appt.isBlocked ? "none" : `0 2px 8px ${appt.paid ? "rgba(58,125,68,0.1)" : "rgba(232,121,58,0.1)"}`,
                             opacity: isDragging ? 0.45 : 1,
                             transform: isDragging ? "scale(0.97)" : "scale(1)",
                             transition: isResizing ? "none" : "opacity .15s, box-shadow .15s, transform .15s",
