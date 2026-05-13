@@ -172,7 +172,7 @@ export function AppGrid({
                 const k = cellKey(prof.id, hour)
                 const isResizeStart = resizePreview && resizePreview.profId === prof.id && HOURS[resizePreview.hourIdx] === hour
                 const isResizeOriginal = resizePreview && resizePreview.key === k
-                
+
                 const appt = isResizeStart ? appointments[resizePreview.key] : appointments[k]
                 const span = isResizeStart ? resizePreview.slots : spanOf(prof.id, hour)
 
@@ -208,34 +208,34 @@ export function AppGrid({
                       cursor: appt ? "grab" : (draggingKey ? "default" : (isEditingRemote ? "not-allowed" : "pointer")),
                       position: "relative",
                       zIndex: (isResizeStart || draggingKey === k) ? 200 : 1,
-                  }}
-                  onClick={() => !appt && !draggingKey && onCellClick(prof.id, hour)}
-                  onMouseEnter={e => {
-                    if (!appt && !draggingKey && !resizePreview) e.currentTarget.style.background = C.greenPale
-                    if (appt && appt.client) setHoveredClientName(appt.client)
-                  }}
-                  onMouseLeave={e => {
-                    if (!appt && !draggingKey && !resizePreview) e.currentTarget.style.background = ""
-                    if (appt && appt.client) setHoveredClientName(null)
-                  }}
-                  onContextMenu={e => handleContextMenu(e, prof.id, hour, !!appt)}
-                  onDragOver={e => !appt && onDragOver(e, prof.id, hour)}
-                  onDragLeave={() => !appt && onDragLeave()}
-                  onDrop={e => !appt && onDrop(e, prof.id, hour)}
-                >
-                  {isEditingRemote && (
-                    <div style={{
-                      position: "absolute", inset: 4, borderRadius: 8,
-                      background: "rgba(255, 165, 0, 0.08)",
-                      border: "2.5px dashed rgba(255, 165, 0, 0.4)",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      animation: "pulseEditing 1.8s infinite ease-in-out",
-                      pointerEvents: "none"
-                    }}>
-                      <span style={{ fontSize: 8, fontWeight: "bold", color: "orange", letterSpacing: 1, textShadow: "0 0 5px rgba(255,255,255,0.8)" }}>EDITANDO...</span>
-                    </div>
-                  )}
-                  {appt ? (() => {
+                    }}
+                    onClick={() => !appt && !draggingKey && onCellClick(prof.id, hour)}
+                    onMouseEnter={e => {
+                      if (!appt && !draggingKey && !resizePreview) e.currentTarget.style.background = C.greenPale
+                      if (appt && appt.client) setHoveredClientName(appt.client)
+                    }}
+                    onMouseLeave={e => {
+                      if (!appt && !draggingKey && !resizePreview) e.currentTarget.style.background = ""
+                      if (appt && appt.client) setHoveredClientName(null)
+                    }}
+                    onContextMenu={e => handleContextMenu(e, prof.id, hour, !!appt)}
+                    onDragOver={e => !appt && onDragOver(e, prof.id, hour)}
+                    onDragLeave={() => !appt && onDragLeave()}
+                    onDrop={e => !appt && onDrop(e, prof.id, hour)}
+                  >
+                    {isEditingRemote && (
+                      <div style={{
+                        position: "absolute", inset: 4, borderRadius: 8,
+                        background: "rgba(255, 165, 0, 0.08)",
+                        border: "2.5px dashed rgba(255, 165, 0, 0.4)",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        animation: "pulseEditing 1.8s infinite ease-in-out",
+                        pointerEvents: "none"
+                      }}>
+                        <span style={{ fontSize: 8, fontWeight: "bold", color: "orange", letterSpacing: 1, textShadow: "0 0 5px rgba(255,255,255,0.8)" }}>EDITANDO...</span>
+                      </div>
+                    )}
+                    {appt ? (() => {
                       const isResizing = resizePreview?.key === k
                       const isCurrentTurn = currentTurnKeys.has(k)
                       const liveSlots = isResizing ? resizePreview.slots : (span || 1)
@@ -263,7 +263,7 @@ export function AppGrid({
                                 )`
                               : appt.paid
                                 ? `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Ctext x='50%25' y='50%25' font-size='18' fill='%233a7d44' opacity='0.1' text-anchor='middle' dominant-baseline='middle' transform='rotate(-25 30 30)'%3E$ %3C/text%3E%3C/svg%3E"), linear-gradient(135deg,${C.greenPale},#d8f0dc)`
-                                : `linear-gradient(135deg,${C.orangePale},#fde8d4)`,
+                                : `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Ctext x='50%25' y='50%25' font-size='14' fill='%23e8793a' opacity='0.08' text-anchor='middle' dominant-baseline='middle' transform='rotate(-20 30 30)'%3E🕒%3C/text%3E%3C/svg%3E"), linear-gradient(135deg,${C.orangePale},#fde8d4)`,
                             border: appt.isBlocked
                               ? `1px dashed rgba(192, 64, 64, 0.2)`
                               : isResizeStart
