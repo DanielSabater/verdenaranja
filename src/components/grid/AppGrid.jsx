@@ -254,12 +254,12 @@ export function AppGrid({
                           style={{
                             height: "100%", borderRadius: 9,
                             background: appt.isBlocked
-                              ? `linear-gradient(135deg, ${C.redPale}, #ffccc7)`
+                              ? `rgba(192, 64, 64, 0.06)`
                               : appt.paid
                                 ? `linear-gradient(135deg,${C.greenPale},#d8f0dc)`
                                 : `linear-gradient(135deg,${C.orangePale},#fde8d4)`,
                             border: appt.isBlocked
-                              ? `1.5px solid ${C.redLight}`
+                              ? `1px dashed rgba(192, 64, 64, 0.2)`
                               : isResizeStart
                                 ? `1.5px solid ${C.greenLight}`
                                 : isCurrentTurn && !isDragging
@@ -309,7 +309,7 @@ export function AppGrid({
 
                           <div style={{ overflow: "hidden", marginTop: 2 }}>
                             <div style={{ fontSize: 11, fontWeight: "bold", color: appt.isBlocked ? C.red : C.text, marginBottom: 1, paddingRight: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                              {appt.isBlocked ? `🚫 ${appt.client}` : appt.client}
+                              {appt.isBlocked ? "" : appt.client}
                             </div>
                             {!appt.isBlocked && (appt.services || []).map((sv, i) => (
                               <div key={i} style={{ fontSize: 9, color: appt.paid ? C.green : C.orange, lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sv.icon} {sv.name}</div>
