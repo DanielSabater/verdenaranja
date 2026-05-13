@@ -254,7 +254,13 @@ export function AppGrid({
                           style={{
                             height: "100%", borderRadius: 9,
                             background: appt.isBlocked
-                              ? `rgba(192, 64, 64, 0.06)`
+                              ? `repeating-linear-gradient(
+                                  45deg,
+                                  rgba(192, 64, 64, 0.03),
+                                  rgba(192, 64, 64, 0.03) 10px,
+                                  rgba(192, 64, 64, 0.08) 10px,
+                                  rgba(192, 64, 64, 0.08) 20px
+                                )`
                               : appt.paid
                                 ? `linear-gradient(135deg,${C.greenPale},#d8f0dc)`
                                 : `linear-gradient(135deg,${C.orangePale},#fde8d4)`,
