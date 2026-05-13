@@ -131,7 +131,21 @@ export default function App() {
   const grandTotal = useMemo(() => paidAppts.reduce((s, a) => s + apptPaidTotal(a), 0), [paidAppts])
   const grandEarnings = useMemo(() => professionals.reduce((s, p) => s + earningsByProf(p.id), 0), [professionals, earningsByProf])
 
-  const filteredServices = services.filter(s => (filterCat === "all" || s.category === filterCat) && s.name.toLowerCase().includes(searchTerm.toLowerCase()))
+  const serviceCounts = useMemo(() => {
+    const counts = {}
+    Object.values(allData || {}).forEach(dayData => {
+      Object.values(dayData).forEach(appt => {
+        ;(appt.services || []).forEach(sv => {
+          counts[sv.id] = (counts[sv.id] || 0) + 1
+        })
+      })
+    })
+    return counts
+  }, [allData])
+
+  const filteredServices = services
+    .filter(s => (filterCat === "all" || s.category === filterCat) && s.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    .sort((a, b) => (serviceCounts[b.id] || 0) - (serviceCounts[a.id] || 0))
   const modalSubtotal = chosenServices.reduce((s, sv) => s + sv.price, 0)
   const modalDuration = chosenServices.reduce((s, sv) => s + sv.duration, 0)
 

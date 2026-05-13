@@ -56,21 +56,6 @@ export function AppModals({
   const [showSug, setShowSug] = useState(false)
   const [serviceHighlightIdx, setServiceHighlightIdx] = useState(0)
 
-  // Calculate top 5 most used services across all appointments
-  const favoriteServices = (() => {
-    const counts = {}
-    Object.values(allData || {}).forEach(dayData => {
-      Object.values(dayData).forEach(appt => {
-        ; (appt.services || []).forEach(sv => {
-          counts[sv.id] = (counts[sv.id] || 0) + 1
-        })
-      })
-    })
-    return (services || [])
-      .filter(s => counts[s.id] > 0)
-      .sort((a, b) => (counts[b.id] || 0) - (counts[a.id] || 0))
-      .slice(0, 6)
-  })()
   const safeClientes = clientes || []
   const suggestions = safeClientes.filter(cl =>
     clientName.length > 1 && cl.name.toLowerCase().includes(clientName.toLowerCase())
@@ -187,7 +172,7 @@ export function AppModals({
                     value={searchTerm}
                     onChange={e => { setSearchTerm(e.target.value); setServiceHighlightIdx(0); }}
                     onKeyDown={e => {
-                      const list = filterCat === "favoritos" ? favoriteServices : filteredServices;
+                      const list = filteredServices;
                       if (e.key === "Enter") {
                         e.preventDefault();
                         if (list[serviceHighlightIdx]) {
@@ -206,7 +191,7 @@ export function AppModals({
                     style={{ ...inputStyle, marginBottom: 8 }}
                   />
                   <div style={{ display: "flex", gap: 5, marginBottom: 8, flexWrap: "wrap" }}>
-                    {["favoritos", "all", "manos", "pies", "combo"].map(cat => (
+                    {["all", "manos", "pies", "combo"].map(cat => (
                       <button key={cat} onClick={() => { setFilterCat(cat); setServiceHighlightIdx(0); }} style={{
                         padding: "4px 9px", borderRadius: 20, cursor: "pointer",
                         border: `1.5px solid ${filterCat === cat ? C.green : C.border}`,
@@ -215,12 +200,12 @@ export function AppModals({
                         fontSize: 9, letterSpacing: "1px", textTransform: "uppercase",
                         fontFamily: "Georgia,serif", transition: "all .15s",
                       }}>
-                        {cat === "favoritos" ? "⭐ Favoritos" : cat === "all" ? "Todos" : cat === "manos" ? "💅 Manos" : cat === "pies" ? "🦶 Pies" : "🌸 Combo"}
+                        {cat === "all" ? "Todos" : cat === "manos" ? "💅 Manos" : cat === "pies" ? "🦶 Pies" : "🌸 Combo"}
                       </button>
                     ))}
                   </div>
                   <div className="service-scroll" style={{ width: "100%", display: "flex", flexDirection: "column", gap: 5, maxHeight: 240, overflowY: "auto", paddingRight: 3 }}>
-                    {(filterCat === "favoritos" ? favoriteServices : filteredServices).map((s, idx) => {
+                    {filteredServices.map((s, idx) => {
                       const isChosen = chosenServices.some(x => x.id === s.id)
                       const isFirstMatch = idx === serviceHighlightIdx
                       return (
