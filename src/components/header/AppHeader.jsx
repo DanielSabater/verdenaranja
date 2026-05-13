@@ -261,13 +261,13 @@ export const AppHeader = memo(function AppHeader({
                 return (
                   <button key={dk} data-active={isCur} disabled={isSun} onClick={() => !isSun && setCurrentDate(dk)} style={{
                     minWidth: 36, height: 46, borderRadius: 10, flexShrink: 0,
-                    border: `2px solid ${isCur ? C.green : isT ? C.greenMint : "transparent"}`,
-                    background: isCur ? (useDynamic && totalCount > 0 ? dynamicBg : `linear-gradient(135deg,${C.green},${C.greenLight})`) : (useDynamic ? dynamicBg : (isT ? C.greenPale : totalCount > 0 ? "#f5faf5" : "transparent")),
+                    border: `2px solid ${isCur ? C.gold : (isT ? C.greenMint : "transparent")}`,
+                    background: isCur ? `linear-gradient(135deg,${C.gold},${C.goldLight})` : (useDynamic ? dynamicBg : (isT ? C.greenPale : (totalCount > 0 ? "#f5faf5" : "transparent"))),
                     color: isCur ? "#fff" : textColor,
                     fontSize: 9, fontFamily: "Georgia,serif", cursor: isSun ? "default" : "pointer",
                     display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
                     gap: 1, padding: "0 4px", position: "relative",
-                    boxShadow: isCur ? `0 4px 12px rgba(0,0,0,.15)` : "none",
+                    boxShadow: isCur ? `0 4px 12px ${C.gold}55` : "none",
                     transition: "all .2s ease",
                   }}>
                     <div style={{ fontSize: 8, letterSpacing: "1px", textTransform: "uppercase", opacity: .7 }}>
