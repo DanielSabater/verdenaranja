@@ -262,7 +262,7 @@ export function AppGrid({
                                   rgba(192, 64, 64, 0.08) 20px
                                 )`
                               : appt.paid
-                                ? `linear-gradient(135deg,${C.greenPale},#d8f0dc)`
+                                ? `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Ctext x='50%25' y='50%25' font-size='18' fill='%233a7d44' opacity='0.1' text-anchor='middle' dominant-baseline='middle' transform='rotate(-25 30 30)'%3E$ %3C/text%3E%3C/svg%3E"), linear-gradient(135deg,${C.greenPale},#d8f0dc)`
                                 : `linear-gradient(135deg,${C.orangePale},#fde8d4)`,
                             border: appt.isBlocked
                               ? `1px dashed rgba(192, 64, 64, 0.2)`
