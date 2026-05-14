@@ -87,6 +87,12 @@ export default function App() {
   const [apptDiscount, setApptDiscount] = useState("")
   const [paymentSplits, setPaymentSplits] = useState([])
   const [searchTerm, setSearchTerm] = useState("")
+  const [multiPayKeys, setMultiPayKeys] = useState([])
+
+  useEffect(() => {
+    if (payModal) setMultiPayKeys([payModal])
+    else setMultiPayKeys([])
+  }, [payModal])
 
   const lastModalKey = useRef(null)
   useEffect(() => {
@@ -317,12 +323,32 @@ export default function App() {
   }
 
   const confirmPay = () => {
+    if (!multiPayKeys.length) return
+    const keys = multiPayKeys
+    const totalToPay = keys.reduce((sum, k) => sum + apptTotal(appointments[k]), 0)
     const tipAmount = parseFloat(apptTip) || 0
     const discountAmount = parseFloat(apptDiscount) || 0
-    // Allow 0 as a valid amount
     const validSplits = paymentSplits.filter(r => r.methodId && r.amount !== "" && !isNaN(parseFloat(r.amount)))
 
-    setAppointments(p => ({ ...p, [payModal]: { ...p[payModal], paid: true, payMethod: validSplits[0]?.methodId || "efectivo", paymentSplits: validSplits, tip: tipAmount, discount: discountAmount } }))
+    setAppointments(p => {
+      const next = { ...p }
+      keys.forEach(k => {
+        const appt = next[k]
+        if (!appt) return
+        const apptBase = apptTotal(appt)
+        const ratio = totalToPay > 0 ? apptBase / totalToPay : 1 / keys.length
+
+        next[k] = {
+          ...appt,
+          paid: true,
+          payMethod: validSplits[0]?.methodId || "efectivo",
+          paymentSplits: validSplits.map(s => ({ ...s, amount: (parseFloat(s.amount) || 0) * ratio })),
+          tip: tipAmount * ratio,
+          discount: discountAmount * ratio
+        }
+      })
+      return next
+    })
     setPayModal(null)
   }
 
@@ -439,6 +465,7 @@ export default function App() {
           modalSubtotal={modalSubtotal} modalDuration={modalDuration}
           appointments={appointments}
           allData={allData}
+          multiPayKeys={multiPayKeys} setMultiPayKeys={setMultiPayKeys}
         />
       </div>{/* end main-content */}
       <nav className="bottom-nav" style={{

@@ -52,6 +52,7 @@ export function AppModals({
   professionals,
   clientes, setClientes,
   allData,
+  multiPayKeys, setMultiPayKeys,
 }) {
   const [showSug, setShowSug] = useState(false)
   const [serviceHighlightIdx, setServiceHighlightIdx] = useState(0)
@@ -245,7 +246,11 @@ export function AppModals({
       {/* ── MODAL PAGO ── */}
       {payModal && appointments[payModal] && (() => {
         const appt = appointments[payModal]
-        const total = apptTotal(appt)
+        const otherPending = Object.entries(appointments).filter(([k, a]) =>
+          a.client === appt.client && !a.paid && !a.isBlocked && !multiPayKeys.includes(k)
+        )
+
+        const total = multiPayKeys.reduce((s, k) => s + (appointments[k] ? apptTotal(appointments[k]) : 0), 0)
         const discountAmount = parseFloat(apptDiscount) || 0
         const tipAmount = parseFloat(apptTip) || 0
         const totalWithTip = Math.max(0, total - discountAmount + tipAmount)
@@ -263,12 +268,42 @@ export function AppModals({
               </ModalHeader>
 
               <div style={{ background: C.cream, borderRadius: 10, padding: "10px 13px", marginBottom: 16, border: `1px solid ${C.border}` }}>
-                {(appt.services || []).map((sv, i) => (
-                  <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: C.textSoft, lineHeight: 1.8 }}>
-                    <span>{sv.icon} {sv.name}</span>
-                    <span style={{ color: C.text }}>{fmt(sv.price)}</span>
+                {multiPayKeys.map(k => {
+                  const a = appointments[k]
+                  if (!a) return null
+                  const prof = professionals?.find(p => p.id === a.profId)
+                  return (
+                    <div key={k} style={{ marginBottom: multiPayKeys.length > 1 ? 12 : 0, paddingBottom: multiPayKeys.length > 1 ? 8 : 0, borderBottom: multiPayKeys.length > 1 ? `1px dashed ${C.border}` : "none" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                        <span style={{ fontSize: 10, fontWeight: "bold", color: C.green }}>{prof?.name || "Profesional"}</span>
+                        {multiPayKeys.length > 1 && k !== payModal && (
+                          <button onClick={() => setMultiPayKeys(p => p.filter(x => x !== k))} style={{ border: "none", background: "transparent", color: "#c04040", cursor: "pointer", fontSize: 10 }}>Quitar</button>
+                        )}
+                      </div>
+                      {(a.services || []).map((sv, i) => (
+                        <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: C.textSoft, lineHeight: 1.6 }}>
+                          <span>{sv.icon} {sv.name}</span>
+                          <span style={{ color: C.text }}>{fmt(sv.price)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                })}
+
+                {otherPending.length > 0 && (
+                  <div style={{ marginTop: 8, padding: "8px 10px", background: "#fff", borderRadius: 8, border: `1.5px dashed ${C.orangeLight}` }}>
+                    <div style={{ fontSize: 9, color: C.orange, fontWeight: "bold", marginBottom: 6, textTransform: "uppercase" }}>¿Sumar otros turnos de {appt.client} hoy?</div>
+                    {otherPending.map(([k, a]) => {
+                      const prof = professionals?.find(p => p.id === a.profId)
+                      return (
+                        <div key={k} onClick={() => setMultiPayKeys(p => [...p, k])} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", padding: "4px 0" }}>
+                          <span style={{ fontSize: 11, color: C.text }}>➕ {prof?.name}: {(a.services || []).map(s => s.name).join(", ")}</span>
+                          <span style={{ fontSize: 11, fontWeight: "bold", color: C.text }}>{fmt(apptTotal(a))}</span>
+                        </div>
+                      )
+                    })}
                   </div>
-                ))}
+                )}
                 {/* Discount row */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8, paddingTop: 6, borderTop: `1px solid ${C.border}` }}>
                   <span style={{ fontSize: 11, color: "#c04040" }}>🏷️ Descuento</span>
