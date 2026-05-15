@@ -326,7 +326,16 @@ export function AppModals({
                     <input
                       type="number"
                       value={apptDiscount}
-                      onChange={e => setApptDiscount(e.target.value)}
+                      onChange={e => {
+                        const val = e.target.value
+                        setApptDiscount(val)
+                        if (paymentSplits.length === 1) {
+                          const total = multiPayKeys.reduce((s, key) => s + (appointments[key] ? apptTotal(appointments[key]) : 0), 0)
+                          const discount = parseFloat(val) || 0
+                          const tip = parseFloat(apptTip) || 0
+                          setPaymentSplits([{ ...paymentSplits[0], amount: Math.max(0, total - discount + tip).toString() }])
+                        }
+                      }}
                       placeholder="0"
                       style={{ width: 80, padding: "4px 8px", border: `1.5px solid ${C.border}`, borderRadius: 8, fontSize: 12, color: "#c04040", background: C.cream, outline: "none", fontFamily: "Georgia,serif", textAlign: "right" }}
                     />
@@ -341,7 +350,16 @@ export function AppModals({
                     <input
                       type="number"
                       value={apptTip}
-                      onChange={e => setApptTip(e.target.value)}
+                      onChange={e => {
+                        const val = e.target.value
+                        setApptTip(val)
+                        if (paymentSplits.length === 1) {
+                          const total = multiPayKeys.reduce((s, key) => s + (appointments[key] ? apptTotal(appointments[key]) : 0), 0)
+                          const discount = parseFloat(apptDiscount) || 0
+                          const tip = parseFloat(val) || 0
+                          setPaymentSplits([{ ...paymentSplits[0], amount: Math.max(0, total - discount + tip).toString() }])
+                        }
+                      }}
                       placeholder="0"
                       style={{ width: 80, padding: "4px 8px", border: `1.5px solid ${C.border}`, borderRadius: 8, fontSize: 12, color: C.text, background: C.cream, outline: "none", fontFamily: "Georgia,serif", textAlign: "right" }}
                     />
