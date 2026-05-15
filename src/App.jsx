@@ -90,8 +90,50 @@ export default function App() {
   const [multiPayKeys, setMultiPayKeys] = useState([])
 
   useEffect(() => {
-    if (payModal) setMultiPayKeys([payModal])
-    else setMultiPayKeys([])
+    if (payModal) {
+      const appt = appointments[payModal]
+      if (appt?.paid && appt.payGroupId) {
+        // Reconstruct the whole payment group
+        const groupKeys = Object.entries(appointments)
+          .filter(([_, a]) => a.payGroupId === appt.payGroupId)
+          .map(([k]) => k)
+        
+        setMultiPayKeys(groupKeys)
+
+        // Sum up splits, tips and discounts to show the "Total" in the UI
+        const combinedSplits = {}
+        let totalTip = 0
+        let totalDiscount = 0
+
+        groupKeys.forEach(k => {
+          const a = appointments[k]
+          totalTip += (a.tip || 0)
+          totalDiscount += (a.discount || 0)
+          ;(a.paymentSplits || []).forEach(s => {
+            combinedSplits[s.methodId] = (combinedSplits[s.methodId] || 0) + (parseFloat(s.amount) || 0)
+          })
+        })
+
+        const finalSplits = Object.entries(combinedSplits).map(([methodId, amount]) => ({
+          methodId,
+          amount: Math.round(amount).toString()
+        }))
+
+        setPaymentSplits(finalSplits.length ? finalSplits : [{ methodId: "efectivo", amount: "" }])
+        setApptTip(totalTip > 0 ? Math.round(totalTip).toString() : "")
+        setApptDiscount(totalDiscount > 0 ? Math.round(totalDiscount).toString() : "")
+      } else {
+        const total = apptTotal(appt)
+        setMultiPayKeys([payModal])
+        setPaymentSplits([{ methodId: "efectivo", amount: total.toString() }])
+        setApptTip("")
+        setApptDiscount("")
+      }
+    } else {
+      setMultiPayKeys([])
+      setPaymentSplits([])
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [payModal])
 
   const lastModalKey = useRef(null)
@@ -323,12 +365,15 @@ export default function App() {
   }
 
   const confirmPay = () => {
-    if (!multiPayKeys.length) return
     const keys = multiPayKeys
     const totalToPay = keys.reduce((sum, k) => sum + apptTotal(appointments[k]), 0)
     const tipAmount = parseFloat(apptTip) || 0
     const discountAmount = parseFloat(apptDiscount) || 0
     const validSplits = paymentSplits.filter(r => r.methodId && r.amount !== "" && !isNaN(parseFloat(r.amount)))
+    
+    // Create or reuse a group ID to keep these appointments linked
+    const existingGid = keys.map(k => appointments[k]?.payGroupId).find(g => !!g)
+    const gid = existingGid || Date.now()
 
     setAppointments(p => {
       const next = { ...p }
@@ -341,10 +386,11 @@ export default function App() {
         next[k] = {
           ...appt,
           paid: true,
+          payGroupId: gid,
           payMethod: validSplits[0]?.methodId || "efectivo",
-          paymentSplits: validSplits.map(s => ({ ...s, amount: (parseFloat(s.amount) || 0) * ratio })),
-          tip: tipAmount * ratio,
-          discount: discountAmount * ratio
+          paymentSplits: validSplits.map(s => ({ ...s, amount: Math.round((parseFloat(s.amount) || 0) * ratio) })),
+          tip: Math.round(tipAmount * ratio),
+          discount: Math.round(discountAmount * ratio)
         }
       })
       return next

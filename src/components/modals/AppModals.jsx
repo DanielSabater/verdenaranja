@@ -40,7 +40,7 @@ export function AppModals({
   chosenServices,
   filterCat, setFilterCat,
   searchTerm, setSearchTerm,
-  paymentSplits,
+  paymentSplits, setPaymentSplits,
   filteredServices, services,
   saveAppt, confirmPay, doDelete,
   apptTip, setApptTip,
@@ -277,7 +277,14 @@ export function AppModals({
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
                         <span style={{ fontSize: 10, fontWeight: "bold", color: C.green }}>{prof?.name || "Profesional"}</span>
                         {multiPayKeys.length > 1 && k !== payModal && (
-                          <button onClick={() => setMultiPayKeys(p => p.filter(x => x !== k))} style={{ border: "none", background: "transparent", color: "#c04040", cursor: "pointer", fontSize: 10 }}>Quitar</button>
+                          <button onClick={() => {
+                            const nextKeys = multiPayKeys.filter(x => x !== k)
+                            setMultiPayKeys(nextKeys)
+                            if (paymentSplits.length === 1 && !appointments[payModal]?.paid) {
+                              const total = nextKeys.reduce((s, key) => s + (appointments[key] ? apptTotal(appointments[key]) : 0), 0)
+                              setPaymentSplits([{ ...paymentSplits[0], amount: total.toString() }])
+                            }
+                          }} style={{ border: "none", background: "transparent", color: "#c04040", cursor: "pointer", fontSize: 10 }}>Quitar</button>
                         )}
                       </div>
                       {(a.services || []).map((sv, i) => (
@@ -296,7 +303,14 @@ export function AppModals({
                     {otherPending.map(([k, a]) => {
                       const prof = professionals?.find(p => p.id === a.profId)
                       return (
-                        <div key={k} onClick={() => setMultiPayKeys(p => [...p, k])} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", padding: "4px 0" }}>
+                        <div key={k} onClick={() => {
+                          const nextKeys = [...multiPayKeys, k]
+                          setMultiPayKeys(nextKeys)
+                          if (paymentSplits.length === 1 && !appointments[payModal]?.paid) {
+                            const total = nextKeys.reduce((s, key) => s + (appointments[key] ? apptTotal(appointments[key]) : 0), 0)
+                            setPaymentSplits([{ ...paymentSplits[0], amount: total.toString() }])
+                          }
+                        }} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", padding: "4px 0" }}>
                           <span style={{ fontSize: 11, color: C.text }}>➕ {prof?.name}: {(a.services || []).map(s => s.name).join(", ")}</span>
                           <span style={{ fontSize: 11, fontWeight: "bold", color: C.text }}>{fmt(apptTotal(a))}</span>
                         </div>
