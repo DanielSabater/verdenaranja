@@ -370,7 +370,9 @@ export default function App() {
     const tipAmount = parseFloat(apptTip) || 0
     const discountAmount = parseFloat(apptDiscount) || 0
     const validSplits = paymentSplits.filter(r => r.methodId && r.amount !== "" && !isNaN(parseFloat(r.amount)))
-    
+    const totalAmountPaid = validSplits.reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0)
+    const isUnpaying = totalAmountPaid === 0
+
     // Create or reuse a group ID to keep these appointments linked
     const existingGid = keys.map(k => appointments[k]?.payGroupId).find(g => !!g)
     const gid = existingGid || Date.now()
@@ -380,6 +382,20 @@ export default function App() {
       keys.forEach(k => {
         const appt = next[k]
         if (!appt) return
+        
+        if (isUnpaying) {
+          next[k] = {
+            ...appt,
+            paid: false,
+            payGroupId: undefined,
+            payMethod: undefined,
+            paymentSplits: undefined,
+            tip: undefined,
+            discount: undefined
+          }
+          return
+        }
+
         const apptBase = apptTotal(appt)
         const ratio = totalToPay > 0 ? apptBase / totalToPay : 1 / keys.length
 
