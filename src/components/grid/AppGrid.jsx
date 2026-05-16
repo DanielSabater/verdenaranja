@@ -82,15 +82,17 @@ export function AppGrid({
   const currentTurnKeys = (() => {
     const keys = new Set()
     orderedProfessionals.forEach(p => {
-      const pAppts = Object.values(appointments).filter(a => a.profId === p.id)
+      const pAppts = Object.values(appointments).filter(a => a.profId === p.id && !a.isBlocked)
       // Ordenamos de arriba hacia abajo (temprano a tarde)
       pAppts.sort((a, b) => (a.hour || "").localeCompare(b.hour || ""))
 
-      for (let i = 1; i < pAppts.length; i++) {
-        // El turno actual no está pago, pero el anterior sí
-        if (!pAppts[i].paid && pAppts[i - 1].paid) {
-          keys.add(cellKey(p.id, pAppts[i].hour))
-          break // Solo el primero que cumpla esta condición de arriba hacia abajo
+      for (let i = 0; i < pAppts.length; i++) {
+        if (!pAppts[i].paid) {
+          // Si es el primer turno del día o el turno anterior está pago
+          if (i === 0 || pAppts[i - 1].paid) {
+            keys.add(cellKey(p.id, pAppts[i].hour))
+          }
+          break // Solo marcamos el primero que cumpla
         }
       }
     })
