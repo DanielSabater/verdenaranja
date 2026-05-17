@@ -238,8 +238,11 @@ export const AppHeader = memo(function AppHeader({
 
               <div ref={dateStripRef} style={{ flex: 1, overflowX: "auto", WebkitOverflowScrolling: "touch", display: "flex", alignItems: "center", gap: 2 }}>
                 <div style={{ flex: 1, minWidth: 0 }} />
-                {Array.from({ length: daysInMonth }, (_, i) => {
+                {Array.from({ length: 31 }, (_, i) => {
                   const day = i + 1
+                  if (day > daysInMonth) {
+                    return <div key={`placeholder-${i}`} style={{ minWidth: 36, height: 46, flexShrink: 0 }} />
+                  }
                   const dk = `${y}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`
                   const d = new Date(dk + "T12:00:00")
                   const dow = d.getDay()
@@ -297,7 +300,7 @@ export const AppHeader = memo(function AppHeader({
                 setCurrentDate(dk)
               }} style={{...btnNav, border: "none", background: C.cream, width: 34, height: 34}}>›</button>
 
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", marginLeft: 8, marginRight: 4, minWidth: 65, flexShrink: 0 }}>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", marginLeft: 8, marginRight: 4, width: 95, flexShrink: 0 }}>
                 <div style={{ fontSize: 11, color: isDiffMonth ? "#e63946" : C.green, fontWeight: "bold", textTransform: "uppercase", letterSpacing: ".8px" }}>{monthName}</div>
                 <div style={{ fontSize: 9, color: C.textSoft, opacity: .8, marginTop: -1 }}>{y}</div>
               </div>
