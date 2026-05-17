@@ -33,6 +33,25 @@ select { appearance: auto; }
   .date-nav-pills      { display: none !important; }
   .date-nav-compact    { display: none !important; }
 }
+
+/* Prevent date carousel overlapping with calendar/actions island on desktop */
+@media (min-width: 1101px) {
+  .date-carousel-island {
+    max-width: calc(100% - 380px) !important;
+  }
+}
+
+/* Hide scrollbar for date carousel */
+.date-carousel-scroll {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+.date-carousel-scroll::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
 .clientes-shell {
   max-width: 900px;
   margin: 0 auto;

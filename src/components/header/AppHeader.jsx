@@ -264,7 +264,7 @@ export const AppHeader = memo(function AppHeader({
                 setCurrentDate(dk)
               }} style={{...btnNav, border: "none", background: C.cream, width: 34, height: 34}}>‹</button>
 
-              <div ref={dateStripRef} style={{ flex: 1, overflowX: "auto", WebkitOverflowScrolling: "touch", display: "flex", alignItems: "center", gap: 2 }}>
+              <div ref={dateStripRef} className="date-carousel-scroll" style={{ flex: 1, overflowX: "auto", WebkitOverflowScrolling: "touch", display: "flex", alignItems: "center", gap: 2 }}>
                 <div style={{ flex: 1, minWidth: 0 }} />
                 {Array.from({ length: 31 }, (_, i) => {
                   const day = i + 1
