@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react"
+import React, { useState, useMemo } from "react"
 import { C } from "../../constants/colors.js"
 import { PAYMENT_METHODS, GASTO_CATS } from "../../constants/data.js"
 import { fmt, apptTotal, apptPaidTotal } from "../../utils/appointments.js"
@@ -12,6 +12,7 @@ export default function ContabilidadView({
   contPeriod, setContPeriod, contFrom, setContFrom, contTo, setContTo,
 }) {
   const [seccion, setSeccion] = useState("resumen")
+  const [expandedDates, setExpandedDates] = useState({})
 
   const safeAllData       = allData && typeof allData === "object" && !Array.isArray(allData) ? allData : {}
   const safeGastos        = Array.isArray(gastos) ? gastos : []
@@ -92,6 +93,139 @@ export default function ContabilidadView({
   const totalGastos  = gastosRange.reduce((s,g) => s+(parseFloat(g.monto)||0), 0)
   const netResult    = totalIncome - totalGastos
   const maxProf      = Math.max(...safeProfessionals.map(p => incomeByProf[p.id]||0), 1)
+
+  // ── daily summary logic ──────────────────────────────────────────────────
+  const dailySummary = useMemo(() => {
+    if (!rangeFrom || !rangeTo) return []
+    
+    // Collect all date keys that have actual activity
+    const activeKeys = new Set()
+    
+    // Add keys from appointments
+    Object.entries(safeAllData).forEach(([dk, dayData]) => {
+      if (dk >= rangeFrom && dk <= rangeTo) {
+        const hasPaid = Object.values(dayData || {}).some(appt => appt?.paid)
+        if (hasPaid || dayData?.closed) {
+          activeKeys.add(dk)
+        }
+      }
+    })
+    
+    // Add keys from expenses
+    safeGastos.forEach(g => {
+      if (g.fecha && g.fecha >= rangeFrom && g.fecha <= rangeTo) {
+        activeKeys.add(g.fecha)
+      }
+    })
+    
+    // Determine if we should show consecutive days (only for short periods <= 45 days)
+    const from = new Date(rangeFrom + "T12:00:00")
+    const to = new Date(rangeTo + "T12:00:00")
+    const diffTime = Math.abs(to - from)
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+    
+    let sortedKeys = []
+    if (diffDays <= 45 && !isNaN(diffDays)) {
+      const cursor = new Date(from)
+      while (cursor <= to) {
+        sortedKeys.push(toDateKey(cursor))
+        cursor.setDate(cursor.getDate() + 1)
+      }
+      sortedKeys.reverse()
+    } else {
+      sortedKeys = Array.from(activeKeys).sort().reverse()
+    }
+    
+    return sortedKeys.map(dk => {
+      const parts = dk.split("-").map(Number)
+      const dateObj = new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0)
+      const dayData = safeAllData[dk] || {}
+      
+      let totalFacturado = 0
+      let efectivo = 0
+      let debito = 0
+      let mercadopago = 0
+      let turnsCount = 0
+      
+      const profMap = {}
+      safeProfessionals.forEach(p => {
+        profMap[p.id] = {
+          id: p.id,
+          name: p.name,
+          emoji: p.emoji,
+          turnsCount: 0,
+          total: 0,
+          efectivo: 0,
+          debito: 0,
+          mercadopago: 0
+        }
+      })
+      
+      Object.values(dayData).forEach(appt => {
+        if (appt?.paid) {
+          totalFacturado += apptPaidTotal(appt)
+          turnsCount += 1
+          
+          const profId = appt.profId
+          if (profMap[profId]) {
+            profMap[profId].turnsCount += 1
+            const apptTotalPaid = apptPaidTotal(appt)
+            profMap[profId].total += apptTotalPaid
+            
+            if (appt.paymentSplits?.length) {
+              appt.paymentSplits.forEach(s => {
+                const amt = parseFloat(s.amount) || 0
+                if (s.methodId === "efectivo") {
+                  efectivo += amt
+                  profMap[profId].efectivo += amt
+                } else if (s.methodId === "debito") {
+                  debito += amt
+                  profMap[profId].debito += amt
+                } else if (s.methodId === "mercadopago") {
+                  mercadopago += amt
+                  profMap[profId].mercadopago += amt
+                }
+              })
+            } else {
+              const amt = apptTotal(appt) - (appt.discount || 0)
+              const m = appt.payMethod || "efectivo"
+              if (m === "efectivo") {
+                efectivo += amt
+                profMap[profId].efectivo += amt
+              } else if (m === "debito") {
+                debito += amt
+                profMap[profId].debito += amt
+              } else if (m === "mercadopago") {
+                mercadopago += amt
+                profMap[profId].mercadopago += amt
+              }
+            }
+          }
+        }
+      })
+      
+      const dayGastos = safeGastos.filter(g => g.fecha === dk)
+      const totalGastos = dayGastos.reduce((s, g) => s + (parseFloat(g.monto) || 0), 0)
+      const neto = totalFacturado - totalGastos
+      
+      return {
+        dk,
+        label: fmtDate(dk),
+        dow: ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"][dateObj.getDay()],
+        isWeekend: dateObj.getDay() === 0 || dateObj.getDay() === 6,
+        totalFacturado,
+        efectivo,
+        debito,
+        mercadopago,
+        totalGastos,
+        neto,
+        turnsCount,
+        hasActivity: totalFacturado > 0 || totalGastos > 0 || !!dayData.closed,
+        closed: !!dayData.closed,
+        profBreakdown: Object.values(profMap).filter(p => p.turnsCount > 0)
+      }
+    })
+  }, [rangeFrom, rangeTo, safeAllData, safeGastos, safeProfessionals])
 
   // ── period-based chart data ──────────────────────────────────────────────
   const chartRange = useMemo(() => {
@@ -188,7 +322,7 @@ export default function ContabilidadView({
   const pagarSueldo    = (profId) => setSueldos(p => ({ ...p, [sueldoKey(profId)]: { pagado:true, monto:profSueldo(profId).monto, fecha:todayKey() } }))
   const desmarcarSueldo= (profId) => setSueldos(p => { const n={...p}; delete n[sueldoKey(profId)]; return n })
 
-  const TABS = [{ id:"resumen", label:"📊 Resumen" }, { id:"gastos", label:"💸 Gastos" }, { id:"sueldos", label:"👩 Sueldos" }]
+  const TABS = [{ id:"resumen", label:"📊 Resumen" }, { id:"diario", label:"📅 Detalle Diario" }, { id:"gastos", label:"💸 Gastos" }, { id:"sueldos", label:"👩 Sueldos" }]
 
   return (
     <div style={{ width:"100%", maxWidth:1440, margin:"0 auto", padding:"20px 24px 160px", boxSizing:"border-box" }}>
@@ -580,7 +714,159 @@ export default function ContabilidadView({
           </div>
         </div>
       )}
+      {/* ── DETALLE DIARIO ── */}
+      {seccion==="diario" && (
+        <div style={{ background:C.white, borderRadius:16, border:`1px solid ${C.border}`, padding:"20px 24px", boxShadow:"0 8px 32px rgba(58,125,68,.05)", overflow:"hidden" }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16, flexWrap:"wrap", gap:10 }}>
+            <div>
+              <h2 style={{ margin:0, fontSize:16, color:C.text, fontFamily:"Georgia,serif" }}>Resumen Diario del Período</h2>
+              <p style={{ margin:"4px 0 0", fontSize:11, color:C.textSoft }}>Desglose de ingresos por método de pago y neto real diario. Toca una fila con actividad para ver el detalle de cada profesional.</p>
+            </div>
+            <div style={{ fontSize:10, padding:"6px 12px", borderRadius:20, background:C.greenPale, color:C.green, fontWeight:"bold" }}>
+              Período: {rangeFrom} → {rangeTo}
+            </div>
+          </div>
 
+          <div style={{ overflowX:"auto", margin:"0 -24px", padding:"0 24px" }} className="date-carousel-scroll">
+            <table style={{ width:"100%", borderCollapse:"collapse", minWidth:700 }}>
+              <thead>
+                <tr style={{ borderBottom:`2px solid ${C.border}`, textAlign:"left" }}>
+                  <th style={{ padding:"12px 8px", fontSize:10, textTransform:"uppercase", color:C.textSoft, letterSpacing:"1px" }}>Fecha</th>
+                  <th style={{ padding:"12px 8px", fontSize:10, textTransform:"uppercase", color:C.textSoft, letterSpacing:"1px" }}>Turnos</th>
+                  <th style={{ padding:"12px 8px", fontSize:10, textTransform:"uppercase", color:C.textSoft, letterSpacing:"1px" }}>💵 Efectivo</th>
+                  <th style={{ padding:"12px 8px", fontSize:10, textTransform:"uppercase", color:C.textSoft, letterSpacing:"1px" }}>💳 Débito</th>
+                  <th style={{ padding:"12px 8px", fontSize:10, textTransform:"uppercase", color:C.textSoft, letterSpacing:"1px" }}>📲 Mercado Pago</th>
+                  <th style={{ padding:"12px 8px", fontSize:10, textTransform:"uppercase", color:C.textSoft, letterSpacing:"1px" }}>💸 Gastos</th>
+                  <th style={{ padding:"12px 8px", fontSize:10, textTransform:"uppercase", color:C.textSoft, letterSpacing:"1px", textAlign:"right" }}>📈 Neto Real</th>
+                </tr>
+              </thead>
+              <tbody>
+                {dailySummary.map(d => {
+                  const isZero = !d.hasActivity
+                  const isExpanded = !!expandedDates[d.dk]
+                  return (
+                    <React.Fragment key={d.dk}>
+                      <tr 
+                        onClick={() => !isZero && setExpandedDates(p => ({ ...p, [d.dk]: !p[d.dk] }))}
+                        style={{ 
+                          borderBottom:`1px solid ${C.greenPale}`, 
+                          background: d.dk === todayKey() ? "#fdfaf6" : d.isWeekend ? "#fafcfa" : "transparent",
+                          opacity: isZero ? 0.45 : 1,
+                          cursor: isZero ? "default" : "pointer",
+                          transition: "all .15s"
+                        }}
+                      >
+                        {/* Fecha */}
+                        <td style={{ padding:"14px 8px" }}>
+                          <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                            {!isZero && (
+                              <span style={{ 
+                                fontSize:8, 
+                                transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)", 
+                                transition:"transform .15s", 
+                                color:C.textSoft,
+                                display:"inline-block"
+                              }}>▶</span>
+                            )}
+                            <div style={{ fontSize:12, fontWeight:"bold", color: d.isWeekend ? C.textSoft : C.text, paddingLeft: isZero ? 14 : 0 }}>
+                              {d.label} {d.dk === todayKey() && <span style={{ fontSize:9, color:C.orange, background:"#fdf0e8", padding:"2px 6px", borderRadius:8, marginLeft:4 }}>HOY</span>}
+                            </div>
+                          </div>
+                          <div style={{ fontSize:9, color:C.textSoft, marginTop:2, paddingLeft: 14 }}>
+                            {d.dow} {d.closed && "🔒 Cerrado"}
+                          </div>
+                        </td>
+
+                        {/* Turnos */}
+                        <td style={{ padding:"14px 8px", fontSize:12, color:C.text, fontWeight:"500" }}>
+                          {d.turnsCount > 0 ? `${d.turnsCount} turnos` : "—"}
+                        </td>
+
+                        {/* Efectivo */}
+                        <td style={{ padding:"14px 8px", fontSize:12, color: d.efectivo > 0 ? C.green : C.textSoft, fontWeight: d.efectivo > 0 ? "bold" : "normal" }}>
+                          {d.efectivo > 0 ? fmt(d.efectivo) : "—"}
+                        </td>
+
+                        {/* Débito */}
+                        <td style={{ padding:"14px 8px", fontSize:12, color: d.debito > 0 ? C.amber : C.textSoft, fontWeight: d.debito > 0 ? "bold" : "normal" }}>
+                          {d.debito > 0 ? fmt(d.debito) : "—"}
+                        </td>
+
+                        {/* Mercado Pago */}
+                        <td style={{ padding:"14px 8px", fontSize:12, color: d.mercadopago > 0 ? C.mp : C.textSoft, fontWeight: d.mercadopago > 0 ? "bold" : "normal" }}>
+                          {d.mercadopago > 0 ? fmt(d.mercadopago) : "—"}
+                        </td>
+
+                        {/* Gastos */}
+                        <td style={{ padding:"14px 8px", fontSize:12, color: d.totalGastos > 0 ? "#c04040" : C.textSoft, fontWeight: d.totalGastos > 0 ? "bold" : "normal" }}>
+                          {d.totalGastos > 0 ? `-${fmt(d.totalGastos)}` : "—"}
+                        </td>
+
+                        {/* Neto */}
+                        <td style={{ padding:"14px 8px", textAlign:"right" }}>
+                          {isZero ? (
+                            <span style={{ fontSize:12, color:C.textSoft }}>—</span>
+                          ) : (
+                            <span style={{ 
+                              fontSize:12, 
+                              fontWeight:"bold", 
+                              color: d.neto >= 0 ? C.green : "#c04040",
+                              background: d.neto >= 0 ? C.greenPale : "#fde8e8",
+                              padding:"4px 10px",
+                              borderRadius:10,
+                              display:"inline-block"
+                            }}>
+                              {d.neto >= 0 ? `+${fmt(d.neto)}` : fmt(d.neto)}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+
+                      {/* Expandable row */}
+                      {isExpanded && d.profBreakdown && d.profBreakdown.length > 0 && (
+                        <tr style={{ background:"#fafdfb" }}>
+                          <td colSpan={7} style={{ padding:"0px 24px 12px 24px", borderBottom:`1px solid ${C.greenPale}` }}>
+                            <div style={{ 
+                              background:"rgba(255, 255, 255, 0.9)", 
+                              borderRadius:12, 
+                              border:`1.5px solid ${C.greenMint}`, 
+                              boxShadow:"inset 0 2px 6px rgba(58,125,68,.03), 0 4px 16px rgba(58,125,68,.04)",
+                              overflow:"hidden",
+                              padding:"12px 16px",
+                              marginTop:4
+                            }}>
+                              <div style={{ fontSize:9, fontWeight:"bold", color:C.green, textTransform:"uppercase", letterSpacing:"1px", marginBottom:8, display:"flex", alignItems:"center", gap:4 }}>
+                                <span>👩</span> Desglose por Profesional
+                              </div>
+                              <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                                {d.profBreakdown.map(p => (
+                                  <div key={p.id} style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(100px, 1fr))", gap:10, alignItems:"center", fontSize:11, padding:"6px 0", borderBottom:`1.5px solid #f3faf5` }}>
+                                    <div style={{ display:"flex", alignItems:"center", gap:6, fontWeight:"bold", color:C.text }}>
+                                      <span style={{ fontSize:13 }}>{p.emoji}</span>
+                                      <span>{p.name}</span>
+                                    </div>
+                                    <div style={{ color:C.textSoft, fontSize:10 }}>{p.turnsCount} turnos</div>
+                                    <div style={{ color: p.efectivo > 0 ? C.green : C.textSoft, fontSize:10 }}>💵 {p.efectivo > 0 ? fmt(p.efectivo) : "—"}</div>
+                                    <div style={{ color: p.debito > 0 ? C.amber : C.textSoft, fontSize:10 }}>💳 {p.debito > 0 ? fmt(p.debito) : "—"}</div>
+                                    <div style={{ color: p.mercadopago > 0 ? C.mp : C.textSoft, fontSize:10 }}>📲 {p.mercadopago > 0 ? fmt(p.mercadopago) : "—"}</div>
+                                    <div style={{ textAlign:"right", fontWeight:"bold", color:C.green, fontSize:11 }}>
+                                      Total: {fmt(p.total)} <span style={{ color:C.gold, fontSize:9, fontWeight:"500", marginLeft:4 }}>· Comi: {fmt(p.total * (comisionPct/100))}</span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
       {/* ── Modal gasto ── */}
       {gastoModal && (
         <Overlay onClose={()=>{ setGastoModal(false); setEditGastoId(null) }}>
