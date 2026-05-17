@@ -9,7 +9,7 @@ export const AppHeader = memo(function AppHeader({
   config, activeView, setActiveView, saveStatus, connStatus, totalByMethod, grandTotal, grandEarnings, onLogout,
   currentDate, setCurrentDate, calendarOpen, setCalendarOpen, calViewDate, setCalViewDate, allData, onQuickGasto
 }) {
-  const isMobileNav = typeof window !== "undefined" && window.innerWidth <= 900
+  const isMobileNav = typeof window !== "undefined" && window.innerWidth <= 1100
   const tKey = todayKey()
   const VIEWS = [
     { id: "turnos", icon: "📅", label: "Turnos" },
@@ -244,7 +244,7 @@ export const AppHeader = memo(function AppHeader({
             pointerEvents: "none",
           }}>
             {/* Island 1: Carousel & Month */}
-            <div style={{
+            <div className="date-carousel-island" style={{
               background: "rgba(255,255,255,0.75)",
               backdropFilter: "blur(20px)",
               WebkitBackdropFilter: "blur(20px)",

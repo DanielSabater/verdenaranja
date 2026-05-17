@@ -151,3 +151,13 @@ select { appearance: auto; }
 .appt-card.current:hover, .appt-card.current.force-hover {
   box-shadow: 0 0 0 2px #4a90e2, 0 6px 24px rgba(74, 144, 226, 0.6), 0 0 24px rgba(74, 144, 226, 0.4) !important;
 }
+
+/* Hide date carousel on mobile navigation and elevate actions island */
+@media (max-width: 1100px) {
+  .date-carousel-island {
+    display: none !important;
+  }
+  .date-strip {
+    bottom: calc(94px + env(safe-area-inset-bottom)) !important;
+  }
+}
