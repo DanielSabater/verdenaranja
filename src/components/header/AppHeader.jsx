@@ -30,6 +30,34 @@ export const AppHeader = memo(function AppHeader({
   const prevMonth = () => { let m = vm - 1, y = vy; if (m < 1) { m = 12; y-- } setCalViewDate(`${y}-${String(m).padStart(2, "0")}`) }
   const nextMonth = () => { let m = vm + 1, y = vy; if (m > 12) { m = 1; y++ } setCalViewDate(`${y}-${String(m).padStart(2, "0")}`) }
 
+  const playClickSound = () => {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)()
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.type = "sine"
+      osc.frequency.setValueAtTime(700, ctx.currentTime)
+      osc.frequency.exponentialRampToValueAtTime(1300, ctx.currentTime + 0.06)
+      gain.gain.setValueAtTime(0.04, ctx.currentTime)
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.06)
+      osc.start(ctx.currentTime)
+      osc.stop(ctx.currentTime + 0.06)
+    } catch (e) {
+      console.warn(e)
+    }
+  }
+
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [hoyBounce, setHoyBounce] = useState(false)
+
+  const handleHoyClick = () => {
+    setCurrentDate(tKey)
+    setHoyBounce(true)
+    playClickSound()
+    setTimeout(() => setHoyBounce(false), 150)
+  }
   const [activeMethod, setActiveMethod] = useState(null)
   const dateStripRef = useRef(null)
 
@@ -321,8 +349,7 @@ export const AppHeader = memo(function AppHeader({
               flexShrink: 0
             }}>
               <button
-                onClick={() => setCurrentDate(tKey)}
-                disabled={currentDate === tKey}
+                onClick={handleHoyClick}
                 style={{
                   width: 46, height: 46, borderRadius: 18,
                   border: `none`,
@@ -330,9 +357,10 @@ export const AppHeader = memo(function AppHeader({
                   fontSize: 10, fontWeight: "bold",
                   color: C.green,
                   opacity: currentDate === tKey ? 0.75 : 1,
-                  cursor: currentDate === tKey ? "default" : "pointer",
+                  cursor: "pointer",
                   fontFamily: "Georgia,serif", letterSpacing: "1px", display: "flex", alignItems: "center", justifyContent: "center",
-                  transition: "all .2s"
+                  transition: "transform .15s cubic-bezier(0.175, 0.885, 0.32, 1.275), background .2s, opacity .2s",
+                  transform: hoyBounce ? "scale(0.85)" : "scale(1)"
                 }}
               >HOY</button>
               <button 
