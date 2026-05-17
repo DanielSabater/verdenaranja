@@ -13,6 +13,7 @@ import ContabilidadView from "./components/views/ContabilidadView.jsx"
 import ConfigView from "./components/views/ConfigView.jsx"
 import ClientesView from "./components/views/ClientesView.jsx"
 import Login from "./components/Login.jsx"
+import { Overlay, ModalHeader, Field, GhostBtn, SolidBtn, inputStyle, modalBox } from "./components/ui/index.jsx"
 
 const CELL_H = 100
 
@@ -71,6 +72,52 @@ export default function App() {
   const [gastoModal, setGastoModal] = useState(false)
   const [gastoForm, setGastoForm] = useState({ descripcion: "", monto: "", categoria: "insumos", fecha: todayKey() })
   const [editGastoId, setEditGastoId] = useState(null)
+  
+  const [quickGastoModal, setQuickGastoModal] = useState(false)
+  const [quickGastoForm, setQuickGastoForm] = useState({ descripcion: "", monto: "", metodoPago: "efectivo" })
+  const descRef = useRef(null)
+  const montoRef = useRef(null)
+
+  useEffect(() => {
+    if (quickGastoModal) {
+      setQuickGastoForm({ descripcion: "", monto: "", metodoPago: "efectivo" })
+      setTimeout(() => descRef.current?.focus(), 50)
+    }
+  }, [quickGastoModal])
+
+  const handleQuickGastoSave = () => {
+    if (!quickGastoForm.monto) return
+    setGastos(p => [...p, {
+      id: Date.now(),
+      descripcion: quickGastoForm.descripcion || "Gasto",
+      monto: quickGastoForm.monto,
+      categoria: "otros",
+      fecha: currentDate,
+      metodoPago: quickGastoForm.metodoPago
+    }])
+    setQuickGastoModal(false)
+  }
+
+  const handleMontoKeyDown = (e) => {
+    if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setQuickGastoForm(p => ({ ...p, monto: String((parseFloat(p.monto) || 0) + 1000) }))
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setQuickGastoForm(p => ({ ...p, monto: String(Math.max(0, (parseFloat(p.monto) || 0) - 1000)) }))
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      handleQuickGastoSave()
+    }
+  }
+
+  const handleMontoWheel = (e) => {
+    if (e.deltaY < 0) {
+      setQuickGastoForm(p => ({ ...p, monto: String((parseFloat(p.monto) || 0) + 1000) }))
+    } else if (e.deltaY > 0) {
+      setQuickGastoForm(p => ({ ...p, monto: String(Math.max(0, (parseFloat(p.monto) || 0) - 1000)) }))
+    }
+  }
   const [sueldoPeriod, setSueldoPeriod] = useState(() => {
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
@@ -454,11 +501,12 @@ export default function App() {
         calendarOpen={calendarOpen} setCalendarOpen={setCalendarOpen}
         calViewDate={calViewDate} setCalViewDate={setCalViewDate}
         allData={allData}
+        onQuickGasto={() => setQuickGastoModal(true)}
       />
       <div className="main-content" style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
 
         {activeView === "turnos" && (
-          <div key="v-turnos" className="pv-view pv-bg" style={{ display: "flex", flexDirection: "column", flex: 1, overflow: "hidden", paddingBottom: 48 }}>
+          <div key="v-turnos" className="pv-view pv-bg" style={{ display: "flex", flexDirection: "column", flex: 1, overflow: "hidden", paddingBottom: 0 }}>
             <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
               {(draggingKey || resizePreview) && (
                 <div style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", background: resizePreview ? "rgba(58,125,68,.92)" : dropTarget ? (dropValid ? "rgba(58,125,68,.92)" : "rgba(200,60,60,.88)") : "rgba(40,40,40,.82)", color: "#fff", borderRadius: 30, padding: "8px 22px", fontSize: 12, letterSpacing: "1px", zIndex: 300, boxShadow: "0 4px 20px rgba(0,0,0,.25)", pointerEvents: "none" }}>
@@ -505,6 +553,53 @@ export default function App() {
 
 
         {/* Bottom nav (mobile) */}
+
+        {quickGastoModal && (
+          <>
+            <div onClick={() => setQuickGastoModal(false)} style={{ position: "fixed", inset: 0, zIndex: 299 }} />
+            <div onClick={e => e.stopPropagation()} style={{ position: "fixed", bottom: 76, right: 64, width: 280, maxWidth: "92vw", zIndex: 300, background: "rgba(255, 255, 255, 0.65)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", borderRadius: 16, border: `1.5px solid rgba(205, 224, 208, 0.6)`, boxShadow: "0 12px 40px rgba(58,125,68,.18)", padding: "16px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ fontSize: 13, color: C.text, fontWeight: "bold", display: "flex", alignItems: "center", gap: 6 }}><span>💸</span> Gasto Rápido</div>
+                <button onClick={() => setQuickGastoModal(false)} style={{ background:"transparent", border:"none", cursor:"pointer", color:C.textSoft, fontSize:20, lineHeight: 1 }}>&times;</button>
+              </div>
+              
+              <div>
+                <input 
+                  ref={descRef}
+                  value={quickGastoForm.descripcion} 
+                  onChange={e => setQuickGastoForm(p => ({ ...p, descripcion: e.target.value }))} 
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); montoRef.current?.focus() } }}
+                  placeholder="Descripción (opcional)" 
+                  style={{ ...inputStyle, marginBottom: 8 }}
+                />
+                <div style={{ position: "relative" }}>
+                  <span style={{ position: "absolute", left: 10, top: 10, color: C.textSoft, fontWeight: "bold", fontSize: 14 }}>$</span>
+                  <input 
+                    ref={montoRef}
+                    type="number" 
+                    value={quickGastoForm.monto} 
+                    onChange={e => setQuickGastoForm(p => ({ ...p, monto: e.target.value }))} 
+                    onKeyDown={handleMontoKeyDown}
+                    onWheel={handleMontoWheel}
+                    placeholder="0" 
+                    style={{ ...inputStyle, paddingLeft: 24 }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
+                {PAYMENT_METHODS.map(m => (
+                  <button key={m.id} onClick={() => setQuickGastoForm(p => ({ ...p, metodoPago: m.id }))} style={{ padding: "6px 4px", borderRadius: 8, border: `1.5px solid ${quickGastoForm.metodoPago === m.id ? m.color : C.border}`, background: quickGastoForm.metodoPago === m.id ? `${m.color}15` : C.white, color: quickGastoForm.metodoPago === m.id ? m.color : C.textSoft, fontSize: 10, cursor: "pointer", fontFamily: "Georgia,serif", textAlign: "center", transition: "all .15s", fontWeight: quickGastoForm.metodoPago === m.id ? "bold" : "normal" }}>
+                    <div style={{ fontSize: 14, marginBottom: 2 }}>{m.icon}</div>
+                    <div>{m.label}</div>
+                  </button>
+                ))}
+              </div>
+
+              <SolidBtn onClick={handleQuickGastoSave} disabled={!quickGastoForm.monto} color={C.orange} style={{ marginTop: 4 }}>✅ Guardar</SolidBtn>
+            </div>
+          </>
+        )}
 
         <AppModals
           modal={modal} setModal={setModal}

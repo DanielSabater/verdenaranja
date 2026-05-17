@@ -133,7 +133,7 @@ export function AppGrid({
   }
 
   return (
-    <div className="grid-scroll" style={{ overflow: "auto", padding: isMobile ? "0 8px 120px" : "0 8px 8px", WebkitOverflowScrolling: "touch", maxHeight: "100%", scrollSnapType: isMobile ? "x mandatory" : "none", scrollPaddingLeft: 60, scrollPaddingBottom: isMobile ? 120 : 0 }}>
+    <div className="grid-scroll" style={{ overflow: "auto", padding: isMobile ? "0 8px 120px" : "0 8px 78px", WebkitOverflowScrolling: "touch", maxHeight: "100%", scrollSnapType: isMobile ? "x mandatory" : "none", scrollPaddingLeft: 60, scrollPaddingBottom: isMobile ? 120 : 78 }}>
       <table style={{ borderCollapse: "collapse", tableLayout: "fixed", width: "100%", minWidth: isMobile ? `calc(52px + ${professionals.length} * calc((100vw - 70px) / 2))` : `calc(52px + ${professionals.length * 140}px)` }}>
         <thead>
           <tr>

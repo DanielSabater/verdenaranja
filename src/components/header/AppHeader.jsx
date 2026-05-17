@@ -7,7 +7,7 @@ import { MESES_ES, todayKey, fmtDate, nextWorkDay } from "../../utils/dates.js"
 
 export const AppHeader = memo(function AppHeader({
   config, activeView, setActiveView, saveStatus, connStatus, totalByMethod, grandTotal, grandEarnings, onLogout,
-  currentDate, setCurrentDate, calendarOpen, setCalendarOpen, calViewDate, setCalViewDate, allData,
+  currentDate, setCurrentDate, calendarOpen, setCalendarOpen, calViewDate, setCalViewDate, allData, onQuickGasto
 }) {
   const isMobileNav = typeof window !== "undefined" && window.innerWidth <= 900
   const tKey = todayKey()
@@ -173,7 +173,7 @@ export const AppHeader = memo(function AppHeader({
       {calendarOpen && activeView === "turnos" && (
         <>
           <div onClick={() => setCalendarOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 299 }} />
-          <div onClick={e => e.stopPropagation()} style={{ position: "fixed", bottom: 76, right: 12, width: 320, maxWidth: "92vw", zIndex: 300, background: C.white, borderRadius: 16, border: `1.5px solid ${C.greenMint}`, boxShadow: "0 12px 40px rgba(58,125,68,.18)", padding: "16px 20px 20px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <div onClick={e => e.stopPropagation()} style={{ position: "fixed", bottom: 76, right: 12, width: 320, maxWidth: "92vw", zIndex: 300, background: "rgba(255, 255, 255, 0.65)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", borderRadius: 16, border: `1.5px solid rgba(205, 224, 208, 0.6)`, boxShadow: "0 12px 40px rgba(58,125,68,.18)", padding: "16px 20px 20px", display: "flex", flexDirection: "column", alignItems: "center" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 14 }}>
               <button onClick={prevMonth} style={{ width: 30, height: 30, borderRadius: "50%", border: `1px solid ${C.border}`, background: C.white, color: C.green, fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>‹</button>
               <div style={{ fontSize: 14, color: C.text, fontWeight: "bold", minWidth: 160, textAlign: "center" }}>{MESES_ES[vm - 1].charAt(0).toUpperCase() + MESES_ES[vm - 1].slice(1)} {vy}</div>
@@ -200,6 +200,7 @@ export const AppHeader = memo(function AppHeader({
       )}
 
       {/* Bottom date strip — fixed, all days of month */}
+      {/* Floating date islands */}
       {activeView === "turnos" && currentDate && (() => {
         const [y, m] = currentDate.split("-").map(Number)
         const [ty, tm] = tKey.split("-").map(Number)
@@ -209,114 +210,138 @@ export const AppHeader = memo(function AppHeader({
 
         return (
           <div className="date-strip" style={{
-            position: "fixed", bottom: 0, left: 0, right: 0,
-            zIndex: 98, background: C.white,
-            borderTop: `2px solid ${C.greenMint}`,
-            boxShadow: "0 -2px 12px rgba(58,125,68,.08)",
-            display: "flex", alignItems: "center",
-            padding: "4px 8px", gap: 6,
+            position: "fixed", bottom: 8, left: 16, right: 16,
+            zIndex: 98,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            pointerEvents: "none",
           }}>
-            {/* Prev Month Button */}
-            <button onClick={(e) => {
-              e.stopPropagation()
-              const prev = new Date(y, m - 2, 1)
-              const lastDay = new Date(prev.getFullYear(), prev.getMonth() + 1, 0).getDate()
-              const day = Math.min(new Date(currentDate + "T12:00:00").getDate(), lastDay)
-              const dk = `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`
-              setCurrentDate(dk)
-            }} style={btnNav}>‹</button>
+            {/* Island 1: Carousel & Month */}
+            <div style={{
+              background: "rgba(255,255,255,0.75)",
+              backdropFilter: "blur(20px)",
+              WebkitBackdropFilter: "blur(20px)",
+              borderRadius: 24,
+              boxShadow: "0 6px 24px rgba(58,125,68,.16)",
+              border: `2px solid rgba(205, 224, 208, 0.6)`,
+              display: "flex", alignItems: "center",
+              padding: "6px 12px", gap: 6,
+              pointerEvents: "auto",
+            }}>
+              <button onClick={(e) => {
+                e.stopPropagation()
+                const prev = new Date(y, m - 2, 1)
+                const lastDay = new Date(prev.getFullYear(), prev.getMonth() + 1, 0).getDate()
+                const day = Math.min(new Date(currentDate + "T12:00:00").getDate(), lastDay)
+                const dk = `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`
+                setCurrentDate(dk)
+              }} style={{...btnNav, border: "none", background: C.cream, width: 34, height: 34}}>‹</button>
 
-            {/* Days — scrollable center */}
-            <div ref={dateStripRef} style={{ flex: 1, overflowX: "auto", WebkitOverflowScrolling: "touch", display: "flex", alignItems: "center", gap: 2 }}>
-              <div style={{ flex: 1, minWidth: 0 }} />
-              {Array.from({ length: daysInMonth }, (_, i) => {
-                const day = i + 1
-                const dk = `${y}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`
-                const d = new Date(dk + "T12:00:00")
-                const dow = d.getDay()
-                const isSun = dow === 0
-                const isCur = dk === currentDate
-                const isT = dk === tKey
-                
-                // Dynamic Background Logic
-                const dayAppts = Object.values((allData || {})[dk] || {})
-                const totalCount = dayAppts.length
-                const paidCount = dayAppts.filter(a => a.paid).length
-                const ratio = totalCount > 0 ? paidCount / totalCount : 0
-                
-                let dynamicBg = "transparent"
-                let textColor = isSun ? "#ddd" : C.textSoft
-                const useDynamic = config?.dynamicDateColors ?? true
-                
-                if (totalCount > 0 && useDynamic) {
-                  // Interpolate between Orange (232, 121, 58) and Green (58, 125, 68)
-                  const r = Math.round(232 + (58 - 232) * ratio)
-                  const g = Math.round(121 + (125 - 121) * ratio)
-                  const b = Math.round(58 + (68 - 58) * ratio)
-                  const alpha = Math.min(0.15 + (totalCount * 0.12), 0.85)
-                  dynamicBg = `rgba(${r}, ${g}, ${b}, ${alpha})`
-                  if (alpha > 0.6) textColor = "#fff"
-                }
+              <div ref={dateStripRef} style={{ flex: 1, overflowX: "auto", WebkitOverflowScrolling: "touch", display: "flex", alignItems: "center", gap: 2 }}>
+                <div style={{ flex: 1, minWidth: 0 }} />
+                {Array.from({ length: daysInMonth }, (_, i) => {
+                  const day = i + 1
+                  const dk = `${y}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`
+                  const d = new Date(dk + "T12:00:00")
+                  const dow = d.getDay()
+                  const isSun = dow === 0
+                  const isCur = dk === currentDate
+                  const isT = dk === tKey
+                  const dayRaw = (allData || {})[dk] || {}
+                  const dayAppts = Object.values(dayRaw).filter(v => typeof v === "object" && v !== null)
+                  const totalCount = dayAppts.length
+                  const paidCount = dayAppts.filter(a => a.paid).length
+                  const ratio = totalCount > 0 ? paidCount / totalCount : 0
+                  const isClosed = !!dayRaw.closed
+                  
+                  let dynamicBg = "transparent"
+                  let textColor = isSun ? "#ddd" : C.textSoft
+                  const useDynamic = config?.dynamicDateColors ?? true
+                  
+                  if (totalCount > 0 && useDynamic) {
+                    const r = Math.round(232 + (58 - 232) * ratio)
+                    const g = Math.round(121 + (125 - 121) * ratio)
+                    const b = Math.round(58 + (68 - 58) * ratio)
+                    const alpha = Math.min(0.15 + (totalCount * 0.12), 0.85)
+                    dynamicBg = `rgba(${r}, ${g}, ${b}, ${alpha})`
+                    if (alpha > 0.6) textColor = "#fff"
+                  }
 
-                return (
-                  <button key={dk} data-active={isCur} disabled={isSun} onClick={() => !isSun && setCurrentDate(dk)} style={{
-                    minWidth: 36, height: 46, borderRadius: 10, flexShrink: 0,
-                    border: `2px solid ${isCur ? C.gold : (isT ? C.greenMint : "transparent")}`,
-                    background: isCur ? `linear-gradient(135deg,${C.gold},${C.goldLight})` : (useDynamic ? dynamicBg : (isT ? C.greenPale : (totalCount > 0 ? "#f5faf5" : "transparent"))),
-                    color: isCur ? "#fff" : textColor,
-                    fontSize: 9, fontFamily: "Georgia,serif", cursor: isSun ? "default" : "pointer",
-                    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                    gap: 1, padding: "0 4px", position: "relative",
-                    boxShadow: isCur ? `0 4px 12px ${C.gold}55` : "none",
-                    transition: "all .2s ease",
-                  }}>
-                    <div style={{ fontSize: 8, letterSpacing: "1px", textTransform: "uppercase", opacity: .7 }}>
-                      {["Do", "Lu", "Ma", "Mi", "Ju", "Vi", "Sá"][dow]}
-                    </div>
-                    <div style={{ fontSize: 13, fontWeight: isCur || isT || totalCount > 0 ? "bold" : "normal" }}>{day}</div>
-                    {totalCount > 0 && <div style={{ position: "absolute", bottom: 3, left: "50%", transform: "translateX(-50%)", width: 4, height: 4, borderRadius: "50%", background: "rgba(255,255,255,.6)" }} />}
-                  </button>
-                )
-              })}
-              <div style={{ flex: 1, minWidth: 0 }} />
-            </div>
+                  return (
+                    <button key={dk} data-active={isCur} disabled={isSun} onClick={() => !isSun && setCurrentDate(dk)} style={{
+                      minWidth: 36, height: 46, borderRadius: 10, flexShrink: 0,
+                      border: `2px solid ${isCur ? C.gold : (isT ? C.greenMint : "transparent")}`,
+                      background: isCur ? `linear-gradient(135deg,${C.gold},${C.goldLight})` : (useDynamic ? dynamicBg : (isT ? C.greenPale : (totalCount > 0 ? "#f5faf5" : "transparent"))),
+                      color: isCur ? "#fff" : textColor,
+                      fontSize: 9, fontFamily: "Georgia,serif", cursor: isSun ? "default" : "pointer",
+                      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                      gap: 1, padding: "0 4px", position: "relative",
+                      boxShadow: isCur ? `0 4px 12px ${C.gold}55` : "none",
+                      transition: "all .2s ease",
+                    }}>
+                      {isClosed && <div style={{ position: "absolute", top: 2, right: 2, fontSize: 7, filter: isCur ? "brightness(2)" : "none" }}>🔒</div>}
+                      <div style={{ fontSize: 8, letterSpacing: "1px", textTransform: "uppercase", opacity: .7 }}>{["Do", "Lu", "Ma", "Mi", "Ju", "Vi", "Sá"][dow]}</div>
+                      <div style={{ fontSize: 13, fontWeight: isCur || isT || totalCount > 0 ? "bold" : "normal" }}>{day}</div>
+                      {totalCount > 0 && <div style={{ position: "absolute", bottom: 3, left: "50%", transform: "translateX(-50%)", width: 4, height: 4, borderRadius: "50%", background: "rgba(255,255,255,.6)" }} />}
+                    </button>
+                  )
+                })}
+                <div style={{ flex: 1, minWidth: 0 }} />
+              </div>
 
-            {/* Next Month Button */}
-            <button onClick={(e) => {
-              e.stopPropagation()
-              const next = new Date(y, m, 1)
-              const lastDay = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate()
-              const day = Math.min(new Date(currentDate + "T12:00:00").getDate(), lastDay)
-              const dk = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`
-              setCurrentDate(dk)
-            }} style={btnNav}>›</button>
+              <button onClick={(e) => {
+                e.stopPropagation()
+                const next = new Date(y, m, 1)
+                const lastDay = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate()
+                const day = Math.min(new Date(currentDate + "T12:00:00").getDate(), lastDay)
+                const dk = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`
+                setCurrentDate(dk)
+              }} style={{...btnNav, border: "none", background: C.cream, width: 34, height: 34}}>›</button>
 
-            {/* Month + HOY + 📅 */}
-            <div style={{ display: "flex", flexDirection: "row", gap: 3, flexShrink: 0, marginLeft: 4, alignItems: "center" }}>
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", marginRight: 6, minWidth: 65 }}>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", marginLeft: 8, marginRight: 4, minWidth: 65, flexShrink: 0 }}>
                 <div style={{ fontSize: 11, color: isDiffMonth ? "#e63946" : C.green, fontWeight: "bold", textTransform: "uppercase", letterSpacing: ".8px" }}>{monthName}</div>
                 <div style={{ fontSize: 9, color: C.textSoft, opacity: .8, marginTop: -1 }}>{y}</div>
               </div>
+            </div>
+
+            {/* Island 2: Actions */}
+            <div style={{
+              position: "absolute", right: 0,
+              background: "rgba(255,255,255,0.75)",
+              backdropFilter: "blur(20px)",
+              WebkitBackdropFilter: "blur(20px)",
+              borderRadius: 24,
+              boxShadow: "0 6px 24px rgba(58,125,68,.16)",
+              border: `2px solid rgba(205, 224, 208, 0.6)`,
+              display: "flex", alignItems: "center",
+              padding: "6px", gap: 6,
+              pointerEvents: "auto",
+              flexShrink: 0
+            }}>
               <button
                 onClick={() => setCurrentDate(tKey)}
                 disabled={currentDate === tKey}
                 style={{
-                  width: 38, height: 46, borderRadius: 10,
-                  border: `1.5px solid ${currentDate === tKey ? C.green : C.border}`,
-                  background: currentDate === tKey ? C.greenPale : C.white,
-                  fontSize: 8, fontWeight: "bold",
+                  width: 46, height: 46, borderRadius: 18,
+                  border: `none`,
+                  background: currentDate === tKey ? C.greenPale : C.cream,
+                  fontSize: 10, fontWeight: "bold",
                   color: C.green,
                   opacity: currentDate === tKey ? 0.75 : 1,
                   cursor: currentDate === tKey ? "default" : "pointer",
                   fontFamily: "Georgia,serif", letterSpacing: "1px", display: "flex", alignItems: "center", justifyContent: "center",
+                  transition: "all .2s"
                 }}
               >HOY</button>
-              <button onClick={() => setCalendarOpen(v => !v)} style={{ width: 38, height: 46, borderRadius: 10, border: `1.5px solid ${calendarOpen ? C.green : C.border}`, background: calendarOpen ? `linear-gradient(135deg,${C.green},${C.greenLight})` : C.white, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all .18s" }}>📅</button>
+              <button 
+                onClick={onQuickGasto} 
+                style={{ width: 46, height: 46, borderRadius: 18, border: `none`, background: C.cream, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all .18s" }}
+                title="Gasto rápido"
+              >💸</button>
+              <button onClick={() => setCalendarOpen(v => !v)} style={{ width: 46, height: 46, borderRadius: 18, border: `none`, background: calendarOpen ? `linear-gradient(135deg,${C.green},${C.greenLight})` : C.cream, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all .18s", boxShadow: calendarOpen ? `0 4px 12px ${C.green}55` : "none" }}>📅</button>
             </div>
           </div>
         )
       })()}
-
     </>
   )
 })
