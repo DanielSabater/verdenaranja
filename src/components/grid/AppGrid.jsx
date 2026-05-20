@@ -172,7 +172,7 @@ export function AppGrid({
               <td style={{ padding: "0 4px", textAlign: "center", position: "sticky", left: 0, zIndex: 5, background: hIdx % 2 === 0 ? C.white : C.cream, borderRight: `2px solid ${C.border}`, width: 52, minWidth: 52, whiteSpace: "nowrap", height: 100, verticalAlign: "middle" }}>
                 <span style={{ fontSize: hour.endsWith(":00") ? 11 : 9, color: hour.endsWith(":00") ? C.green : C.textSoft, fontWeight: hour.endsWith(":00") ? "bold" : "normal" }}>{hour}</span>
               </td>
-              {orderedProfessionals.map(prof => {
+              {orderedProfessionals.map((prof, idx) => {
                 const k = cellKey(prof.id, hour)
                 const isResizeStart = resizePreview && resizePreview.profId === prof.id && HOURS[resizePreview.hourIdx] === hour
                 const isResizeOriginal = resizePreview && resizePreview.key === k
@@ -212,6 +212,8 @@ export function AppGrid({
                       cursor: appt ? "grab" : (draggingKey ? "default" : (isEditingRemote ? "not-allowed" : "pointer")),
                       position: "relative",
                       zIndex: (isResizeStart || draggingKey === k) ? 200 : 1,
+                      scrollSnapAlign: isMobile ? (idx % 2 === 0 ? "start" : "none") : "none",
+                      scrollSnapStop: isMobile ? "always" : "normal",
                     }}
                     onClick={() => !appt && !draggingKey && onCellClick(prof.id, hour)}
                     onMouseEnter={e => {
@@ -381,11 +383,11 @@ export function AppGrid({
         <tfoot>
           <tr style={{ borderTop: `2px solid ${C.greenMint}` }}>
             <td style={{ position: "sticky", left: 0, zIndex: 5, background: C.white, borderRight: `2px solid ${C.border}`, width: 52 }} />
-            {orderedProfessionals.map(prof => {
+            {orderedProfessionals.map((prof, idx) => {
               const t = totalByProf(prof.id)
               const cnt = paidAppts.filter(a => a.profId === prof.id).length
               return (
-                <td key={prof.id} style={{ padding: "6px 4px", textAlign: "center" }}>
+                <td key={prof.id} style={{ padding: "6px 4px", textAlign: "center", scrollSnapAlign: isMobile ? (idx % 2 === 0 ? "start" : "none") : "none", scrollSnapStop: isMobile ? "always" : "normal" }}>
                   <div style={{ background: t > 0 ? C.greenPale : "#f5f5f5", border: `1px solid ${t > 0 ? C.greenMint : "#e5e5e5"}`, borderRadius: 10, padding: "6px 4px", transition: "all .3s" }}>
                     <div style={{ fontSize: 14, fontWeight: "bold", color: t > 0 ? C.green : "#ccc" }}>{fmt(t)}</div>
                     <div style={{ fontSize: 8, color: t > 0 ? C.textSoft : "#ccc", letterSpacing: "1px" }}>{cnt} abonado{cnt !== 1 ? "s" : ""}</div>
@@ -396,10 +398,10 @@ export function AppGrid({
           </tr>
           <tr style={{ borderTop: `1px dashed ${C.goldLight}` }}>
             <td style={{ position: "sticky", left: 0, zIndex: 5, background: C.white, borderRight: `2px solid ${C.border}`, width: 52 }} />
-            {orderedProfessionals.map(prof => {
+            {orderedProfessionals.map((prof, idx) => {
               const e = earningsByProf(prof.id)
               return (
-                <td key={prof.id} style={{ padding: "6px 4px", textAlign: "center" }}>
+                <td key={prof.id} style={{ padding: "6px 4px", textAlign: "center", scrollSnapAlign: isMobile ? (idx % 2 === 0 ? "start" : "none") : "none", scrollSnapStop: isMobile ? "always" : "normal" }}>
                   <div style={{ background: e > 0 ? C.goldPale : "#f5f5f5", border: `1px solid ${e > 0 ? C.goldLight : "#e5e5e5"}`, borderRadius: 10, padding: "6px 4px", transition: "all .3s" }}>
                     <div style={{ fontSize: 13, fontWeight: "bold", color: e > 0 ? C.gold : "#ccc" }}>{fmt(e)}</div>
                     <div style={{ fontSize: 8, color: e > 0 ? "#b07820" : "#ccc", letterSpacing: "1px" }}>ganancia</div>
