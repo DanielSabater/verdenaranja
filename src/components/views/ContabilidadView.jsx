@@ -118,23 +118,7 @@ export default function ContabilidadView({
       }
     })
     
-    // Determine if we should show consecutive days (only for short periods <= 45 days)
-    const from = new Date(rangeFrom + "T12:00:00")
-    const to = new Date(rangeTo + "T12:00:00")
-    const diffTime = Math.abs(to - from)
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-    
-    let sortedKeys = []
-    if (diffDays <= 45 && !isNaN(diffDays)) {
-      const cursor = new Date(from)
-      while (cursor <= to) {
-        sortedKeys.push(toDateKey(cursor))
-        cursor.setDate(cursor.getDate() + 1)
-      }
-      sortedKeys.reverse()
-    } else {
-      sortedKeys = Array.from(activeKeys).sort().reverse()
-    }
+    const sortedKeys = Array.from(activeKeys).sort().reverse()
     
     return sortedKeys.map(dk => {
       const parts = dk.split("-").map(Number)
