@@ -212,8 +212,6 @@ export function AppGrid({
                       cursor: appt ? "grab" : (draggingKey ? "default" : (isEditingRemote ? "not-allowed" : "pointer")),
                       position: "relative",
                       zIndex: (isResizeStart || draggingKey === k) ? 200 : 1,
-                      scrollSnapAlign: isMobile ? (idx % 2 === 0 ? "none start" : "none") : "none",
-                      scrollSnapStop: isMobile ? "always" : "normal",
                     }}
                     onClick={() => !appt && !draggingKey && onCellClick(prof.id, hour)}
                     onMouseEnter={e => {
