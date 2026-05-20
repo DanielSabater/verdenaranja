@@ -50,7 +50,9 @@ export function AppGrid({
 
   const orderedProfessionals = (() => {
     if (!colOrder) return professionals
-    return [...colOrder].map(id => professionals.find(p => p.id === id)).filter(Boolean)
+    const ordered = [...colOrder].map(id => professionals.find(p => p.id === id)).filter(Boolean)
+    const missing = professionals.filter(p => !colOrder.includes(p.id))
+    return [...ordered, ...missing]
   })()
 
   const onColDragStart = (profId) => {
@@ -65,7 +67,7 @@ export function AppGrid({
     e.preventDefault()
     const fromId = dragColRef.current
     if (!fromId || fromId === targetId) { setDragCol(null); setDragOverCol(null); return }
-    const base = colOrder || professionals.map(p => p.id)
+    const base = orderedProfessionals.map(p => p.id)
     const from = base.indexOf(fromId)
     const to = base.indexOf(targetId)
     const next = [...base]
@@ -134,7 +136,7 @@ export function AppGrid({
 
   return (
     <div className="grid-scroll" style={{ overflow: "auto", padding: isMobile ? "0 8px 120px" : "0 8px 78px", WebkitOverflowScrolling: "touch", maxHeight: "100%", scrollSnapType: isMobile ? "x mandatory" : "none", scrollPaddingLeft: 60, scrollPaddingBottom: isMobile ? 120 : 78 }}>
-      <table style={{ borderCollapse: "collapse", tableLayout: "fixed", width: "100%", minWidth: isMobile ? `calc(52px + ${professionals.length} * calc((100vw - 70px) / 2))` : `calc(52px + ${professionals.length * 140}px)` }}>
+      <table style={{ borderCollapse: "collapse", tableLayout: "fixed", width: "100%", minWidth: isMobile ? `calc(52px + ${orderedProfessionals.length} * calc((100vw - 70px) / 2))` : `calc(52px + ${orderedProfessionals.length * 140}px)` }}>
         <thead>
           <tr>
             <th style={{ padding: "6px 4px", borderBottom: `2px solid ${C.border}`, width: 52, minWidth: 52, position: "sticky", top: 0, left: 0, zIndex: 101, background: "rgba(255,255,255,0.65)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", borderRight: `2px solid ${C.border}` }}>
@@ -147,7 +149,7 @@ export function AppGrid({
                 onDragOver={e => onColDragOver(e, p.id)}
                 onDrop={e => onColDrop(e, p.id)}
                 onDragEnd={onColDragEnd}
-                style={{ padding: isMobile ? "6px 2px" : "10px 5px", borderBottom: `2px solid ${C.border}`, width: `${100 / professionals.length}%`, minWidth: isMobile ? "calc((100vw - 70px) / 2)" : 140, position: "sticky", top: 0, zIndex: 100, background: "rgba(255,255,255,0.65)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", transition: "all .2s", opacity: dragCol === p.id ? 0.4 : 1, borderLeft: dragOver === p.id ? `3px solid ${C.green}` : "none", cursor: "grab", scrollSnapAlign: isMobile ? (idx % 2 === 0 ? "start" : "none") : "none", scrollSnapStop: isMobile ? "always" : "normal" }}>
+                style={{ padding: isMobile ? "6px 2px" : "10px 5px", borderBottom: `2px solid ${C.border}`, width: `${100 / orderedProfessionals.length}%`, minWidth: isMobile ? "calc((100vw - 70px) / 2)" : 140, position: "sticky", top: 0, zIndex: 100, background: "rgba(255,255,255,0.65)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", transition: "all .2s", opacity: dragCol === p.id ? 0.4 : 1, borderLeft: dragOver === p.id ? `3px solid ${C.green}` : "none", cursor: "grab", scrollSnapAlign: isMobile ? (idx % 2 === 0 ? "start" : "none") : "none", scrollSnapStop: isMobile ? "always" : "normal" }}>
                 <div onClick={() => setProfPopup(profPopup === p.id ? null : p.id)}
                   style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, cursor: "pointer" }}>
                   <div style={{
@@ -167,7 +169,7 @@ export function AppGrid({
         <tbody>
           {HOURS.map((hour, hIdx) => (
             <tr key={hour} style={{ background: hIdx % 2 === 0 ? C.white : C.cream, height: 100 }}>
-              <td style={{ padding: "0 4px", textAlign: "center", height: 50, verticalAlign: "middle", position: "sticky", left: 0, zIndex: 5, background: hIdx % 2 === 0 ? C.white : C.cream, borderRight: `2px solid ${C.border}`, width: 52, minWidth: 52, whiteSpace: "nowrap", height: 100, verticalAlign: "middle" }}>
+              <td style={{ padding: "0 4px", textAlign: "center", position: "sticky", left: 0, zIndex: 5, background: hIdx % 2 === 0 ? C.white : C.cream, borderRight: `2px solid ${C.border}`, width: 52, minWidth: 52, whiteSpace: "nowrap", height: 100, verticalAlign: "middle" }}>
                 <span style={{ fontSize: hour.endsWith(":00") ? 11 : 9, color: hour.endsWith(":00") ? C.green : C.textSoft, fontWeight: hour.endsWith(":00") ? "bold" : "normal" }}>{hour}</span>
               </td>
               {orderedProfessionals.map(prof => {
