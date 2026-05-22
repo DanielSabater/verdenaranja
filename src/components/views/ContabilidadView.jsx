@@ -188,6 +188,14 @@ export default function ContabilidadView({
         }
       })
       
+      let dayReleasedTips = 0
+      Object.values(dayData).forEach(appt => {
+        if (appt?.paid && appt.tipReleased && (appt.tip || 0) > 0) {
+          dayReleasedTips += appt.tip
+        }
+      })
+      efectivo = Math.max(0, efectivo - dayReleasedTips)
+      
       const dayGastos = safeGastos.filter(g => g.fecha === dk)
       const totalGastos = dayGastos.reduce((s, g) => s + (parseFloat(g.monto) || 0), 0)
       const neto = totalFacturado - totalGastos

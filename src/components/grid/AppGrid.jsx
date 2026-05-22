@@ -26,6 +26,7 @@ export function AppGrid({
   CELL_H,
   currentDate,
   quickBlock,
+  onToggleTipsRelease,
 }) {
   const [profPopup, setProfPopup] = useState(null)
   const [hoveredClientName, setHoveredClientName] = useState(null)
@@ -417,8 +418,27 @@ export function AppGrid({
         const sortedAppts = [...s.appts].sort((a, b) => (a.hour || "").localeCompare(b.hour || ""))
         return (
           <Overlay onClose={() => setProfPopup(null)}>
-            <div className="modal-sheet" style={{ ...modalBox, width: "min(900px, calc(100vw - 32px))", maxHeight: "92vh", display: "flex", flexDirection: "column", padding: 0 }}>
-              <div style={{ padding: 24, overflowY: "auto", maxHeight: "82vh" }}>
+            <div
+              className="prof-summary-sheet"
+              style={{
+                position: "fixed",
+                top: "68px",
+                bottom: isMobile ? "calc(166px + env(safe-area-inset-bottom))" : "80px",
+                left: "50%",
+                transform: "translateX(-50%)",
+                width: isMobile ? "calc(100vw - 24px)" : "min(900px, calc(100vw - 32px))",
+                display: "flex",
+                flexDirection: "column",
+                background: C.white,
+                borderRadius: 18,
+                boxShadow: "0 24px 80px rgba(20,60,30,.16)",
+                border: `1px solid ${C.border}`,
+                overflow: "hidden",
+                padding: 0,
+                zIndex: 201,
+              }}
+            >
+              <div style={{ padding: 24, overflowY: "auto", flex: 1 }}>
                 <ModalHeader emoji={prof.emoji} sub="Resumen de turnos">
                   {prof.name} · {s.appts.length} turno{s.appts.length !== 1 ? "s" : ""}
                 </ModalHeader>
@@ -428,13 +448,61 @@ export function AppGrid({
                     ["📅 Turnos", s.appts.length, C.textSoft],
                     ["✅ Cobrados", s.paid.length, C.green],
                     ["💰 Total", fmt(s.total), C.orange],
-                    ["🎁 Propinas", fmt(s.tips), C.gold],
                   ].map(([label, val, col]) => (
                     <div key={label} style={{ background: C.cream, borderRadius: 12, padding: "10px 12px" }}>
                       <div style={{ fontSize: 9, color: C.textSoft, letterSpacing: "1px" }}>{label}</div>
                       <div style={{ fontSize: 15, color: col, fontWeight: "bold", marginTop: 6 }}>{val}</div>
                     </div>
                   ))}
+
+                  {/* Propinas Card */}
+                  <div style={{ 
+                    background: C.cream, 
+                    borderRadius: 12, 
+                    padding: "10px 12px", 
+                    display: "flex", 
+                    flexDirection: "column", 
+                    justifyContent: "space-between",
+                    minHeight: 65,
+                    position: "relative"
+                  }}>
+                    <div>
+                      <div style={{ fontSize: 9, color: C.textSoft, letterSpacing: "1px" }}>🎁 Propinas</div>
+                      <div style={{ fontSize: 15, color: C.gold, fontWeight: "bold", marginTop: 6 }}>{fmt(s.tips)}</div>
+                    </div>
+                    {s.tips > 0 && (() => {
+                      const pPaidApptsWithTips = s.paid.filter(a => (a.tip || 0) > 0)
+                      const isTipsReleased = pPaidApptsWithTips.length > 0 && pPaidApptsWithTips.every(a => a.tipReleased)
+                      return (
+                        <button
+                          onClick={() => onToggleTipsRelease(prof.id, !isTipsReleased)}
+                          style={{
+                            marginTop: 8,
+                            padding: "4px 8px",
+                            borderRadius: 6,
+                            border: "none",
+                            background: isTipsReleased ? `linear-gradient(135deg, #2d6a36, ${C.green})` : `linear-gradient(135deg, ${C.gold}, ${C.goldLight})`,
+                            color: "#fff",
+                            fontSize: 8,
+                            fontWeight: "bold",
+                            cursor: "pointer",
+                            transition: "all .15s ease-in-out",
+                            letterSpacing: "0.5px",
+                            boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: 3,
+                            outline: "none"
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.85"; e.currentTarget.style.transform = "scale(1.03)" }}
+                          onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; e.currentTarget.style.transform = "scale(1)" }}
+                        >
+                          {isTipsReleased ? "✓ ENTREGADA" : "🔓 LIBERAR"}
+                        </button>
+                      )
+                    })()}
+                  </div>
                 </div>
 
                 {Object.keys(s.byMethod).length > 0 && (

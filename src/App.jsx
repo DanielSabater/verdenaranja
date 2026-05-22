@@ -216,13 +216,20 @@ export default function App() {
   )
   const totalByProf = useCallback((pId) => paidAppts.filter(a => a.profId === pId).reduce((s, a) => s + apptPaidTotal(a), 0), [paidAppts])
   const earningsByProf = useCallback((pId) => totalByProf(pId) * (comisionPct / 100), [totalByProf, comisionPct])
-  const totalByMethod = useCallback((mid) => paidAppts.reduce((s, a) => {
-    if (a.paymentSplits?.length) {
-      const split = a.paymentSplits.find(r => r.methodId === mid)
-      return s + (split ? parseFloat(split.amount) || 0 : 0)
+  const totalByMethod = useCallback((mid) => {
+    const base = paidAppts.reduce((s, a) => {
+      if (a.paymentSplits?.length) {
+        const split = a.paymentSplits.find(r => r.methodId === mid)
+        return s + (split ? parseFloat(split.amount) || 0 : 0)
+      }
+      return s + (a.payMethod === mid ? apptPaidTotal(a) : 0)
+    }, 0)
+    if (mid === "efectivo") {
+      const releasedTips = paidAppts.reduce((s, a) => s + (a.tipReleased ? (a.tip || 0) : 0), 0)
+      return Math.max(0, base - releasedTips)
     }
-    return s + (a.payMethod === mid ? apptPaidTotal(a) : 0)
-  }, 0), [paidAppts])
+    return base
+  }, [paidAppts])
   const grandTotal = useMemo(() => paidAppts.reduce((s, a) => s + apptPaidTotal(a), 0), [paidAppts])
   const grandEarnings = useMemo(() => professionals.reduce((s, p) => s + earningsByProf(p.id), 0), [professionals, earningsByProf])
 
@@ -472,6 +479,21 @@ export default function App() {
 
   const doDelete = () => { setAppointments(p => { const n = { ...p }; delete n[deleteKey]; return n }); setDeleteKey(null) }
 
+  const onToggleTipsRelease = useCallback((profId, shouldRelease) => {
+    setAppointments(prev => {
+      const next = { ...prev }
+      Object.entries(next).forEach(([key, appt]) => {
+        if (appt && appt.profId === profId && appt.paid && (appt.tip || 0) > 0) {
+          next[key] = {
+            ...appt,
+            tipReleased: shouldRelease
+          }
+        }
+      })
+      return next
+    })
+  }, [])
+
   // Show loading only on very first load, not on session changes
   if (!loaded) return (
     <div style={{ minHeight: "100vh", background: C.cream, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -527,6 +549,7 @@ export default function App() {
                 onEdit={(key, appt) => { setModal({ profId: appt.profId, hour: appt.hour, editKey: key }); setChosenServices([...(appt.services || [])]); setClientName(appt.client); setFilterCat("all"); setApptNotes(appt.notes || ""); setApptTip(appt.tip || "") }}
                 onPay={(key) => { const a = appointments[key]; if (a?.paymentSplits?.length) setPaymentSplits(a.paymentSplits.map(s => ({ ...s }))); else setPaymentSplits([{ methodId: "efectivo", amount: Math.max(0, apptTotal(a) + (a.tip || 0) - (a.discount || 0)) }]); setApptTip(a.tip || ""); setApptDiscount(a.discount || ""); setPayModal(key) }}
                 onDelete={(key) => setDeleteKey(key)}
+                onToggleTipsRelease={onToggleTipsRelease}
                 CELL_H={CELL_H}
               />
             </div>
