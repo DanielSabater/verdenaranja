@@ -137,6 +137,30 @@ export default function App() {
   const [multiPayKeys, setMultiPayKeys] = useState([])
 
   useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key?.toLowerCase() === 'h') {
+        const activeTag = document.activeElement?.tagName?.toLowerCase()
+        if (activeTag === "input" || activeTag === "textarea" || document.activeElement?.isContentEditable) {
+          return
+        }
+        
+        e.preventDefault()
+        
+        const tKey = todayKey()
+        const isAlreadyToday = currentDate === tKey
+        setCurrentDate(tKey)
+        
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent("scroll-to-today-hour"))
+        }, isAlreadyToday ? 50 : 250)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [currentDate, setCurrentDate])
+
+  useEffect(() => {
     if (payModal) {
       const appt = appointments[payModal]
       if (appt?.paid && appt.payGroupId) {
