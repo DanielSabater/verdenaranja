@@ -545,6 +545,7 @@ export default function App() {
                 onResizeStart={onResizeStart}
                 quickBlock={quickBlock}
                 paidAppts={paidAppts} totalByProf={totalByProf} earningsByProf={earningsByProf} comisionPct={comisionPct}
+                currentDate={currentDate}
                 onCellClick={(profId, hour) => { setModal({ profId, hour, editKey: null }); setChosenServices([]); setClientName(""); setFilterCat("all"); setApptNotes(""); setApptTip("") }}
                 onEdit={(key, appt) => { setModal({ profId: appt.profId, hour: appt.hour, editKey: key }); setChosenServices([...(appt.services || [])]); setClientName(appt.client); setFilterCat("all"); setApptNotes(appt.notes || ""); setApptTip(appt.tip || "") }}
                 onPay={(key) => { const a = appointments[key]; if (a?.paymentSplits?.length) setPaymentSplits(a.paymentSplits.map(s => ({ ...s }))); else setPaymentSplits([{ methodId: "efectivo", amount: Math.max(0, apptTotal(a) + (a.tip || 0) - (a.discount || 0)) }]); setApptTip(a.tip || ""); setApptDiscount(a.discount || ""); setPayModal(key) }}

@@ -53,10 +53,15 @@ export const AppHeader = memo(function AppHeader({
   const [hoyBounce, setHoyBounce] = useState(false)
 
   const handleHoyClick = () => {
+    const isAlreadyToday = currentDate === tKey
     setCurrentDate(tKey)
     setHoyBounce(true)
     playClickSound()
     setTimeout(() => setHoyBounce(false), 150)
+    
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent("scroll-to-today-hour"))
+    }, isAlreadyToday ? 50 : 250)
   }
   const [activeMethod, setActiveMethod] = useState(null)
   const dateStripRef = useRef(null)

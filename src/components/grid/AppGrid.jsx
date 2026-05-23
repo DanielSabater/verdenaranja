@@ -1,8 +1,9 @@
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { C } from "../../constants/colors.js"
 import { PAYMENT_METHODS, HOURS } from "../../constants/data.js"
 import { fmt, cellKey, apptTotal, apptDur, apptPaidTotal } from "../../utils/appointments.js"
 import { Overlay, ModalHeader, GhostBtn, modalBox } from "../ui/index.jsx"
+import { todayKey } from "../../utils/dates.js"
 
 const smallBtn = (color, isMobile) => ({
   padding: isMobile ? "4px 8px" : "6px 12px", borderRadius: 8, border: "none",
@@ -35,6 +36,79 @@ export function AppGrid({
   const [dragOver, setDragOverCol] = useState(null) // profId being hovered
   const [menuPos, setMenuPos] = useState(null) // { x, y, profId, hour, hasAppt }
   const dragColRef = useRef(null)
+
+  useEffect(() => {
+    const handleScrollEvent = () => {
+      const now = new Date()
+      const hrs = now.getHours()
+      const mins = now.getMinutes()
+      
+      let closestHour = "09:00"
+      let minDiff = Infinity
+      
+      HOURS.forEach(h => {
+        const [hStr, mStr] = h.split(":").map(Number)
+        const diff = Math.abs((hrs * 60 + mins) - (hStr * 60 + mStr))
+        if (diff < minDiff) {
+          minDiff = diff
+          closestHour = h
+        }
+      })
+      
+      const targetRow = document.querySelector(`[data-hour="${closestHour}"]`)
+      const scrollContainer = document.querySelector(".grid-scroll")
+      
+      if (targetRow && scrollContainer) {
+        const containerHeight = scrollContainer.clientHeight
+        const rowTop = targetRow.offsetTop
+        const rowHeight = targetRow.clientHeight
+        
+        // Calculate centered scroll position
+        const targetScrollTop = rowTop - (containerHeight / 2) + (rowHeight / 2)
+        
+        scrollContainer.scrollTo({
+          top: Math.max(0, targetScrollTop),
+          behavior: "smooth"
+        })
+      }
+    }
+
+    window.addEventListener("scroll-to-today-hour", handleScrollEvent)
+    
+    // Auto-scroll on initial render if the active date is today
+    const tKey = todayKey()
+    if (currentDate === tKey || (!currentDate && new Date().getDay() !== 0)) {
+      setTimeout(handleScrollEvent, 350)
+    }
+
+    return () => window.removeEventListener("scroll-to-today-hour", handleScrollEvent)
+  }, [HOURS, currentDate])
+
+  const [now, setNow] = useState(new Date())
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 30000)
+    return () => clearInterval(timer)
+  }, [])
+
+  const currentMinutes = now.getHours() * 60 + now.getMinutes()
+  const startMinutes = 9 * 60
+  const endMinutes = 20 * 60
+  const isToday = currentDate === todayKey() && currentMinutes >= startMinutes && currentMinutes < endMinutes
+
+  const activeHour = (() => {
+    if (!isToday) return null
+    let closest = "09:00"
+    let minDiff = Infinity
+    HOURS.forEach(h => {
+      const [hStr, mStr] = h.split(":").map(Number)
+      const diff = Math.abs(currentMinutes - (hStr * 60 + mStr))
+      if (diff < minDiff) {
+        minDiff = diff
+        closest = h
+      }
+    })
+    return closest
+  })()
 
   // Check if an hour is outside a professional's schedule for the current date
   const isOutsideSchedule = (prof, hour) => {
@@ -169,10 +243,40 @@ export function AppGrid({
         </thead>
         <tbody>
           {HOURS.map((hour, hIdx) => (
-            <tr key={hour} style={{ background: hIdx % 2 === 0 ? C.white : C.cream, height: 100 }}>
-              <td style={{ padding: "0 4px", textAlign: "center", position: "sticky", left: 0, zIndex: 5, background: hIdx % 2 === 0 ? C.white : C.cream, borderRight: `2px solid ${C.border}`, width: 52, minWidth: 52, whiteSpace: "nowrap", height: 100, verticalAlign: "middle" }}>
-                <span style={{ fontSize: hour.endsWith(":00") ? 11 : 9, color: hour.endsWith(":00") ? C.green : C.textSoft, fontWeight: hour.endsWith(":00") ? "bold" : "normal" }}>{hour}</span>
-              </td>
+            <tr key={hour} data-hour={hour} style={{ background: hIdx % 2 === 0 ? C.white : C.cream, height: 100 }}>
+              {/* Hour Cell */}
+              {(() => {
+                const isActive = activeHour === hour
+                const baseBg = hIdx % 2 === 0 ? C.white : C.cream
+                return (
+                  <td style={{
+                    padding: "0 4px",
+                    textAlign: "center",
+                    position: "sticky",
+                    left: 0,
+                    zIndex: 5,
+                    background: isActive ? C.orangePale : baseBg,
+                    borderRight: `2px solid ${C.border}`,
+                    borderLeft: isActive ? `4px solid ${C.orange}` : "none",
+                    width: 52,
+                    minWidth: 52,
+                    whiteSpace: "nowrap",
+                    height: 100,
+                    verticalAlign: "middle",
+                    boxShadow: isActive ? `inset 0 0 10px ${C.orange}15` : "none",
+                    transition: "all .3s ease",
+                  }}>
+                    <span style={{
+                      fontSize: isActive ? 12 : (hour.endsWith(":00") ? 11 : 9),
+                      color: isActive ? C.orange : (hour.endsWith(":00") ? C.green : C.textSoft),
+                      fontWeight: isActive || hour.endsWith(":00") ? "bold" : "normal",
+                      transition: "all .3s ease",
+                    }}>
+                      {hour}
+                    </span>
+                  </td>
+                )
+              })()}
               {orderedProfessionals.map((prof, idx) => {
                 const k = cellKey(prof.id, hour)
                 const isResizeStart = resizePreview && resizePreview.profId === prof.id && HOURS[resizePreview.hourIdx] === hour
