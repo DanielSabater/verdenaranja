@@ -605,7 +605,7 @@ export default function App() {
         {quickGastoModal && (
           <>
             <div onClick={() => setQuickGastoModal(false)} style={{ position: "fixed", inset: 0, zIndex: 299 }} />
-            <div onClick={e => e.stopPropagation()} style={{ position: "fixed", bottom: 76, right: 64, width: 280, maxWidth: "92vw", zIndex: 300, background: "rgba(255, 255, 255, 0.65)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", borderRadius: 16, border: `1.5px solid rgba(205, 224, 208, 0.6)`, boxShadow: "0 12px 40px rgba(58,125,68,.18)", padding: "16px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
+            <div onClick={e => e.stopPropagation()} style={{ position: "fixed", bottom: 76, right: 12, width: 320, maxWidth: "92vw", zIndex: 300, background: "rgba(255, 255, 255, 0.65)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", borderRadius: 16, border: `1.5px solid rgba(205, 224, 208, 0.6)`, boxShadow: "0 12px 40px rgba(58,125,68,.18)", padding: "16px 20px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div style={{ fontSize: 13, color: C.text, fontWeight: "bold", display: "flex", alignItems: "center", gap: 6 }}><span>💸</span> Gasto Rápido</div>
                 <button onClick={() => setQuickGastoModal(false)} style={{ background:"transparent", border:"none", cursor:"pointer", color:C.textSoft, fontSize:20, lineHeight: 1 }}>&times;</button>
