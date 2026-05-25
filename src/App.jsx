@@ -250,11 +250,16 @@ export default function App() {
     }, 0)
     if (mid === "efectivo") {
       const releasedTips = paidAppts.reduce((s, a) => s + (a.tipReleased ? (a.tip || 0) : 0), 0)
-      return Math.max(0, base - releasedTips)
+      const cashGastos = (gastos || [])
+        .filter(g => g.fecha === currentDate && g.metodoPago === "efectivo")
+        .reduce((sum, g) => sum + (parseFloat(g.monto) || 0), 0)
+      return Math.max(0, base - releasedTips - cashGastos)
     }
     return base
-  }, [paidAppts])
-  const grandTotal = useMemo(() => paidAppts.reduce((s, a) => s + apptPaidTotal(a), 0), [paidAppts])
+  }, [paidAppts, gastos, currentDate])
+  const grandTotal = useMemo(() => {
+    return totalByMethod("efectivo") + totalByMethod("debito") + totalByMethod("mercadopago")
+  }, [totalByMethod])
   const grandEarnings = useMemo(() => professionals.reduce((s, p) => s + earningsByProf(p.id), 0), [professionals, earningsByProf])
 
   const serviceCounts = useMemo(() => {
