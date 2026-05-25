@@ -67,4 +67,33 @@ export const CONFIG_DEFAULT = {
   professionals:    PROFESSIONALS_DEFAULT.map(p => ({ ...p })),
   services:         SERVICES_DEFAULT.map(s => ({ ...s })),
   dynamicDateColors: true,
+  blockedColor:     "rojo",
+  blockedOpacity:   3,
+}
+
+export const BLOCKED_COLORS = [
+  { id: "rojo", name: "Rojo (Original)", rgb: "192, 64, 64", hex: "#c04040" },
+  { id: "verde", name: "Verde", rgb: "58, 125, 68", hex: "#3a7d44" },
+  { id: "naranja", name: "Naranja", rgb: "232, 121, 58", hex: "#e8793a" },
+  { id: "gris", name: "Gris", rgb: "112, 128, 144", hex: "#708090" },
+  { id: "violeta", name: "Violeta", rgb: "138, 43, 226", hex: "#8a2be2" },
+  { id: "rosa", name: "Rosa", rgb: "255, 105, 180", hex: "#ff69b4" },
+  { id: "azul", name: "Azul", rgb: "70, 130, 180", hex: "#4682b4" },
+  { id: "marron", name: "Marrón", rgb: "139, 69, 19", hex: "#8b4513" },
+]
+
+export const getBlockedAlphas = (level) => {
+  const alphas = {
+    1: { a1: 0.01, a2: 0.03, border: 0.08 },
+    2: { a1: 0.02, a2: 0.05, border: 0.14 },
+    3: { a1: 0.03, a2: 0.08, border: 0.20 },
+    4: { a1: 0.05, a2: 0.12, border: 0.28 },
+    5: { a1: 0.08, a2: 0.18, border: 0.38 },
+    6: { a1: 0.12, a2: 0.25, border: 0.50 },
+    7: { a1: 0.16, a2: 0.32, border: 0.62 },
+    8: { a1: 0.20, a2: 0.40, border: 0.74 },
+    9: { a1: 0.25, a2: 0.50, border: 0.86 },
+    10: { a1: 0.32, a2: 0.65, border: 0.98 },
+  }
+  return alphas[level] || alphas[3]
 }

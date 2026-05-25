@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { C } from "../../constants/colors.js"
-import { CAT_OPTIONS as CAT_OPTIONS_DEFAULT, EMOJI_SUGGESTIONS } from "../../constants/data.js"
+import { CAT_OPTIONS as CAT_OPTIONS_DEFAULT, EMOJI_SUGGESTIONS, BLOCKED_COLORS } from "../../constants/data.js"
 import { GhostBtn, SolidBtn } from "../ui/index.jsx"
 
 // ─── Config View ──────────────────────────────────────────────────────────────
@@ -440,6 +440,119 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
                 <div style={{ width:20, height:20, borderRadius:"50%", background:"#fff", position:"absolute", top:2, transition:"left .2s", left:config.dynamicDateColors?"22px":"2px" }}/>
               </button>
             </div>
+          </CfgField>
+
+          <CfgField label="🎨 Estética y personalización de Bloqueos">
+            {/* Color Selection */}
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 10, color: C.textSoft, textTransform: "uppercase", letterSpacing: "1px", marginBottom: 8 }}>Color de los bloques inactivos</div>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                {BLOCKED_COLORS.map(c => {
+                  const isSel = (config.blockedColor || "rojo") === c.id
+                  return (
+                    <button
+                      key={c.id}
+                      onClick={() => updateConfig("blockedColor", c.id)}
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: "50%",
+                        border: `2px solid ${isSel ? C.text : "transparent"}`,
+                        background: c.hex,
+                        cursor: "pointer",
+                        boxShadow: `0 4px 10px ${c.hex}44`,
+                        transform: isSel ? "scale(1.15)" : "scale(1)",
+                        transition: "all .15s ease",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        outline: "none",
+                      }}
+                      title={c.name}
+                    >
+                      {isSel && <span style={{ color: "#fff", fontSize: 12, fontWeight: "bold" }}>✓</span>}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Opacity Selection */}
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <span style={{ fontSize: 10, color: C.textSoft, textTransform: "uppercase", letterSpacing: "1px" }}>Opacidad (10 niveles)</span>
+                <span style={{ fontSize: 12, color: C.text, fontWeight: "bold" }}>Nivel {config.blockedOpacity || 3} / 10</span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <input
+                  type="range"
+                  min={1}
+                  max={10}
+                  value={config.blockedOpacity || 3}
+                  onChange={e => updateConfig("blockedOpacity", parseInt(e.target.value))}
+                  style={{
+                    flex: 1,
+                    accentColor: (BLOCKED_COLORS.find(c => c.id === (config.blockedColor || "rojo")) || BLOCKED_COLORS[0]).hex,
+                    cursor: "pointer",
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Visual Preview Card */}
+            {(() => {
+              const activeCol = BLOCKED_COLORS.find(c => c.id === (config.blockedColor || "rojo")) || BLOCKED_COLORS[0]
+              const level = config.blockedOpacity || 3
+              const previewAlphas = {
+                1: { a1: 0.01, a2: 0.03, border: 0.08 },
+                2: { a1: 0.02, a2: 0.05, border: 0.14 },
+                3: { a1: 0.03, a2: 0.08, border: 0.20 },
+                4: { a1: 0.05, a2: 0.12, border: 0.28 },
+                5: { a1: 0.08, a2: 0.18, border: 0.38 },
+                6: { a1: 0.12, a2: 0.25, border: 0.50 },
+                7: { a1: 0.16, a2: 0.32, border: 0.62 },
+                8: { a1: 0.20, a2: 0.40, border: 0.74 },
+                9: { a1: 0.25, a2: 0.50, border: 0.86 },
+                10: { a1: 0.32, a2: 0.65, border: 0.98 },
+              }[level] || { a1: 0.03, a2: 0.08, border: 0.20 }
+
+              return (
+                <div style={{
+                  background: C.cream,
+                  borderRadius: 12,
+                  padding: "14px 18px",
+                  border: `1.5px solid ${C.border}`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  marginTop: 10
+                }}>
+                  <div>
+                    <div style={{ fontSize: 11, color: C.text, fontWeight: "bold" }}>Vista previa del bloqueo</div>
+                    <div style={{ fontSize: 9, color: C.textSoft, marginTop: 2 }}>Así se verá en la grilla de turnos</div>
+                  </div>
+                  <div style={{
+                    width: 140,
+                    height: 52,
+                    borderRadius: 9,
+                    background: `repeating-linear-gradient(
+                      45deg,
+                      rgba(${activeCol.rgb}, ${previewAlphas.a1}),
+                      rgba(${activeCol.rgb}, ${previewAlphas.a1}) 10px,
+                      rgba(${activeCol.rgb}, ${previewAlphas.a2}) 10px,
+                      rgba(${activeCol.rgb}, ${previewAlphas.a2}) 20px
+                    )`,
+                    border: `1.5px dashed rgba(${activeCol.rgb}, ${previewAlphas.border})`,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}>
+                    <span style={{ fontSize: 10, fontWeight: "bold", color: `rgba(${activeCol.rgb}, ${Math.max(0.4, previewAlphas.border)})`, letterSpacing: "1px" }}>BLOQUEADO</span>
+                  </div>
+                </div>
+              )
+            })()}
           </CfgField>
         </SectionCard>
       )}

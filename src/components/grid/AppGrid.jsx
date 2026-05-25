@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react"
 import { C } from "../../constants/colors.js"
-import { PAYMENT_METHODS, HOURS } from "../../constants/data.js"
+import { PAYMENT_METHODS, HOURS, BLOCKED_COLORS, getBlockedAlphas } from "../../constants/data.js"
 import { fmt, cellKey, apptTotal, apptDur, apptPaidTotal } from "../../utils/appointments.js"
 import { Overlay, ModalHeader, GhostBtn, modalBox } from "../ui/index.jsx"
 import { todayKey } from "../../utils/dates.js"
@@ -17,6 +17,7 @@ const smallBtn = (color, isMobile) => ({
 
 export function AppGrid({
   professionals, appointments, isMobile,
+  config,
   draggingKey, dropTarget, dropValid, resizePreview,
   remoteEdits,
   isOccupied, spanOf,
@@ -209,6 +210,12 @@ export function AppGrid({
     setMenuPos({ x: e.clientX, y: e.clientY, profId, hour, hasAppt })
   }
 
+  const blockedColorConfig = config?.blockedColor || "rojo"
+  const blockedOpacityConfig = config?.blockedOpacity || 3
+  const activeColorObj = BLOCKED_COLORS.find(c => c.id === blockedColorConfig) || BLOCKED_COLORS[0]
+  const rgbString = activeColorObj.rgb
+  const alphas = getBlockedAlphas(blockedOpacityConfig)
+
   return (
     <div className="grid-scroll" style={{ overflow: "auto", padding: isMobile ? "0 8px 120px 0" : "0 8px 78px", WebkitOverflowScrolling: "touch", maxHeight: "100%", scrollSnapType: isMobile ? "x mandatory" : "none", scrollPaddingLeft: 60, scrollPaddingBottom: isMobile ? 120 : 78 }}>
       <table style={{ borderCollapse: "collapse", tableLayout: "fixed", width: "100%", minWidth: isMobile ? `calc(52px + ${orderedProfessionals.length} * calc((100vw - 70px) / 2))` : `calc(52px + ${orderedProfessionals.length * 140}px)` }}>
@@ -365,16 +372,16 @@ export function AppGrid({
                             background: appt.isBlocked
                               ? `repeating-linear-gradient(
                                   45deg,
-                                  rgba(192, 64, 64, 0.03),
-                                  rgba(192, 64, 64, 0.03) 10px,
-                                  rgba(192, 64, 64, 0.08) 10px,
-                                  rgba(192, 64, 64, 0.08) 20px
+                                  rgba(${rgbString}, ${alphas.a1}),
+                                  rgba(${rgbString}, ${alphas.a1}) 10px,
+                                  rgba(${rgbString}, ${alphas.a2}) 10px,
+                                  rgba(${rgbString}, ${alphas.a2}) 20px
                                 )`
                               : appt.paid
                                 ? `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Ctext x='50%25' y='50%25' font-size='18' fill='%233a7d44' opacity='0.1' text-anchor='middle' dominant-baseline='middle' transform='rotate(-25 30 30)'%3E$ %3C/text%3E%3C/svg%3E"), linear-gradient(135deg,${C.greenPale},#d8f0dc)`
                                 : `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Ctext x='50%25' y='50%25' font-size='14' fill='%23e8793a' opacity='0.08' text-anchor='middle' dominant-baseline='middle' transform='rotate(-20 30 30)'%3E🕒%3C/text%3E%3C/svg%3E"), linear-gradient(135deg,${C.orangePale},#fde8d4)`,
                             border: appt.isBlocked
-                              ? `1px dashed rgba(192, 64, 64, 0.2)`
+                              ? `1px dashed rgba(${rgbString}, ${alphas.border})`
                               : isResizeStart
                                 ? `1.5px solid ${C.greenLight}`
                                 : isCurrentTurn && !isDragging
