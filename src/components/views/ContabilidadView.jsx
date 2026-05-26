@@ -15,6 +15,8 @@ export default function ContabilidadView({
   const [seccion, setSeccion] = useState("resumen")
   const [expandedDates, setExpandedDates] = useState({})
   const [receiptProf, setReceiptProf] = useState(null)
+  const [activeZoomedChart, setActiveZoomedChart] = useState(null)
+  const [hoveredProfId, setHoveredProfId] = useState(null)
 
   const safeAllData       = allData && typeof allData === "object" && !Array.isArray(allData) ? allData : {}
   const safeGastos        = Array.isArray(gastos) ? gastos : []
@@ -356,6 +358,46 @@ export default function ContabilidadView({
 
   return (
     <div style={{ width:"100%", maxWidth:1440, margin:"0 auto", padding:"20px 24px 160px", boxSizing:"border-box" }}>
+      <style dangerouslySetInnerHTML={{ __html: `
+        .chart-card-zoom {
+          transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+          cursor: zoom-in;
+          position: relative;
+        }
+        .chart-card-zoom:hover {
+          transform: translateY(-3px);
+          box-shadow: 0 12px 30px rgba(58, 125, 68, 0.08) !important;
+          border-color: ${C.green} !important;
+        }
+        .chart-card-zoom .zoom-badge {
+          opacity: 0.4;
+          transition: opacity 0.2s ease, transform 0.2s ease, background-color 0.2s ease;
+        }
+        .chart-card-zoom:hover .zoom-badge {
+          opacity: 1;
+          transform: scale(1.03);
+          background-color: #eaf7ed !important;
+        }
+        .zoom-modal-overlay {
+          position: fixed;
+          top: 58px;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          z-index: 200;
+          background: rgba(20,40,24,.4);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          backdrop-filter: blur(5px);
+          animation: fadeIn .18s ease;
+        }
+        @media (max-width: 768px) {
+          .zoom-modal-overlay {
+            bottom: 62px;
+          }
+        }
+      ` }} />
 
       {/* Period selector */}
       <div style={{ display:"flex", gap:6, marginBottom:20, flexWrap:"wrap", alignItems:"center" }}>
@@ -427,8 +469,17 @@ export default function ContabilidadView({
 
           {/* Col 2: Performance Charts */}
           <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
-            <div style={{ background:C.white, borderRadius:16, padding:"18px 20px", border:`1px solid ${C.border}` }}>
-              <div style={{ fontSize:8, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase", marginBottom:14 }}>Ingresos por profesional</div>
+            <div 
+              className="chart-card-zoom"
+              onClick={() => setActiveZoomedChart("prof")}
+              style={{ background:C.white, borderRadius:16, padding:"18px 20px", border:`1px solid ${C.border}` }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                <div style={{ fontSize:8, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase" }}>Ingresos por profesional</div>
+                <div className="zoom-badge" style={{ fontSize: 9, color: C.green, background: "#f3faf5", padding: "2px 8px", borderRadius: 8, display: "flex", alignItems: "center", gap: 3, fontWeight: "bold" }}>
+                  <span>🔍</span> Ampliar
+                </div>
+              </div>
               <div style={{ width:"100%", display:"flex", justifyContent:"center" }}>
                 <svg viewBox={`0 0 ${chartWidth} 220`} style={{ width:"100%", maxWidth:"100%", height:220, display:"block" }}>
                   {[...Array(6)].map((_, idx) => {
@@ -466,8 +517,17 @@ export default function ContabilidadView({
               </div>
             </div>
 
-            <div style={{ background:C.white, borderRadius:16, padding:"18px 20px", border:`1px solid ${C.border}`, boxShadow:`0 2px 12px ${C.shadow}`, overflow:"hidden" }}>
-              <div style={{ fontSize:8, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase", marginBottom:12 }}>Actividad diaria ({dailyData.length} d)</div>
+            <div 
+              className="chart-card-zoom"
+              onClick={() => setActiveZoomedChart("daily")}
+              style={{ background:C.white, borderRadius:16, padding:"18px 20px", border:`1px solid ${C.border}`, boxShadow:`0 2px 12px ${C.shadow}`, overflow:"hidden" }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <div style={{ fontSize:8, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase" }}>Actividad diaria ({dailyData.length} d)</div>
+                <div className="zoom-badge" style={{ fontSize: 9, color: C.green, background: "#f3faf5", padding: "2px 8px", borderRadius: 8, display: "flex", alignItems: "center", gap: 3, fontWeight: "bold" }}>
+                  <span>🔍</span> Ampliar
+                </div>
+              </div>
               <div style={{ display:"flex", alignItems:"flex-end", gap:2, height:140, paddingBottom:20, position:"relative" }}>
                 {dailyData.map((d, i) => {
                   const h = Math.max(2, (d.income / maxDay) * 120)
@@ -484,8 +544,18 @@ export default function ContabilidadView({
                 })}
               </div>
             </div>
-            <div style={{ background:C.white, borderRadius:16, padding:"18px 20px", border:`1px solid ${C.border}` }}>
-              <div style={{ fontSize:8, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase", marginBottom:14 }}>Rendimiento por día de semana</div>
+
+            <div 
+              className="chart-card-zoom"
+              onClick={() => setActiveZoomedChart("dow")}
+              style={{ background:C.white, borderRadius:16, padding:"18px 20px", border:`1px solid ${C.border}` }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                <div style={{ fontSize:8, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase" }}>Rendimiento por día de semana</div>
+                <div className="zoom-badge" style={{ fontSize: 9, color: C.green, background: "#f3faf5", padding: "2px 8px", borderRadius: 8, display: "flex", alignItems: "center", gap: 3, fontWeight: "bold" }}>
+                  <span>🔍</span> Ampliar
+                </div>
+              </div>
               <div style={{ display:"flex", alignItems:"flex-end", justifyContent:"space-between", height:120, gap:8, paddingBottom:20 }}>
                 {["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"].map((label, dow) => {
                   const val = incomeByDOW[dow] || 0
@@ -1128,6 +1198,353 @@ export default function ContabilidadView({
           </>
         )
       })()}
+
+      {/* ── Modal Zoom de Gráfico ── */}
+      {activeZoomedChart && (
+        <div
+          onClick={e => e.target === e.currentTarget && setActiveZoomedChart(null)}
+          className="zoom-modal-overlay"
+        >
+          <div style={{
+            ...modalBox,
+            width: "min(1200px, calc(100vw - 24px))",
+            maxWidth: "1200px",
+            maxHeight: "calc(100% - 32px)",
+            padding: "20px 28px 24px",
+            background: C.white,
+            borderRadius: 20,
+            boxShadow: "0 20px 50px rgba(0,0,0,0.15)",
+            border: `1.5px solid ${C.greenMint}`
+          }}>
+            <ModalHeader 
+              emoji="📊" 
+              sub="Visualización detallada y ampliada"
+            >
+              {activeZoomedChart === "prof" ? "Ingresos por Profesional" :
+               activeZoomedChart === "daily" ? "Actividad Diaria Detallada" :
+               "Rendimiento por Día de Semana"}
+            </ModalHeader>
+
+            <div style={{ margin: "20px 0", width: "100%", overflowX: "auto" }}>
+              {activeZoomedChart === "prof" && (() => {
+                // Expanded Line SVG chart
+                const zoomWidth = 960
+                const zoomInnerWidth = zoomWidth - 100 // 860px wide charting space
+                const zoomHeight = 360
+                const zoomInnerHeight = 300 // 300px tall charting space
+
+                // y grid helper
+                const gridPoints = [...Array(6)].map((_, idx) => 30 + idx * 60) // 30, 90, 150, 210, 270, 330
+                
+                return (
+                  <div style={{ display: "flex", gap: 20, alignItems: "stretch", flexWrap: "wrap" }}>
+                    {/* Left: SVG container */}
+                    <div style={{ 
+                      flex: 1, 
+                      minWidth: 500, 
+                      background: C.cream, 
+                      borderRadius: 14, 
+                      padding: "20px 14px", 
+                      border: `1.5px solid ${C.border}`, 
+                      overflowX: "auto" 
+                    }}>
+                      <svg viewBox={`0 0 ${zoomWidth} ${zoomHeight}`} style={{ width: "100%", minWidth: 480, height: zoomHeight, display: "block" }}>
+                        {/* Horizontal grid lines and Y-axis labels */}
+                        {gridPoints.map((yVal, idx) => {
+                          const value = Math.round(maxTurns - (idx / 5) * maxTurns)
+                          return (
+                            <g key={idx}>
+                              <line x1={80} y1={yVal} x2={zoomWidth - 20} y2={yVal} stroke="#e4ebe6" strokeWidth="1" strokeDasharray="3 3" />
+                              <text x={70} y={yVal + 4} fill={C.textSoft} fontSize="10" textAnchor="end" fontFamily="monospace">
+                                {fmt(value)}
+                              </text>
+                            </g>
+                          )
+                        })}
+
+                        {/* Baseline */}
+                        <line x1={80} y1={330} x2={zoomWidth - 20} y2={330} stroke="#cbd5ce" strokeWidth="1.5" />
+
+                        {/* Professional lines */}
+                        {turnosChart.map((prof, idx) => {
+                          const color = [C.green, C.orange, C.gold, C.greenLight, C.orangeLight][idx % 5]
+                          const isFocused = hoveredProfId === null || hoveredProfId === prof.id
+                          const opacity = isFocused ? 1 : 0.08
+                          const strokeWidth = hoveredProfId === prof.id ? 4.5 : 3.5
+
+                          const points = prof.values.map((value, i) => {
+                            const x = 80 + (zoomInnerWidth / Math.max(chartRange.length - 1, 1)) * i
+                            const y = 330 - (value / maxTurns) * 300
+                            return `${i === 0 ? "M" : "L"} ${x} ${y}`
+                          }).join(" ")
+
+                          return (
+                            <g key={prof.id} style={{ opacity, transition: "opacity 0.2s ease" }}>
+                              <path d={points} fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+                              {prof.values.map((value, i) => {
+                                const x = 80 + (zoomInnerWidth / Math.max(chartRange.length - 1, 1)) * i
+                                const y = 330 - (value / maxTurns) * 300
+                                const isLabelVisible = value > 0 && (chartRange.length <= 15 || i % Math.ceil(chartRange.length / 10) === 0)
+                                return (
+                                  <g key={i}>
+                                    <circle cx={x} cy={y} r={hoveredProfId === prof.id ? "6.5" : "5.5"} fill={color} stroke={C.white} strokeWidth="1.5" />
+                                    {isLabelVisible && (
+                                      <text x={x} y={y - 10} fill={color} fontSize="9" fontWeight="bold" textAnchor="middle" style={{ paintOrder: "stroke", stroke: "#ffffff", strokeWidth: "3px" }}>
+                                        {fmt(value)}
+                                      </text>
+                                    )}
+                                  </g>
+                                )
+                              })}
+                            </g>
+                          )
+                        })}
+
+                        {/* Bottom X-axis Date labels */}
+                        {chartRange.map((d, i) => {
+                          const x = 80 + (zoomInnerWidth / Math.max(chartRange.length - 1, 1)) * i
+                          const showLabel = chartRange.length <= 16 || i % Math.ceil(chartRange.length / 12) === 0 || i === chartRange.length - 1
+                          if (!showLabel) return null
+                          return (
+                            <g key={i}>
+                              <text x={x} y={352} fill={C.textSoft} fontSize="9" textAnchor="middle" fontWeight="bold">
+                                {d.label}
+                              </text>
+                              <line x1={x} y1={330} x2={x} y2={334} stroke="#cbd5ce" strokeWidth="1" />
+                            </g>
+                          )
+                        })}
+                      </svg>
+                    </div>
+
+                    {/* Right Side: Summary legend */}
+                    <div style={{ 
+                      width: 250, 
+                      flexShrink: 0, 
+                      background: "#f3faf5", 
+                      borderRadius: 14, 
+                      padding: "18px 16px", 
+                      border: `1.5px solid ${C.greenMint}`,
+                      display: "flex",
+                      flexDirection: "column"
+                    }}>
+                      <div style={{ fontSize: 9, fontWeight: "bold", color: C.green, textTransform: "uppercase", letterSpacing: "1px", marginBottom: 12 }}>
+                        Totales acumulados
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        {turnosChart.map((prof, idx) => {
+                          const color = [C.green, C.orange, C.gold, C.greenLight, C.orangeLight][idx % 5]
+                          const totalEarned = incomeByProf[prof.id] || 0
+                          const totalTurnsCount = turnsByProf[prof.id] || 0
+                          const isHovered = hoveredProfId === prof.id
+                          return (
+                            <div 
+                              key={prof.id}
+                              onMouseEnter={() => setHoveredProfId(prof.id)}
+                              onMouseLeave={() => setHoveredProfId(null)}
+                              style={{ 
+                                display: "flex", 
+                                alignItems: "center", 
+                                gap: 10, 
+                                background: isHovered ? "#f3faf5" : C.white, 
+                                padding: "10px 12px", 
+                                borderRadius: 10, 
+                                border: `1.5px solid ${isHovered ? color : C.border}`,
+                                transition: "all 0.15s ease",
+                                cursor: "pointer",
+                                transform: isHovered ? "translateX(-2px)" : "none",
+                                boxShadow: isHovered ? "0 4px 10px rgba(58,125,68,0.06)" : "none"
+                              }}
+                            >
+                              <span style={{ width: 10, height: 10, borderRadius: "50%", background: color, flexShrink: 0 }} />
+                              <div style={{ minWidth: 0, flex: 1 }}>
+                                <div style={{ fontSize: 11, fontWeight: "bold", color: C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{prof.emoji} {prof.name}</div>
+                                <div style={{ fontSize: 9, color: C.textSoft, marginTop: 1 }}>{totalTurnsCount} turnos · <span style={{ fontWeight: "bold", color: C.green }}>{fmt(totalEarned)}</span></div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {activeZoomedChart === "daily" && (() => {
+                // Expanded Daily Activity chart
+                return (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                    <div style={{ 
+                      background: C.cream, 
+                      borderRadius: 14, 
+                      padding: "24px 20px 30px", 
+                      border: `1.5px solid ${C.border}`,
+                      overflowX: "auto"
+                    }}>
+                      <div style={{ 
+                        display: "flex", 
+                        alignItems: "flex-end", 
+                        justifyContent: dailyData.length > 20 ? "flex-start" : "center",
+                        gap: dailyData.length > 20 ? 4 : 12, 
+                        height: 300, 
+                        paddingBottom: 24, 
+                        position: "relative",
+                        minWidth: dailyData.length * 28 + 40,
+                        margin: "0 auto"
+                      }}>
+                        {dailyData.map((d, i) => {
+                          const h = Math.max(4, (d.income / maxDay) * 250)
+                          const isToday = d.k === todayKey()
+                          const hasIncome = d.income > 0
+                          const labelEveryN = Math.ceil(dailyData.length / 15)
+                          const showLabel = dailyData.length <= 15 || i % labelEveryN === 0 || i === dailyData.length - 1
+                          
+                          return (
+                            <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", height: "100%", justifyContent: "flex-end", position: "relative" }}>
+                              {/* Income Value Indicator */}
+                              {hasIncome && (
+                                <div style={{ 
+                                  position: "absolute", 
+                                  bottom: h + 28, 
+                                  fontSize: 8, 
+                                  color: isToday ? C.orange : C.green, 
+                                  fontWeight: "bold",
+                                  background: isToday ? "#fdf0e8" : "#f0f8f2",
+                                  padding: "2px 5px",
+                                  borderRadius: 6,
+                                  whiteSpace: "nowrap",
+                                  boxShadow: "0 2px 5px rgba(0,0,0,0.03)",
+                                  border: `1px solid ${isToday ? C.orangeLight : C.greenMint}`
+                                }}>
+                                  {fmt(d.income)}
+                                </div>
+                              )}
+                              {/* Bar */}
+                              <div style={{ 
+                                width: "100%", 
+                                height: h, 
+                                borderRadius: "4px 4px 0 0", 
+                                background: isToday 
+                                  ? `linear-gradient(180deg, ${C.orange}, ${C.orangeLight})` 
+                                  : hasIncome 
+                                    ? `linear-gradient(180deg, ${C.green}, ${C.greenLight})` 
+                                    : "#e4ebe6", 
+                                transition: "height .3s ease",
+                                boxShadow: hasIncome ? "0 2px 6px rgba(58,125,68,0.1)" : "none"
+                              }}/>
+                              {/* Bottom labels */}
+                              {showLabel && (
+                                <div style={{ 
+                                  position: "absolute", 
+                                  bottom: -22, 
+                                  fontSize: 9, 
+                                  color: isToday ? C.orange : C.textSoft, 
+                                  fontWeight: isToday ? "bold" : "600", 
+                                  whiteSpace: "nowrap" 
+                                }}>
+                                  {d.label}
+                                  {isToday && <span style={{ fontSize: 7, marginLeft: 2, background: C.orange, color: "#fff", padding: "1px 3px", borderRadius: 4 }}>Hoy</span>}
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+                      <div style={{ background: "#fdf8f4", border: `1px solid ${C.orangeLight}`, flex: 1, padding: "12px 16px", borderRadius: 12 }}>
+                        <span style={{ fontSize: 9, textTransform: "uppercase", color: C.orange, fontWeight: "bold", letterSpacing: "1px" }}>Día más productivo</span>
+                        <div style={{ fontSize: 16, fontWeight: "bold", color: C.text, marginTop: 4 }}>
+                          {busiestDay ? `${busiestDay.label} · ${busiestDay.count} turnos` : "Sin datos"}
+                        </div>
+                      </div>
+                      <div style={{ background: "#f4fcf7", border: `1px solid ${C.greenMint}`, flex: 1, padding: "12px 16px", borderRadius: 12 }}>
+                        <span style={{ fontSize: 9, textTransform: "uppercase", color: C.green, fontWeight: "bold", letterSpacing: "1px" }}>Total del Período</span>
+                        <div style={{ fontSize: 16, fontWeight: "bold", color: C.green, marginTop: 4 }}>
+                          {fmt(totalIncome)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {activeZoomedChart === "dow" && (() => {
+                // Expanded Day of Week Performance chart
+                const daysMap = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"]
+                const maxDOW = Math.max(...Object.values(incomeByDOW), 1)
+
+                return (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                    <div style={{ 
+                      background: C.cream, 
+                      borderRadius: 14, 
+                      padding: "36px 24px 30px", 
+                      border: `1.5px solid ${C.border}`,
+                      display: "flex",
+                      justifyContent: "center"
+                    }}>
+                      <div style={{ 
+                        display: "flex", 
+                        alignItems: "flex-end", 
+                        justifyContent: "center", 
+                        height: 260, 
+                        gap: 32, // premium spacing
+                        paddingBottom: 24,
+                        width: "100%",
+                        maxWidth: 760
+                      }}>
+                        {["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"].map((label, dow) => {
+                          const val = incomeByDOW[dow] || 0
+                          const h = (val / maxDOW) * 190
+                          const pct = totalIncome > 0 ? (val / totalIncome) * 100 : 0
+                          
+                          return (
+                            <div key={label} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 8, height: "100%", justifyContent: "flex-end", position: "relative" }}>
+                              {val > 0 && (
+                                <div style={{ 
+                                  position: "absolute", 
+                                  bottom: h + 28, 
+                                  textAlign: "center", 
+                                  display: "flex", 
+                                  flexDirection: "column", 
+                                  alignItems: "center" 
+                                }}>
+                                  <span style={{ fontSize: 10, fontWeight: "bold", color: C.green }}>{fmt(val)}</span>
+                                  <span style={{ fontSize: 8, color: C.textSoft, background: "#f0f8f2", padding: "1px 4px", borderRadius: 4, marginTop: 2 }}>{pct.toFixed(1)}%</span>
+                                </div>
+                              )}
+                              <div style={{ 
+                                width: "100%", 
+                                maxWidth: 50, 
+                                height: Math.max(4, h), 
+                                borderRadius: "6px 6px 0 0", 
+                                background: val > 0 
+                                  ? `linear-gradient(180deg, ${C.green}, ${C.greenLight})` 
+                                  : "#e4ebe6", 
+                                transition: "height .4s",
+                                boxShadow: val > 0 ? "0 4px 10px rgba(58,125,68,0.15)" : "none"
+                              }}/>
+                              <div style={{ fontSize: 10, color: C.text, fontWeight: "bold" }}>{daysMap[dow]}</div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })()}
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 24 }}>
+              <GhostBtn onClick={() => setActiveZoomedChart(null)} style={{ padding: "10px 24px", fontSize: 12 }}>
+                Cerrar Ventana
+              </GhostBtn>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
