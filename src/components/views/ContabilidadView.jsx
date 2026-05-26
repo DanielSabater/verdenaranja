@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from "react"
+import { createPortal } from "react-dom"
 import { C } from "../../constants/colors.js"
 import { PAYMENT_METHODS, GASTO_CATS } from "../../constants/data.js"
 import { fmt, apptTotal, apptPaidTotal } from "../../utils/appointments.js"
-import { fmtDate, todayKey, toDateKey, MESES_ES } from "../../utils/dates.js"
+import { fmtDate, todayKey, toDateKey, MESES_ES, fmtShort } from "../../utils/dates.js"
 import { Overlay, ModalHeader, Field, GhostBtn, SolidBtn, inputStyle, modalBox } from "../ui/index.jsx"
 
 export default function ContabilidadView({
@@ -13,6 +14,7 @@ export default function ContabilidadView({
 }) {
   const [seccion, setSeccion] = useState("resumen")
   const [expandedDates, setExpandedDates] = useState({})
+  const [receiptProf, setReceiptProf] = useState(null)
 
   const safeAllData       = allData && typeof allData === "object" && !Array.isArray(allData) ? allData : {}
   const safeGastos        = Array.isArray(gastos) ? gastos : []
@@ -270,6 +272,42 @@ export default function ContabilidadView({
   // ── sueldos ────────────────────────────────────────────────────────────────
   const sueldoKey   = (profId) => `${profId}||${sueldoPeriod}`
   const profSueldo  = (profId) => safeSueldos[sueldoKey(profId)] || { pagado:false, monto:"", fecha:"" }
+  
+  const getDailyBreakdown = (profId, diasFilter) => {
+    const days = []
+    Object.entries(safeAllData).forEach(([dk, dayData]) => {
+      if (!dk.startsWith(sueldoPeriod)) return
+      if (diasFilter && diasFilter !== "all" && !diasFilter.includes(dk)) return
+      
+      let dayFacturado = 0
+      let dayTurnos = 0
+      let dayPropinas = 0
+      
+      const safeDayData = dayData || {}
+      Object.values(safeDayData).forEach(appt => {
+        if (appt?.paid && appt.profId === profId) {
+          dayFacturado += apptPaidTotal(appt)
+          dayPropinas  += appt.tip || 0
+          dayTurnos++
+        }
+      })
+      
+      if (dayTurnos > 0) {
+        days.push({
+          dk,
+          dateLabel: fmtDate(dk),
+          shortLabel: fmtShort(dk),
+          turnos: dayTurnos,
+          facturado: dayFacturado,
+          comision: dayFacturado * (comisionPct/100),
+          propinas: dayPropinas,
+          total: (dayFacturado * (comisionPct/100)) + dayPropinas
+        })
+      }
+    })
+    return days.sort((a, b) => a.dk.localeCompare(b.dk))
+  }
+
   const profStats = (profId, diasFilter) => {
     let facturado=0, turnos=0, propinas=0
     const diasSet = new Set()
@@ -635,8 +673,31 @@ export default function ContabilidadView({
 
                   {/* Header */}
                   <div style={{ padding:"14px 16px", borderBottom:`1px solid ${C.border}`, display:"flex", justifyContent:"space-between", alignItems:"center", background:sd.pagado?`linear-gradient(135deg,${C.green},${C.greenLight})`:"transparent" }}>
-                    <div style={{ fontSize:16, color:sd.pagado?"#fff":C.text }}>{p.emoji} {p.name}</div>
-                    <div style={{ fontSize:10, color:sd.pagado?"rgba(255,255,255,.8)":C.textSoft }}>{comisionPct}% comisión</div>
+                    <div style={{ display:"flex", flexDirection:"column" }}>
+                      <div style={{ fontSize:16, color:sd.pagado?"#fff":C.text, fontWeight:"bold" }}>{p.emoji} {p.name}</div>
+                      <div style={{ fontSize:9, color:sd.pagado?"rgba(255,255,255,.8)":C.textSoft, marginTop:2 }}>{comisionPct}% comisión</div>
+                    </div>
+                    <button 
+                      onClick={() => setReceiptProf(p)}
+                      title="Ver Comprobante de Sueldo"
+                      style={{
+                        background: sd.pagado ? "rgba(255,255,255,0.2)" : C.greenPale,
+                        color: sd.pagado ? "#fff" : C.green,
+                        border: sd.pagado ? "1px solid rgba(255,255,255,0.4)" : `1px solid ${C.border}`,
+                        borderRadius: 10,
+                        padding: "6px 12px",
+                        fontSize: 10,
+                        fontWeight: "bold",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4,
+                        transition: "all 0.15s ease",
+                        fontFamily: "Georgia,serif"
+                      }}
+                    >
+                      🧾 Recibo
+                    </button>
                   </div>
 
                   <div style={{ padding:"14px 16px" }}>
@@ -886,6 +947,187 @@ export default function ContabilidadView({
           </div>
         </Overlay>
       )}
+
+      {/* ── Modal Recibo de Sueldo ── */}
+      {receiptProf && (() => {
+        const p = receiptProf
+        const sd = profSueldo(p.id)
+        const selectedDays = sd.dias || "all"
+        const stats = profStats(p.id, selectedDays)
+        const dailyBreakdown = getDailyBreakdown(p.id, selectedDays)
+        
+        // Month details for title
+        const [sy, sm] = sueldoPeriod.split("-").map(Number)
+        const monthName = MESES_ES[sm - 1]
+        const periodLabel = `${monthName.charAt(0).toUpperCase() + monthName.slice(1)} ${sy}`
+        
+        return (
+          <>
+            {/* Inject dynamic print stylesheet */}
+            <style dangerouslySetInnerHTML={{ __html: `
+              @media print {
+                body { background: #ffffff !important; color: #000000 !important; }
+                #root { display: none !important; }
+                #printable-receipt-portal { display: block !important; position: absolute; left: 0; top: 0; width: 100% !important; margin: 0 !important; padding: 10px !important; box-sizing: border-box !important; }
+                @page { margin: 1.5cm; }
+              }
+            ` }} />
+
+            <Overlay onClose={() => setReceiptProf(null)}>
+              <div style={{ 
+                ...modalBox, 
+                width: "min(400px, calc(100vw - 20px))", 
+                padding: "20px 24px",
+                position: "relative",
+                background: C.white,
+                borderRadius: 16,
+                border: `1.5px solid ${C.border}`,
+                boxShadow: "0 20px 60px rgba(58,125,68,0.15)"
+              }}>
+                
+                {/* Visual Ticket header wrapper */}
+                <div style={{ 
+                  textAlign: "center", 
+                  paddingBottom: 12, 
+                  borderBottom: `1px dashed ${C.border}`,
+                  marginBottom: 16
+                }}>
+                  <div style={{ fontSize: 14, fontWeight: "bold", color: C.text, fontFamily: "Georgia,serif" }}>
+                    Comprobante de Sueldo
+                  </div>
+                  <div style={{ fontSize: 11, color: C.textSoft, marginTop: 4 }}>
+                    {p.name} · {periodLabel}
+                  </div>
+                </div>
+
+                {/* Daily Breakdown Table */}
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ maxHeight: 240, overflowY: "auto", border: `1px solid ${C.border}`, borderRadius: 10 }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                      <thead>
+                        <tr style={{ background: C.cream, borderBottom: `1px solid ${C.border}`, position: "sticky", top: 0, zIndex: 10 }}>
+                          <th style={{ padding: "8px 10px", textAlign: "left", color: C.textSoft, fontSize: 10, textTransform: "uppercase" }}>Fecha</th>
+                          <th style={{ padding: "8px 10px", textAlign: "right", color: C.textSoft, fontSize: 10, textTransform: "uppercase", fontWeight: "bold" }}>Monto</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {dailyBreakdown.length === 0 ? (
+                          <tr>
+                            <td colSpan={2} style={{ padding: "20px 10px", textAlign: "center", color: C.textSoft }}>
+                              Sin actividad registrada
+                            </td>
+                          </tr>
+                        ) : (
+                          dailyBreakdown.map(d => (
+                            <tr key={d.dk} style={{ borderBottom: `1px solid #f3faf5` }}>
+                              <td style={{ padding: "8px 10px", color: C.text }}>{d.shortLabel}</td>
+                              <td style={{ padding: "8px 10px", textAlign: "right", color: C.green, fontWeight: "bold" }}>{fmt(d.comision)}</td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Final Totals summary */}
+                <div style={{ 
+                  background: C.cream, 
+                  borderRadius: 10, 
+                  border: `1px solid ${C.border}`, 
+                  padding: "12px 14px", 
+                  marginBottom: 16,
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center"
+                }}>
+                  <span style={{ fontSize: 11, fontWeight: "bold", color: C.textSoft, letterSpacing: "1px" }}>
+                    SUELDO NETO:
+                  </span>
+                  <span style={{ fontSize: 18, fontWeight: "bold", color: C.green }}>
+                    {fmt(stats.comision)}
+                  </span>
+                </div>
+                
+                {sd.monto !== "" && (
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 10px 16px" }}>
+                    <span style={{ fontSize: 10, color: C.textSoft }}>Monto Liquidado / Pagado:</span>
+                    <span style={{ fontSize: 14, fontWeight: "bold", color: C.orange }}>{fmt(parseFloat(sd.monto) || 0)}</span>
+                  </div>
+                )}
+
+                {/* Buttons */}
+                <div style={{ display: "flex", gap: 8 }}>
+                  <GhostBtn onClick={() => setReceiptProf(null)}>Cerrar</GhostBtn>
+                  <SolidBtn onClick={() => window.print()} color={C.green}>
+                    Imprimir / PDF
+                  </SolidBtn>
+                </div>
+
+              </div>
+            </Overlay>
+
+            {/* Print Portal - Rendered under document.body solely for printing */}
+            {createPortal(
+              <div id="printable-receipt-portal" style={{ display: "none" }}>
+                <div style={{ 
+                  fontFamily: "Georgia, serif", 
+                  color: "#000000", 
+                  width: "100%",
+                  maxWidth: "400px",
+                  margin: "0 auto",
+                  padding: "10px"
+                }}>
+                  {/* Print Header */}
+                  <div style={{ fontSize: "15px", fontWeight: "bold", borderBottom: "1.5px solid #000000", paddingBottom: "6px", marginBottom: "15px", textAlign: "left" }}>
+                    Liquidación: {p.name} ({periodLabel})
+                  </div>
+
+                  {/* Print Table */}
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px", marginBottom: "15px" }}>
+                    <thead>
+                      <tr style={{ borderBottom: "1.5px solid #000000" }}>
+                        <th style={{ padding: "6px 0", textAlign: "left", width: "60%" }}>Fecha</th>
+                        <th style={{ padding: "6px 0", textAlign: "right", width: "40%", fontWeight: "bold" }}>Monto</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {dailyBreakdown.length === 0 ? (
+                        <tr>
+                          <td colSpan={2} style={{ padding: "15px 0", textAlign: "center" }}>
+                            Sin actividad registrada.
+                          </td>
+                        </tr>
+                      ) : (
+                        dailyBreakdown.map(d => (
+                          <tr key={d.dk} style={{ borderBottom: "1px solid #e0e0e0" }}>
+                            <td style={{ padding: "6px 0" }}>{d.dateLabel}</td>
+                            <td style={{ padding: "6px 0", textAlign: "right", fontWeight: "bold" }}>{fmt(d.comision)}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+
+                  {/* Print Summary Box */}
+                  <div style={{ 
+                    borderTop: "2.5px solid #000000", 
+                    paddingTop: "10px", 
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    pageBreakInside: "avoid"
+                  }}>
+                    <span style={{ fontWeight: "bold", fontSize: "13px" }}>SUELDO NETO:</span>
+                    <span style={{ fontWeight: "bold", fontSize: "18px" }}>{fmt(stats.comision)}</span>
+                  </div>
+                </div>
+              </div>,
+              document.body
+            )}
+          </>
+        )
+      })()}
     </div>
   )
 }
