@@ -5,17 +5,22 @@ import { GhostBtn, SolidBtn } from "../ui/index.jsx"
 
 // ─── Config View ──────────────────────────────────────────────────────────────
 
-export default function ConfigView({ config, setConfig, allData, gastos, sueldos, clientes }) {
+export default function ConfigView({ config, setConfig, allData, gastos, sueldos, clientes, onLogout }) {
   const [seccion, setSeccion] = useState("empresa");
   const [emojiPicker,  setEmojiPicker]  = useState(null)
   const [svcFilter,    setSvcFilter]    = useState({ cat:"all", search:"" })
   const [newSvcModal,  setNewSvcModal]  = useState(false)
-  const [newSvc,       setNewSvc]       = useState({ name:"", duration:0, price:0, category:"manos", icon:"💅" })
+  const [newSvc,       setNewSvc]       = useState({ name:"", duration:0, price:0, category:"manos", icon:"💅", rama:"manos" })
+  const [newCatModal,  setNewCatModal]  = useState(false)
+  const [newCat,       setNewCat]       = useState({ label: "", icon: "🌟" })
+  const [newRamaModal, setNewRamaModal] = useState(false)
+  const [newRama,      setNewRama]      = useState({ label: "" })
+  const [dropdownOpen, setDropdownOpen] = useState(false)
 
   // Safety guard
   const profs    = config?.professionals || []
   const svcs     = config?.services     || []
-
+  
   // Dynamic categories — merge default + custom ones from config
   const CAT_OPTIONS = [
     ...CAT_OPTIONS_DEFAULT,
@@ -23,11 +28,18 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
   ]
 
   const addCustomCategory = () => {
-    const label = prompt("Nombre de la nueva categoría:")
-    if (!label?.trim()) return
-    const icon  = prompt("Ícono (emoji):") || "🌟"
-    const id    = "custom_" + Date.now()
-    setConfig(p => ({ ...p, customCategories: [...(p.customCategories||[]), { id, label: label.trim(), icon }] }))
+    setNewCat({ label: "", icon: "🌟" })
+    setNewCatModal(true)
+  }
+
+  const saveNewCat = () => {
+    if (!newCat.label.trim()) return
+    const id = "custom_" + Date.now()
+    setConfig(p => ({
+      ...p,
+      customCategories: [...(p.customCategories || []), { id, label: newCat.label.trim(), icon: newCat.icon }]
+    }))
+    setNewCatModal(false)
   }
 
   const removeCustomCategory = (id) => {
@@ -43,7 +55,7 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
 
   const addProf = () => {
     const newId = Date.now();
-    setConfig(p => ({ ...p, professionals: [...p.professionals, { id:newId, name:"Nueva profesional", emoji:"🌸" }] }));
+    setConfig(p => ({ ...p, professionals: [...p.professionals, { id:newId, name:"Nueva profesional", emoji:"🌸", rama: "manos" }] }));
   };
 
   const removeProf = (id) => {
@@ -57,7 +69,7 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
     setConfig(p => ({ ...p, services: p.services.map(s => s.id===id ? {...s,[field]:value} : s) }));
 
   const addSvc = () => {
-    setNewSvc({ name:"", duration:0, price:0, category:"manos", icon:"💅" })
+    setNewSvc({ name:"", duration:0, price:0, category:"manos", icon:"💅", rama:"manos" })
     setNewSvcModal(true)
   }
 
@@ -71,6 +83,33 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
   const removeSvc = (id) =>
     setConfig(p => ({ ...p, services: p.services.filter(s => s.id!==id) }));
 
+  const addCustomRama = () => {
+    setNewRama({ label: "" })
+    setNewRamaModal(true)
+  }
+
+  const saveNewRama = () => {
+    if (!newRama.label.trim()) return
+    const cleanName = newRama.label.trim().toLowerCase()
+    if ((config.customRamas || []).includes(cleanName)) {
+      alert("Esta rama ya existe")
+      return
+    }
+    setConfig(p => ({
+      ...p,
+      customRamas: [...(p.customRamas || []), cleanName]
+    }))
+    setNewRamaModal(false)
+  }
+
+  const removeCustomRama = (ramaName) => {
+    if (!window.confirm(`¿Eliminar la rama "${getDatalistLabel(ramaName)}"?`)) return
+    setConfig(p => ({
+      ...p,
+      customRamas: (p.customRamas || []).filter(r => r !== ramaName)
+    }))
+  }
+
   const TABS = [
     { id:"empresa",       icon:"🏠", label:"Empresa" },
     { id:"profesionales", icon:"👩", label:"Profesionales" },
@@ -78,23 +117,85 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
     { id:"sistema",       icon:"⚙️", label:"Sistema" },
   ];
 
+  const uniqueRamas = Array.from(new Set([
+    "manos",
+    "peluqueria",
+    "estetica",
+    "pestanas",
+    ...(config.customRamas || []).map(r => String(r || "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")),
+    ...profs.map(p => String(p.rama || "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")).filter(Boolean),
+    ...svcs.map(s => String(s.rama || "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")).filter(Boolean)
+  ]))
+
+  const getDatalistLabel = (r) => {
+    const clean = String(r || "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    if (clean === "manos") return "💅 Manos"
+    if (clean === "peluqueria") return "💇‍♀️ Peluquería"
+    if (clean === "estetica") return "🧴 Estética"
+    if (clean === "pestanas") return "👁️ Pestañas"
+    return r.charAt(0).toUpperCase() + r.slice(1)
+  }
+
   return (
     <div style={{ maxWidth:860, margin:"0 auto", padding:"16px 12px 100px" }}>
 
+
       {/* Section tabs */}
-      <div style={{ display:"flex", gap:6, marginBottom:28, flexWrap:"wrap" }}>
-        {TABS.map(t => (
-          <button key={t.id} onClick={()=>setSeccion(t.id)} style={{
-            padding:"8px 20px", borderRadius:22, cursor:"pointer",
-            border:`2px solid ${seccion===t.id ? C.green : C.border}`,
-            background: seccion===t.id ? `linear-gradient(135deg,${C.green},${C.greenLight})` : C.white,
-            color: seccion===t.id ? "#fff" : C.textSoft,
-            fontSize:11, letterSpacing:"1px", textTransform:"uppercase",
-            fontFamily:"Georgia,serif", fontWeight:"normal",
-            transition:"all .18s", boxShadow:seccion===t.id?`0 4px 14px ${C.shadow}`:"none",
-            minWidth:110,
-          }}>{t.icon} {t.label}</button>
-        ))}
+      <div style={{ display:"flex", gap:12, marginBottom:28, flexWrap:"wrap", alignItems:"center", justifyContent:"space-between" }}>
+        <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+          {TABS.map(t => (
+            <button key={t.id} onClick={()=>setSeccion(t.id)} style={{
+              padding:"8px 20px", borderRadius:22, cursor:"pointer",
+              border:`2px solid ${seccion===t.id ? C.green : C.border}`,
+              background: seccion===t.id ? `linear-gradient(135deg,${C.green},${C.greenLight})` : C.white,
+              color: seccion===t.id ? "#fff" : C.textSoft,
+              fontSize:11, letterSpacing:"1px", textTransform:"uppercase",
+              fontFamily:"Georgia,serif", fontWeight:"normal",
+              transition:"all .18s", boxShadow:seccion===t.id?`0 4px 14px ${C.shadow}`:"none",
+              minWidth:110,
+            }}>{t.icon} {t.label}</button>
+          ))}
+        </div>
+
+        {onLogout && (
+          <button 
+            onClick={onLogout} 
+            style={{
+              padding:"8px 20px", 
+              borderRadius:22, 
+              cursor:"pointer",
+              border:"1.5px solid #fde8e8",
+              background: "linear-gradient(135deg, #fff5f5, #ffe8e8)",
+              color: "#c04040",
+              fontSize:11, 
+              letterSpacing:"1px", 
+              textTransform:"uppercase",
+              fontFamily:"Georgia,serif", 
+              fontWeight:"bold",
+              transition:"all .18s", 
+              boxShadow:"0 2px 8px rgba(192,64,64,.06)",
+              minWidth:140,
+              display:"flex",
+              alignItems:"center",
+              justifyContent:"center",
+              gap:6
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = "linear-gradient(135deg, #c04040, #e06060)"
+              e.currentTarget.style.color = "#fff"
+              e.currentTarget.style.boxShadow = "0 4px 12px rgba(192,64,64,.2)"
+              e.currentTarget.style.borderColor = "transparent"
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = "linear-gradient(135deg, #fff5f5, #ffe8e8)"
+              e.currentTarget.style.color = "#c04040"
+              e.currentTarget.style.boxShadow = "0 2px 8px rgba(192,64,64,.06)"
+              e.currentTarget.style.borderColor = "#fde8e8"
+            }}
+          >
+            🚪 Cerrar Sesión
+          </button>
+        )}
       </div>
 
       {/* ── EMPRESA ─────────────────────────────────────────── */}
@@ -163,10 +264,23 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
                   <div style={{ fontSize:7,color:C.textSoft,marginTop:3,letterSpacing:"1px" }}>ÍCONO</div>
                 </div>
 
-                <div style={{ flex:1, minWidth:160 }}>
+                <div style={{ flex:2, minWidth:160 }}>
                   <label style={cfgLabel}>Nombre</label>
                   <input value={prof.name} onChange={e=>updateProf(prof.id,"name",e.target.value)}
                     style={cfgInput} placeholder="Nombre de la profesional" />
+                </div>
+
+                <div style={{ flex:1, minWidth:140 }}>
+                  <label style={cfgLabel}>Rama / Especialidad</label>
+                  <select
+                    value={prof.rama || "manos"}
+                    onChange={e => updateProf(prof.id, "rama", e.target.value)}
+                    style={{ ...cfgInput, cursor: "pointer" }}
+                  >
+                    {uniqueRamas.map(r => (
+                      <option key={r} value={r}>{getDatalistLabel(r)}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div style={{ display:"flex", alignItems:"center", gap:8 }}>
@@ -200,120 +314,461 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
       {seccion === "servicios" && (
         <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
 
+          {/* Custom style block for responsiveness and beautiful layout */}
+          <style>{`
+            .services-grid-header {
+              display: grid;
+              grid-template-columns: 38px minmax(120px, 1fr) 98px 90px 105px 105px 36px;
+              gap: 8px;
+              padding: 0 12px;
+              align-items: center;
+              margin-bottom: 6px;
+            }
+            .service-row-card {
+              background: ${C.white};
+              border: 1.5px solid ${C.border};
+              border-radius: 14px;
+              padding: 8px 12px;
+              display: grid;
+              grid-template-columns: 38px minmax(120px, 1fr) 98px 90px 105px 105px 36px;
+              gap: 8px;
+              align-items: center;
+              box-shadow: 0 2px 8px rgba(0,0,0,.01);
+              transition: all .2s ease;
+            }
+            .service-row-card:hover {
+              border-color: ${C.greenMint};
+              box-shadow: 0 2px 10px rgba(58,125,68,.04);
+            }
+            .service-mobile-row-top, .service-mobile-row-grid {
+              display: contents;
+            }
+            .svc-col-icon { order: 1; }
+            .svc-col-name { order: 2; }
+            .svc-col-duration { order: 3; }
+            .svc-col-price { order: 4; }
+            .svc-col-category { order: 5; }
+            .svc-col-rama { order: 6; }
+            .svc-col-remove { order: 7; }
+            @media (max-width: 768px) {
+              .services-grid-header {
+                display: none;
+              }
+              .service-row-card {
+                display: flex;
+                flex-direction: column;
+                align-items: stretch;
+                gap: 12px;
+                padding: 16px;
+              }
+              .service-mobile-row-top {
+                display: flex !important;
+                align-items: center;
+                gap: 10px;
+                width: 100%;
+              }
+              .service-mobile-row-grid {
+                display: grid !important;
+                grid-template-columns: 1fr 1fr;
+                gap: 10px;
+                width: 100%;
+              }
+              .svc-col-icon, .svc-col-name, .svc-col-duration, .svc-col-price, .svc-col-category, .svc-col-rama, .svc-col-remove {
+                order: initial;
+              }
+            }
+          `}</style>
+
           {/* Add button + filters at the top */}
-          <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
-            <button onClick={addSvc} style={{
-              padding:"9px 18px", borderRadius:12,
-              border:`2px dashed ${C.greenMint}`, background:"transparent",
-              color:C.green, fontSize:12, cursor:"pointer", fontFamily:"Georgia,serif",
-              letterSpacing:"1px", flexShrink:0,
-            }}>＋ Agregar servicio</button>
+          <div style={{ 
+            display: "flex", 
+            gap: 12, 
+            flexWrap: "wrap", 
+            alignItems: "center", 
+            background: C.white, 
+            padding: "12px 16px", 
+            borderRadius: 14, 
+            border: `1.5px solid ${C.border}`,
+            boxShadow: "0 2px 10px rgba(0,0,0,.02)",
+            marginBottom: 8
+          }}>
+            {/* Search Input */}
+            <div style={{ position: "relative", flex: "1 1 200px", minWidth: 200 }}>
+              <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: C.textSoft, fontSize: 13 }}>🔍</span>
+              <input
+                placeholder="Buscar servicios..."
+                value={svcFilter.search}
+                onChange={e => setSvcFilter(p => ({...p, search: e.target.value}))}
+                style={{
+                  ...cfgInput,
+                  paddingLeft: 32,
+                  height: 38,
+                  fontSize: 12,
+                  borderRadius: 11,
+                  borderColor: C.border,
+                  background: C.cream,
+                  transition: "all 0.2s"
+                }}
+                onFocus={e => e.currentTarget.style.borderColor = C.greenMint}
+                onBlur={e => e.currentTarget.style.borderColor = C.border}
+              />
+            </div>
 
-            <input
-              placeholder="🔍 Buscar..."
-              value={svcFilter.search}
-              onChange={e => setSvcFilter(p => ({...p, search: e.target.value}))}
-              style={{...cfgInput, flex:1, minWidth:120, fontSize:11}}
-            />
-
-            <select value={svcFilter.cat} onChange={e => setSvcFilter(p => ({...p, cat: e.target.value}))}
-              style={{...cfgInput, fontSize:11, padding:"6px 8px"}}>
+            {/* Category Filter */}
+            <select 
+              value={svcFilter.cat} 
+              onChange={e => setSvcFilter(p => ({...p, cat: e.target.value}))}
+              style={{
+                ...cfgInput,
+                width: 170,
+                height: 38,
+                fontSize: 12,
+                borderRadius: 11,
+                padding: "0 10px",
+                borderColor: C.border,
+                background: C.cream,
+                cursor: "pointer",
+                transition: "all 0.2s"
+              }}
+              onFocus={e => e.currentTarget.style.borderColor = C.greenMint}
+              onBlur={e => e.currentTarget.style.borderColor = C.border}
+            >
               <option value="all">Todas las categorías</option>
-              {CAT_OPTIONS.map(cat => <option key={cat.id} value={cat.id}>{cat.icon} {cat.label}</option>)}
+              {CAT_OPTIONS.map(cat => (
+                <option key={cat.id} value={cat.id}>{cat.icon} {cat.label}</option>
+              ))}
             </select>
-            <button onClick={addCustomCategory} style={{ padding:"8px 12px", borderRadius:10, border:`1.5px solid ${C.border}`, background:C.white, color:C.textSoft, fontSize:11, cursor:"pointer", fontFamily:"Georgia,serif", flexShrink:0 }}>＋ Categoría</button>
+
+            {/* Dropdown Menu for Nueva Rama / Nueva Categoría */}
+            <div style={{ position: "relative" }}>
+              <button 
+                onClick={() => setDropdownOpen(!dropdownOpen)} 
+                style={actionBtnStyle}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = C.greenMint; e.currentTarget.style.background = C.greenPale; e.currentTarget.style.color = C.green }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.background = C.white; e.currentTarget.style.color = C.textSoft }}
+              >
+                🌿 Nueva Rama / Categoría ▾
+              </button>
+              {dropdownOpen && (
+                <>
+                  <div 
+                    onClick={() => setDropdownOpen(false)} 
+                    style={{ position: "fixed", inset: 0, zIndex: 99 }} 
+                  />
+                  <div style={{
+                    position: "absolute",
+                    top: "calc(100% + 6px)",
+                    right: 0,
+                    zIndex: 100,
+                    background: C.white,
+                    border: `1.5px solid ${C.greenMint}`,
+                    borderRadius: 12,
+                    boxShadow: `0 8px 24px ${C.shadow}`,
+                    padding: "6px",
+                    minWidth: 170,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 4
+                  }}>
+                    <button 
+                      onClick={() => { addCustomCategory(); setDropdownOpen(false); }}
+                      style={{
+                        padding: "8px 12px",
+                        background: "transparent",
+                        border: "none",
+                        borderRadius: 8,
+                        textAlign: "left",
+                        fontSize: 11,
+                        fontWeight: "bold",
+                        color: C.textSoft,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        transition: "all .12s"
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.background = C.greenPale; e.currentTarget.style.color = C.green }}
+                      onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = C.textSoft }}
+                    >
+                      ➕ Nueva Categoría
+                    </button>
+                    <button 
+                      onClick={() => { addCustomRama(); setDropdownOpen(false); }}
+                      style={{
+                        padding: "8px 12px",
+                        background: "transparent",
+                        border: "none",
+                        borderRadius: 8,
+                        textAlign: "left",
+                        fontSize: 11,
+                        fontWeight: "bold",
+                        color: C.textSoft,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        transition: "all .12s"
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.background = C.greenPale; e.currentTarget.style.color = C.green }}
+                      onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = C.textSoft }}
+                    >
+                      🌿 Nueva Rama
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Agregar Servicio Button */}
+            <button 
+              onClick={addSvc} 
+              style={primaryBtnStyle}
+              onMouseEnter={e => { e.currentTarget.style.opacity = "0.92"; e.currentTarget.style.transform = "translateY(-1px)" }}
+              onMouseLeave={e => { e.currentTarget.style.opacity = "1"; e.currentTarget.style.transform = "none" }}
+            >
+              ✨ Agregar Servicio
+            </button>
           </div>
 
-          {/* Custom categories */}
-          {(config?.customCategories||[]).length > 0 && (
-            <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+          {/* Custom categories & custom ramas tags */}
+          {((config?.customCategories||[]).length > 0 || (config?.customRamas||[]).length > 0) && (
+            <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom: 6, padding: "0 4px" }}>
+              {/* Custom categories */}
               {(config?.customCategories||[]).map(cc => (
-                <div key={cc.id} style={{ display:"flex", alignItems:"center", gap:4, background:C.cream, border:`1px solid ${C.border}`, borderRadius:20, padding:"4px 10px" }}>
-                  <span style={{ fontSize:12 }}>{cc.icon} {cc.label}</span>
-                  <button onClick={() => removeCustomCategory(cc.id)} style={{ border:"none", background:"transparent", color:"#c04040", cursor:"pointer", fontSize:11, padding:0 }}>✕</button>
+                <div key={cc.id} style={{ display:"flex", alignItems:"center", gap:6, background:C.cream, border:`1px solid ${C.border}`, borderRadius:20, padding:"4px 12px", boxShadow: "0 1px 4px rgba(0,0,0,0.02)" }}>
+                  <span style={{ fontSize:11, color: C.text, fontWeight: "bold" }}>{cc.icon} {cc.label}</span>
+                  <button onClick={() => removeCustomCategory(cc.id)} style={{ border:"none", background:"transparent", color:"#c04040", cursor:"pointer", fontSize:11, padding:0, display: "flex", alignItems: "center" }}>✕</button>
+                </div>
+              ))}
+              
+              {/* Custom ramas */}
+              {(config?.customRamas||[]).map(r => (
+                <div key={r} style={{ display:"flex", alignItems:"center", gap:6, background:C.greenPale, border:`1px solid ${C.greenMint}`, borderRadius:20, padding:"4px 12px", boxShadow: "0 1px 4px rgba(0,0,0,0.02)" }}>
+                  <span style={{ fontSize:11, color: C.green, fontWeight: "bold" }}>🌿 {getDatalistLabel(r)}</span>
+                  <button onClick={() => removeCustomRama(r)} style={{ border:"none", background:"transparent", color:"#c04040", cursor:"pointer", fontSize:11, padding:0, display: "flex", alignItems: "center" }}>✕</button>
                 </div>
               ))}
             </div>
           )}
 
-          {/* Column headers */}
-          <div style={{ display:"grid", gridTemplateColumns:"44px minmax(100px,1fr) 80px 80px 90px 36px", gap:8, padding:"0 14px", alignItems:"center" }}>
-            {["Ícono","Nombre","Duración","Precio","Categoría",""].map((h,i)=>(
-              <div key={i} style={{ fontSize:8,letterSpacing:"1.5px",color:C.textSoft,textTransform:"uppercase" }}>{h}</div>
-            ))}
-          </div>
+          {/* Grouped Services List */}
+          {(() => {
+            const filteredSvcs = svcs.filter(svc => {
+              const matchCat = svcFilter.cat === "all" || svc.category === svcFilter.cat
+              const matchSearch = !svcFilter.search || svc.name.toLowerCase().includes(svcFilter.search.toLowerCase())
+              return matchCat && matchSearch
+            })
 
-          {svcs.filter(svc => {
-            const matchCat = svcFilter.cat === "all" || svc.category === svcFilter.cat
-            const matchSearch = !svcFilter.search || svc.name.toLowerCase().includes(svcFilter.search.toLowerCase())
-            return matchCat && matchSearch
-          }).map(svc => (
-            <div key={svc.id} style={{
-              background:C.white, border:`1px solid ${C.border}`, borderRadius:12, padding:"10px 14px",
-              display:"grid", gridTemplateColumns:"44px 1fr 90px 90px 100px 36px", gap:8, alignItems:"center",
-            }}>
-              {/* Emoji */}
-              <div onClick={()=>setEmojiPicker(emojiPicker===`svc-${svc.id}`?null:`svc-${svc.id}`)} style={{
-                width:38,height:38,borderRadius:10,cursor:"pointer",
-                background:C.cream, border:`1.5px solid ${emojiPicker===`svc-${svc.id}`?C.green:C.border}`,
-                display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,
-                transition:"all .15s",
-              }}>{svc.icon}</div>
+            // Get all unique ramas present in the filtered services
+            const servicesRamas = Array.from(new Set(filteredSvcs.map(s => String(s.rama || "manos").trim().toLowerCase())))
 
-              {/* Name */}
-              <input value={svc.name} onChange={e=>updateSvc(svc.id,"name",e.target.value)}
-                style={{...cfgInput, fontSize:11}} placeholder="Nombre del servicio" />
-
-              {/* Duration */}
-              <div style={{ display:"flex", alignItems:"center", gap:3 }}>
-                <button onClick={()=>updateSvc(svc.id,"duration",Math.max(0,(svc.duration||0)-5))}
-                  style={{ width:24,height:32,borderRadius:"7px 0 0 7px",border:`1px solid ${C.border}`,background:C.cream,color:C.textSoft,fontSize:14,cursor:"pointer",lineHeight:1 }}>−</button>
-                <div style={{ ...cfgInput, width:"46px", textAlign:"center", borderRadius:0, borderLeft:"none", borderRight:"none", padding:"6px 4px", lineHeight:"20px" }}>
-                  {svc.duration}
+            if (filteredSvcs.length === 0) {
+              return (
+                <div style={{ textAlign: "center", padding: "40px 20px", color: C.textSoft, fontSize: 13, background: C.white, borderRadius: 16, border: `1.5px solid ${C.border}` }}>
+                  📭 No se encontraron servicios con los filtros actuales.
                 </div>
-                <button onClick={()=>updateSvc(svc.id,"duration",(svc.duration||0)+5)}
-                  style={{ width:24,height:32,borderRadius:"0 7px 7px 0",border:`1px solid ${C.border}`,background:C.cream,color:C.textSoft,fontSize:14,cursor:"pointer",lineHeight:1 }}>+</button>
-                <span style={{ fontSize:9,color:C.textSoft,marginLeft:2 }}>min</span>
-              </div>
+              )
+            }
 
-              {/* Price */}
-              <div style={{ display:"flex", alignItems:"center", gap:3 }}>
-                <span style={{ fontSize:10,color:C.textSoft }}>$</span>
-                <input
-                  type="text"
-                  value={Number(svc.price).toLocaleString("es-AR")}
-                  onChange={e => {
-                    const raw = e.target.value.replace(/\./g,"").replace(/[^\d]/g,"")
-                    updateSvc(svc.id,"price", raw === "" ? 0 : parseInt(raw)||0)
-                  }}
-                  style={{...cfgInput, width:"80px", textAlign:"right"}}
-                />
-              </div>
+            return servicesRamas.map(ramaName => {
+              const ramaServices = filteredSvcs.filter(s => String(s.rama || "manos").trim().toLowerCase() === ramaName)
+              if (ramaServices.length === 0) return null
 
-              {/* Category */}
-              <select value={svc.category} onChange={e=>updateSvc(svc.id,"category",e.target.value)}
-                style={{...cfgInput, fontSize:10, padding:"6px 6px"}}>
-                {CAT_OPTIONS.map(c=><option key={c.id} value={c.id}>{c.icon} {c.label}</option>)}
-              </select>
+              return (
+                <div key={ramaName} style={{ marginBottom: 24 }}>
+                  {/* Rama Section Header */}
+                  <div style={{
+                    fontSize: 12,
+                    fontWeight: "bold",
+                    color: C.green,
+                    fontFamily: "Georgia, serif",
+                    letterSpacing: "1px",
+                    textTransform: "uppercase",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    marginTop: 18,
+                    marginBottom: 12,
+                    borderBottom: `2px solid ${C.greenPale}`,
+                    paddingBottom: 6
+                  }}>
+                    <span>{getDatalistLabel(ramaName)}</span>
+                    <span style={{
+                      fontSize: 10,
+                      fontWeight: "normal",
+                      color: C.textSoft,
+                      background: C.greenPale,
+                      padding: "2px 8px",
+                      borderRadius: 12,
+                      marginLeft: 8,
+                      textTransform: "none"
+                    }}>
+                      {ramaServices.length} {ramaServices.length === 1 ? "servicio" : "servicios"}
+                    </span>
+                  </div>
 
-              {/* Remove */}
-              <button onClick={()=>{ if(window.confirm(`¿Eliminar "${svc.name}"?`)) removeSvc(svc.id) }} style={{
-                width:32,height:32,borderRadius:"50%",border:"none",
-                background:"#fde8e8",color:"#c04040",fontSize:12,cursor:"pointer",
-              }}>✕</button>
+                  {/* Column headers */}
+                  <div className="services-grid-header">
+                    {[
+                      { label: "Ícono", align: "center" },
+                      { label: "Nombre", align: "left" },
+                      { label: "Duración", align: "center" },
+                      { label: "Precio", align: "center" },
+                      { label: "Categoría", align: "left" },
+                      { label: "Rama", align: "left" },
+                      { label: "", align: "center" }
+                    ].map((h, i) => (
+                      <div key={i} style={{ 
+                        fontSize: 8, 
+                        letterSpacing: "1.5px", 
+                        color: C.textSoft, 
+                        textTransform: "uppercase", 
+                        fontWeight: "bold",
+                        textAlign: h.align
+                      }}>{h.label}</div>
+                    ))}
+                  </div>
 
-              {/* Inline emoji picker */}
-              {emojiPicker === `svc-${svc.id}` && (
-                <div style={{ gridColumn:"1 / -1" }}>
-                  <EmojiPicker current={svc.icon} onSelect={e=>{updateSvc(svc.id,"icon",e);setEmojiPicker(null);}} />
+                  {/* Services List */}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {ramaServices.map(svc => (
+                      <div key={svc.id} className="service-row-card">
+                        
+                        <div className="service-mobile-row-top">
+                          {/* Emoji */}
+                          <div className="svc-col-icon" onClick={()=>setEmojiPicker(emojiPicker===`svc-${svc.id}`?null:`svc-${svc.id}`)} style={{
+                            width:38,height:38,borderRadius:10,cursor:"pointer",
+                            background:C.cream, border:`1.5px solid ${emojiPicker===`svc-${svc.id}`?C.green:C.border}`,
+                            display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,
+                            transition:"all .15s",
+                            margin: "0 auto"
+                          }}>{svc.icon}</div>
+
+                          {/* Name */}
+                          <input 
+                            className="svc-col-name"
+                            value={svc.name} 
+                            onChange={e=>updateSvc(svc.id,"name",e.target.value)}
+                            style={rowInputStyle} 
+                            placeholder="Nombre del servicio" 
+                          />
+
+                          {/* Remove button */}
+                          <div className="svc-col-remove" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            <button 
+                              onClick={() => { if (window.confirm(`¿Eliminar "${svc.name}"?`)) removeSvc(svc.id) }} 
+                              style={{
+                                width: 32,
+                                height: 32,
+                                borderRadius: "50%",
+                                border: "none",
+                                background: "#fde8e8",
+                                color: "#c04040",
+                                fontSize: 12,
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                transition: "all .15s ease-in-out"
+                              }}
+                              onMouseEnter={e => { e.currentTarget.style.background = "#c04040"; e.currentTarget.style.color = "#fff" }}
+                              onMouseLeave={e => { e.currentTarget.style.background = "#fde8e8"; e.currentTarget.style.color = "#c04040" }}
+                            >✕</button>
+                          </div>
+                        </div>
+
+                        <div className="service-mobile-row-grid">
+                          {/* Duration */}
+                          <div className="svc-col-duration" style={{ display:"flex", alignItems:"center", gap:3, justifyContent: "center" }}>
+                            <div style={{ display: "flex", alignItems: "center", border: `1.5px solid ${C.border}`, borderRadius: 9, background: C.white, overflow: "hidden", height: 34, width: "100%", maxWidth: 84 }}>
+                              <button 
+                                onClick={() => updateSvc(svc.id, "duration", Math.max(0, (svc.duration || 0) - 5))}
+                                style={{ width: 24, height: "100%", border: "none", background: C.cream, color: C.textSoft, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", outline: "none", transition: "background .15s" }}
+                                onMouseEnter={e => e.currentTarget.style.background = C.greenPale}
+                                onMouseLeave={e => e.currentTarget.style.background = C.cream}
+                              >−</button>
+                              <div style={{ flex: 1, textAlign: "center", fontSize: 11, fontWeight: "bold", color: C.text }}>
+                                {svc.duration}
+                              </div>
+                              <button 
+                                onClick={() => updateSvc(svc.id, "duration", (svc.duration || 0) + 5)}
+                                style={{ width: 24, height: "100%", border: "none", background: C.cream, color: C.textSoft, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", outline: "none", transition: "background .15s" }}
+                                onMouseEnter={e => { e.currentTarget.style.background = C.greenPale }}
+                                onMouseLeave={e => { e.currentTarget.style.background = C.cream }}
+                              >+</button>
+                            </div>
+                            <span style={{ fontSize:9, color:C.textSoft }}>min</span>
+                          </div>
+
+                          {/* Price */}
+                          <div className="svc-col-price" style={{ display: "flex", alignItems: "center", border: `1.5px solid ${C.border}`, borderRadius: 9, background: C.cream, height: 34, padding: "0 8px", width: "100%" }}>
+                            <span style={{ fontSize: 11, color: C.textSoft, fontWeight: "bold", marginRight: 4 }}>$</span>
+                            <input
+                              type="text"
+                              value={Number(svc.price).toLocaleString("es-AR")}
+                              onChange={e => {
+                                const raw = e.target.value.replace(/\./g, "").replace(/[^\d]/g, "")
+                                updateSvc(svc.id, "price", raw === "" ? 0 : parseInt(raw) || 0)
+                              }}
+                              style={{ border: "none", width: "100%", height: "100%", fontSize: 11, textAlign: "right", color: C.orange, fontWeight: "bold", background: "transparent", outline: "none", padding: 0 }}
+                            />
+                          </div>
+
+                          {/* Category */}
+                          <select 
+                            className="svc-col-category"
+                            value={svc.category} 
+                            onChange={e=>updateSvc(svc.id,"category",e.target.value)}
+                            style={{ 
+                              ...rowInputStyle, 
+                              fontSize: 10, 
+                              padding: "0 6px", 
+                              cursor: "pointer"
+                            }}
+                          >
+                            {CAT_OPTIONS.map(c=><option key={c.id} value={c.id}>{c.icon} {c.label}</option>)}
+                          </select>
+
+                          {/* Rama */}
+                          <select
+                            className="svc-col-rama"
+                            value={svc.rama || "manos"}
+                            onChange={e=>updateSvc(svc.id,"rama",e.target.value)}
+                            style={{ 
+                              ...rowInputStyle, 
+                              fontSize: 10, 
+                              color: C.green,
+                              fontWeight: "bold",
+                              cursor: "pointer"
+                            }}
+                          >
+                            {uniqueRamas.map(r => (
+                              <option key={r} value={r}>{getDatalistLabel(r)}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {/* Inline emoji picker */}
+                        {emojiPicker === `svc-${svc.id}` && (
+                          <div style={{ gridColumn:"1 / -1", marginTop: 8, width: "100%" }}>
+                            <EmojiPicker current={svc.icon} onSelect={e=>{updateSvc(svc.id,"icon",e);setEmojiPicker(null);}} />
+                          </div>
+                        )}
+
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              )}
-            </div>
-          ))}
+              )
+            })
+          })()}
 
           {/* New service modal */}
           {newSvcModal && (
-            <div style={{ position:"fixed", inset:0, zIndex:400, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(0,0,0,.4)" }}>
+            <div 
+              onClick={e => e.target === e.currentTarget && setNewSvcModal(false)}
+              style={{ position:"fixed", inset:0, zIndex:400, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(0,0,0,.4)" }}
+            >
               <div style={{ background:C.white, borderRadius:20, padding:"24px 28px", width:"min(480px,calc(100vw-32px))", boxShadow:"0 20px 60px rgba(0,0,0,.2)" }}>
                 <div style={{ fontSize:14, fontWeight:"bold", color:C.green, marginBottom:18 }}>✨ Nuevo servicio</div>
 
@@ -349,16 +804,108 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
                   </div>
                 </div>
 
-                <div style={{ marginBottom:20 }}>
+                <div style={{ marginBottom:12 }}>
                   <div style={{ fontSize:8, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase", marginBottom:6 }}>Categoría</div>
                   <select value={newSvc.category} onChange={e=>setNewSvc(p=>({...p,category:e.target.value}))} style={{...cfgInput, width:"100%", boxSizing:"border-box"}}>
                     {CAT_OPTIONS.map(cat => <option key={cat.id} value={cat.id}>{cat.icon} {cat.label}</option>)}
                   </select>
                 </div>
 
+                <div style={{ marginBottom:20 }}>
+                  <div style={{ fontSize:8, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase", marginBottom:6 }}>Rama / Especialidad</div>
+                  <select
+                    value={newSvc.rama || "manos"}
+                    onChange={e=>setNewSvc(p=>({...p,rama:e.target.value}))}
+                    style={{...cfgInput, width:"100%", boxSizing:"border-box", cursor: "pointer"}}
+                  >
+                    {uniqueRamas.map(r => (
+                      <option key={r} value={r}>{getDatalistLabel(r)}</option>
+                    ))}
+                  </select>
+                </div>
+
                 <div style={{ display:"flex", gap:10 }}>
-                  <button onClick={()=>setNewSvcModal(false)} style={{ flex:1, padding:"10px", borderRadius:12, border:`1.5px solid ${C.border}`, background:C.white, color:C.textSoft, fontSize:12, cursor:"pointer", fontFamily:"Georgia,serif" }}>Cancelar</button>
-                  <button onClick={saveNewSvc} disabled={!newSvc.name.trim()} style={{ flex:2, padding:"10px", borderRadius:12, border:"none", background:newSvc.name.trim()?`linear-gradient(135deg,${C.green},${C.greenLight})`:"#e8e8e8", color:newSvc.name.trim()?"#fff":"#bbb", fontSize:12, cursor:newSvc.name.trim()?"pointer":"not-allowed", fontFamily:"Georgia,serif" }}>✅ Guardar servicio</button>
+                  <button onClick={() => setNewSvcModal(false)} style={{ flex:1, padding:"10px", borderRadius:12, border:`1.5px solid ${C.border}`, background:C.white, color:C.textSoft, fontSize:12, cursor:"pointer", fontFamily:"Georgia,serif" }}>Cancelar</button>
+                  <button onClick={saveNewSvc} disabled={!newSvc.name.trim()} style={{ flex:2, padding:"10px", borderRadius:12, border:"none", background:newSvc.name.trim()?`linear-gradient(135deg,${C.green},${C.greenLight})`:"#e8e8e8", color:newSvc.name.trim()?"#fff":"#bbb", fontSize:12, cursor:newSvc.name.trim()?"pointer":"not-allowed", fontFamily:"Georgia,serif" }}>✅ Guardar Servicio</button>
+                </div>
+
+              </div>
+            </div>
+          )}
+
+          {/* New Category modal */}
+          {newCatModal && (
+            <div 
+              onClick={e => e.target === e.currentTarget && setNewCatModal(false)}
+              style={{ position:"fixed", inset:0, zIndex:400, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(0,0,0,.4)" }}
+            >
+              <div style={{ background:C.white, borderRadius:20, padding:"24px 28px", width:"min(400px,calc(100vw-32px))", boxShadow:"0 20px 60px rgba(0,0,0,.2)" }}>
+                <div style={{ fontSize:14, fontWeight:"bold", color:C.green, marginBottom:18 }}>➕ Nueva Categoría</div>
+
+                <div style={{ marginBottom:16 }}>
+                  <div style={{ fontSize:8, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase", marginBottom:6 }}>Nombre</div>
+                  <input 
+                    value={newCat.label} 
+                    onChange={e => setNewCat(p => ({ ...p, label: e.target.value }))} 
+                    placeholder="Ej: Cejas, Masajes..." 
+                    style={{ ...cfgInput, width:"100%", boxSizing:"border-box" }} 
+                    autoFocus 
+                  />
+                </div>
+
+                <div style={{ marginBottom:20 }}>
+                  <div style={{ fontSize:8, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase", marginBottom:6 }}>Ícono (emoji)</div>
+                  <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:10 }}>
+                    {["💅","🦶","🌸","✨","💆","💇","🧖","🪷","🌿","🫧","🌟","👁️"].map(e => (
+                      <button 
+                        key={e} 
+                        onClick={() => setNewCat(p => ({ ...p, icon: e }))} 
+                        style={{ width:36, height:36, borderRadius:10, border:`2px solid ${newCat.icon===e?C.green:C.border}`, background:newCat.icon===e?C.greenPale:"transparent", fontSize:18, cursor:"pointer" }}
+                      >
+                        {e}
+                      </button>
+                    ))}
+                  </div>
+                  <input 
+                    value={newCat.icon} 
+                    onChange={e => setNewCat(p => ({ ...p, icon: e.target.value }))} 
+                    placeholder="O escribí un emoji custom..." 
+                    style={{ ...cfgInput, width:"100%", boxSizing:"border-box" }} 
+                  />
+                </div>
+
+                <div style={{ display:"flex", gap:10 }}>
+                  <button onClick={() => setNewCatModal(false)} style={{ flex:1, padding:"10px", borderRadius:12, border:`1.5px solid ${C.border}`, background:C.white, color:C.textSoft, fontSize:12, cursor:"pointer", fontFamily:"Georgia,serif" }}>Cancelar</button>
+                  <button onClick={saveNewCat} disabled={!newCat.label.trim()} style={{ flex:2, padding:"10px", borderRadius:12, border:"none", background:newCat.label.trim()?`linear-gradient(135deg,${C.green},${C.greenLight})`:"#e8e8e8", color:newCat.label.trim()?"#fff":"#bbb", fontSize:12, cursor:newCat.label.trim()?"pointer":"not-allowed", fontFamily:"Georgia,serif" }}>✅ Guardar Categoría</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* New Rama modal */}
+          {newRamaModal && (
+            <div 
+              onClick={e => e.target === e.currentTarget && setNewRamaModal(false)}
+              style={{ position:"fixed", inset:0, zIndex:400, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(0,0,0,.4)" }}
+            >
+              <div style={{ background:C.white, borderRadius:20, padding:"24px 28px", width:"min(400px,calc(100vw-32px))", boxShadow:"0 20px 60px rgba(0,0,0,.2)" }}>
+                <div style={{ fontSize:14, fontWeight:"bold", color:C.green, marginBottom:18 }}>🌿 Nueva Rama / Especialidad</div>
+
+                <div style={{ marginBottom:20 }}>
+                  <div style={{ fontSize:8, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase", marginBottom:6 }}>Nombre de la Rama</div>
+                  <input 
+                    value={newRama.label} 
+                    onChange={e => setNewRama(p => ({ ...p, label: e.target.value }))} 
+                    placeholder="Ej: Masajes, Barbería, Depilación..." 
+                    style={{ ...cfgInput, width:"100%", boxSizing:"border-box" }} 
+                    autoFocus 
+                  />
+                  <div style={{ fontSize:9, color: C.textSoft, marginTop:6 }}>Esta especialidad se sumará como planilla al calendario y sugerencia para los profesionales y servicios.</div>
+                </div>
+
+                <div style={{ display:"flex", gap:10 }}>
+                  <button onClick={() => setNewRamaModal(false)} style={{ flex:1, padding:"10px", borderRadius:12, border:`1.5px solid ${C.border}`, background:C.white, color:C.textSoft, fontSize:12, cursor:"pointer", fontFamily:"Georgia,serif" }}>Cancelar</button>
+                  <button onClick={saveNewRama} disabled={!newRama.label.trim()} style={{ flex:2, padding:"10px", borderRadius:12, border:"none", background:newRama.label.trim()?`linear-gradient(135deg,${C.green},${C.greenLight})`:"#e8e8e8", color:newRama.label.trim()?"#fff":"#bbb", fontSize:12, cursor:newRama.label.trim()?"pointer":"not-allowed", fontFamily:"Georgia,serif" }}>🌿 Crear Rama</button>
                 </div>
               </div>
             </div>
@@ -616,4 +1163,56 @@ const cfgInput = {
   fontSize:12, color:C.text, background:C.cream,
   outline:"none", fontFamily:"Georgia,serif",
   transition:"border-color .2s",
+};
+
+const rowInputStyle = {
+  width: "100%",
+  height: 34,
+  padding: "0 10px",
+  border: `1.5px solid ${C.border}`,
+  borderRadius: 9,
+  fontSize: 11,
+  color: C.text,
+  background: C.cream,
+  outline: "none",
+  fontFamily: "Georgia, serif",
+  transition: "all 0.15s ease",
+  boxSizing: "border-box"
+};
+
+const actionBtnStyle = {
+  padding: "0 14px", 
+  height: 38, 
+  borderRadius: 11, 
+  border: `1.5px solid ${C.border}`, 
+  background: C.white, 
+  color: C.textSoft, 
+  fontSize: 11, 
+  fontWeight: "bold", 
+  cursor: "pointer", 
+  fontFamily: "Georgia, serif", 
+  letterSpacing: "0.5px", 
+  display: "flex", 
+  alignItems: "center", 
+  gap: 6, 
+  transition: "all .18s ease"
+};
+
+const primaryBtnStyle = {
+  padding: "0 18px", 
+  height: 38, 
+  borderRadius: 11, 
+  border: "none", 
+  background: `linear-gradient(135deg, ${C.green}, ${C.greenLight})`, 
+  color: "#fff", 
+  fontSize: 11, 
+  fontWeight: "bold", 
+  cursor: "pointer", 
+  fontFamily: "Georgia, serif", 
+  letterSpacing: "0.5px", 
+  display: "flex", 
+  alignItems: "center", 
+  gap: 6, 
+  boxShadow: `0 4px 14px ${C.green}22`, 
+  transition: "all .18s ease"
 };

@@ -1,22 +1,22 @@
 import { C } from './colors.js'
 
 export const PROFESSIONALS_DEFAULT = [
-  { id: 1, name: "Valentina", emoji: "🌿" },
-  { id: 2, name: "Sofía",     emoji: "🌸" },
-  { id: 3, name: "Camila",    emoji: "✨" },
-  { id: 4, name: "Isabella",  emoji: "🍃" },
-  { id: 5, name: "Luciana",   emoji: "🌺" },
+  { id: 1, name: "Valentina", emoji: "🌿", rama: "manos" },
+  { id: 2, name: "Sofía",     emoji: "🌸", rama: "manos" },
+  { id: 3, name: "Camila",    emoji: "✨", rama: "manos" },
+  { id: 4, name: "Isabella",  emoji: "🍃", rama: "manos" },
+  { id: 5, name: "Luciana",   emoji: "🌺", rama: "manos" },
 ]
 
 export const SERVICES_DEFAULT = [
-  { id: 1, name: "Manicura clásica",        duration: 45,  price: 3500,  category: "manos", icon: "💅" },
-  { id: 2, name: "Manicura semipermanente", duration: 60,  price: 5500,  category: "manos", icon: "💎" },
-  { id: 3, name: "Nail art",                duration: 90,  price: 7500,  category: "manos", icon: "🎨" },
-  { id: 4, name: "Pedicura clásica",        duration: 60,  price: 4500,  category: "pies",  icon: "🦶" },
-  { id: 5, name: "Pedicura semipermanente", duration: 75,  price: 6500,  category: "pies",  icon: "✨" },
-  { id: 6, name: "Spa de pies",             duration: 90,  price: 8500,  category: "pies",  icon: "🌺" },
-  { id: 7, name: "Manos + Pies clásico",    duration: 90,  price: 7000,  category: "combo", icon: "🌸" },
-  { id: 8, name: "Manos + Pies semi",       duration: 120, price: 10500, category: "combo", icon: "👑" },
+  { id: 1, name: "Manicura clásica",        duration: 45,  price: 3500,  category: "manos", icon: "💅", rama: "manos" },
+  { id: 2, name: "Manicura semipermanente", duration: 60,  price: 5500,  category: "manos", icon: "💎", rama: "manos" },
+  { id: 3, name: "Nail art",                duration: 90,  price: 7500,  category: "manos", icon: "🎨", rama: "manos" },
+  { id: 4, name: "Pedicura clásica",        duration: 60,  price: 4500,  category: "pies",  icon: "🦶", rama: "manos" },
+  { id: 5, name: "Pedicura semipermanente", duration: 75,  price: 6500,  category: "pies",  icon: "✨", rama: "manos" },
+  { id: 6, name: "Spa de pies",             duration: 90,  price: 8500,  category: "pies",  icon: "🌺", rama: "manos" },
+  { id: 7, name: "Manos + Pies clásico",    duration: 90,  price: 7000,  category: "combo", icon: "🌸", rama: "manos" },
+  { id: 8, name: "Manos + Pies semi",       duration: 120, price: 10500, category: "combo", icon: "👑", rama: "manos" },
 ]
 
 export const PAYMENT_METHODS = [

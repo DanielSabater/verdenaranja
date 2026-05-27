@@ -18,6 +18,29 @@ select { appearance: auto; }
 .date-nav-pills    { display: flex !important; }
 .date-nav-compact  { display: none !important; }
 
+.header-left-container {
+  display: flex !important;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+.desktop-nav-container {
+  display: flex !important;
+  justify-content: center;
+  align-items: center;
+  flex: 1;
+}
+.header-right-container {
+  display: flex !important;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  margin-left: auto;
+  flex: 1;
+  justify-content: flex-end;
+}
+
 .main-content {
   flex: 1;
   overflow-y: auto;
@@ -32,6 +55,17 @@ select { appearance: auto; }
   .mobile-totals-strip { display: none !important; }
   .date-nav-pills      { display: none !important; }
   .date-nav-compact    { display: none !important; }
+  
+  .header-left-container {
+    flex: none;
+  }
+  .desktop-nav-container {
+    display: none !important;
+  }
+  .header-right-container {
+    flex: none;
+    margin-left: auto;
+  }
 }
 
 /* Prevent date carousel overlapping with calendar/actions island on desktop */

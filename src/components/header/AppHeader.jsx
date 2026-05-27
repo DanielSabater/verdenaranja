@@ -5,9 +5,20 @@ import { fmt, apptTotal } from "../../utils/appointments.js"
 import { AnimatedNumber } from "../ui/index.jsx"
 import { MESES_ES, todayKey, fmtDate, nextWorkDay } from "../../utils/dates.js"
 
+function getRamaEmoji(rama) {
+  const r = String(rama).toLowerCase().trim()
+  if (r.includes("mano") || r.includes("uña") || r.includes("nail")) return "💅"
+  if (r.includes("pie") || r.includes("pedi")) return "🦶"
+  if (r.includes("pelo") || r.includes("peluquer") || r.includes("hair")) return "💇‍♀️"
+  if (r.includes("estet") || r.includes("spa") || r.includes("facial") || r.includes("body")) return "🧴"
+  if (r.includes("ceja") || r.includes("pestana") || r.includes("pestaña") || r.includes("ojo") || r.includes("lash")) return "👁️"
+  return "✨"
+}
+
 export const AppHeader = memo(function AppHeader({
   config, activeView, setActiveView, saveStatus, connStatus, totalByMethod, grandTotal, grandEarnings, onLogout,
-  currentDate, setCurrentDate, calendarOpen, setCalendarOpen, calViewDate, setCalViewDate, allData, onQuickGasto
+  currentDate, setCurrentDate, calendarOpen, setCalendarOpen, calViewDate, setCalViewDate, allData, onQuickGasto,
+  professionals, activeRama, setActiveRama, ramas
 }) {
   const isMobileNav = typeof window !== "undefined" && window.innerWidth <= 1100
   const tKey = todayKey()
@@ -78,8 +89,10 @@ export const AppHeader = memo(function AppHeader({
   // Get appointments for current date by payment method
   const getApptsByMethod = (methodId) => {
     const dayData = (allData || {})[currentDate] || {}
+    const activeProfIds = new Set((professionals || []).map(p => p.id))
     return Object.values(dayData).filter(a => {
       if (!a.paid) return false
+      if (activeProfIds.size > 0 && !activeProfIds.has(a.profId)) return false
       if (a.paymentSplits?.length) return a.paymentSplits.some(s => s.methodId === methodId)
       return a.payMethod === methodId
     }).map(a => {
@@ -94,94 +107,162 @@ export const AppHeader = memo(function AppHeader({
 
   return (
     <>
+      <style>{`
+        @media (max-width: 768px) {
+          .branch-label-text {
+            display: none !important;
+          }
+        }
+      `}</style>
       <header style={{ background: C.white, borderBottom: `2px solid ${C.greenMint}`, padding: "0 14px", display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: `0 2px 16px ${C.shadow}`, position: "sticky", top: 0, zIndex: 100, minHeight: 56, gap: 8 }}>
 
-        {/* Logo */}
-        <div style={{ display: "flex", alignItems: "center", gap: 9, flexShrink: 0 }}>
-          <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#fff", border: `1px solid ${C.greenMint}`, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0, boxShadow: `0 2px 8px ${C.shadow}` }}>
-            <img src="/logo.png" alt="Logo" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        {/* Left Container (Logo + Switcher) */}
+        <div className="header-left-container">
+          {/* Logo */}
+          <div style={{ display: "flex", alignItems: "center", gap: 9, flexShrink: 0 }}>
+            <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#fff", border: `1px solid ${C.greenMint}`, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0, boxShadow: `0 2px 8px ${C.shadow}` }}>
+              <img src="/logo.png" alt="Logo" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            </div>
+            <div>
+              <div style={{ fontSize: 7, letterSpacing: "3px", color: C.orange, textTransform: "uppercase" }}>{config.empresaSubtitulo}</div>
+              <div style={{ fontSize: 15, color: C.green, letterSpacing: "1px" }}>{config.empresaNombre}</div>
+            </div>
           </div>
-          <div>
-            <div style={{ fontSize: 7, letterSpacing: "3px", color: C.orange, textTransform: "uppercase" }}>{config.empresaSubtitulo}</div>
-            <div style={{ fontSize: 15, color: C.green, letterSpacing: "1px" }}>{config.empresaNombre}</div>
+
+          {/* Spacer before switcher to center it dynamically on desktop */}
+          {activeView === "turnos" && ramas && ramas.length > 1 && <div className="desktop-nav-container" style={{ flex: 1 }} />}
+
+          {/* Dynamic Branch Switcher - Ultra clean and responsive */}
+          {activeView === "turnos" && ramas && ramas.length > 1 && (
+            <div style={{ 
+              display: "flex", 
+              gap: 4, 
+              background: C.cream, 
+              padding: 3, 
+              borderRadius: 20, 
+              border: `1.5px solid ${C.border}`, 
+              flexShrink: 0,
+              alignItems: "center"
+            }}>
+              {ramas.map(rama => {
+                const isActive = String(activeRama).trim().toLowerCase() === String(rama).trim().toLowerCase()
+                const emoji = getRamaEmoji(rama)
+                const displayName = rama.charAt(0).toUpperCase() + rama.slice(1)
+                return (
+                  <button
+                    key={rama}
+                    onClick={() => setActiveRama(rama)}
+                    style={{
+                      padding: "5px 11px",
+                      borderRadius: 16,
+                      cursor: "pointer",
+                      border: "none",
+                      background: isActive ? `linear-gradient(135deg,${C.green},${C.greenLight})` : "transparent",
+                      color: isActive ? "#fff" : C.textSoft,
+                      fontSize: 9,
+                      fontFamily: "Georgia, serif",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.5px",
+                      fontWeight: isActive ? "bold" : "normal",
+                      transition: "all .18s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 5,
+                      boxShadow: isActive ? `0 2px 6px ${C.green}22` : "none",
+                      outline: "none"
+                    }}
+                    onMouseEnter={(e) => { if (!isActive) { e.currentTarget.style.background = C.greenPale } }}
+                    onMouseLeave={(e) => { if (!isActive) { e.currentTarget.style.background = "transparent" } }}
+                  >
+                    <span style={{ fontSize: 12 }}>{emoji}</span>
+                    <span className="branch-label-text">{displayName}</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Spacer after switcher to center it dynamically on desktop */}
+          {activeView === "turnos" && ramas && ramas.length > 1 && <div className="desktop-nav-container" style={{ flex: 1 }} />}
+        </div>
+
+        {/* Center Container (Desktop Navigation centered) */}
+        <div className="desktop-nav-container">
+          <div className="desktop-nav" style={{ gap: 4 }}>
+            {VIEWS.map(v => (
+              <button key={v.id} onClick={() => setActiveView(v.id)} style={{ padding: "6px 14px", borderRadius: 20, cursor: "pointer", border: `2px solid ${activeView === v.id ? C.green : C.border}`, background: activeView === v.id ? `linear-gradient(135deg,${C.green},${C.greenLight})` : C.white, color: activeView === v.id ? "#fff" : C.textSoft, fontSize: 10, letterSpacing: "1px", textTransform: "uppercase", fontFamily: "Georgia,serif", transition: "all .18s" }}>{v.icon} {v.label}</button>
+            ))}
           </div>
         </div>
 
-        {/* Desktop nav */}
-        <div className="desktop-nav" style={{ gap: 4 }}>
-          {VIEWS.map(v => (
-            <button key={v.id} onClick={() => setActiveView(v.id)} style={{ padding: "6px 14px", borderRadius: 20, cursor: "pointer", border: `2px solid ${activeView === v.id ? C.green : C.border}`, background: activeView === v.id ? `linear-gradient(135deg,${C.green},${C.greenLight})` : C.white, color: activeView === v.id ? "#fff" : C.textSoft, fontSize: 10, letterSpacing: "1px", textTransform: "uppercase", fontFamily: "Georgia,serif", transition: "all .18s" }}>{v.icon} {v.label}</button>
-          ))}
-        </div>
-
-        {/* Desktop totals */}
-        <div className="desktop-totals" style={{ alignItems: "center", gap: 5 }}>
-          {PAYMENT_METHODS.map(pm => {
-            const t = totalByMethod(pm.id); const isActive = activeMethod === pm.id; return (
-              <div key={pm.id} style={{ position: "relative", flexShrink: 0 }} onMouseEnter={() => setActiveMethod(pm.id)} onMouseLeave={() => setActiveMethod(null)}>
-                <div
-                  style={{ background: t > 0 ? (pm.id === "mercadopago" ? C.mpPale : pm.id === "debito" ? C.amberPale : C.greenPale) : "#f7f7f7", border: `1.5px solid ${isActive ? pm.color : (t > 0 ? (pm.id === "mercadopago" ? C.mpMid : pm.id === "debito" ? C.amberMid : C.greenMint) : "#e8e8e8")}`, borderRadius: 9, padding: "5px 9px", textAlign: "center", minWidth: 110, cursor: t > 0 ? "pointer" : "default", transition: "all .15s", boxShadow: isActive ? `0 4px 12px ${pm.color}33` : "none" }}>
-                  <div style={{ fontSize: 8, color: t > 0 ? pm.color : "#bbb", textTransform: "uppercase", whiteSpace: "nowrap" }}>{pm.icon} {pm.label}</div>
-                  <div style={{ fontSize: 12, fontWeight: "bold", color: t > 0 ? pm.color : "#ccc", fontVariantNumeric: "tabular-nums" }}><AnimatedNumber value={t} formatFn={fmt} />{t > 0 && <span style={{ fontSize: 8, marginLeft: 3 }}>{isActive ? "▲" : "▼"}</span>}</div>
-                </div>
-
-                {/* Dropdown */}
-                {isActive && t > 0 && (() => {
-                  const appts = getApptsByMethod(pm.id)
-                  return (
-                    <>
-                      <div style={{ position: "absolute", top: "calc(100% + 8px)", left: "50%", transform: "translateX(-50%)", zIndex: 150, background: C.white, borderRadius: 14, border: `1.5px solid ${pm.color}44`, boxShadow: `0 8px 32px ${pm.color}22`, minWidth: 260, maxWidth: 340, padding: "12px 14px" }}>
-                        <div style={{ fontSize: 8, letterSpacing: "2px", color: pm.color, textTransform: "uppercase", marginBottom: 8 }}>{pm.icon} {pm.label} — {currentDate}</div>
-                        {appts.length === 0
-                          ? <div style={{ fontSize: 11, color: C.textSoft, textAlign: "center", padding: "8px 0" }}>Sin pagos</div>
-                          : <>
-                            {appts.map((a, i) => (
-                              <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: `1px solid ${C.greenPale}` }}>
-                                <div>
-                                  <div style={{ fontSize: 11, color: C.text, fontWeight: "bold" }}>{a.client}</div>
-                                  <div style={{ fontSize: 9, color: C.textSoft }}>{a.hour} · {(a.services || []).map(s => s.name).join(", ")}</div>
-                                </div>
-                                <div style={{ fontSize: 13, fontWeight: "bold", color: pm.color }}>{fmt(a.methodAmount)}</div>
-                              </div>
-                            ))}
-                            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, paddingTop: 6, borderTop: `2px solid ${pm.color}33` }}>
-                              <div style={{ fontSize: 9, color: C.textSoft }}>{appts.length} pago{appts.length !== 1 ? "s" : ""}</div>
-                              <div style={{ fontSize: 13, fontWeight: "bold", color: pm.color }}>{fmt(t)}</div>
-                            </div>
-                          </>
-                        }
-                      </div>
-                    </>
-                  )
-                })()}
-              </div>
-            )
-          })}
-          <div style={{ background: grandTotal > 0 ? `linear-gradient(135deg,${C.green},${C.greenLight})` : "#f0f0f0", borderRadius: 10, padding: "6px 12px", textAlign: "center", minWidth: 120, flexShrink: 0 }}>
-            <div style={{ fontSize: 7, color: grandTotal > 0 ? "rgba(255,255,255,.7)" : "#bbb", textTransform: "uppercase" }}>Total</div>
-            <div style={{ fontSize: 15, fontWeight: "bold", color: grandTotal > 0 ? C.white : "#ccc", fontVariantNumeric: "tabular-nums" }}><AnimatedNumber value={grandTotal} formatFn={fmt} /></div>
+        {/* Right Container (Metrics, savebadge & status alignment) */}
+        <div className="header-right-container">
+          {/* Save Badge */}
+          <div className="desktop-savebadge" style={{ padding: "4px 10px", borderRadius: 16, minWidth: 90, textAlign: "center", background: saveStatus === "saving" ? "#f5f5f5" : saveStatus === "saved" ? C.greenPale : saveStatus === "error" ? "#fde8e8" : "transparent", border: `1px solid ${saveStatus === "saving" ? "#ddd" : saveStatus === "saved" ? C.greenMint : saveStatus === "error" ? "#f4b0b0" : "transparent"}`, opacity: saveStatus === "idle" ? 0 : 1, transition: "opacity .3s ease" }}>
+            <span style={{ fontSize: 9, color: saveStatus === "saved" ? C.green : saveStatus === "error" ? "#c04040" : "#aaa" }}>{saveStatus === "saving" ? "⏳ Guardando..." : saveStatus === "saved" ? "✓ Guardado" : saveStatus === "error" ? "⚠️ Error" : "✓ Guardado"}</span>
           </div>
-          <div style={{ background: grandEarnings > 0 ? `linear-gradient(135deg,${C.gold},${C.goldLight})` : "#f0f0f0", borderRadius: 10, padding: "6px 12px", textAlign: "center", minWidth: 100, flexShrink: 0 }}>
-            <div style={{ fontSize: 7, color: grandEarnings > 0 ? "rgba(255,255,255,.75)" : "#bbb", textTransform: "uppercase" }}>{config.comisionPct}%</div>
-            <div style={{ fontSize: 15, fontWeight: "bold", color: grandEarnings > 0 ? C.white : "#ccc", fontVariantNumeric: "tabular-nums" }}><AnimatedNumber value={grandEarnings} formatFn={fmt} /></div>
-          </div>
-        </div>
 
-        {/* Right side */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-          {/* Connection Status */}
+          {/* Connection Status Dot - Placed immediately to the left of the payment totals (Efectivo) */}
           <div style={{ 
             width: 10, height: 10, borderRadius: "50%", 
             background: connStatus === "online" ? C.green : connStatus === "connecting" ? "#ffcc00" : "#ff4444",
             boxShadow: connStatus === "online" ? `0 0 8px ${C.green}88` : "none",
             transition: "all .3s ease",
-            cursor: "help"
+            cursor: "help",
+            flexShrink: 0
           }} title={connStatus === "online" ? "Sincronización Activa" : "Reconectando..."} />
 
-          {onLogout && <button onClick={onLogout} style={{ padding: "4px 10px", borderRadius: 16, border: `1px solid ${C.border}`, background: "transparent", color: C.textSoft, fontSize: 9, cursor: "pointer", fontFamily: "Georgia,serif" }}>Salir</button>}
-          
-          <div className="desktop-savebadge" style={{ padding: "4px 10px", borderRadius: 16, minWidth: 90, textAlign: "center", background: saveStatus === "saving" ? "#f5f5f5" : saveStatus === "saved" ? C.greenPale : saveStatus === "error" ? "#fde8e8" : "transparent", border: `1px solid ${saveStatus === "saving" ? "#ddd" : saveStatus === "saved" ? C.greenMint : saveStatus === "error" ? "#f4b0b0" : "transparent"}`, opacity: saveStatus === "idle" ? 0 : 1, transition: "opacity .3s ease" }}>
-            <span style={{ fontSize: 9, color: saveStatus === "saved" ? C.green : saveStatus === "error" ? "#c04040" : "#aaa" }}>{saveStatus === "saving" ? "⏳ Guardando..." : saveStatus === "saved" ? "✓ Guardado" : saveStatus === "error" ? "⚠️ Error" : "✓ Guardado"}</span>
+          {/* Desktop totals */}
+          <div className="desktop-totals" style={{ alignItems: "center", gap: 5 }}>
+            {PAYMENT_METHODS.map(pm => {
+              const t = totalByMethod(pm.id); const isActive = activeMethod === pm.id; return (
+                <div key={pm.id} style={{ position: "relative", flexShrink: 0 }} onMouseEnter={() => setActiveMethod(pm.id)} onMouseLeave={() => setActiveMethod(null)}>
+                  <div
+                    style={{ background: t > 0 ? (pm.id === "mercadopago" ? C.mpPale : pm.id === "debito" ? C.amberPale : C.greenPale) : "#f7f7f7", border: `1.5px solid ${isActive ? pm.color : (t > 0 ? (pm.id === "mercadopago" ? C.mpMid : pm.id === "debito" ? C.amberMid : C.greenMint) : "#e8e8e8")}`, borderRadius: 9, padding: "5px 9px", textAlign: "center", minWidth: 110, cursor: t > 0 ? "pointer" : "default", transition: "all .15s", boxShadow: isActive ? `0 4px 12px ${pm.color}33` : "none" }}>
+                    <div style={{ fontSize: 8, color: t > 0 ? pm.color : "#bbb", textTransform: "uppercase", whiteSpace: "nowrap" }}>{pm.icon} {pm.label}</div>
+                    <div style={{ fontSize: 12, fontWeight: "bold", color: t > 0 ? pm.color : "#ccc", fontVariantNumeric: "tabular-nums" }}><AnimatedNumber value={t} formatFn={fmt} />{t > 0 && <span style={{ fontSize: 8, marginLeft: 3 }}>{isActive ? "▲" : "▼"}</span>}</div>
+                  </div>
+
+                  {/* Dropdown */}
+                  {isActive && t > 0 && (() => {
+                    const appts = getApptsByMethod(pm.id)
+                    return (
+                      <>
+                        <div style={{ position: "absolute", top: "calc(100% + 8px)", left: "50%", transform: "translateX(-50%)", zIndex: 150, background: C.white, borderRadius: 14, border: `1.5px solid ${pm.color}44`, boxShadow: `0 8px 32px ${pm.color}22`, minWidth: 260, maxWidth: 340, padding: "12px 14px" }}>
+                          <div style={{ fontSize: 8, letterSpacing: "2px", color: pm.color, textTransform: "uppercase", marginBottom: 8 }}>{pm.icon} {pm.label} — {currentDate}</div>
+                          {appts.length === 0
+                            ? <div style={{ fontSize: 11, color: C.textSoft, textAlign: "center", padding: "8px 0" }}>Sin pagos</div>
+                            : <>
+                              {appts.map((a, i) => (
+                                <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: `1px solid ${C.greenPale}` }}>
+                                  <div>
+                                    <div style={{ fontSize: 11, color: C.text, fontWeight: "bold" }}>{a.client}</div>
+                                    <div style={{ fontSize: 9, color: C.textSoft }}>{a.hour} · {(a.services || []).map(s => s.name).join(", ")}</div>
+                                  </div>
+                                  <div style={{ fontSize: 13, fontWeight: "bold", color: pm.color }}>{fmt(a.methodAmount)}</div>
+                                </div>
+                              ))}
+                              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, paddingTop: 6, borderTop: `2px solid ${pm.color}33` }}>
+                                <div style={{ fontSize: 9, color: C.textSoft }}>{appts.length} pago{appts.length !== 1 ? "s" : ""}</div>
+                                <div style={{ fontSize: 13, fontWeight: "bold", color: pm.color }}>{fmt(t)}</div>
+                              </div>
+                            </>
+                          }
+                        </div>
+                      </>
+                    )
+                  })()}
+                </div>
+              )
+            })}
+            <div style={{ background: grandTotal > 0 ? `linear-gradient(135deg,${C.green},${C.greenLight})` : "#f0f0f0", borderRadius: 10, padding: "6px 12px", textAlign: "center", minWidth: 120, flexShrink: 0 }}>
+              <div style={{ fontSize: 7, color: grandTotal > 0 ? "rgba(255,255,255,.7)" : "#bbb", textTransform: "uppercase" }}>Total</div>
+              <div style={{ fontSize: 15, fontWeight: "bold", color: grandTotal > 0 ? C.white : "#ccc", fontVariantNumeric: "tabular-nums" }}><AnimatedNumber value={grandTotal} formatFn={fmt} /></div>
+            </div>
+            <div style={{ background: grandEarnings > 0 ? `linear-gradient(135deg,${C.gold},${C.goldLight})` : "#f0f0f0", borderRadius: 10, padding: "6px 12px", textAlign: "center", minWidth: 100, flexShrink: 0 }}>
+              <div style={{ fontSize: 7, color: grandEarnings > 0 ? "rgba(255,255,255,.75)" : "#bbb", textTransform: "uppercase" }}>{config.comisionPct}%</div>
+              <div style={{ fontSize: 15, fontWeight: "bold", color: grandEarnings > 0 ? C.white : "#ccc", fontVariantNumeric: "tabular-nums" }}><AnimatedNumber value={grandEarnings} formatFn={fmt} /></div>
+            </div>
           </div>
         </div>
       </header>

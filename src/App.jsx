@@ -17,6 +17,16 @@ import { Overlay, ModalHeader, Field, GhostBtn, SolidBtn, inputStyle, modalBox }
 
 const CELL_H = 100
 
+function getRamaEmoji(rama) {
+  const r = String(rama).toLowerCase().trim()
+  if (r.includes("mano") || r.includes("uña") || r.includes("nail")) return "💅"
+  if (r.includes("pie") || r.includes("pedi")) return "🦶"
+  if (r.includes("pelo") || r.includes("peluquer") || r.includes("hair")) return "💇‍♀️"
+  if (r.includes("estet") || r.includes("spa") || r.includes("facial") || r.includes("body")) return "🧴"
+  if (r.includes("ceja") || r.includes("pestana") || r.includes("pestaña") || r.includes("ojo") || r.includes("lash")) return "👁️"
+  return "✨"
+}
+
 export default function App() {
   const isMobile = useIsMobile()
   const [session, setSession] = useState(() => {
@@ -51,6 +61,29 @@ export default function App() {
     clientes, setClientes,
     remoteEdits, broadcastEditing
   } = usePersistentState(currentDate)
+
+  const [activeRama, setActiveRama] = useState("manos")
+  const ramas = useMemo(() => {
+    // Extract unique normalized ramas from professionals + custom branches in config
+    const profRamas = config?.professionals 
+      ? config.professionals.map(p => String(p.rama || "manos").trim().toLowerCase())
+      : ["manos"]
+    const customRamas = config?.customRamas || []
+    
+    const list = Array.from(new Set([
+      ...profRamas,
+      ...customRamas
+    ])).filter(Boolean)
+    
+    return list.length ? list : ["manos"]
+  }, [config.professionals, config.customRamas])
+
+  useEffect(() => {
+    const normalized = String(activeRama).trim().toLowerCase()
+    if (!ramas.includes(normalized)) {
+      setActiveRama(ramas[0] || "manos")
+    }
+  }, [ramas, activeRama])
 
   const [calendarOpen, setCalendarOpen] = useState(false)
   const [calViewDate, setCalViewDate] = useState(() => {
@@ -227,16 +260,20 @@ export default function App() {
   const resizeRef = useRef(null)
 
 
-  const professionals = config.professionals
+  const professionals = useMemo(() => {
+    const activeLower = String(activeRama).trim().toLowerCase()
+    return config.professionals.filter(p => String(p.rama || "manos").trim().toLowerCase() === activeLower)
+  }, [config.professionals, activeRama])
   const services = config.services
   const comisionPct = config.comisionPct
 
   const appointments = allData[currentDate] || {}
 
   // ── Memoized so drag state changes don't re-render header ──────────────────
+  const filteredProfsMap = useMemo(() => new Set(professionals.map(p => p.id)), [professionals])
   const paidAppts = useMemo(
-    () => Object.values(appointments).filter(a => a.paid),
-    [appointments]
+    () => Object.values(appointments).filter(a => a.paid && filteredProfsMap.has(a.profId)),
+    [appointments, filteredProfsMap]
   )
   const totalByProf = useCallback((pId) => paidAppts.filter(a => a.profId === pId).reduce((s, a) => s + apptPaidTotal(a), 0), [paidAppts])
   const earningsByProf = useCallback((pId) => totalByProf(pId) * (comisionPct / 100), [totalByProf, comisionPct])
@@ -274,7 +311,11 @@ export default function App() {
     return counts
   }, [allData])
 
+  const modalProf = modal?.profId ? config.professionals.find(p => p.id === modal.profId) : null
+  const modalProfRama = String(modalProf?.rama || "manos").trim().toLowerCase()
+
   const filteredServices = services
+    .filter(s => String(s.rama || "manos").trim().toLowerCase() === modalProfRama)
     .filter(s => (filterCat === "all" || s.category === filterCat) && s.name.toLowerCase().includes(searchTerm.toLowerCase()))
     .sort((a, b) => (serviceCounts[b.id] || 0) - (serviceCounts[a.id] || 0))
   const modalSubtotal = chosenServices.reduce((s, sv) => s + sv.price, 0)
@@ -553,6 +594,10 @@ export default function App() {
         calViewDate={calViewDate} setCalViewDate={setCalViewDate}
         allData={allData}
         onQuickGasto={() => setQuickGastoModal(true)}
+        professionals={professionals}
+        activeRama={activeRama}
+        setActiveRama={setActiveRama}
+        ramas={ramas}
       />
       <div className="main-content" style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
 
@@ -582,6 +627,7 @@ export default function App() {
                 onDelete={(key) => setDeleteKey(key)}
                 onToggleTipsRelease={onToggleTipsRelease}
                 CELL_H={CELL_H}
+                activeRama={activeRama}
               />
             </div>
           </div>
@@ -602,7 +648,7 @@ export default function App() {
           /></div>
         )}
 
-        {activeView === "config" && <div key="v-cfg" className="pv-view pv-bg" style={{ overflowY: "auto", flex: 1 }}><ConfigView config={config} setConfig={setConfig} /></div>}
+        {activeView === "config" && <div key="v-cfg" className="pv-view pv-bg" style={{ overflowY: "auto", flex: 1 }}><ConfigView config={config} setConfig={setConfig} onLogout={handleLogout} /></div>}
         {activeView === "clientes" && <div key="v-cli" className="pv-view pv-bg" style={{ overflowY: "auto", flex: 1 }}><ClientesView clientes={clientes} setClientes={setClientes} allData={allData} /></div>}
 
 

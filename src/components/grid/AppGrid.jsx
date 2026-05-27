@@ -29,6 +29,7 @@ export function AppGrid({
   currentDate,
   quickBlock,
   onToggleTipsRelease,
+  activeRama,
 }) {
   const [profPopup, setProfPopup] = useState(null)
   const [hoveredClientName, setHoveredClientName] = useState(null)
@@ -215,6 +216,34 @@ export function AppGrid({
   const activeColorObj = BLOCKED_COLORS.find(c => c.id === blockedColorConfig) || BLOCKED_COLORS[0]
   const rgbString = activeColorObj.rgb
   const alphas = getBlockedAlphas(blockedOpacityConfig)
+
+  if (orderedProfessionals.length === 0) {
+    const displayName = String(activeRama || "manos").charAt(0).toUpperCase() + String(activeRama || "manos").slice(1)
+    return (
+      <div style={{ 
+        display: "flex", 
+        flexDirection: "column", 
+        alignItems: "center", 
+        justifyContent: "center", 
+        minHeight: 400,
+        padding: 40, 
+        textAlign: "center",
+        background: C.white,
+        borderRadius: 18,
+        border: `1.5px solid ${C.border}`,
+        margin: "20px 14px 100px",
+        boxShadow: `0 4px 20px ${C.shadow}`
+      }}>
+        <div style={{ fontSize: 54, marginBottom: 16 }}>🌿</div>
+        <div style={{ fontSize: 16, fontWeight: "bold", color: C.green, fontFamily: "Georgia, serif", marginBottom: 10, letterSpacing: "0.5px" }}>
+          Planilla vacía: {displayName}
+        </div>
+        <div style={{ fontSize: 12, color: C.textSoft, maxWidth: 440, lineHeight: 1.6, marginBottom: 20 }}>
+          No hay profesionales asignadas a esta especialidad todavía. Podés asociar profesionales a esta rama desde la pestaña <strong>Configuración ➔ Profesionales</strong>.
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="grid-scroll" style={{ overflow: "auto", padding: isMobile ? "0 8px 120px 0" : "0 8px 78px", WebkitOverflowScrolling: "touch", maxHeight: "100%", scrollSnapType: isMobile ? "x mandatory" : "none", scrollPaddingLeft: 60, scrollPaddingBottom: isMobile ? 120 : 78 }}>
