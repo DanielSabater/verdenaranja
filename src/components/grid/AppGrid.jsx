@@ -395,7 +395,7 @@ export function AppGrid({
                           onDragStart={e => { if (resizePreview) { e.preventDefault(); return; } onDragStart(e, k) }}
                           onDragEnd={onDragEnd}
                           onDoubleClick={e => { if (!resizePreview) { e.stopPropagation(); onEdit(k, appointments[k]); } }}
-                          className={`appt-card${appt.isBlocked ? " blocked" : (appt.paid ? " paid" : " unpaid")}${isCurrentTurn && !isDragging && !isResizeStart ? " current" : ""}${hoveredClientName && appt.client === hoveredClientName ? " force-hover" : ""}`}
+                          className={`appt-card${appt.isBlocked ? " blocked" : (appt.isNote ? " note" : (appt.paid ? " paid" : " unpaid"))}${isCurrentTurn && !isDragging && !isResizeStart ? " current" : ""}${hoveredClientName && appt.client === hoveredClientName ? " force-hover" : ""}`}
                           style={{
                             height: "100%", borderRadius: 9,
                             background: appt.isBlocked
@@ -406,21 +406,29 @@ export function AppGrid({
                                   rgba(${rgbString}, ${alphas.a2}) 10px,
                                   rgba(${rgbString}, ${alphas.a2}) 20px
                                 )`
-                              : appt.paid
-                                ? `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Ctext x='50%25' y='50%25' font-size='18' fill='%233a7d44' opacity='0.1' text-anchor='middle' dominant-baseline='middle' transform='rotate(-25 30 30)'%3E$ %3C/text%3E%3C/svg%3E"), linear-gradient(135deg,${C.greenPale},#d8f0dc)`
-                                : `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Ctext x='50%25' y='50%25' font-size='14' fill='%23e8793a' opacity='0.08' text-anchor='middle' dominant-baseline='middle' transform='rotate(-20 30 30)'%3E🕒%3C/text%3E%3C/svg%3E"), linear-gradient(135deg,${C.orangePale},#fde8d4)`,
+                              : appt.isNote
+                                ? "linear-gradient(135deg, #fffbeb, #fff3bf)"
+                                : appt.paid
+                                  ? `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Ctext x='50%25' y='50%25' font-size='18' fill='%233a7d44' opacity='0.1' text-anchor='middle' dominant-baseline='middle' transform='rotate(-25 30 30)'%3E$ %3C/text%3E%3C/svg%3E"), linear-gradient(135deg,${C.greenPale},#d8f0dc)`
+                                  : `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Ctext x='50%25' y='50%25' font-size='14' fill='%23e8793a' opacity='0.08' text-anchor='middle' dominant-baseline='middle' transform='rotate(-20 30 30)'%3E🕒%3C/text%3E%3C/svg%3E"), linear-gradient(135deg,${C.orangePale},#fde8d4)`,
                             border: appt.isBlocked
                               ? (config.gridStyle === "classic" ? `1px dashed rgba(${rgbString}, ${alphas.border})` : `1.5px dashed rgba(${rgbString}, ${alphas.border})`)
-                              : isResizeStart
-                                ? `1.5px solid ${C.greenLight}`
-                                : isCurrentTurn && !isDragging
-                                  ? `1.5px solid #4a90e2`
-                                  : `1.5px solid ${appt.paid ? C.greenLight : C.orangeLight}`,
+                              : appt.isNote
+                                ? "1.5px solid #ffe066"
+                                : isResizeStart
+                                  ? `1.5px solid ${C.greenLight}`
+                                  : isCurrentTurn && !isDragging
+                                    ? `1.5px solid #4a90e2`
+                                    : `1.5px solid ${appt.paid ? C.greenLight : C.orangeLight}`,
                             padding: "6px 7px 6px",
                             display: "flex", flexDirection: "column",
                             boxShadow: isDragging
                               ? `0 10px 30px rgba(58,125,68,.30)`
-                              : appt.isBlocked ? "none" : `0 2px 8px ${appt.paid ? "rgba(58,125,68,0.1)" : "rgba(232,121,58,0.1)"}`,
+                              : appt.isBlocked
+                                ? "none"
+                                : appt.isNote
+                                  ? "0 2px 8px rgba(133, 100, 4, 0.08)"
+                                  : `0 2px 8px ${appt.paid ? "rgba(58,125,68,0.1)" : "rgba(232,121,58,0.1)"}`,
                             opacity: isDragging ? 0.45 : 1,
                             transform: isDragging ? "scale(0.97)" : "scale(1)",
                             transition: isResizing ? "none" : "opacity .15s, box-shadow .15s, transform .15s",
@@ -459,21 +467,39 @@ export function AppGrid({
                           <div style={{ position: "absolute", top: 4, right: 5, fontSize: 9, color: "rgba(100,130,100,.4)", pointerEvents: "none" }}>⠿</div>
 
                           <div style={{ overflow: "hidden", marginTop: 2 }}>
-                            <div style={{ fontSize: 11, fontWeight: "bold", color: appt.isBlocked ? C.red : C.text, marginBottom: 1, paddingRight: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                              {appt.isBlocked ? "" : appt.client}
-                            </div>
-                            {!appt.isBlocked && (appt.services || []).map((sv, i) => (
-                              <div key={i} style={{ fontSize: 9, color: appt.paid ? C.green : C.orange, lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sv.icon} {sv.name}</div>
-                            ))}
-                            {appt.notes && (
-                              <div style={{ fontSize: 9, color: appt.isBlocked ? C.red : C.textSoft, fontStyle: "italic", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", opacity: appt.isBlocked ? 0.8 : 1 }}>📝 {appt.notes}</div>
-                            )}
-                            <div style={{ fontSize: 9, color: C.textSoft, marginTop: 2 }}>
-                              <span style={{ color: isResizing ? C.green : C.textSoft, fontWeight: isResizing ? "bold" : "normal", transition: "color .15s" }}>
-                                {isResizing ? `${liveHour} – ${liveEndHour}` : `${apptDur(appt)} min`}
-                              </span>
-                              {!appt.isBlocked && <>{" · "}<span style={{ color: C.orange, fontWeight: "bold" }}>{fmt(appt.paid ? apptPaidTotal(appt) : apptTotal(appt))}</span></>}
-                            </div>
+                             {appt.isNote ? (
+                               <div>
+                                 <div style={{ fontSize: 9, fontWeight: "bold", color: "#856404", display: "flex", alignItems: "center", gap: 3, marginBottom: 4 }}>
+                                   <span>📌</span> Anotación
+                                 </div>
+                                 <div style={{ fontSize: 11, color: "#856404", fontWeight: "500", lineHeight: 1.3, whiteSpace: "normal", wordBreak: "break-word" }}>
+                                   {appt.client}
+                                 </div>
+                                 <div style={{ fontSize: 9, color: "rgba(133, 100, 4, 0.7)", marginTop: 6 }}>
+                                   <span style={{ color: isResizing ? C.green : "rgba(133, 100, 4, 0.7)", fontWeight: isResizing ? "bold" : "normal", transition: "color .15s" }}>
+                                     {isResizing ? `${liveHour} – ${liveEndHour}` : `${apptDur(appt)} min`}
+                                   </span>
+                                 </div>
+                                </div>
+                             ) : (
+                               <>
+                                 <div style={{ fontSize: 11, fontWeight: "bold", color: appt.isBlocked ? C.red : C.text, marginBottom: 1, paddingRight: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                   {appt.isBlocked ? "" : appt.client}
+                                 </div>
+                                 {!appt.isBlocked && (appt.services || []).map((sv, i) => (
+                                   <div key={i} style={{ fontSize: 9, color: appt.paid ? C.green : C.orange, lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sv.icon} {sv.name}</div>
+                                 ))}
+                                 {appt.notes && (
+                                   <div style={{ fontSize: 9, color: appt.isBlocked ? C.red : C.textSoft, fontStyle: "italic", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", opacity: appt.isBlocked ? 0.8 : 1 }}>📝 {appt.notes}</div>
+                                 )}
+                                 <div style={{ fontSize: 9, color: C.textSoft, marginTop: 2 }}>
+                                   <span style={{ color: isResizing ? C.green : C.textSoft, fontWeight: isResizing ? "bold" : "normal", transition: "color .15s" }}>
+                                     {isResizing ? `${liveHour} – ${liveEndHour}` : `${apptDur(appt)} min`}
+                                   </span>
+                                   {!appt.isBlocked && <>{" · "}<span style={{ color: C.orange, fontWeight: "bold" }}>{fmt(appt.paid ? apptPaidTotal(appt) : apptTotal(appt))}</span></>}
+                                 </div>
+                               </>
+                             )}
                             {appt.createdAt && (
                               <div style={{ fontSize: 8, color: C.textSoft, marginTop: 1, opacity: .7 }}>🕐 Tomado a las {appt.createdAt}</div>
                             )}
@@ -493,13 +519,16 @@ export function AppGrid({
                           {!appt.isBlocked && (
                             <div style={{ position: "absolute", bottom: isMobile ? 4 : 6, right: isMobile ? 4 : 6, display: "flex", alignItems: "center", gap: isMobile ? 3 : 4, zIndex: 5 }}>
                               <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); onDelete(k) }} style={{ width: 22, height: 22, borderRadius: 6, border: `1px solid ${C.border}`, background: "rgba(255,255,255,.9)", color: "#c0a0a0", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>✕</button>
-                              {appt.paid
-                                ? (() => {
-                                  const pmColor = PAYMENT_METHODS.find(m => m.id === appt.payMethod)?.color || "#7a9e7a"
-                                  return <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); onPay(k) }} style={smallBtn(pmColor, isMobile)}>{isMobile ? "✏️" : "✏️ Pago"}</button>
-                                })()
-                                : <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); onPay(k) }} style={smallBtn(C.orange, isMobile)}>{isMobile ? "💰" : "💰 Abonar"}</button>
-                              }
+                              {appt.isNote ? (
+                                <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); onEdit(k, appointments[k]) }} style={smallBtn(C.green, isMobile)}>{isMobile ? "✏️" : "✏️ Editar"}</button>
+                              ) : (
+                                appt.paid
+                                  ? (() => {
+                                    const pmColor = PAYMENT_METHODS.find(m => m.id === appt.payMethod)?.color || "#7a9e7a"
+                                    return <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); onPay(k) }} style={smallBtn(pmColor, isMobile)}>{isMobile ? "✏️" : "✏️ Pago"}</button>
+                                  })()
+                                  : <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); onPay(k) }} style={smallBtn(C.orange, isMobile)}>{isMobile ? "💰" : "💰 Abonar"}</button>
+                              )}
                             </div>
                           )}
 

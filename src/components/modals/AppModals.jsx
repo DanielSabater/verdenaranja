@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { C } from "../../constants/colors.js"
 import { PAYMENT_METHODS } from "../../constants/data.js"
 import { fmt, apptTotal } from "../../utils/appointments.js"
@@ -56,6 +56,16 @@ export function AppModals({
 }) {
   const [showSug, setShowSug] = useState(false)
   const [serviceHighlightIdx, setServiceHighlightIdx] = useState(0)
+  const [isNoteMode, setIsNoteMode] = useState(false)
+  const [noteDuration, setNoteDuration] = useState(30)
+
+  useEffect(() => {
+    if (modal) {
+      const appt = modal.editKey ? appointments[modal.editKey] : null
+      setIsNoteMode(appt?.isNote || false)
+      setNoteDuration(appt?.manualDur || 30)
+    }
+  }, [modal, appointments])
 
   const safeClientes = clientes || []
   const suggestions = safeClientes.filter(cl =>
@@ -74,169 +84,259 @@ export function AppModals({
       {/* ── MODAL NUEVO / EDITAR ── */}
       {modal && (
         <Overlay onClose={() => setModal(null)}>
-          <div className="modal-sheet" style={{ ...modalBox, display: "flex", flexDirection: "column", padding: "24px", overflow: "hidden", height: 680 }}>
+          <div className="modal-sheet" style={{ ...modalBox, display: "flex", flexDirection: "column", padding: "24px", overflow: "hidden", height: isNoteMode ? "auto" : 680 }}>
             <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", justifyContent: "center", paddingRight: 4 }}>
               <div style={{ width: "100%", maxWidth: 460 }}>
                 <ModalHeader
-                  emoji={modal.editKey ? "✏️" : "🌿"}
-                  sub={modal.editKey ? "Editar turno" : "Nuevo turno"}
+                  emoji={isNoteMode ? "📌" : (modal.editKey ? "✏️" : "🌿")}
+                  sub={isNoteMode ? "Anotación / Nota" : (modal.editKey ? "Editar turno" : "Nuevo turno")}
                 >
-                  {professionals?.find(p => p.id === modal.profId)?.name} · {modal.hour} hs
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", gap: 10 }}>
+                    <span>
+                      {professionals?.find(p => p.id === modal.profId)?.name} · {modal.hour} hs
+                    </span>
+                    {!modal.editKey && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsNoteMode(!isNoteMode);
+                          setClientName("");
+                        }}
+                        style={{
+                          background: isNoteMode ? "rgba(255, 224, 102, 0.2)" : "transparent",
+                          border: `1px solid ${isNoteMode ? "#ffe066" : C.border}`,
+                          color: isNoteMode ? "#856404" : C.textSoft,
+                          borderRadius: 8,
+                          padding: "4px 8px",
+                          fontSize: 10,
+                          fontWeight: "bold",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 4,
+                          cursor: "pointer",
+                          transition: "all 0.15s",
+                          boxShadow: isNoteMode ? "0 2px 6px rgba(133, 100, 4, 0.1)" : "none"
+                        }}
+                        title={isNoteMode ? "Cambiar a Turno de Cliente" : "Cambiar a Anotación"}
+                      >
+                        📌 {isNoteMode ? "Anotación" : "Anotar"}
+                      </button>
+                    )}
+                  </div>
                 </ModalHeader>
 
-                <Field label="Nombre del cliente">
-                  <div style={{ position: "relative" }}>
-                    <input
-                      autoFocus
-                      value={clientName}
-                      onChange={e => {
-                        const capitalizeName = (str) => str.split(' ').map(word => word ? word.charAt(0).toUpperCase() + word.slice(1) : '').join(' ')
-                        setClientName(capitalizeName(e.target.value))
-                        setShowSug(true)
-                      }}
-                      placeholder="Ej: María González"
-                      style={{ ...inputStyle, paddingRight: isNewCliente ? 100 : 12 }}
-                      onFocus={() => setShowSug(true)}
-                      onBlur={() => setTimeout(() => setShowSug(false), 150)}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          document.getElementById('search-services-input')?.focus();
-                        }
-                      }}
-                    />
-                    {isNewCliente && (
-                      <button
-                        onMouseDown={saveNewCliente}
-                        style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", padding: "3px 9px", borderRadius: 8, border: "none", background: `linear-gradient(135deg,${C.green},${C.greenLight})`, color: "#fff", fontSize: 9, cursor: "pointer", fontFamily: "Georgia,serif" }}
-                      >💾 Guardar</button>
-                    )}
-                    {showSug && suggestions.length > 0 && (
-                      <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 999, background: C.white, borderRadius: 10, border: `1.5px solid ${C.greenMint}`, boxShadow: "0 8px 24px rgba(58,125,68,.14)", overflow: "hidden" }}>
-                        {suggestions.map(cl => (
-                          <div key={cl.id}
-                            onMouseDown={() => { setClientName(cl.name); setShowSug(false) }}
-                            style={{ padding: "9px 14px", cursor: "pointer", borderBottom: `1px solid ${C.greenPale}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}
-                            onMouseEnter={e => e.currentTarget.style.background = C.greenPale}
-                            onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                {isNoteMode ? (
+                  <>
+                    <Field label="Texto de la anotación">
+                      <textarea
+                        autoFocus
+                        value={clientName}
+                        onChange={e => setClientName(e.target.value)}
+                        placeholder="Ej: Almuerzo, Reunión de equipo, Traer reposición de insumos..."
+                        rows={3}
+                        style={{ ...inputStyle, resize: "vertical", fontSize: 13 }}
+                      />
+                    </Field>
+
+                    <Field label="Duración">
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                        {[30, 60, 90, 120, 180].map(dur => (
+                          <button 
+                            key={dur} 
+                            onClick={() => setNoteDuration(dur)}
+                            style={{
+                              padding: "6px 12px", borderRadius: 20, cursor: "pointer",
+                              border: `1.5px solid ${noteDuration === dur ? C.green : C.border}`,
+                              background: noteDuration === dur ? C.greenPale : C.white,
+                              color: noteDuration === dur ? C.green : C.textSoft,
+                              fontSize: 10, fontWeight: "bold", fontFamily: "Georgia, serif",
+                              transition: "all .15s"
+                            }}
                           >
-                            <div>
-                              <div style={{ fontSize: 13, color: C.text }}>{cl.name}</div>
-                              {cl.phone && <div style={{ fontSize: 10, color: C.textSoft }}>{cl.phone}</div>}
-                            </div>
-                          </div>
+                            {dur >= 60 ? `${dur / 60} h${dur % 60 !== 0 ? ` ${dur % 60}m` : ""}` : `${dur} min`}
+                          </button>
                         ))}
                       </div>
-                    )}
-                  </div>
-                  {isNewCliente && <div style={{ fontSize: 10, color: C.textSoft, marginTop: 4 }}>✨ Clienta nueva — guardá para la próxima</div>}
-                </Field>
-
-                <Field label="Observaciones">
-                  <textarea
-                    value={apptNotes}
-                    onChange={e => setApptNotes(e.target.value)}
-                    placeholder="Ej: cliente pide diseño especial, alergia a X producto..."
-                    rows={2}
-                    style={{ ...inputStyle, resize: "vertical", fontSize: 12 }}
-                  />
-                </Field>
-
-                {chosenServices.length > 0 && (
-                  <div style={{ marginBottom: 12 }}>
-                    <div style={{ fontSize: 8, letterSpacing: "2px", color: C.textSoft, textTransform: "uppercase", marginBottom: 6 }}>
-                      Servicios seleccionados
-                    </div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-                      {chosenServices.map(sv => (
-                        <div key={sv.uniqueId} style={{
-                          display: "flex", alignItems: "center", gap: 5,
-                          background: C.greenPale, border: `1px solid ${C.greenMint}`,
-                          borderRadius: 20, padding: "4px 10px", fontSize: 11, color: C.green,
-                        }}>
-                          {sv.icon} {sv.name}
-                          <span onClick={() => removeService(sv.uniqueId)} style={{ cursor: "pointer", color: "#a0b8a4", fontWeight: "bold", marginLeft: 2 }}>×</span>
-                        </div>
-                      ))}
-                    </div>
-                    <div style={{ fontSize: 11, color: C.orange, marginTop: 6, textAlign: "right" }}>
-                      {modalDuration} min · <strong>{fmt(modalSubtotal)}</strong>
-                    </div>
-                  </div>
-                )}
-
-                <Field label="Agregar servicio" style={{ marginBottom: 8 }}>
-                  <input
-                    id="search-services-input"
-                    type="text"
-                    placeholder="Buscar servicios..."
-                    value={searchTerm}
-                    onChange={e => { setSearchTerm(e.target.value); setServiceHighlightIdx(0); }}
-                    onKeyDown={e => {
-                      const list = filteredServices;
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        if (list[serviceHighlightIdx]) {
-                          toggleService(list[serviceHighlightIdx]);
-                          setSearchTerm("");
-                          setServiceHighlightIdx(0);
-                        }
-                      } else if (e.key === "ArrowDown" || (e.key === "Tab" && !e.shiftKey)) {
-                        e.preventDefault();
-                        setServiceHighlightIdx(prev => (prev + 1) % list.length);
-                      } else if (e.key === "ArrowUp" || (e.key === "Tab" && e.shiftKey)) {
-                        e.preventDefault();
-                        setServiceHighlightIdx(prev => (prev - 1 + list.length) % list.length);
-                      }
-                    }}
-                    style={{ ...inputStyle, marginBottom: 8 }}
-                  />
-                  <div style={{ display: "flex", gap: 5, marginBottom: 8, flexWrap: "wrap" }}>
-                    {["all", "manos", "pies", "combo"].map(cat => (
-                      <button key={cat} onClick={() => { setFilterCat(cat); setServiceHighlightIdx(0); }} style={{
-                        padding: "4px 9px", borderRadius: 20, cursor: "pointer",
-                        border: `1.5px solid ${filterCat === cat ? C.green : C.border}`,
-                        background: filterCat === cat ? C.greenPale : C.white,
-                        color: filterCat === cat ? C.green : C.textSoft,
-                        fontSize: 9, letterSpacing: "1px", textTransform: "uppercase",
-                        fontFamily: "Georgia,serif", transition: "all .15s",
-                      }}>
-                        {cat === "all" ? "Todos" : cat === "manos" ? "💅 Manos" : cat === "pies" ? "🦶 Pies" : "🌸 Combo"}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="service-scroll" style={{ width: "100%", display: "flex", flexDirection: "column", gap: 5, maxHeight: 240, overflowY: "auto", paddingRight: 3 }}>
-                    {filteredServices.map((s, idx) => {
-                      const isChosen = chosenServices.some(x => x.id === s.id)
-                      const isFirstMatch = idx === serviceHighlightIdx
-                      return (
-                        <div key={s.id} onClick={() => { toggleService(s); setSearchTerm(""); document.getElementById("search-services-input")?.focus(); }} style={{
-                          width: "100%",
-                          display: "flex", justifyContent: "space-between", alignItems: "center",
-                          padding: "8px 11px", borderRadius: 10, cursor: "pointer",
-                          border: `1.5px solid ${isFirstMatch ? "#4a90e2" : (isChosen ? C.green : C.border)}`,
-                          background: isFirstMatch ? "#eef6ff" : (isChosen ? C.greenPale : C.white), transition: "all .15s",
-                        }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                            <span style={{ fontSize: 15 }}>{isChosen ? "✅" : "⬜"}</span>
-                            <div>
-                              <span style={{ fontSize: 12, color: C.text }}>{s.icon} {s.name}</span>
-                              <span style={{ fontSize: 9, color: C.textSoft, marginLeft: 6 }}>{s.duration} min</span>
-                            </div>
+                    </Field>
+                  </>
+                ) : (
+                  <>
+                    <Field label="Nombre del cliente">
+                      <div style={{ position: "relative" }}>
+                        <input
+                          autoFocus
+                          value={clientName}
+                          onChange={e => {
+                            const capitalizeName = (str) => str.split(' ').map(word => word ? word.charAt(0).toUpperCase() + word.slice(1) : '').join(' ')
+                            setClientName(capitalizeName(e.target.value))
+                            setShowSug(true)
+                          }}
+                          placeholder="Ej: María González"
+                          style={{ ...inputStyle, paddingRight: isNewCliente ? 100 : 12 }}
+                          onFocus={() => setShowSug(true)}
+                          onBlur={() => setTimeout(() => setShowSug(false), 150)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              document.getElementById('search-services-input')?.focus();
+                            }
+                          }}
+                        />
+                        {isNewCliente && (
+                          <button
+                            onMouseDown={saveNewCliente}
+                            style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", padding: "3px 9px", borderRadius: 8, border: "none", background: `linear-gradient(135deg,${C.green},${C.greenLight})`, color: "#fff", fontSize: 9, cursor: "pointer", fontFamily: "Georgia,serif" }}
+                          >💾 Guardar</button>
+                        )}
+                        {showSug && suggestions.length > 0 && (
+                          <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 999, background: C.white, borderRadius: 10, border: `1.5px solid ${C.greenMint}`, boxShadow: "0 8px 24px rgba(58,125,68,.14)", overflow: "hidden" }}>
+                            {suggestions.map(cl => (
+                              <div key={cl.id}
+                                onMouseDown={() => { setClientName(cl.name); setShowSug(false) }}
+                                style={{ padding: "9px 14px", cursor: "pointer", borderBottom: `1px solid ${C.greenPale}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}
+                                onMouseEnter={e => e.currentTarget.style.background = C.greenPale}
+                                onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                              >
+                                <div>
+                                  <div style={{ fontSize: 13, color: C.text }}>{cl.name}</div>
+                                  {cl.phone && <div style={{ fontSize: 10, color: C.textSoft }}>{cl.phone}</div>}
+                                </div>
+                              </div>
+                            ))}
                           </div>
-                          <span style={{ fontSize: 12, color: C.orange, fontWeight: "bold" }}>{fmt(s.price)}</span>
+                        )}
+                      </div>
+                      {isNewCliente && <div style={{ fontSize: 10, color: C.textSoft, marginTop: 4 }}>✨ Clienta nueva — guardá para la próxima</div>}
+                    </Field>
+
+                    <Field label="Observaciones">
+                      <textarea
+                        value={apptNotes}
+                        onChange={e => setApptNotes(e.target.value)}
+                        placeholder="Ej: cliente pide diseño especial, alergia a X producto..."
+                        rows={2}
+                        style={{ ...inputStyle, resize: "vertical", fontSize: 12 }}
+                      />
+                    </Field>
+
+                    {chosenServices.length > 0 && (
+                      <div style={{ marginBottom: 12 }}>
+                        <div style={{ fontSize: 8, letterSpacing: "2px", color: C.textSoft, textTransform: "uppercase", marginBottom: 6 }}>
+                          Servicios seleccionados
                         </div>
-                      )
-                    })}
-                  </div>
-                </Field>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                          {chosenServices.map(sv => (
+                            <div key={sv.uniqueId} style={{
+                              display: "flex", alignItems: "center", gap: 5,
+                              background: C.greenPale, border: `1px solid ${C.greenMint}`,
+                              borderRadius: 20, padding: "4px 10px", fontSize: 11, color: C.green,
+                            }}>
+                              {sv.icon} {sv.name}
+                              <span onClick={() => removeService(sv.uniqueId)} style={{ cursor: "pointer", color: "#a0b8a4", fontWeight: "bold", marginLeft: 2 }}>×</span>
+                            </div>
+                          ))}
+                        </div>
+                        <div style={{ fontSize: 11, color: C.orange, marginTop: 6, textAlign: "right" }}>
+                          {modalDuration} min · <strong>{fmt(modalSubtotal)}</strong>
+                        </div>
+                      </div>
+                    )}
+
+                    <Field label="Agregar servicio" style={{ marginBottom: 8 }}>
+                      <input
+                        id="search-services-input"
+                        type="text"
+                        placeholder="Buscar servicios..."
+                        value={searchTerm}
+                        onChange={e => { setSearchTerm(e.target.value); setServiceHighlightIdx(0); }}
+                        onKeyDown={e => {
+                          const list = filteredServices;
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            if (list[serviceHighlightIdx]) {
+                              toggleService(list[serviceHighlightIdx]);
+                              setSearchTerm("");
+                              setServiceHighlightIdx(0);
+                            }
+                          } else if (e.key === "ArrowDown" || (e.key === "Tab" && !e.shiftKey)) {
+                            e.preventDefault();
+                            setServiceHighlightIdx(prev => (prev + 1) % list.length);
+                          } else if (e.key === "ArrowUp" || (e.key === "Tab" && e.shiftKey)) {
+                            e.preventDefault();
+                            setServiceHighlightIdx(prev => (prev - 1 + list.length) % list.length);
+                          }
+                        }}
+                        style={{ ...inputStyle, marginBottom: 8 }}
+                      />
+                      <div style={{ display: "flex", gap: 5, marginBottom: 8, flexWrap: "wrap" }}>
+                        {["all", "manos", "pies", "combo"].map(cat => (
+                          <button key={cat} onClick={() => { setFilterCat(cat); setServiceHighlightIdx(0); }} style={{
+                            padding: "4px 9px", borderRadius: 20, cursor: "pointer",
+                            border: `1.5px solid ${filterCat === cat ? C.green : C.border}`,
+                            background: filterCat === cat ? C.greenPale : C.white,
+                            color: filterCat === cat ? C.green : C.textSoft,
+                            fontSize: 9, letterSpacing: "1px", textTransform: "uppercase",
+                            fontFamily: "Georgia,serif", transition: "all .15s",
+                          }}>
+                            {cat === "all" ? "Todos" : cat === "manos" ? "💅 Manos" : cat === "pies" ? "🦶 Pies" : "🌸 Combo"}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="service-scroll" style={{ width: "100%", display: "flex", flexDirection: "column", gap: 5, maxHeight: 240, overflowY: "auto", paddingRight: 3 }}>
+                        {filteredServices.map((s, idx) => {
+                          const isChosen = chosenServices.some(x => x.id === s.id)
+                          const isFirstMatch = idx === serviceHighlightIdx
+                          return (
+                            <div key={s.id} onClick={() => { toggleService(s); setSearchTerm(""); document.getElementById("search-services-input")?.focus(); }} style={{
+                              width: "100%",
+                              display: "flex", justifyContent: "space-between", alignItems: "center",
+                              padding: "8px 11px", borderRadius: 10, cursor: "pointer",
+                              border: `1.5px solid ${isFirstMatch ? "#4a90e2" : (isChosen ? C.green : C.border)}`,
+                              background: isFirstMatch ? "#eef6ff" : (isChosen ? C.greenPale : C.white), transition: "all .15s",
+                            }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                                <span style={{ fontSize: 15 }}>{isChosen ? "✅" : "⬜"}</span>
+                                <div>
+                                  <span style={{ fontSize: 12, color: C.text }}>{s.icon} {s.name}</span>
+                                  <span style={{ fontSize: 9, color: C.textSoft, marginLeft: 6 }}>{s.duration} min</span>
+                                </div>
+                              </div>
+                              <span style={{ fontSize: 12, color: C.orange, fontWeight: "bold" }}>{fmt(s.price)}</span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </Field>
+                  </>
+                )}
 
               </div>
             </div>
             <div style={{ display: "flex", gap: 8, flexShrink: 0, paddingTop: 8, background: C.white }}>
               <GhostBtn onClick={() => setModal(null)}>Cancelar</GhostBtn>
-              <SolidBtn onClick={saveAppt} disabled={!clientName.trim()} color={C.green}>
-                {modal.editKey ? "✏️ Guardar cambios" : "🌿 Confirmar turno"}
+              <SolidBtn 
+                onClick={() => {
+                  if (isNoteMode) {
+                    saveAppt({
+                      isNote: true,
+                      manualDur: noteDuration,
+                      manualSlots: Math.ceil(noteDuration / 30),
+                      services: []
+                    })
+                  } else {
+                    saveAppt({
+                      isNote: false,
+                      manualDur: undefined,
+                      manualSlots: undefined
+                    })
+                  }
+                }} 
+                disabled={!clientName.trim()} 
+                color={C.green}
+              >
+                {isNoteMode 
+                  ? (modal.editKey ? "📝 Guardar anotación" : "📌 Crear anotación") 
+                  : (modal.editKey ? "🌿 Confirmar turno" : "🌿 Confirmar turno")}
               </SolidBtn>
             </div>
           </div>

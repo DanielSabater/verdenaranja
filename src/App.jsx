@@ -462,12 +462,27 @@ export default function App() {
   const toggleService = (svc) => setChosenServices(prev => [...prev, { ...svc, uniqueId: Date.now() + Math.random() }])
   const removeService = (uniqueId) => setChosenServices(prev => prev.filter(x => x.uniqueId !== uniqueId))
 
-  const saveAppt = () => {
+  const saveAppt = (extraParams = {}) => {
     if (!clientName.trim()) return
     const { profId, hour, editKey } = modal
     const k = editKey || cellKey(profId, hour)
     const prev = appointments[editKey] || {}
-    setAppointments(p => { const next = { ...p }; if (editKey && editKey !== k) delete next[editKey]; next[k] = { profId, hour, client: clientName.trim(), services: chosenServices, notes: apptNotes.trim(), paid: prev.paid || false, payMethod: prev.payMethod || null, tip: parseFloat(apptTip) || 0 }; return next })
+    setAppointments(p => {
+      const next = { ...p }
+      if (editKey && editKey !== k) delete next[editKey]
+      next[k] = {
+        profId,
+        hour,
+        client: clientName.trim(),
+        services: extraParams.isNote ? [] : chosenServices,
+        notes: extraParams.isNote ? "" : apptNotes.trim(),
+        paid: prev.paid || false,
+        payMethod: prev.payMethod || null,
+        tip: parseFloat(apptTip) || 0,
+        ...extraParams
+      }
+      return next
+    })
     setModal(null)
   }
 
