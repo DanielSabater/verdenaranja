@@ -66,9 +66,9 @@ export default function App() {
   const ramas = useMemo(() => {
     // Extract unique normalized ramas from professionals + custom branches in config
     const profRamas = config?.professionals 
-      ? config.professionals.map(p => String(p.rama || "manos").trim().toLowerCase())
+      ? config.professionals.map(p => String(p.rama || "manos").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""))
       : ["manos"]
-    const customRamas = config?.customRamas || []
+    const customRamas = (config?.customRamas || []).map(r => String(r || "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""))
     
     const list = Array.from(new Set([
       ...profRamas,
@@ -79,7 +79,7 @@ export default function App() {
   }, [config.professionals, config.customRamas])
 
   useEffect(() => {
-    const normalized = String(activeRama).trim().toLowerCase()
+    const normalized = String(activeRama).trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     if (!ramas.includes(normalized)) {
       setActiveRama(ramas[0] || "manos")
     }
@@ -261,8 +261,8 @@ export default function App() {
 
 
   const professionals = useMemo(() => {
-    const activeLower = String(activeRama).trim().toLowerCase()
-    return config.professionals.filter(p => String(p.rama || "manos").trim().toLowerCase() === activeLower)
+    const activeLower = String(activeRama).trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    return config.professionals.filter(p => String(p.rama || "manos").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") === activeLower)
   }, [config.professionals, activeRama])
   const services = config.services
   const comisionPct = config.comisionPct
@@ -312,10 +312,10 @@ export default function App() {
   }, [allData])
 
   const modalProf = modal?.profId ? config.professionals.find(p => p.id === modal.profId) : null
-  const modalProfRama = String(modalProf?.rama || "manos").trim().toLowerCase()
+  const modalProfRama = String(modalProf?.rama || "manos").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
 
   const filteredServices = services
-    .filter(s => String(s.rama || "manos").trim().toLowerCase() === modalProfRama)
+    .filter(s => String(s.rama || "manos").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") === modalProfRama)
     .filter(s => (filterCat === "all" || s.category === filterCat) && s.name.toLowerCase().includes(searchTerm.toLowerCase()))
     .sort((a, b) => (serviceCounts[b.id] || 0) - (serviceCounts[a.id] || 0))
   const modalSubtotal = chosenServices.reduce((s, sv) => s + sv.price, 0)

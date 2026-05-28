@@ -90,7 +90,7 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
 
   const saveNewRama = () => {
     if (!newRama.label.trim()) return
-    const cleanName = newRama.label.trim().toLowerCase()
+    const cleanName = newRama.label.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     if ((config.customRamas || []).includes(cleanName)) {
       alert("Esta rama ya existe")
       return
@@ -106,7 +106,7 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
     if (!window.confirm(`¿Eliminar la rama "${getDatalistLabel(ramaName)}"?`)) return
     setConfig(p => ({
       ...p,
-      customRamas: (p.customRamas || []).filter(r => r !== ramaName)
+      customRamas: (p.customRamas || []).filter(r => String(r || "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") !== ramaName)
     }))
   }
 
@@ -542,7 +542,7 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
               ))}
               
               {/* Custom ramas */}
-              {(config?.customRamas||[]).map(r => (
+              {Array.from(new Set((config?.customRamas||[]).map(r => String(r || "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")))).map(r => (
                 <div key={r} style={{ display:"flex", alignItems:"center", gap:6, background:C.greenPale, border:`1px solid ${C.greenMint}`, borderRadius:20, padding:"4px 12px", boxShadow: "0 1px 4px rgba(0,0,0,0.02)" }}>
                   <span style={{ fontSize:11, color: C.green, fontWeight: "bold" }}>🌿 {getDatalistLabel(r)}</span>
                   <button onClick={() => removeCustomRama(r)} style={{ border:"none", background:"transparent", color:"#c04040", cursor:"pointer", fontSize:11, padding:0, display: "flex", alignItems: "center" }}>✕</button>
