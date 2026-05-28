@@ -279,7 +279,7 @@ export function AppGrid({
         </thead>
         <tbody>
           {HOURS.map((hour, hIdx) => (
-            <tr key={hour} data-hour={hour} style={{ background: hIdx % 2 === 0 ? C.white : C.cream, height: 100 }}>
+            <tr key={hour} data-hour={hour} style={{ background: config.gridStyle === "classic" ? (hIdx % 2 === 0 ? C.white : C.cream) : "transparent", height: 100 }}>
               {/* Hour Cell */}
               {(() => {
                 const isActive = activeHour === hour
@@ -344,11 +344,11 @@ export function AppGrid({
                 return (
                   <td key={prof.id} rowSpan={span || 1}
                     style={{
-                      padding: 3,
+                      padding: config.gridStyle === "classic" ? 3 : "5px 6px",
                       height: appt ? `${(span || 1) * 100}px` : 100,
                       verticalAlign: "middle",
-                      border: `1px solid ${C.border}`,
-                      background: cellBg,
+                      border: config.gridStyle === "classic" ? `1px solid ${C.border}` : "none",
+                      background: config.gridStyle === "classic" ? cellBg : (cellBg || "transparent"),
                       transition: "background .12s",
                       cursor: appt ? "grab" : (draggingKey ? "default" : (isEditingRemote ? "not-allowed" : "pointer")),
                       position: "relative",
@@ -410,7 +410,7 @@ export function AppGrid({
                                 ? `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Ctext x='50%25' y='50%25' font-size='18' fill='%233a7d44' opacity='0.1' text-anchor='middle' dominant-baseline='middle' transform='rotate(-25 30 30)'%3E$ %3C/text%3E%3C/svg%3E"), linear-gradient(135deg,${C.greenPale},#d8f0dc)`
                                 : `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Ctext x='50%25' y='50%25' font-size='14' fill='%23e8793a' opacity='0.08' text-anchor='middle' dominant-baseline='middle' transform='rotate(-20 30 30)'%3E🕒%3C/text%3E%3C/svg%3E"), linear-gradient(135deg,${C.orangePale},#fde8d4)`,
                             border: appt.isBlocked
-                              ? `1px dashed rgba(${rgbString}, ${alphas.border})`
+                              ? (config.gridStyle === "classic" ? `1px dashed rgba(${rgbString}, ${alphas.border})` : `1.5px dashed rgba(${rgbString}, ${alphas.border})`)
                               : isResizeStart
                                 ? `1.5px solid ${C.greenLight}`
                                 : isCurrentTurn && !isDragging
@@ -508,9 +508,28 @@ export function AppGrid({
                         </div>
                       )
                     })() : (
-                      <div style={{ height: 42, borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center", color: isTarget && dropValid ? C.green : (isTarget ? "#e06060" : C.textSoft), fontSize: isTarget ? 22 : 10, letterSpacing: "0.5px", transition: "all .12s" }}>
-                        {isTarget ? (dropValid ? "✓" : "✕") : (hour.endsWith(":00") || hour.endsWith(":30") ? hour : "")}
-                      </div>
+                      config.gridStyle === "classic" ? (
+                        <div style={{ height: 42, borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center", color: isTarget && dropValid ? C.green : (isTarget ? "#e06060" : C.textSoft), fontSize: isTarget ? 22 : 10, letterSpacing: "0.5px", transition: "all .12s" }}>
+                          {isTarget ? (dropValid ? "✓" : "✕") : (hour.endsWith(":00") || hour.endsWith(":30") ? hour : "")}
+                        </div>
+                      ) : (
+                        <div style={{
+                          height: "100%",
+                          borderRadius: 9,
+                          border: `1.5px dashed rgba(205, 224, 208, 0.75)`,
+                          background: "rgba(255, 255, 255, 0.4)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: isTarget && dropValid ? C.green : (isTarget ? "#e06060" : C.textSoft),
+                          fontSize: isTarget ? 22 : 10,
+                          letterSpacing: "0.5px",
+                          transition: "all .15s ease",
+                          boxShadow: "inset 0 1px 3px rgba(0,0,0,0.01)"
+                        }}>
+                          {isTarget ? (dropValid ? "✓" : "✕") : (hour.endsWith(":00") || hour.endsWith(":30") ? hour : "")}
+                        </div>
+                      )
                     )}
                   </td>
                 )

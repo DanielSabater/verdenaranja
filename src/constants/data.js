@@ -69,6 +69,7 @@ export const CONFIG_DEFAULT = {
   dynamicDateColors: true,
   blockedColor:     "rojo",
   blockedOpacity:   3,
+  gridStyle:        "cards",
 }
 
 export const BLOCKED_COLORS = [

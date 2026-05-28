@@ -987,6 +987,49 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
                 <div style={{ width:20, height:20, borderRadius:"50%", background:"#fff", position:"absolute", top:2, transition:"left .2s", left:config.dynamicDateColors?"22px":"2px" }}/>
               </button>
             </div>
+
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", background:C.cream, padding:"12px 16px", borderRadius:12, border:`1.5px solid ${C.border}`, marginTop: 10 }}>
+              <div>
+                <div style={{ fontSize:12, color:C.text }}>Diseño de la grilla de turnos</div>
+                <div style={{ fontSize:10, color:C.textSoft }}>Elegí entre un diseño de rejilla clásica o tarjetas flotantes modernas</div>
+              </div>
+              <div style={{ display: "flex", gap: 6 }}>
+                <button 
+                  onClick={() => updateConfig("gridStyle", "classic")}
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: 8,
+                    border: `1.5px solid ${config.gridStyle === "classic" ? C.green : C.border}`,
+                    background: config.gridStyle === "classic" ? C.greenPale : C.white,
+                    color: config.gridStyle === "classic" ? C.green : C.textSoft,
+                    fontSize: 10,
+                    fontWeight: "bold",
+                    cursor: "pointer",
+                    fontFamily: "Georgia, serif",
+                    transition: "all 0.15s ease"
+                  }}
+                >
+                  Clásica
+                </button>
+                <button 
+                  onClick={() => updateConfig("gridStyle", "cards")}
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: 8,
+                    border: `1.5px solid ${(config.gridStyle || "cards") === "cards" ? C.green : C.border}`,
+                    background: (config.gridStyle || "cards") === "cards" ? C.greenPale : C.white,
+                    color: (config.gridStyle || "cards") === "cards" ? C.green : C.textSoft,
+                    fontSize: 10,
+                    fontWeight: "bold",
+                    cursor: "pointer",
+                    fontFamily: "Georgia, serif",
+                    transition: "all 0.15s ease"
+                  }}
+                >
+                  Tarjetas
+                </button>
+              </div>
+            </div>
           </CfgField>
 
           <CfgField label="🎨 Estética y personalización de Bloqueos">
