@@ -107,13 +107,6 @@ export const AppHeader = memo(function AppHeader({
 
   return (
     <>
-      <style>{`
-        @media (max-width: 768px) {
-          .branch-label-text {
-            display: none !important;
-          }
-        }
-      `}</style>
       <header style={{ background: C.white, borderBottom: `2px solid ${C.greenMint}`, padding: "0 14px", display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: `0 2px 16px ${C.shadow}`, position: "sticky", top: 0, zIndex: 100, minHeight: 56, gap: 8 }}>
 
         {/* Left Container (Logo + Switcher) */}
@@ -152,6 +145,7 @@ export const AppHeader = memo(function AppHeader({
                   <button
                     key={rama}
                     onClick={() => setActiveRama(rama)}
+                    className="branch-tab-btn"
                     style={{
                       padding: "5px 11px",
                       borderRadius: 16,

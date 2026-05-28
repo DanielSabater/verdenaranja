@@ -214,3 +214,14 @@ select { appearance: auto; }
     bottom: calc(94px + env(safe-area-inset-bottom)) !important;
   }
 }
+
+/* Hide branch text labels and adjust padding/gap on narrower screens to prevent overlap */
+@media (max-width: 1450px) {
+  .branch-label-text {
+    display: none !important;
+  }
+  .branch-tab-btn {
+    padding: 5px 8px !important;
+    gap: 0 !important;
+  }
+}
