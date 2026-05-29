@@ -22,6 +22,7 @@ export const AppHeader = memo(function AppHeader({
 }) {
   const isMobileNav = typeof window !== "undefined" && window.innerWidth <= 1100
   const tKey = todayKey()
+  const isLiquid = config?.liquidGlass ?? true
   const VIEWS = [
     { id: "turnos", icon: "📅", label: "Turnos" },
     { id: "contabilidad", icon: "📊", label: "Contabilidad" },
@@ -107,7 +108,7 @@ export const AppHeader = memo(function AppHeader({
 
   return (
     <>
-      <header style={{ background: C.white, borderBottom: `2px solid ${C.greenMint}`, padding: "0 14px", display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: `0 2px 16px ${C.shadow}`, position: "sticky", top: 0, zIndex: 100, minHeight: 56, gap: 8 }}>
+      <header style={{ background: isLiquid ? "rgba(255, 255, 255, 0.45)" : C.white, backdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none", WebkitBackdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none", borderBottom: isLiquid ? "none" : `1px solid ${C.border}`, padding: "0 14px", display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: isLiquid ? "0 4px 30px rgba(0, 0, 0, 0.03)" : `0 2px 10px ${C.shadow}`, position: "fixed", top: 0, left: 0, right: 0, zIndex: 100, minHeight: 56, gap: 8 }}>
 
         {/* Left Container (Logo + Switcher) */}
         <div className="header-left-container">
@@ -130,10 +131,11 @@ export const AppHeader = memo(function AppHeader({
             <div style={{ 
               display: "flex", 
               gap: 4, 
-              background: C.cream, 
+              background: isLiquid ? "rgba(255, 255, 255, 0.35)" : C.cream, 
+              backdropFilter: isLiquid ? "blur(10px)" : "none",
               padding: 3, 
               borderRadius: 20, 
-              border: `1.5px solid ${C.border}`, 
+              border: isLiquid ? "1px solid rgba(255, 255, 255, 0.5)" : `1px solid ${C.border}`, 
               flexShrink: 0,
               alignItems: "center"
             }}>
@@ -281,7 +283,7 @@ export const AppHeader = memo(function AppHeader({
       {calendarOpen && activeView === "turnos" && (
         <>
           <div onClick={() => setCalendarOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 299 }} />
-          <div onClick={e => e.stopPropagation()} style={{ position: "fixed", bottom: 76, right: 12, width: 320, maxWidth: "92vw", zIndex: 300, background: "rgba(255, 255, 255, 0.45)", backdropFilter: "blur(30px) saturate(200%)", WebkitBackdropFilter: "blur(30px) saturate(200%)", borderRadius: 16, border: "1px solid rgba(255, 255, 255, 0.55)", boxShadow: "0 8px 32px rgba(31, 38, 135, 0.08), inset 0 1px 1px rgba(255, 255, 255, 0.3)", padding: "16px 20px 20px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <div onClick={e => e.stopPropagation()} style={{ position: "fixed", bottom: 76, right: 12, width: 320, maxWidth: "92vw", zIndex: 300, background: isLiquid ? "rgba(255, 255, 255, 0.45)" : C.white, backdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none", WebkitBackdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none", borderRadius: 16, border: isLiquid ? "1px solid rgba(255, 255, 255, 0.55)" : `1.5px solid ${C.border}`, boxShadow: isLiquid ? "0 8px 32px rgba(31, 38, 135, 0.08), inset 0 1px 1px rgba(255, 255, 255, 0.3)" : `0 8px 24px ${C.shadow}`, padding: "16px 20px 20px", display: "flex", flexDirection: "column", alignItems: "center" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 14 }}>
               <button onClick={prevMonth} style={{ width: 30, height: 30, borderRadius: "50%", border: `1px solid ${C.border}`, background: C.white, color: C.green, fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>‹</button>
               <div style={{ fontSize: 14, color: C.text, fontWeight: "bold", minWidth: 160, textAlign: "center" }}>{MESES_ES[vm - 1].charAt(0).toUpperCase() + MESES_ES[vm - 1].slice(1)} {vy}</div>
@@ -295,7 +297,7 @@ export const AppHeader = memo(function AppHeader({
                 if (!day) return <div key={idx} style={{ width: 36, height: 36 }} />
                 const dow = idx % 7, isSun = dow === 6, dk = `${vy}-${String(vm).padStart(2, "0")}-${String(day).padStart(2, "0")}`, isCur = dk === currentDate, isToday = dk === tKey, hasAppts = Object.keys((allData || {})[dk] || {}).length > 0
                 return (
-                  <button key={idx} disabled={isSun} onClick={() => { setCurrentDate(dk); setCalendarOpen(false) }} style={{ width: 36, height: 36, borderRadius: 10, position: "relative", border: `1.5px solid ${isCur ? C.green : isToday ? C.greenMint : "rgba(255,255,255,0.4)"}`, background: isCur ? `linear-gradient(135deg,${C.green},${C.greenLight})` : isToday ? C.greenPale : hasAppts ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.25)", color: isCur ? "#fff" : isSun ? "#e0cece" : isToday ? C.green : C.text, fontSize: 12, fontWeight: isCur || isToday ? "bold" : "normal", cursor: isSun ? "not-allowed" : "pointer", fontFamily: "Georgia,serif", transition: "all .12s", boxShadow: "inset 0 1px 1px rgba(255,255,255,0.3)" }}>
+                  <button key={idx} disabled={isSun} onClick={() => { setCurrentDate(dk); setCalendarOpen(false) }} style={{ width: 36, height: 36, borderRadius: 10, position: "relative", border: `1.5px solid ${isCur ? C.green : isToday ? C.greenMint : (isLiquid ? "rgba(255,255,255,0.4)" : C.border)}`, background: isCur ? `linear-gradient(135deg,${C.green},${C.greenLight})` : isToday ? C.greenPale : hasAppts ? (isLiquid ? "rgba(255,255,255,0.6)" : "#f5faf5") : (isLiquid ? "rgba(255,255,255,0.25)" : C.white), color: isCur ? "#fff" : isSun ? "#e0cece" : isToday ? C.green : C.text, fontSize: 12, fontWeight: isCur || isToday ? "bold" : "normal", cursor: isSun ? "not-allowed" : "pointer", fontFamily: "Georgia,serif", transition: "all .12s", boxShadow: isLiquid ? "inset 0 1px 1px rgba(255,255,255,0.3)" : "none" }}>
                     {day}
                     {hasAppts && <div style={{ position: "absolute", bottom: 2, left: "50%", transform: "translateX(-50%)", width: 4, height: 4, borderRadius: "50%", background: isCur ? "rgba(255,255,255,.8)" : C.green }} />}
                   </button>
@@ -325,12 +327,12 @@ export const AppHeader = memo(function AppHeader({
           }}>
             {/* Island 1: Carousel & Month */}
             <div className="date-carousel-island" style={{
-              background: "rgba(255, 255, 255, 0.45)",
-              backdropFilter: "blur(30px) saturate(200%)",
-              WebkitBackdropFilter: "blur(30px) saturate(200%)",
+              background: isLiquid ? "rgba(255, 255, 255, 0.45)" : C.white,
+              backdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none",
+              WebkitBackdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none",
               borderRadius: 24,
-              boxShadow: "0 8px 32px rgba(31, 38, 135, 0.08), inset 0 1px 1px rgba(255, 255, 255, 0.3)",
-              border: "1px solid rgba(255, 255, 255, 0.55)",
+              boxShadow: isLiquid ? "0 8px 32px rgba(31, 38, 135, 0.08), inset 0 1px 1px rgba(255, 255, 255, 0.3)" : `0 4px 20px ${C.shadow}`,
+              border: isLiquid ? "1px solid rgba(255, 255, 255, 0.55)" : `1.5px solid ${C.border}`,
               display: "flex", alignItems: "center",
               padding: "6px 12px", gap: 6,
               pointerEvents: "auto",
@@ -417,12 +419,12 @@ export const AppHeader = memo(function AppHeader({
             {/* Island 2: Actions */}
             <div style={{
               position: "absolute", right: 0,
-              background: "rgba(255, 255, 255, 0.45)",
-              backdropFilter: "blur(30px) saturate(200%)",
-              WebkitBackdropFilter: "blur(30px) saturate(200%)",
+              background: isLiquid ? "rgba(255, 255, 255, 0.45)" : C.white,
+              backdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none",
+              WebkitBackdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none",
               borderRadius: 24,
-              boxShadow: "0 8px 32px rgba(31, 38, 135, 0.08), inset 0 1px 1px rgba(255, 255, 255, 0.3)",
-              border: "1px solid rgba(255, 255, 255, 0.55)",
+              boxShadow: isLiquid ? "0 8px 32px rgba(31, 38, 135, 0.08), inset 0 1px 1px rgba(255, 255, 255, 0.3)" : `0 4px 20px ${C.shadow}`,
+              border: isLiquid ? "1px solid rgba(255, 255, 255, 0.55)" : `1.5px solid ${C.border}`,
               display: "flex", alignItems: "center",
               padding: "6px", gap: 6,
               pointerEvents: "auto",
