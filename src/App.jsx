@@ -270,10 +270,10 @@ export default function App() {
   const appointments = allData[currentDate] || {}
 
   // ── Memoized so drag state changes don't re-render header ──────────────────
-  const filteredProfsMap = useMemo(() => new Set(professionals.map(p => p.id)), [professionals])
+  const allProfsMap = useMemo(() => new Set(config.professionals.map(p => p.id)), [config.professionals])
   const paidAppts = useMemo(
-    () => Object.values(appointments).filter(a => a.paid && filteredProfsMap.has(a.profId)),
-    [appointments, filteredProfsMap]
+    () => Object.values(appointments).filter(a => a.paid && allProfsMap.has(a.profId)),
+    [appointments, allProfsMap]
   )
   const totalByProf = useCallback((pId) => paidAppts.filter(a => a.profId === pId).reduce((s, a) => s + apptPaidTotal(a), 0), [paidAppts])
   const earningsByProf = useCallback((pId) => totalByProf(pId) * (comisionPct / 100), [totalByProf, comisionPct])
@@ -297,7 +297,7 @@ export default function App() {
   const grandTotal = useMemo(() => {
     return totalByMethod("efectivo") + totalByMethod("debito") + totalByMethod("mercadopago")
   }, [totalByMethod])
-  const grandEarnings = useMemo(() => professionals.reduce((s, p) => s + earningsByProf(p.id), 0), [professionals, earningsByProf])
+  const grandEarnings = useMemo(() => config.professionals.reduce((s, p) => s + earningsByProf(p.id), 0), [config.professionals, earningsByProf])
 
   const serviceCounts = useMemo(() => {
     const counts = {}
@@ -650,7 +650,7 @@ export default function App() {
 
         {activeView === "contabilidad" && (
           <div key="v-cont" className="pv-view pv-bg" style={{ overflowY: "auto", flex: 1 }}><ContabilidadView
-            allData={allData} professionals={professionals} comisionPct={comisionPct}
+            allData={allData} professionals={config.professionals} comisionPct={comisionPct}
             gastos={gastos} setGastos={setGastos}
             sueldos={sueldos} setSueldos={setSueldos}
             sueldoPeriod={sueldoPeriod} setSueldoPeriod={setSueldoPeriod}

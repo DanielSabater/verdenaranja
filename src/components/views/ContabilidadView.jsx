@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react"
+import React, { useState, useMemo, useEffect } from "react"
 import { createPortal } from "react-dom"
 import { C } from "../../constants/colors.js"
 import { PAYMENT_METHODS, GASTO_CATS } from "../../constants/data.js"
@@ -17,6 +17,18 @@ export default function ContabilidadView({
   const [receiptProf, setReceiptProf] = useState(null)
   const [activeZoomedChart, setActiveZoomedChart] = useState(null)
   const [hoveredProfId, setHoveredProfId] = useState(null)
+  const [dollarRate, setDollarRate] = useState(940)
+
+  useEffect(() => {
+    fetch("https://dolarapi.com/v1/dolares/oficial")
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.venta) {
+          setDollarRate(data.venta)
+        }
+      })
+      .catch(err => console.warn("Error fetching official dollar rate:", err))
+  }, [])
 
   const safeAllData       = allData && typeof allData === "object" && !Array.isArray(allData) ? allData : {}
   const safeGastos        = Array.isArray(gastos) ? gastos : []
@@ -426,18 +438,22 @@ export default function ContabilidadView({
           {/* Col 1: KPIs & Totals */}
           <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
             <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(200px, 1fr))", gap:14 }}>
-              {[
-                { label:"💰 Ingresos", val:totalIncome, bg:`linear-gradient(135deg,${C.green},${C.greenLight})`, sub:`${totalTurns} turnos` },
-                { label:"💸 Gastos",   val:totalGastos, bg:`linear-gradient(135deg,${C.orange},${C.orangeLight})`, sub:`${gastosRange.length} registros` },
-                { label:"📈 Resultado",val:netResult,   bg:netResult>=0?`linear-gradient(135deg,#2d6a36,${C.green})`:`linear-gradient(135deg,#a03030,#c04040)`, sub:netResult>=0?"Positivo ✅":"Negativo ⚠️" },
-                { label:"🎫 Ticket Prom.", val:avgTicket, bg:`linear-gradient(135deg,${C.gold},${C.goldLight})`, sub:"Promedio por cliente" },
-              ].map(({ label, val, bg, sub }) => (
-                <div key={label} style={{ background:bg, borderRadius:16, padding:"18px 20px", color:"#fff", boxShadow:"0 8px 24px rgba(0,0,0,.12)" }}>
-                  <div style={{ fontSize:8, letterSpacing:"1.5px", textTransform:"uppercase", opacity:.8, marginBottom:4 }}>{label}</div>
-                  <div style={{ fontSize:24, fontWeight:"bold", letterSpacing:"-1px" }}>{fmt(val)}</div>
-                  <div style={{ fontSize:9, opacity:.7, marginTop:4 }}>{sub}</div>
-                </div>
-              ))}
+              {(() => {
+                const fmtUSD = (v) => "US$ " + Math.round(v).toLocaleString("es-AR")
+                return [
+                  { label:"💰 Ingresos", val:totalIncome, bg:`linear-gradient(135deg,${C.green},${C.greenLight})`, sub:`${totalTurns} turnos` },
+                  { label:"💵 Ingresos USD", val:totalIncome / dollarRate, bg:"linear-gradient(135deg,#1d4ed8,#3b82f6)", sub:`Cotización: 1 USD = $${Math.round(dollarRate)}`, isUSD: true },
+                  { label:"💸 Gastos",   val:totalGastos, bg:`linear-gradient(135deg,${C.orange},${C.orangeLight})`, sub:`${gastosRange.length} registros` },
+                  { label:"📈 Resultado",val:netResult,   bg:netResult>=0?`linear-gradient(135deg,#2d6a36,${C.green})`:`linear-gradient(135deg,#a03030,#c04040)`, sub:netResult>=0?"Positivo ✅":"Negativo ⚠️" },
+                  { label:"🎫 Ticket Prom.", val:avgTicket, bg:`linear-gradient(135deg,${C.gold},${C.goldLight})`, sub:"Promedio por cliente" },
+                ].map(({ label, val, bg, sub, isUSD }) => (
+                  <div key={label} style={{ background:bg, borderRadius:16, padding:"18px 20px", color:"#fff", boxShadow:"0 8px 24px rgba(0,0,0,.12)" }}>
+                    <div style={{ fontSize:8, letterSpacing:"1.5px", textTransform:"uppercase", opacity:.8, marginBottom:4 }}>{label}</div>
+                    <div style={{ fontSize:24, fontWeight:"bold", letterSpacing:"-1px" }}>{isUSD ? fmtUSD(val) : fmt(val)}</div>
+                    <div style={{ fontSize:9, opacity:.7, marginTop:4 }}>{sub}</div>
+                  </div>
+                ))
+              })()}
             </div>
 
             <div style={{ background:C.white, borderRadius:16, padding:"18px 20px", border:`1px solid ${C.border}` }}>
@@ -617,11 +633,13 @@ export default function ContabilidadView({
 
             <div style={{ background:C.white, borderRadius:16, padding:"18px 20px", border:`1px solid ${C.border}` }}>
               <div style={{ fontSize:9, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase", marginBottom:14 }}>Comisiones profesionales</div>
-              {safeProfessionals.map(p => {
-                const inc = incomeByProf[p.id] || 0
-                const com = inc * (comisionPct/100)
-                const pct = (inc/maxProf)*100
-                return (
+              {[...safeProfessionals]
+                .sort((a, b) => (incomeByProf[b.id] || 0) - (incomeByProf[a.id] || 0))
+                .map(p => {
+                  const inc = incomeByProf[p.id] || 0
+                  const com = inc * (comisionPct/100)
+                  const pct = (inc/maxProf)*100
+                  return (
                   <div key={p.id} style={{ marginBottom:12 }}>
                     <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
                       <span style={{ fontSize:11, color:C.text }}>{p.emoji} {p.name}</span>

@@ -191,6 +191,7 @@ select { appearance: auto; }
 }
 .appt-card.blocked:hover, .appt-card.blocked.force-hover {
   box-shadow: none !important;
+  transform: none !important;
 }
 
 @keyframes currentTurnPulse {
