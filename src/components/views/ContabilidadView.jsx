@@ -52,6 +52,10 @@ export default function ContabilidadView({
       const y = today.getFullYear(), m = today.getMonth()
       return { rangeFrom: `${y}-${String(m+1).padStart(2,"0")}-01`, rangeTo: `${y}-${String(m+1).padStart(2,"0")}-${new Date(y,m+1,0).getDate()}` }
     }
+    if (contPeriod === "anual") {
+      const y = today.getFullYear()
+      return { rangeFrom: `${y}-01-01`, rangeTo: `${y}-12-31` }
+    }
     if (contPeriod === "custom") return { rangeFrom: contFrom, rangeTo: contTo }
     return { rangeFrom: "2000-01-01", rangeTo: "2099-12-31" }
   }, [contPeriod, contFrom, contTo])
@@ -258,6 +262,10 @@ export default function ContabilidadView({
     })
   }, [chartRange, safeAllData])
 
+  const dailyDataWorked = useMemo(() => {
+    return dailyData.filter(d => d.income > 0)
+  }, [dailyData])
+
   const maxDay = Math.max(...dailyData.map(d => d.income), 1)
 
   const turnosChart = useMemo(() => {
@@ -414,7 +422,7 @@ export default function ContabilidadView({
       {/* Period selector */}
       <div style={{ display:"flex", gap:6, marginBottom:20, flexWrap:"wrap", alignItems:"center" }}>
         <div style={{ fontSize:7, letterSpacing:"3px", color:C.orange, textTransform:"uppercase", marginRight:4 }}>Período</div>
-        {[["dia","Hoy"],["semana","Semana"],["mes","Mes"],["todo","Todo"],["custom","Custom"]].map(([id,label]) => (
+        {[["dia","Hoy"],["semana","Semana"],["mes","Mes"],["anual","Anual"],["todo","Todo"],["custom","Custom"]].map(([id,label]) => (
           <button key={id} onClick={()=>setContPeriod(id)} style={{ padding:"5px 14px", borderRadius:20, border:`1.5px solid ${contPeriod===id?C.green:C.border}`, background:contPeriod===id?`linear-gradient(135deg,${C.green},${C.greenLight})`:C.white, color:contPeriod===id?"#fff":C.textSoft, fontSize:10, cursor:"pointer", fontFamily:"Georgia,serif", transition:"all .15s" }}>{label}</button>
         ))}
         {contPeriod==="custom" && <>
@@ -530,6 +538,75 @@ export default function ContabilidadView({
                     <span>{prof.name}</span>
                   </div>
                 ))}
+              </div>
+            </div>
+
+            <div style={{ background:C.white, borderRadius:16, padding:"18px 20px", border:`1px solid ${C.border}` }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                <div style={{ fontSize:8, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase" }}>Evolución de Ingresos Consolidados (ARS vs USD)</div>
+                <div style={{ fontSize:8, color:C.green, background:"#f3faf5", padding:"2px 8px", borderRadius:8, fontWeight:"bold" }}>Sin días vacíos</div>
+              </div>
+              <div style={{ width:"100%", display:"flex", justifyContent:"center" }}>
+                {dailyDataWorked.length === 0 ? (
+                  <div style={{ fontSize:11, color:C.textSoft, padding: "40px 0", textAlign: "center" }}>Sin datos facturados en este período</div>
+                ) : (() => {
+                  const maxARS = Math.max(...dailyDataWorked.map(d => d.income), 1)
+                  const maxUSD = Math.max(...dailyDataWorked.map(d => d.income / dollarRate), 1)
+                  const innerW = chartWidth - 48
+                  
+                  // Generate points for ARS (Green line)
+                  const pointsARS = dailyDataWorked.map((d, i) => {
+                    const x = 24 + (innerW / Math.max(dailyDataWorked.length - 1, 1)) * i
+                    const y = 200 - (d.income / maxARS) * 160
+                    return `${i === 0 ? "M" : "L"} ${x} ${y}`
+                  }).join(" ")
+                  
+                  // Generate points for USD (Blue line)
+                  const pointsUSD = dailyDataWorked.map((d, i) => {
+                    const x = 24 + (innerW / Math.max(dailyDataWorked.length - 1, 1)) * i
+                    const y = 200 - ((d.income / dollarRate) / maxUSD) * 160
+                    return `${i === 0 ? "M" : "L"} ${x} ${y}`
+                  }).join(" ")
+                  
+                  return (
+                    <div style={{ width: "100%" }}>
+                      <svg viewBox={`0 0 ${chartWidth} 220`} style={{ width:"100%", maxWidth:"100%", height:220, display:"block" }}>
+                        {[...Array(6)].map((_, idx) => {
+                          const y = 20 + idx * 36
+                          return <line key={idx} x1={24} y1={y} x2={chartWidth - 24} y2={y} stroke="#f2f2f2" strokeWidth="1" />
+                        })}
+                        <path d={`M24 200 L${chartWidth - 24} 200`} stroke="#ddd" strokeWidth="1" />
+                        
+                        {/* ARS Line (Green) */}
+                        <path d={pointsARS} fill="none" stroke={C.green} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                        {dailyDataWorked.map((d, i) => {
+                          const x = 24 + (innerW / Math.max(dailyDataWorked.length - 1, 1)) * i
+                          const y = 200 - (d.income / maxARS) * 160
+                          return <circle key={`ars-${i}`} cx={x} cy={y} r="3" fill={C.green} />
+                        })}
+                        
+                        {/* USD Line (Blue) */}
+                        <path d={pointsUSD} fill="none" stroke="#1d4ed8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                        {dailyDataWorked.map((d, i) => {
+                          const x = 24 + (innerW / Math.max(dailyDataWorked.length - 1, 1)) * i
+                          const y = 200 - ((d.income / dollarRate) / maxUSD) * 160
+                          return <circle key={`usd-${i}`} cx={x} cy={y} r="3" fill="#1d4ed8" />
+                        })}
+                      </svg>
+                      
+                      <div style={{ display:"flex", justifyContent: "center", gap:16, marginTop:12, flexWrap: "wrap" }}>
+                        <div style={{ display:"flex", alignItems:"center", gap:5, fontSize:9, color:C.textSoft }}>
+                          <span style={{ width:8, height:8, borderRadius:99, background:C.green }}></span>
+                          <span>ARS (Máx: {fmt(maxARS)})</span>
+                        </div>
+                        <div style={{ display:"flex", alignItems:"center", gap:5, fontSize:9, color:C.textSoft }}>
+                          <span style={{ width:8, height:8, borderRadius:99, background:"#1d4ed8" }}></span>
+                          <span>USD (Máx: US$ {Math.round(maxUSD).toLocaleString("es-AR")})</span>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })()}
               </div>
             </div>
 
