@@ -281,7 +281,7 @@ export const AppHeader = memo(function AppHeader({
       {calendarOpen && activeView === "turnos" && (
         <>
           <div onClick={() => setCalendarOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 299 }} />
-          <div onClick={e => e.stopPropagation()} style={{ position: "fixed", bottom: 76, right: 12, width: 320, maxWidth: "92vw", zIndex: 300, background: "rgba(255, 255, 255, 0.65)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", borderRadius: 16, border: `1.5px solid rgba(205, 224, 208, 0.6)`, boxShadow: "0 12px 40px rgba(58,125,68,.18)", padding: "16px 20px 20px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <div onClick={e => e.stopPropagation()} style={{ position: "fixed", bottom: 76, right: 12, width: 320, maxWidth: "92vw", zIndex: 300, background: "rgba(255, 255, 255, 0.45)", backdropFilter: "blur(30px) saturate(200%)", WebkitBackdropFilter: "blur(30px) saturate(200%)", borderRadius: 16, border: "1px solid rgba(255, 255, 255, 0.55)", boxShadow: "0 8px 32px rgba(31, 38, 135, 0.08), inset 0 1px 1px rgba(255, 255, 255, 0.3)", padding: "16px 20px 20px", display: "flex", flexDirection: "column", alignItems: "center" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 14 }}>
               <button onClick={prevMonth} style={{ width: 30, height: 30, borderRadius: "50%", border: `1px solid ${C.border}`, background: C.white, color: C.green, fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>‹</button>
               <div style={{ fontSize: 14, color: C.text, fontWeight: "bold", minWidth: 160, textAlign: "center" }}>{MESES_ES[vm - 1].charAt(0).toUpperCase() + MESES_ES[vm - 1].slice(1)} {vy}</div>
@@ -295,7 +295,7 @@ export const AppHeader = memo(function AppHeader({
                 if (!day) return <div key={idx} style={{ width: 36, height: 36 }} />
                 const dow = idx % 7, isSun = dow === 6, dk = `${vy}-${String(vm).padStart(2, "0")}-${String(day).padStart(2, "0")}`, isCur = dk === currentDate, isToday = dk === tKey, hasAppts = Object.keys((allData || {})[dk] || {}).length > 0
                 return (
-                  <button key={idx} disabled={isSun} onClick={() => { setCurrentDate(dk); setCalendarOpen(false) }} style={{ width: 36, height: 36, borderRadius: 10, position: "relative", border: `2px solid ${isCur ? C.green : isToday ? C.greenMint : "transparent"}`, background: isCur ? `linear-gradient(135deg,${C.green},${C.greenLight})` : isToday ? C.greenPale : hasAppts ? C.cream : "transparent", color: isCur ? "#fff" : isSun ? "#e0cece" : isToday ? C.green : C.text, fontSize: 12, fontWeight: isCur || isToday ? "bold" : "normal", cursor: isSun ? "not-allowed" : "pointer", fontFamily: "Georgia,serif", transition: "all .12s" }}>
+                  <button key={idx} disabled={isSun} onClick={() => { setCurrentDate(dk); setCalendarOpen(false) }} style={{ width: 36, height: 36, borderRadius: 10, position: "relative", border: `1.5px solid ${isCur ? C.green : isToday ? C.greenMint : "rgba(255,255,255,0.4)"}`, background: isCur ? `linear-gradient(135deg,${C.green},${C.greenLight})` : isToday ? C.greenPale : hasAppts ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.25)", color: isCur ? "#fff" : isSun ? "#e0cece" : isToday ? C.green : C.text, fontSize: 12, fontWeight: isCur || isToday ? "bold" : "normal", cursor: isSun ? "not-allowed" : "pointer", fontFamily: "Georgia,serif", transition: "all .12s", boxShadow: "inset 0 1px 1px rgba(255,255,255,0.3)" }}>
                     {day}
                     {hasAppts && <div style={{ position: "absolute", bottom: 2, left: "50%", transform: "translateX(-50%)", width: 4, height: 4, borderRadius: "50%", background: isCur ? "rgba(255,255,255,.8)" : C.green }} />}
                   </button>
@@ -325,12 +325,12 @@ export const AppHeader = memo(function AppHeader({
           }}>
             {/* Island 1: Carousel & Month */}
             <div className="date-carousel-island" style={{
-              background: "rgba(255,255,255,0.75)",
-              backdropFilter: "blur(20px)",
-              WebkitBackdropFilter: "blur(20px)",
+              background: "rgba(255, 255, 255, 0.45)",
+              backdropFilter: "blur(30px) saturate(200%)",
+              WebkitBackdropFilter: "blur(30px) saturate(200%)",
               borderRadius: 24,
-              boxShadow: "0 6px 24px rgba(58,125,68,.16)",
-              border: `2px solid rgba(205, 224, 208, 0.6)`,
+              boxShadow: "0 8px 32px rgba(31, 38, 135, 0.08), inset 0 1px 1px rgba(255, 255, 255, 0.3)",
+              border: "1px solid rgba(255, 255, 255, 0.55)",
               display: "flex", alignItems: "center",
               padding: "6px 12px", gap: 6,
               pointerEvents: "auto",
@@ -417,12 +417,12 @@ export const AppHeader = memo(function AppHeader({
             {/* Island 2: Actions */}
             <div style={{
               position: "absolute", right: 0,
-              background: "rgba(255,255,255,0.75)",
-              backdropFilter: "blur(20px)",
-              WebkitBackdropFilter: "blur(20px)",
+              background: "rgba(255, 255, 255, 0.45)",
+              backdropFilter: "blur(30px) saturate(200%)",
+              WebkitBackdropFilter: "blur(30px) saturate(200%)",
               borderRadius: 24,
-              boxShadow: "0 6px 24px rgba(58,125,68,.16)",
-              border: `2px solid rgba(205, 224, 208, 0.6)`,
+              boxShadow: "0 8px 32px rgba(31, 38, 135, 0.08), inset 0 1px 1px rgba(255, 255, 255, 0.3)",
+              border: "1px solid rgba(255, 255, 255, 0.55)",
               display: "flex", alignItems: "center",
               padding: "6px", gap: 6,
               pointerEvents: "auto",

@@ -248,32 +248,33 @@ export function AppGrid({
   return (
     <div className="grid-scroll" style={{ overflow: "auto", padding: isMobile ? "0 8px 120px 0" : "0 8px 78px", WebkitOverflowScrolling: "touch", maxHeight: "100%", scrollSnapType: isMobile ? "x mandatory" : "none", scrollPaddingLeft: 60, scrollPaddingBottom: isMobile ? 120 : 78 }}>
       <table style={{ borderCollapse: "collapse", tableLayout: "fixed", width: "100%", minWidth: isMobile ? `calc(52px + ${orderedProfessionals.length} * calc((100vw - 70px) / 2))` : `calc(52px + ${orderedProfessionals.length * 140}px)` }}>
-        <thead>
-          <tr>
-            <th style={{ padding: "6px 4px", borderBottom: `2px solid ${C.border}`, width: 52, minWidth: 52, position: "sticky", top: 0, left: 0, zIndex: 101, background: "rgba(255,255,255,0.65)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", borderRight: `2px solid ${C.border}` }}>
-              <div style={{ fontSize: 7, letterSpacing: "2px", color: C.textSoft, textTransform: "uppercase", textAlign: "center" }}>Hora</div>
-            </th>
-            {orderedProfessionals.map((p, idx) => (
-              <th key={p.id}
-                draggable
-                onDragStart={() => onColDragStart(p.id)}
-                onDragOver={e => onColDragOver(e, p.id)}
-                onDrop={e => onColDrop(e, p.id)}
-                onDragEnd={onColDragEnd}
-                style={{ padding: isMobile ? "6px 2px" : "10px 5px", borderBottom: `2px solid ${C.border}`, width: `${100 / orderedProfessionals.length}%`, minWidth: isMobile ? "calc((100vw - 70px) / 2)" : 140, position: "sticky", top: 0, zIndex: 100, background: "rgba(255,255,255,0.65)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", transition: "all .2s", opacity: dragCol === p.id ? 0.4 : 1, borderLeft: dragOver === p.id ? `3px solid ${C.green}` : "none", cursor: "grab", scrollSnapAlign: isMobile ? (idx % 2 === 0 ? "none start" : "none") : "none", scrollSnapStop: isMobile ? "always" : "normal" }}>
-                <div onClick={() => setProfPopup(profPopup === p.id ? null : p.id)}
-                  style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, cursor: "pointer" }}>
-                  <div style={{
-                    width: 36, height: 36, borderRadius: "50%",
-                    background: profPopup === p.id ? `linear-gradient(135deg,${C.green},${C.greenLight})` : `linear-gradient(135deg,${C.greenPale},${C.greenMint})`,
-                    border: `2px solid ${profPopup === p.id ? C.green : C.greenLight}`,
-                    display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16,
-                    transition: "all .2s",
-                  }}>{p.emoji}</div>
-                  <span style={{ fontSize: 11, color: profPopup === p.id ? C.green : C.text, fontWeight: profPopup === p.id ? "bold" : "normal" }}>{p.name}</span>
-                </div>
-
-              </th>
+         <thead>
+           <tr>
+             <th style={{ padding: "6px 4px", borderBottom: `2px solid rgba(255,255,255,0.4)`, width: 52, minWidth: 52, position: "sticky", top: 0, left: 0, zIndex: 101, background: "rgba(255,255,255,0.45)", backdropFilter: "blur(30px) saturate(200%)", WebkitBackdropFilter: "blur(30px) saturate(200%)", borderRight: `2px solid rgba(255,255,255,0.45)`, boxShadow: "inset 0 1px 1px rgba(255,255,255,0.3)" }}>
+               <div style={{ fontSize: 7, letterSpacing: "2px", color: C.textSoft, textTransform: "uppercase", textAlign: "center" }}>Hora</div>
+             </th>
+             {orderedProfessionals.map((p, idx) => (
+               <th key={p.id}
+                 draggable
+                 onDragStart={() => onColDragStart(p.id)}
+                 onDragOver={e => onColDragOver(e, p.id)}
+                 onDrop={e => onColDrop(e, p.id)}
+                 onDragEnd={onColDragEnd}
+                 style={{ padding: isMobile ? "6px 2px" : "10px 5px", borderBottom: `2px solid rgba(255,255,255,0.4)`, width: `${100 / orderedProfessionals.length}%`, minWidth: isMobile ? "calc((100vw - 70px) / 2)" : 140, position: "sticky", top: 0, zIndex: 100, background: "rgba(255,255,255,0.45)", backdropFilter: "blur(30px) saturate(200%)", WebkitBackdropFilter: "blur(30px) saturate(200%)", transition: "all .2s", opacity: dragCol === p.id ? 0.4 : 1, borderLeft: dragOver === p.id ? `3px solid ${C.green}` : "none", cursor: "grab", scrollSnapAlign: isMobile ? (idx % 2 === 0 ? "none start" : "none") : "none", scrollSnapStop: isMobile ? "always" : "normal", boxShadow: "inset 0 1px 1px rgba(255,255,255,0.3)" }}>
+                 <div onClick={() => setProfPopup(profPopup === p.id ? null : p.id)}
+                   style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, cursor: "pointer" }}>
+                   <div style={{
+                     width: 36, height: 36, borderRadius: "50%",
+                     background: profPopup === p.id ? "rgba(255, 255, 255, 0.75)" : "rgba(255, 255, 255, 0.4)",
+                     backdropFilter: "blur(10px) saturate(180%)",
+                     border: `1.5px solid ${profPopup === p.id ? C.green : "rgba(255, 255, 255, 0.7)"}`,
+                     display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16,
+                     transition: "all .2s",
+                     boxShadow: "inset 0 1px 3px rgba(255, 255, 255, 0.8), 0 4px 10px rgba(0,0,0,0.03)"
+                   }}>{p.emoji}</div>
+                   <span style={{ fontSize: 11, color: profPopup === p.id ? C.green : C.text, fontWeight: profPopup === p.id ? "bold" : "normal" }}>{p.name}</span>
+                 </div>
+               </th>
             ))}
           </tr>
         </thead>
