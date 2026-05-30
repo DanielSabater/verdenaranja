@@ -245,7 +245,7 @@ export function ArqueoModal({
                 <span>💸</span> Salidas de Caja del Día
               </div>
               
-              <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 110, overflowY: "auto", paddingRight: 4, background: C.cream, borderRadius: 12, padding: 8, border: `1px solid ${C.border}` }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, height: 215, overflowY: "auto", paddingRight: 4, background: C.cream, borderRadius: 12, padding: 8, border: `1px solid ${C.border}` }}>
                 {releasedTips > 0 && (
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 8px", background: "#fffdf9", border: "1px solid #ffe9c2", borderRadius: 8, fontSize: 10 }}>
                     <span style={{ fontWeight: "bold", color: C.orange }}>🤲 Propinas Entregadas</span>
@@ -254,7 +254,7 @@ export function ArqueoModal({
                 )}
 
                 {cashExpenses.length === 0 && dailyExpenses.filter(g => g.metodoPago !== "efectivo").length === 0 && releasedTips === 0 ? (
-                  <div style={{ color: C.textSoft, fontSize: 10, fontStyle: "italic", textAlign: "center", padding: "10px 0" }}>
+                  <div style={{ color: C.textSoft, fontSize: 10, fontStyle: "italic", display: "flex", alignItems: "center", justifyContent: "center", height: "100%", width: "100%" }}>
                     No se registraron gastos hoy.
                   </div>
                 ) : (
