@@ -9,6 +9,7 @@ import { AppHeader } from "./components/header/AppHeader.jsx"
 import { DateNav } from "./components/grid/DateNav.jsx"
 import { AppGrid } from "./components/grid/AppGrid.jsx"
 import { AppModals } from "./components/modals/AppModals.jsx"
+import { ArqueoModal } from "./components/modals/ArqueoModal.jsx"
 import ContabilidadView from "./components/views/ContabilidadView.jsx"
 import ConfigView from "./components/views/ConfigView.jsx"
 import ClientesView from "./components/views/ClientesView.jsx"
@@ -30,6 +31,16 @@ function getRamaEmoji(rama) {
 export default function App() {
   const isMobile = useIsMobile()
   const [privacyMode, setPrivacyMode] = useState(false)
+  const [arqueoModal, setArqueoModal] = useState(false)
+  const [billCounts, setBillCounts] = useState({
+    100: 0,
+    200: 0,
+    500: 0,
+    1000: 0,
+    2000: 0,
+    10000: 0,
+    20000: 0
+  })
   const [session, setSession] = useState(() => {
     const t = localStorage.getItem("pv_token")
     return t ? { token: t } : null
@@ -189,6 +200,9 @@ export default function App() {
       } else if (e.key?.toLowerCase() === 'v') {
         e.preventDefault()
         setPrivacyMode(p => !p)
+      } else if (e.key?.toLowerCase() === 'a') {
+        e.preventDefault()
+        setArqueoModal(p => !p)
       } else if (e.key === 'ArrowLeft') {
         e.preventDefault()
         setCurrentDate(d => nextWorkDay(d, -1))
@@ -222,6 +236,33 @@ export default function App() {
       document.removeEventListener("visibilitychange", handleWakeUp)
     }
   }, [currentDate, setCurrentDate])
+
+  // Persist billCounts to localStorage keyed by currentDate
+  useEffect(() => {
+    const key = `vn_arqueo_${currentDate}`
+    const saved = localStorage.getItem(key)
+    if (saved) {
+      try {
+        setBillCounts(JSON.parse(saved))
+      } catch (e) {
+        setBillCounts({ 100: 0, 200: 0, 500: 0, 1000: 0, 2000: 0, 10000: 0, 20000: 0 })
+      }
+    } else {
+      setBillCounts({ 100: 0, 200: 0, 500: 0, 1000: 0, 2000: 0, 10000: 0, 20000: 0 })
+    }
+  }, [currentDate])
+
+  useEffect(() => {
+    const key = `vn_arqueo_${currentDate}`
+    const hasValues = Object.values(billCounts).some(v => v > 0)
+    if (hasValues) {
+      localStorage.setItem(key, JSON.stringify(billCounts))
+    } else {
+      if (localStorage.getItem(key)) {
+        localStorage.removeItem(key)
+      }
+    }
+  }, [billCounts, currentDate])
 
   useEffect(() => {
     if (payModal) {
@@ -770,6 +811,17 @@ export default function App() {
           appointments={appointments}
           allData={allData}
           multiPayKeys={multiPayKeys} setMultiPayKeys={setMultiPayKeys}
+        />
+
+        <ArqueoModal
+          isOpen={arqueoModal}
+          onClose={() => setArqueoModal(false)}
+          currentDate={currentDate}
+          gastos={gastos}
+          totalByMethod={totalByMethod}
+          paidAppts={paidAppts}
+          billCounts={billCounts}
+          setBillCounts={setBillCounts}
         />
       </div>{/* end main-content */}
       <nav className="bottom-nav" style={{
