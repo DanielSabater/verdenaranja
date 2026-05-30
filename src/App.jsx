@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useMemo, useEffect } from "react"
 import { C } from "./constants/colors.js"
 import { PAYMENT_METHODS, HOURS } from "./constants/data.js"
 import { cellKey, apptTotal, apptDur, apptPaidTotal, apptComisionableTotal } from "./utils/appointments.js"
-import { toDateKey, todayKey, isWorkDay } from "./utils/dates.js"
+import { toDateKey, todayKey, isWorkDay, nextWorkDay, addMonths } from "./utils/dates.js"
 import { useIsMobile } from "./hooks/useIsMobile.js"
 import { usePersistentState } from "./hooks/usePersistentState.js"
 import { AppHeader } from "./components/header/AppHeader.jsx"
@@ -189,6 +189,18 @@ export default function App() {
       } else if (e.key?.toLowerCase() === 'v') {
         e.preventDefault()
         setPrivacyMode(p => !p)
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault()
+        setCurrentDate(d => nextWorkDay(d, -1))
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault()
+        setCurrentDate(d => nextWorkDay(d, 1))
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setCurrentDate(d => addMonths(d, -1))
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setCurrentDate(d => addMonths(d, 1))
       }
     }
 

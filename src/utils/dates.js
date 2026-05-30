@@ -43,3 +43,18 @@ export const getWeekDays = (dateKey) => {
   }
   return days
 }
+
+/** Advance by +N or -N months */
+export const addMonths = (dateKey, delta) => {
+  const parts = dateKey.split("-").map(Number)
+  const d = new Date(parts[0], parts[1] - 1 + delta, parts[2])
+  const expectedMonth = (parts[1] - 1 + delta + 1200) % 12
+  while (d.getMonth() !== expectedMonth) {
+    d.setDate(d.getDate() - 1)
+  }
+  if (d.getDay() === 0) {
+    d.setDate(d.getDate() + 1)
+  }
+  return toDateKey(d)
+}
+
