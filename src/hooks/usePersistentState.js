@@ -129,9 +129,19 @@ export function usePersistentState(currentDate) {
       })
     }, 10000)
 
+    const handleReconnect = () => {
+      if (supabase && supabase.realtime && supabase.realtime.connection.state !== "connected") {
+        supabase.realtime.connect()
+      }
+    }
+    window.addEventListener("focus", handleReconnect)
+    document.addEventListener("visibilitychange", handleReconnect)
+
     return () => { 
       supabase.removeChannel(channel)
       clearInterval(cleanup)
+      window.removeEventListener("focus", handleReconnect)
+      document.removeEventListener("visibilitychange", handleReconnect)
     }
   }, [])
 
