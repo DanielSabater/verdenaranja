@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from "react"
 import { C } from "./constants/colors.js"
 import { PAYMENT_METHODS, HOURS } from "./constants/data.js"
-import { cellKey, apptTotal, apptDur, apptPaidTotal } from "./utils/appointments.js"
+import { cellKey, apptTotal, apptDur, apptPaidTotal, apptComisionableTotal } from "./utils/appointments.js"
 import { toDateKey, todayKey, isWorkDay } from "./utils/dates.js"
 import { useIsMobile } from "./hooks/useIsMobile.js"
 import { usePersistentState } from "./hooks/usePersistentState.js"
@@ -276,7 +276,8 @@ export default function App() {
     [appointments, allProfsMap]
   )
   const totalByProf = useCallback((pId) => paidAppts.filter(a => a.profId === pId).reduce((s, a) => s + apptPaidTotal(a), 0), [paidAppts])
-  const earningsByProf = useCallback((pId) => totalByProf(pId) * (comisionPct / 100), [totalByProf, comisionPct])
+  const comisionableByProf = useCallback((pId) => paidAppts.filter(a => a.profId === pId).reduce((s, a) => s + apptComisionableTotal(a), 0), [paidAppts])
+  const earningsByProf = useCallback((pId) => comisionableByProf(pId) * (comisionPct / 100), [comisionableByProf, comisionPct])
   const totalByMethod = useCallback((mid) => {
     const base = paidAppts.reduce((s, a) => {
       if (a.paymentSplits?.length) {

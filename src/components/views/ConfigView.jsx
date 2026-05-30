@@ -318,7 +318,7 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
           <style>{`
             .services-grid-header {
               display: grid;
-              grid-template-columns: 38px minmax(120px, 1fr) 98px 90px 105px 105px 36px;
+              grid-template-columns: 38px minmax(120px, 1fr) 98px 90px 105px 105px 80px 36px;
               gap: 8px;
               padding: 0 12px;
               align-items: center;
@@ -330,7 +330,7 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
               border-radius: 14px;
               padding: 8px 12px;
               display: grid;
-              grid-template-columns: 38px minmax(120px, 1fr) 98px 90px 105px 105px 36px;
+              grid-template-columns: 38px minmax(120px, 1fr) 98px 90px 105px 105px 80px 36px;
               gap: 8px;
               align-items: center;
               box-shadow: 0 2px 8px rgba(0,0,0,.01);
@@ -349,7 +349,9 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
             .svc-col-price { order: 4; }
             .svc-col-category { order: 5; }
             .svc-col-rama { order: 6; }
-            .svc-col-remove { order: 7; }
+            .svc-col-excluido { order: 7; display: flex; align-items: center; justify-content: center; }
+            .svc-col-remove { order: 8; }
+            .svc-excluido-lbl { display: none; }
             @media (max-width: 768px) {
               .services-grid-header {
                 display: none;
@@ -376,6 +378,19 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
               .svc-col-icon, .svc-col-name, .svc-col-duration, .svc-col-price, .svc-col-category, .svc-col-rama, .svc-col-remove {
                 order: initial;
               }
+              .svc-col-excluido {
+                grid-column: span 2;
+                background: #fdf6ee;
+                border: 1px solid #fce8d5;
+                padding: 8px 12px;
+                border-radius: 8px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 8px;
+                font-size: 11px;
+              }
+              .svc-excluido-lbl { display: inline !important; }
             }
           `}</style>
 
@@ -616,6 +631,7 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
                       { label: "Precio", align: "center" },
                       { label: "Categoría", align: "left" },
                       { label: "Rama", align: "left" },
+                      { label: "Sin Comi.", align: "center" },
                       { label: "", align: "center" }
                     ].map((h, i) => (
                       <div key={i} style={{ 
@@ -746,6 +762,17 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
                               <option key={r} value={r}>{getDatalistLabel(r)}</option>
                             ))}
                           </select>
+
+                          {/* Sin Comisión Toggle */}
+                          <div className="svc-col-excluido">
+                            <span className="svc-excluido-lbl" style={{ fontSize: 10, color: C.textSoft, fontWeight: "bold", marginRight: 4 }}>🚫 Sin Comisión</span>
+                            <input 
+                              type="checkbox" 
+                              checked={!!svc.excluidoComision} 
+                              onChange={e=>updateSvc(svc.id,"excluidoComision",e.target.checked)} 
+                              style={{ cursor: "pointer", width: 16, height: 16, accentColor: C.green }}
+                            />
+                          </div>
                         </div>
 
                         {/* Inline emoji picker */}
@@ -822,6 +849,17 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
                       <option key={r} value={r}>{getDatalistLabel(r)}</option>
                     ))}
                   </select>
+                </div>
+
+                <div style={{ marginBottom:20, display: "flex", alignItems: "center", gap: 8 }}>
+                  <input 
+                    type="checkbox" 
+                    id="new-svc-no-comi"
+                    checked={!!newSvc.excluidoComision} 
+                    onChange={e=>setNewSvc(p=>({...p,excluidoComision:e.target.checked}))}
+                    style={{ cursor: "pointer", width: 16, height: 16, accentColor: C.green }}
+                  />
+                  <label htmlFor="new-svc-no-comi" style={{ fontSize:11, fontWeight:"bold", color:C.textSoft, cursor:"pointer" }}>Excluir de comisiones profesionales</label>
                 </div>
 
                 <div style={{ display:"flex", gap:10 }}>

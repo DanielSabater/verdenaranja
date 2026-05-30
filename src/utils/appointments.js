@@ -25,3 +25,17 @@ export const apptPaidTotal = (a) => {
   }
   return Math.max(0, apptTotal(a) - (a.discount || 0))
 }
+
+/** Total comisionable base for an appointment (excluding services marked as no commission, prorating discounts) */
+export const apptComisionableTotal = (a) => {
+  if (a?.isBlocked) return 0
+  const services = Array.isArray(a?.services) ? a.services : []
+  const totalSvc = services.reduce((s, sv) => s + (sv?.price || 0), 0)
+  const comiSvc = services.filter(sv => !sv?.excluidoComision).reduce((s, sv) => s + (sv?.price || 0), 0)
+  if (totalSvc === 0) return 0
+  
+  const paidTotal = apptPaidTotal(a)
+  const ratio = paidTotal / totalSvc
+  return Math.round(comiSvc * ratio)
+}
+

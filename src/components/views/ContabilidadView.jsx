@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from "react"
 import { createPortal } from "react-dom"
 import { C } from "../../constants/colors.js"
 import { PAYMENT_METHODS, GASTO_CATS } from "../../constants/data.js"
-import { fmt, apptTotal, apptPaidTotal } from "../../utils/appointments.js"
+import { fmt, apptTotal, apptPaidTotal, apptComisionableTotal } from "../../utils/appointments.js"
 import { fmtDate, todayKey, toDateKey, MESES_ES, fmtShort } from "../../utils/dates.js"
 import { Overlay, ModalHeader, Field, GhostBtn, SolidBtn, inputStyle, modalBox } from "../ui/index.jsx"
 
@@ -63,9 +63,9 @@ export default function ContabilidadView({
   const inRange = (k) => k >= rangeFrom && k <= rangeTo
 
   // ── calculations ───────────────────────────────────────────────────────────
-  const { totalIncome, incomeByProf, incomeByMethod, totalTurns, turnsByProf, incomeByService, countByService, incomeByDOW } = useMemo(() => {
-    const byProf = {}, byMethod = {}, turnsByProf = {}, byService = {}, countService = {}, byDOW = {}
-    safeProfessionals.forEach(p => { byProf[p.id] = 0; turnsByProf[p.id] = 0 })
+  const { totalIncome, incomeByProf, comisionByProf, incomeByMethod, totalTurns, turnsByProf, incomeByService, countByService, incomeByDOW } = useMemo(() => {
+    const byProf = {}, byComiProf = {}, byMethod = {}, turnsByProf = {}, byService = {}, countService = {}, byDOW = {}
+    safeProfessionals.forEach(p => { byProf[p.id] = 0; byComiProf[p.id] = 0; turnsByProf[p.id] = 0 })
     // Initialize DOW (0-6)
     for (let i=0; i<7; i++) byDOW[i] = 0
 
@@ -82,9 +82,11 @@ export default function ContabilidadView({
       Object.values(safeDayData).forEach(appt => {
         if (!appt?.paid) return
         const t = apptPaidTotal(appt)
+        const comi = apptComisionableTotal(appt)
         total += t
         turns += 1
         byProf[appt.profId] = (byProf[appt.profId] || 0) + t
+        byComiProf[appt.profId] = (byComiProf[appt.profId] || 0) + comi
         turnsByProf[appt.profId] = (turnsByProf[appt.profId] || 0) + 1
         byDOW[dow] = (byDOW[dow] || 0) + t
 
@@ -104,7 +106,7 @@ export default function ContabilidadView({
         }
       })
     })
-    return { totalIncome: total, incomeByProf: byProf, turnsByProf, incomeByMethod: byMethod, totalTurns: turns, incomeByService: byService, countByService: countService, incomeByDOW: byDOW }
+    return { totalIncome: total, incomeByProf: byProf, comisionByProf: byComiProf, turnsByProf, incomeByMethod: byMethod, totalTurns: turns, incomeByService: byService, countByService: countService, incomeByDOW: byDOW }
   }, [safeAllData, safeProfessionals, rangeFrom, rangeTo])
 
   const avgTicket = totalTurns > 0 ? totalIncome / totalTurns : 0
@@ -159,6 +161,7 @@ export default function ContabilidadView({
           emoji: p.emoji,
           turnsCount: 0,
           total: 0,
+          comisionable: 0,
           efectivo: 0,
           debito: 0,
           mercadopago: 0
@@ -175,6 +178,7 @@ export default function ContabilidadView({
             profMap[profId].turnsCount += 1
             const apptTotalPaid = apptPaidTotal(appt)
             profMap[profId].total += apptTotalPaid
+            profMap[profId].comisionable += apptComisionableTotal(appt)
             
             if (appt.paymentSplits?.length) {
               appt.paymentSplits.forEach(s => {
@@ -302,6 +306,7 @@ export default function ContabilidadView({
       if (diasFilter && diasFilter !== "all" && !diasFilter.includes(dk)) return
       
       let dayFacturado = 0
+      let dayComisionable = 0
       let dayTurnos = 0
       let dayPropinas = 0
       
@@ -309,6 +314,7 @@ export default function ContabilidadView({
       Object.values(safeDayData).forEach(appt => {
         if (appt?.paid && appt.profId === profId) {
           dayFacturado += apptPaidTotal(appt)
+          dayComisionable += apptComisionableTotal(appt)
           dayPropinas  += appt.tip || 0
           dayTurnos++
         }
@@ -321,9 +327,9 @@ export default function ContabilidadView({
           shortLabel: fmtShort(dk),
           turnos: dayTurnos,
           facturado: dayFacturado,
-          comision: dayFacturado * (comisionPct/100),
+          comision: dayComisionable * (comisionPct/100),
           propinas: dayPropinas,
-          total: (dayFacturado * (comisionPct/100)) + dayPropinas
+          total: (dayComisionable * (comisionPct/100)) + dayPropinas
         })
       }
     })
@@ -331,7 +337,7 @@ export default function ContabilidadView({
   }
 
   const profStats = (profId, diasFilter) => {
-    let facturado=0, turnos=0, propinas=0
+    let facturado=0, turnos=0, propinas=0, comisionable=0
     const diasSet = new Set()
     Object.entries(safeAllData).forEach(([dk, dayData]) => {
       if (!dk.startsWith(sueldoPeriod)) return
@@ -341,13 +347,14 @@ export default function ContabilidadView({
       Object.values(safeDayData).forEach(appt => {
         if (appt?.paid && appt.profId === profId) {
           facturado += apptPaidTotal(appt)
+          comisionable += apptComisionableTotal(appt)
           propinas  += appt.tip || 0
           turnos++
           diasSet.add(dk)
         }
       })
     })
-    return { facturado, turnos, propinas, dias: diasSet.size, comision: facturado * (comisionPct/100) }
+    return { facturado, turnos, propinas, dias: diasSet.size, comision: comisionable * (comisionPct/100) }
   }
   const earningsInMonth = (profId) => profStats(profId, "all").comision
   const changeSueldoMonth = (delta) => {
@@ -714,7 +721,7 @@ export default function ContabilidadView({
                 .sort((a, b) => (incomeByProf[b.id] || 0) - (incomeByProf[a.id] || 0))
                 .map(p => {
                   const inc = incomeByProf[p.id] || 0
-                  const com = inc * (comisionPct/100)
+                  const com = (comisionByProf[p.id] || 0) * (comisionPct/100)
                   const pct = (inc/maxProf)*100
                   return (
                   <div key={p.id} style={{ marginBottom:12 }}>
@@ -1068,7 +1075,7 @@ export default function ContabilidadView({
                                     <div style={{ color: p.debito > 0 ? C.amber : C.textSoft, fontSize:10 }}>💳 {p.debito > 0 ? fmt(p.debito) : "—"}</div>
                                     <div style={{ color: p.mercadopago > 0 ? C.mp : C.textSoft, fontSize:10 }}>📲 {p.mercadopago > 0 ? fmt(p.mercadopago) : "—"}</div>
                                     <div style={{ textAlign:"right", fontWeight:"bold", color:C.green, fontSize:11 }}>
-                                      Total: {fmt(p.total)} <span style={{ color:C.gold, fontSize:9, fontWeight:"500", marginLeft:4 }}>· Comi: {fmt(p.total * (comisionPct/100))}</span>
+                                      Total: {fmt(p.total)} <span style={{ color:C.gold, fontSize:9, fontWeight:"500", marginLeft:4 }}>· Comi: {fmt(p.comisionable * (comisionPct/100))}</span>
                                     </div>
                                   </div>
                                 ))}
