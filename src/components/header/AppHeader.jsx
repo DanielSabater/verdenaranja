@@ -18,7 +18,7 @@ function getRamaEmoji(rama) {
 export const AppHeader = memo(function AppHeader({
   config, activeView, setActiveView, saveStatus, connStatus, totalByMethod, grandTotal, grandEarnings, onLogout,
   currentDate, setCurrentDate, calendarOpen, setCalendarOpen, calViewDate, setCalViewDate, allData, onQuickGasto,
-  professionals, activeRama, setActiveRama, ramas
+  professionals, activeRama, setActiveRama, ramas, privacyMode
 }) {
   const isMobileNav = typeof window !== "undefined" && window.innerWidth <= 1100
   const tKey = todayKey()
@@ -216,7 +216,7 @@ export const AppHeader = memo(function AppHeader({
                   <div
                     style={{ background: t > 0 ? (pm.id === "mercadopago" ? C.mpPale : pm.id === "debito" ? C.amberPale : C.greenPale) : "#f7f7f7", border: `1.5px solid ${isActive ? pm.color : (t > 0 ? (pm.id === "mercadopago" ? C.mpMid : pm.id === "debito" ? C.amberMid : C.greenMint) : "#e8e8e8")}`, borderRadius: 9, padding: "5px 9px", textAlign: "center", minWidth: 110, cursor: t > 0 ? "pointer" : "default", transition: "all .15s", boxShadow: isActive ? `0 4px 12px ${pm.color}33` : "none" }}>
                     <div style={{ fontSize: 8, color: t > 0 ? pm.color : "#bbb", textTransform: "uppercase", whiteSpace: "nowrap" }}>{pm.icon} {pm.label}</div>
-                    <div style={{ fontSize: 12, fontWeight: "bold", color: t > 0 ? pm.color : "#ccc", fontVariantNumeric: "tabular-nums" }}><AnimatedNumber value={t} formatFn={fmt} />{t > 0 && <span style={{ fontSize: 8, marginLeft: 3 }}>{isActive ? "▲" : "▼"}</span>}</div>
+                    <div className={privacyMode ? "privacy-blur" : ""} style={{ fontSize: 12, fontWeight: "bold", color: t > 0 ? pm.color : "#ccc", fontVariantNumeric: "tabular-nums" }}><AnimatedNumber value={t} formatFn={fmt} />{t > 0 && <span style={{ fontSize: 8, marginLeft: 3 }}>{isActive ? "▲" : "▼"}</span>}</div>
                   </div>
 
                   {/* Dropdown */}
@@ -253,11 +253,11 @@ export const AppHeader = memo(function AppHeader({
             })}
             <div style={{ background: grandTotal > 0 ? `linear-gradient(135deg,${C.green},${C.greenLight})` : "#f0f0f0", borderRadius: 10, padding: "6px 12px", textAlign: "center", minWidth: 120, flexShrink: 0 }}>
               <div style={{ fontSize: 7, color: grandTotal > 0 ? "rgba(255,255,255,.7)" : "#bbb", textTransform: "uppercase" }}>Total</div>
-              <div style={{ fontSize: 15, fontWeight: "bold", color: grandTotal > 0 ? C.white : "#ccc", fontVariantNumeric: "tabular-nums" }}><AnimatedNumber value={grandTotal} formatFn={fmt} /></div>
+              <div className={privacyMode ? "privacy-blur" : ""} style={{ fontSize: 15, fontWeight: "bold", color: grandTotal > 0 ? C.white : "#ccc", fontVariantNumeric: "tabular-nums" }}><AnimatedNumber value={grandTotal} formatFn={fmt} /></div>
             </div>
             <div style={{ background: grandEarnings > 0 ? `linear-gradient(135deg,${C.gold},${C.goldLight})` : "#f0f0f0", borderRadius: 10, padding: "6px 12px", textAlign: "center", minWidth: 100, flexShrink: 0 }}>
               <div style={{ fontSize: 7, color: grandEarnings > 0 ? "rgba(255,255,255,.75)" : "#bbb", textTransform: "uppercase" }}>{config.comisionPct}%</div>
-              <div style={{ fontSize: 15, fontWeight: "bold", color: grandEarnings > 0 ? C.white : "#ccc", fontVariantNumeric: "tabular-nums" }}><AnimatedNumber value={grandEarnings} formatFn={fmt} /></div>
+              <div className={privacyMode ? "privacy-blur" : ""} style={{ fontSize: 15, fontWeight: "bold", color: grandEarnings > 0 ? C.white : "#ccc", fontVariantNumeric: "tabular-nums" }}><AnimatedNumber value={grandEarnings} formatFn={fmt} /></div>
             </div>
           </div>
         </div>
@@ -270,12 +270,12 @@ export const AppHeader = memo(function AppHeader({
             const t = totalByMethod(pm.id); return t > 0 ? (
               <div key={pm.id} style={{ background: pm.id === "mercadopago" ? C.mpPale : pm.id === "debito" ? C.amberPale : C.greenPale, border: `1px solid ${pm.id === "mercadopago" ? C.mpMid : pm.id === "debito" ? C.amberMid : C.greenMint}`, borderRadius: 9, padding: "5px 10px", textAlign: "center", minWidth: 100, flexShrink: 0 }}>
                 <div style={{ fontSize: 8, color: pm.color, whiteSpace: "nowrap" }}>{pm.icon} {pm.label}</div>
-                <div style={{ fontSize: 12, fontWeight: "bold", color: pm.color, fontVariantNumeric: "tabular-nums" }}><AnimatedNumber value={t} formatFn={fmt} /></div>
+                <div className={privacyMode ? "privacy-blur" : ""} style={{ fontSize: 12, fontWeight: "bold", color: pm.color, fontVariantNumeric: "tabular-nums" }}><AnimatedNumber value={t} formatFn={fmt} /></div>
               </div>
             ) : null
           })}
-          {grandTotal > 0 && <div style={{ background: `linear-gradient(135deg,${C.green},${C.greenLight})`, borderRadius: 9, padding: "5px 10px", textAlign: "center", minWidth: 110, flexShrink: 0 }}><div style={{ fontSize: 8, color: "rgba(255,255,255,.8)" }}>Total</div><div style={{ fontSize: 12, fontWeight: "bold", color: "#fff", fontVariantNumeric: "tabular-nums" }}><AnimatedNumber value={grandTotal} formatFn={fmt} /></div></div>}
-          {grandEarnings > 0 && <div style={{ background: `linear-gradient(135deg,${C.gold},${C.goldLight})`, borderRadius: 9, padding: "5px 10px", textAlign: "center", minWidth: 90, flexShrink: 0 }}><div style={{ fontSize: 8, color: "rgba(255,255,255,.8)" }}>{config.comisionPct}%</div><div style={{ fontSize: 12, fontWeight: "bold", color: "#fff", fontVariantNumeric: "tabular-nums" }}><AnimatedNumber value={grandEarnings} formatFn={fmt} /></div></div>}
+          {grandTotal > 0 && <div style={{ background: `linear-gradient(135deg,${C.green},${C.greenLight})`, borderRadius: 9, padding: "5px 10px", textAlign: "center", minWidth: 110, flexShrink: 0 }}><div style={{ fontSize: 8, color: "rgba(255,255,255,.8)" }}>Total</div><div className={privacyMode ? "privacy-blur" : ""} style={{ fontSize: 12, fontWeight: "bold", color: "#fff", fontVariantNumeric: "tabular-nums" }}><AnimatedNumber value={grandTotal} formatFn={fmt} /></div></div>}
+          {grandEarnings > 0 && <div style={{ background: `linear-gradient(135deg,${C.gold},${C.goldLight})`, borderRadius: 9, padding: "5px 10px", textAlign: "center", minWidth: 90, flexShrink: 0 }}><div style={{ fontSize: 8, color: "rgba(255,255,255,.8)" }}>{config.comisionPct}%</div><div className={privacyMode ? "privacy-blur" : ""} style={{ fontSize: 12, fontWeight: "bold", color: "#fff", fontVariantNumeric: "tabular-nums" }}><AnimatedNumber value={grandEarnings} formatFn={fmt} /></div></div>}
         </div>
       )}
 

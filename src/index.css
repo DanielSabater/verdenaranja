@@ -226,3 +226,11 @@ select { appearance: auto; }
     gap: 0 !important;
   }
 }
+
+/* ── Privacy Mode Blurring ── */
+.privacy-blur {
+  filter: blur(6px) !important;
+  pointer-events: none !important;
+  user-select: none !important;
+  transition: filter 0.2s ease !important;
+}

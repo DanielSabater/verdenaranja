@@ -29,6 +29,7 @@ function getRamaEmoji(rama) {
 
 export default function App() {
   const isMobile = useIsMobile()
+  const [privacyMode, setPrivacyMode] = useState(false)
   const [session, setSession] = useState(() => {
     const t = localStorage.getItem("pv_token")
     return t ? { token: t } : null
@@ -171,14 +172,13 @@ export default function App() {
 
   useEffect(() => {
     const handleKeyDown = (e) => {
+      const activeTag = document.activeElement?.tagName?.toLowerCase()
+      if (activeTag === "input" || activeTag === "textarea" || document.activeElement?.isContentEditable) {
+        return
+      }
+
       if (e.key?.toLowerCase() === 'h') {
-        const activeTag = document.activeElement?.tagName?.toLowerCase()
-        if (activeTag === "input" || activeTag === "textarea" || document.activeElement?.isContentEditable) {
-          return
-        }
-        
         e.preventDefault()
-        
         const tKey = todayKey()
         const isAlreadyToday = currentDate === tKey
         setCurrentDate(tKey)
@@ -186,6 +186,9 @@ export default function App() {
         setTimeout(() => {
           window.dispatchEvent(new CustomEvent("scroll-to-today-hour"))
         }, isAlreadyToday ? 50 : 250)
+      } else if (e.key?.toLowerCase() === 'v') {
+        e.preventDefault()
+        setPrivacyMode(p => !p)
       }
     }
 
@@ -629,6 +632,7 @@ export default function App() {
         activeRama={activeRama}
         setActiveRama={setActiveRama}
         ramas={ramas}
+        privacyMode={privacyMode}
       />
       <div className="main-content" style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
 

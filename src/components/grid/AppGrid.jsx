@@ -496,10 +496,10 @@ export function AppGrid({
                                    <div style={{ fontSize: 9, color: appt.isBlocked ? C.red : C.textSoft, fontStyle: "italic", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", opacity: appt.isBlocked ? 0.8 : 1 }}>📝 {appt.notes}</div>
                                  )}
                                  <div style={{ fontSize: 9, color: C.textSoft, marginTop: 2 }}>
-                                   <span style={{ color: isResizing ? C.green : C.textSoft, fontWeight: isResizing ? "bold" : "normal", transition: "color .15s" }}>
-                                     {isResizing ? `${liveHour} – ${liveEndHour}` : `${apptDur(appt)} min`}
-                                   </span>
-                                   {!appt.isBlocked && <>{" · "}<span style={{ color: C.orange, fontWeight: "bold" }}>{fmt(appt.paid ? apptPaidTotal(appt) : apptTotal(appt))}</span></>}
+                                    <span style={{ color: isResizing ? C.green : C.textSoft, fontWeight: isResizing ? "bold" : "normal", transition: "color .15s" }}>
+                                      {isResizing ? `${liveHour} – ${liveEndHour}` : `${apptDur(appt)} min`}
+                                    </span>
+                                    {!appt.isBlocked && <>{" · "}<span style={{ color: C.orange, fontWeight: "bold" }}>{fmt(appt.paid ? apptPaidTotal(appt) : apptTotal(appt))}</span></>}
                                  </div>
                                </>
                              )}
