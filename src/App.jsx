@@ -137,7 +137,7 @@ export default function App() {
     const finalMonto = isIngreso ? String(-parsedMonto) : String(parsedMonto)
     setGastos(p => [...p, {
       id: Date.now(),
-      descripcion: quickGastoForm.descripcion || (isIngreso ? "Ingreso Rápido" : "Gasto"),
+      descripcion: quickGastoForm.descripcion || (isIngreso ? "Ingreso Rápido" : "Egreso"),
       monto: finalMonto,
       categoria: isIngreso ? "ingreso" : "otros",
       fecha: currentDate,
@@ -756,7 +756,7 @@ export default function App() {
                 {/* Close & Header */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div style={{ fontSize: 13, color: C.text, fontWeight: "bold", display: "flex", alignItems: "center", gap: 6 }}>
-                    <span>{isIngreso ? "💰" : "💸"}</span> {isIngreso ? "Ingreso Rápido" : "Gasto Rápido"}
+                    <span>{isIngreso ? "💰" : "💸"}</span> {isIngreso ? "Ingreso Rápido" : "Egreso Rápido"}
                   </div>
                   <button onClick={() => setQuickGastoModal(false)} style={{ background:"transparent", border:"none", cursor:"pointer", color:C.textSoft, fontSize:20, lineHeight: 1 }}>&times;</button>
                 </div>
@@ -778,7 +778,7 @@ export default function App() {
                       fontFamily: "Georgia,serif"
                     }}
                   >
-                    💸 Gasto
+                    💸 Egreso
                   </button>
                   <button 
                     onClick={() => setQuickGastoForm(p => ({ ...p, tipo: "ingreso" }))} 
@@ -836,7 +836,7 @@ export default function App() {
                 </div>
 
                 <SolidBtn onClick={handleQuickGastoSave} disabled={!quickGastoForm.monto} color={accentColor} style={{ marginTop: 4 }}>
-                  {isIngreso ? "✅ Guardar Ingreso" : "✅ Guardar Gasto"}
+                  {isIngreso ? "✅ Guardar Ingreso" : "✅ Guardar Egreso"}
                 </SolidBtn>
               </div>
             </>
