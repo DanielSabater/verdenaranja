@@ -1408,7 +1408,7 @@ export default function ContabilidadView({
               {activeZoomedChart === "prof" && (() => {
                 // Expanded Line SVG chart
                 const zoomWidth = 960
-                const zoomInnerWidth = zoomWidth - 100 // 860px wide charting space
+                const zoomInnerWidth = 865 // 865px wide charting space (from 80 to 945)
                 const zoomHeight = 360
                 const zoomInnerHeight = 300 // 300px tall charting space
 
@@ -1416,24 +1416,23 @@ export default function ContabilidadView({
                 const gridPoints = [...Array(6)].map((_, idx) => 30 + idx * 60) // 30, 90, 150, 210, 270, 330
                 
                 return (
-                  <div style={{ display: "flex", gap: 20, alignItems: "stretch", flexWrap: "wrap" }}>
-                    {/* Left: SVG container */}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                    {/* Top: SVG container */}
                     <div style={{ 
-                      flex: 1, 
-                      minWidth: 500, 
+                      width: "100%", 
                       background: C.cream, 
                       borderRadius: 14, 
                       padding: "20px 14px", 
                       border: `1.5px solid ${C.border}`, 
                       overflowX: "auto" 
                     }}>
-                      <svg viewBox={`0 0 ${zoomWidth} ${zoomHeight}`} style={{ width: "100%", minWidth: 480, height: zoomHeight, display: "block" }}>
+                      <svg viewBox={`0 0 ${zoomWidth} ${zoomHeight}`} style={{ width: "100%", minWidth: 480, height: "auto", display: "block" }}>
                         {/* Horizontal grid lines and Y-axis labels */}
                         {gridPoints.map((yVal, idx) => {
                           const value = Math.round(maxTurns - (idx / 5) * maxTurns)
                           return (
                             <g key={idx}>
-                              <line x1={80} y1={yVal} x2={zoomWidth - 20} y2={yVal} stroke="#e4ebe6" strokeWidth="1" strokeDasharray="3 3" />
+                              <line x1={80} y1={yVal} x2={zoomWidth - 15} y2={yVal} stroke="#e4ebe6" strokeWidth="1" strokeDasharray="3 3" />
                               <text x={70} y={yVal + 4} fill={C.textSoft} fontSize="10" textAnchor="end" fontFamily="monospace">
                                 {fmt(value)}
                               </text>
@@ -1442,7 +1441,7 @@ export default function ContabilidadView({
                         })}
 
                         {/* Baseline */}
-                        <line x1={80} y1={330} x2={zoomWidth - 20} y2={330} stroke="#cbd5ce" strokeWidth="1.5" />
+                        <line x1={80} y1={330} x2={zoomWidth - 15} y2={330} stroke="#cbd5ce" strokeWidth="1.5" />
 
                         {/* Professional lines */}
                         {turnosChart.map((prof, idx) => {
@@ -1484,9 +1483,15 @@ export default function ContabilidadView({
                           const x = 80 + (zoomInnerWidth / Math.max(chartRange.length - 1, 1)) * i
                           const showLabel = chartRange.length <= 16 || i % Math.ceil(chartRange.length / 12) === 0 || i === chartRange.length - 1
                           if (!showLabel) return null
+                          
+                          // Avoid clipping the start and end labels
+                          let textAnchor = "middle"
+                          if (i === 0) textAnchor = "start"
+                          if (i === chartRange.length - 1) textAnchor = "end"
+                          
                           return (
                             <g key={i}>
-                              <text x={x} y={352} fill={C.textSoft} fontSize="9" textAnchor="middle" fontWeight="bold">
+                              <text x={x} y={352} fill={C.textSoft} fontSize="9" textAnchor={textAnchor} fontWeight="bold">
                                 {d.label}
                               </text>
                               <line x1={x} y1={330} x2={x} y2={334} stroke="#cbd5ce" strokeWidth="1" />
@@ -1496,21 +1501,21 @@ export default function ContabilidadView({
                       </svg>
                     </div>
 
-                    {/* Right Side: Summary legend */}
+                    {/* Bottom: Summary legend */}
                     <div style={{ 
-                      width: 250, 
-                      flexShrink: 0, 
+                      width: "100%", 
                       background: "#f3faf5", 
                       borderRadius: 14, 
-                      padding: "18px 16px", 
+                      padding: "18px 20px", 
                       border: `1.5px solid ${C.greenMint}`,
                       display: "flex",
-                      flexDirection: "column"
+                      flexDirection: "column",
+                      gap: 12
                     }}>
-                      <div style={{ fontSize: 9, fontWeight: "bold", color: C.green, textTransform: "uppercase", letterSpacing: "1px", marginBottom: 12 }}>
+                      <div style={{ fontSize: 9, fontWeight: "bold", color: C.green, textTransform: "uppercase", letterSpacing: "1px" }}>
                         Totales acumulados
                       </div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
                         {turnosChart.map((prof, idx) => {
                           const color = [C.green, C.orange, C.gold, C.greenLight, C.orangeLight][idx % 5]
                           const totalEarned = incomeByProf[prof.id] || 0
@@ -1526,12 +1531,13 @@ export default function ContabilidadView({
                                 alignItems: "center", 
                                 gap: 10, 
                                 background: isHovered ? "#f3faf5" : C.white, 
-                                padding: "10px 12px", 
+                                padding: "10px 14px", 
                                 borderRadius: 10, 
                                 border: `1.5px solid ${isHovered ? color : C.border}`,
                                 transition: "all 0.15s ease",
                                 cursor: "pointer",
-                                transform: isHovered ? "translateX(-2px)" : "none",
+                                flex: "1 1 calc(20% - 10px)",
+                                minWidth: "160px",
                                 boxShadow: isHovered ? "0 4px 10px rgba(58,125,68,0.06)" : "none"
                               }}
                             >
