@@ -244,27 +244,90 @@ export default function ContabilidadView({
   }, [rangeFrom, rangeTo, safeAllData, safeGastos, safeProfessionals])
 
   // ── period-based chart data ──────────────────────────────────────────────
+  const isMonthlyView = useMemo(() => {
+    if (contPeriod === "anual" || contPeriod === "todo") return true
+    if (contPeriod === "custom") {
+      const from = new Date(rangeFrom + "T12:00:00")
+      const to = new Date(rangeTo + "T12:00:00")
+      if (!isNaN(from) && !isNaN(to)) {
+        const diffDays = (to - from) / (1000 * 60 * 60 * 24)
+        return diffDays > 35
+      }
+    }
+    return false
+  }, [contPeriod, rangeFrom, rangeTo])
+
   const chartRange = useMemo(() => {
     if (!rangeFrom || !rangeTo) return []
-    const from = new Date(rangeFrom + "T12:00:00")
-    const to = new Date(rangeTo + "T12:00:00")
-    if (isNaN(from) || isNaN(to) || from > to) return []
-    const days = []
-    const cursor = new Date(from)
-    while (cursor <= to) {
-      days.push({ k: toDateKey(cursor), label: `${cursor.getDate()}/${cursor.getMonth()+1}` })
-      cursor.setDate(cursor.getDate() + 1)
+    
+    if (isMonthlyView) {
+      let fromStr = rangeFrom
+      let toStr = rangeTo
+      
+      if (contPeriod === "todo") {
+        const activeKeys = Object.keys(safeAllData)
+          .filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k))
+          .sort()
+        if (activeKeys.length > 0) {
+          fromStr = activeKeys[0]
+          toStr = activeKeys[activeKeys.length - 1]
+        } else {
+          const currentYear = new Date().getFullYear()
+          fromStr = `${currentYear}-01-01`
+          toStr = `${currentYear}-12-31`
+        }
+      }
+      
+      const fromDate = new Date(fromStr + "T12:00:00")
+      const toDate = new Date(toStr + "T12:00:00")
+      if (isNaN(fromDate) || isNaN(toDate) || fromDate > toDate) return []
+      
+      const months = []
+      const cursor = new Date(fromDate.getFullYear(), fromDate.getMonth(), 1, 12, 0, 0)
+      const endLimit = new Date(toDate.getFullYear(), toDate.getMonth(), 1, 12, 0, 0)
+      
+      while (cursor <= endLimit) {
+        const y = cursor.getFullYear()
+        const m = cursor.getMonth()
+        const key = `${y}-${String(m + 1).padStart(2, "0")}`
+        months.push({
+          k: key,
+          label: MESES_ES[m] + (contPeriod === "todo" ? ` ${String(y).slice(-2)}` : "")
+        })
+        cursor.setMonth(cursor.getMonth() + 1)
+      }
+      
+      return months.length > 24 ? months.slice(-24) : months
+    } else {
+      const from = new Date(rangeFrom + "T12:00:00")
+      const to = new Date(rangeTo + "T12:00:00")
+      if (isNaN(from) || isNaN(to) || from > to) return []
+      const days = []
+      const cursor = new Date(from)
+      while (cursor <= to) {
+        days.push({ k: toDateKey(cursor), label: `${cursor.getDate()}/${cursor.getMonth()+1}` })
+        cursor.setDate(cursor.getDate() + 1)
+      }
+      return days.length > 31 ? days.slice(-31) : days
     }
-    return days.length > 31 ? days.slice(-31) : days
-  }, [rangeFrom, rangeTo])
+  }, [rangeFrom, rangeTo, isMonthlyView, contPeriod, safeAllData])
 
   const dailyData = useMemo(() => {
     return chartRange.map(({ k, label }) => {
-      const dayData = safeAllData[k] || {}
-      const income = Object.values(dayData).filter(a => a?.paid).reduce((s, a) => s + apptPaidTotal(a), 0)
-      return { k, label, income }
+      if (isMonthlyView) {
+        const income = Object.entries(safeAllData)
+          .filter(([dk]) => dk.startsWith(k))
+          .flatMap(([, dayData]) => Object.values(dayData || {}))
+          .filter(a => a?.paid)
+          .reduce((s, a) => s + apptPaidTotal(a), 0)
+        return { k, label, income }
+      } else {
+        const dayData = safeAllData[k] || {}
+        const income = Object.values(dayData).filter(a => a?.paid).reduce((s, a) => s + apptPaidTotal(a), 0)
+        return { k, label, income }
+      }
     })
-  }, [chartRange, safeAllData])
+  }, [chartRange, safeAllData, isMonthlyView])
 
   const dailyDataWorked = useMemo(() => {
     return dailyData.filter(d => d.income > 0)
@@ -275,11 +338,20 @@ export default function ContabilidadView({
   const turnosChart = useMemo(() => {
     return safeProfessionals.map((prof) => ({
       ...prof,
-      values: chartRange.map(({ k }) =>
-        Object.values(safeAllData[k] || {}).filter(a => a?.paid && a.profId === prof.id).reduce((s, a) => s + apptPaidTotal(a), 0)
-      ),
+      values: chartRange.map(({ k }) => {
+        if (isMonthlyView) {
+          return Object.entries(safeAllData)
+            .filter(([dk]) => dk.startsWith(k))
+            .flatMap(([, dayData]) => Object.values(dayData || {}))
+            .filter(a => a?.paid && a.profId === prof.id)
+            .reduce((s, a) => s + apptPaidTotal(a), 0)
+        } else {
+          const dayData = safeAllData[k] || {}
+          return Object.values(dayData).filter(a => a?.paid && a.profId === prof.id).reduce((s, a) => s + apptPaidTotal(a), 0)
+        }
+      }),
     }))
-  }, [safeProfessionals, safeAllData, chartRange])
+  }, [safeProfessionals, safeAllData, chartRange, isMonthlyView])
 
   const maxTurns = Math.max(1, ...turnosChart.flatMap(p => p.values))
   const chartWidth = Math.max(320, chartRange.length * 24 + 48)
@@ -289,11 +361,16 @@ export default function ContabilidadView({
     if (!winner) return prof
     return (incomeByProf[prof.id] || 0) > (incomeByProf[winner.id] || 0) ? prof : winner
   }, safeProfessionals[0] || null)
-  const busiestDay = chartRange.reduce((best, current) => {
-    const count = Object.values(safeAllData[current.k] || {}).filter(a => a?.paid).length
-    if (!best || count > best.count) return { ...current, count }
-    return best
-  }, null)
+  const busiestDay = useMemo(() => {
+    return Object.entries(safeAllData)
+      .filter(([dk]) => inRange(dk))
+      .reduce((best, [dk, dayData]) => {
+        const count = Object.values(dayData || {}).filter(a => a?.paid).length
+        const label = fmtDate(dk)
+        if (!best || count > best.count) return { k: dk, label, count }
+        return best
+      }, null)
+  }, [safeAllData, rangeFrom, rangeTo])
 
   // ── sueldos ────────────────────────────────────────────────────────────────
   const sueldoKey   = (profId) => `${profId}||${sueldoPeriod}`
