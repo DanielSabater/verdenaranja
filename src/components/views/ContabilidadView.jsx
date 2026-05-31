@@ -113,7 +113,11 @@ export default function ContabilidadView({
 
   const gastosRange  = safeGastos.filter(g => inRange(g.fecha))
   const totalGastos  = gastosRange.reduce((s,g) => s+(parseFloat(g.monto)||0), 0)
+  const totalComisiones = useMemo(() => {
+    return safeProfessionals.reduce((sum, p) => sum + (comisionByProf[p.id] || 0) * (comisionPct/100), 0)
+  }, [safeProfessionals, comisionByProf, comisionPct])
   const netResult    = totalIncome - totalGastos
+  const realNetResult = totalIncome - totalGastos - totalComisiones
   const maxProf      = Math.max(...safeProfessionals.map(p => incomeByProf[p.id]||0), 1)
 
   // ── daily summary logic ──────────────────────────────────────────────────
@@ -534,9 +538,10 @@ export default function ContabilidadView({
                 const fmtUSD = (v) => "US$ " + Math.round(v).toLocaleString("es-AR")
                 return [
                   { label:"💰 Ingresos", val:totalIncome, bg:`linear-gradient(135deg,${C.green},${C.greenLight})`, sub:`${totalTurns} turnos` },
-                  { label:"💵 Ingresos USD", val:totalIncome / dollarRate, bg:"linear-gradient(135deg,#1d4ed8,#3b82f6)", sub:`Cotización: 1 USD = $${Math.round(dollarRate)}`, isUSD: true },
                   { label:"💸 Gastos",   val:totalGastos, bg:`linear-gradient(135deg,${C.orange},${C.orangeLight})`, sub:`${gastosRange.length} registros` },
-                  { label:"📈 Resultado",val:netResult,   bg:netResult>=0?`linear-gradient(135deg,#2d6a36,${C.green})`:`linear-gradient(135deg,#a03030,#c04040)`, sub:netResult>=0?"Positivo ✅":"Negativo ⚠️" },
+                  { label:"👩 Suma de Sueldos", val:totalComisiones, bg:"linear-gradient(135deg,#7c3aed,#a78bfa)", sub:"Comisiones acumuladas" },
+                  { label:"📈 Ganancia Real", val:realNetResult, bg:realNetResult>=0?`linear-gradient(135deg,#2d6a36,${C.green})`:`linear-gradient(135deg,#a03030,#c04040)`, sub:realNetResult>=0?"Resultado neto final ✅":"Pérdida neta ⚠️" },
+                  { label:"💵 Ingresos USD", val:totalIncome / dollarRate, bg:"linear-gradient(135deg,#1d4ed8,#3b82f6)", sub:`Cotización: 1 USD = $${Math.round(dollarRate)}`, isUSD: true },
                   { label:"🎫 Ticket Prom.", val:avgTicket, bg:`linear-gradient(135deg,${C.gold},${C.goldLight})`, sub:"Promedio por cliente" },
                 ].map(({ label, val, bg, sub, isUSD }) => (
                   <div key={label} style={{ background:bg, borderRadius:16, padding:"18px 20px", color:"#fff", boxShadow:"0 8px 24px rgba(0,0,0,.12)" }}>
