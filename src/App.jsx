@@ -18,6 +18,37 @@ import { Overlay, ModalHeader, Field, GhostBtn, SolidBtn, inputStyle, modalBox }
 
 const CELL_H = 100
 
+const playClickSound = () => {
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext
+    if (!AudioContextClass) return
+    const ctx = new AudioContextClass()
+    
+    const play = () => {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.type = "sine"
+      osc.frequency.setValueAtTime(700, ctx.currentTime)
+      osc.frequency.exponentialRampToValueAtTime(1300, ctx.currentTime + 0.06)
+      gain.gain.setValueAtTime(0.04, ctx.currentTime)
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.06)
+      osc.start(ctx.currentTime)
+      osc.stop(ctx.currentTime + 0.06)
+    }
+
+    if (ctx.state === 'suspended') {
+      ctx.resume().then(play).catch(e => console.warn(e))
+    } else {
+      play()
+    }
+  } catch (e) {
+    console.warn(e)
+  }
+}
+
+
 function getRamaEmoji(rama) {
   const r = String(rama).toLowerCase().trim()
   if (r.includes("mano") || r.includes("uña") || r.includes("nail")) return "💅"
@@ -197,6 +228,7 @@ export default function App() {
         const tKey = todayKey()
         const isAlreadyToday = currentDate === tKey
         setCurrentDate(tKey)
+        playClickSound()
         
         setTimeout(() => {
           window.dispatchEvent(new CustomEvent("scroll-to-today-hour"))

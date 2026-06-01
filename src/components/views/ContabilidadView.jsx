@@ -18,6 +18,11 @@ export default function ContabilidadView({
   const [activeZoomedChart, setActiveZoomedChart] = useState(null)
   const [hoveredProfId, setHoveredProfId] = useState(null)
   const [dollarRate, setDollarRate] = useState(940)
+  const [contOffset, setContOffset] = useState(0)
+
+  useEffect(() => {
+    setContOffset(0)
+  }, [contPeriod])
 
   useEffect(() => {
     fetch("https://dolarapi.com/v1/dolares/oficial")
@@ -30,35 +35,149 @@ export default function ContabilidadView({
       .catch(err => console.warn("Error fetching official dollar rate:", err))
   }, [])
 
+  const playClickSound = () => {
+    try {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext
+      if (!AudioContextClass) return
+      const ctx = new AudioContextClass()
+      
+      const play = () => {
+        const osc = ctx.createOscillator()
+        const gain = ctx.createGain()
+        osc.connect(gain)
+        gain.connect(ctx.destination)
+        osc.type = "sine"
+        osc.frequency.setValueAtTime(700, ctx.currentTime)
+        osc.frequency.exponentialRampToValueAtTime(1300, ctx.currentTime + 0.06)
+        gain.gain.setValueAtTime(0.04, ctx.currentTime)
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.06)
+        osc.start(ctx.currentTime)
+        osc.stop(ctx.currentTime + 0.06)
+      }
+
+      if (ctx.state === 'suspended') {
+        ctx.resume().then(play).catch(e => console.warn(e))
+      } else {
+        play()
+      }
+    } catch (e) {
+      console.warn(e)
+    }
+  }
+
+  useEffect(() => {
+    if (seccion !== "resumen") return
+    if (!["dia", "semana", "mes", "anual"].includes(contPeriod)) return
+
+    const handleKeyDown = (e) => {
+      const activeEl = document.activeElement
+      if (activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA" || activeEl.isContentEditable)) {
+        return
+      }
+
+      if (e.key === "ArrowLeft") {
+        e.preventDefault()
+        setContOffset(p => p - 1)
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault()
+        setContOffset(p => p + 1)
+      } else if (e.key.toLowerCase() === "h") {
+        e.preventDefault()
+        if (contOffset !== 0) {
+          setContOffset(0)
+          playClickSound()
+        }
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [seccion, contPeriod, contOffset])
+
   const safeAllData       = allData && typeof allData === "object" && !Array.isArray(allData) ? allData : {}
   const safeGastos        = Array.isArray(gastos) ? gastos : []
   const safeSueldos       = sueldos && typeof sueldos === "object" && !Array.isArray(sueldos) ? sueldos : {}
   const safeProfessionals = Array.isArray(professionals) ? professionals : []
 
   // ── period filter ──────────────────────────────────────────────────────────
-  const { rangeFrom, rangeTo } = useMemo(() => {
+  const { rangeFrom, rangeTo, periodLabel } = useMemo(() => {
     const today = new Date()
+    
     if (contPeriod === "dia") {
-      const k = toDateKey(today)
-      return { rangeFrom: k, rangeTo: k }
+      const targetDate = new Date(today)
+      targetDate.setDate(today.getDate() + contOffset)
+      const k = toDateKey(targetDate)
+      return { 
+        rangeFrom: k, 
+        rangeTo: k, 
+        periodLabel: fmtDate(k)
+      }
     }
+    
     if (contPeriod === "semana") {
       const day = today.getDay()
-      const mon = new Date(today); mon.setDate(today.getDate() + (day===0?-6:1-day))
-      const sat = new Date(mon);   sat.setDate(mon.getDate() + 5)
-      return { rangeFrom: toDateKey(mon), rangeTo: toDateKey(sat) }
+      const mon = new Date(today)
+      mon.setDate(today.getDate() + (day === 0 ? -6 : 1 - day) + (contOffset * 7))
+      
+      const sat = new Date(mon)
+      sat.setDate(mon.getDate() + 5)
+      
+      const monKey = toDateKey(mon)
+      const satKey = toDateKey(sat)
+      
+      const partsMon = monKey.split("-").map(Number)
+      const partsSat = satKey.split("-").map(Number)
+      
+      return { 
+        rangeFrom: monKey, 
+        rangeTo: satKey, 
+        periodLabel: `${partsMon[2]}/${partsMon[1]} al ${partsSat[2]}/${partsSat[1]}`
+      }
     }
+    
     if (contPeriod === "mes") {
-      const y = today.getFullYear(), m = today.getMonth()
-      return { rangeFrom: `${y}-${String(m+1).padStart(2,"0")}-01`, rangeTo: `${y}-${String(m+1).padStart(2,"0")}-${new Date(y,m+1,0).getDate()}` }
+      const targetDate = new Date(today.getFullYear(), today.getMonth() + contOffset, 1, 12, 0, 0)
+      const y = targetDate.getFullYear()
+      const m = targetDate.getMonth()
+      const lastDay = new Date(y, m + 1, 0).getDate()
+      
+      const from = `${y}-${String(m + 1).padStart(2, "0")}-01`
+      const to = `${y}-${String(m + 1).padStart(2, "0")}-${lastDay}`
+      
+      const monthName = MESES_ES[m]
+      const formatted = `${monthName.charAt(0).toUpperCase() + monthName.slice(1)} ${y}`
+      return { 
+        rangeFrom: from, 
+        rangeTo: to, 
+        periodLabel: formatted
+      }
     }
+    
     if (contPeriod === "anual") {
-      const y = today.getFullYear()
-      return { rangeFrom: `${y}-01-01`, rangeTo: `${y}-12-31` }
+      const targetYear = today.getFullYear() + contOffset
+      const from = `${targetYear}-01-01`
+      const to = `${targetYear}-12-31`
+      return { 
+        rangeFrom: from, 
+        rangeTo: to, 
+        periodLabel: `Año ${targetYear}`
+      }
     }
-    if (contPeriod === "custom") return { rangeFrom: contFrom, rangeTo: contTo }
-    return { rangeFrom: "2000-01-01", rangeTo: "2099-12-31" }
-  }, [contPeriod, contFrom, contTo])
+    
+    if (contPeriod === "custom") {
+      return { 
+        rangeFrom: contFrom, 
+        rangeTo: contTo, 
+        periodLabel: `Rango: ${contFrom} al ${contTo}` 
+      }
+    }
+    
+    return { 
+      rangeFrom: "2000-01-01", 
+      rangeTo: "2099-12-31", 
+      periodLabel: "Historial completo" 
+    }
+  }, [contPeriod, contFrom, contTo, contOffset])
 
   const inRange = (k) => k >= rangeFrom && k <= rangeTo
 
@@ -507,17 +626,33 @@ export default function ContabilidadView({
         }
       ` }} />
 
-      {/* Period selector */}
-      <div style={{ display:"flex", gap:6, marginBottom:20, flexWrap:"wrap", alignItems:"center" }}>
-        <div style={{ fontSize:7, letterSpacing:"3px", color:C.orange, textTransform:"uppercase", marginRight:4 }}>Período</div>
-        {[["dia","Hoy"],["semana","Semana"],["mes","Mes"],["anual","Anual"],["todo","Todo"],["custom","Custom"]].map(([id,label]) => (
-          <button key={id} onClick={()=>setContPeriod(id)} style={{ padding:"5px 14px", borderRadius:20, border:`1.5px solid ${contPeriod===id?C.green:C.border}`, background:contPeriod===id?`linear-gradient(135deg,${C.green},${C.greenLight})`:C.white, color:contPeriod===id?"#fff":C.textSoft, fontSize:10, cursor:"pointer", fontFamily:"Georgia,serif", transition:"all .15s" }}>{label}</button>
-        ))}
-        {contPeriod==="custom" && <>
-          <input type="date" value={contFrom} onChange={e=>setContFrom(e.target.value)} style={{...inputStyle,width:"auto",fontSize:11}}/>
-          <span style={{color:C.textSoft}}>→</span>
-          <input type="date" value={contTo} onChange={e=>setContTo(e.target.value)} style={{...inputStyle,width:"auto",fontSize:11}}/>
-        </>}
+      {/* Period selector & Nav */}
+      <div style={{ display:"flex", gap:12, marginBottom:20, flexWrap:"wrap", alignItems:"center", justifyContent: "space-between" }}>
+        <div style={{ display:"flex", gap:6, flexWrap:"wrap", alignItems:"center" }}>
+          <div style={{ fontSize:7, letterSpacing:"3px", color:C.orange, textTransform:"uppercase", marginRight:4 }}>Período</div>
+          {[["dia","Hoy"],["semana","Semana"],["mes","Mes"],["anual","Anual"],["todo","Todo"],["custom","Custom"]].map(([id,label]) => (
+            <button key={id} onClick={()=>setContPeriod(id)} style={{ padding:"5px 14px", borderRadius:20, border:`1.5px solid ${contPeriod===id?C.green:C.border}`, background:contPeriod===id?`linear-gradient(135deg,${C.green},${C.greenLight})`:C.white, color:contPeriod===id?"#fff":C.textSoft, fontSize:10, cursor:"pointer", fontFamily:"Georgia,serif", transition:"all .15s" }}>{label}</button>
+          ))}
+          {contPeriod==="custom" && <>
+            <input type="date" value={contFrom} onChange={e=>setContFrom(e.target.value)} style={{...inputStyle,width:"auto",fontSize:11}}/>
+            <span style={{color:C.textSoft}}>→</span>
+            <input type="date" value={contTo} onChange={e=>setContTo(e.target.value)} style={{...inputStyle,width:"auto",fontSize:11}}/>
+          </>}
+        </div>
+
+        {/* Date Navigator Pill */}
+        {["dia", "semana", "mes", "anual"].includes(contPeriod) && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, background: C.cream, borderRadius: 20, padding: "3px 12px", border: `1px solid ${C.border}`, boxShadow: "0 2px 6px rgba(0,0,0,0.02)" }}>
+            <button onClick={() => { setContOffset(p => p - 1); playClickSound(); }} style={{ background: "transparent", border: "none", color: C.green, fontSize: 14, fontWeight: "bold", cursor: "pointer", padding: "0 4px", fontFamily: "Georgia,serif" }}>‹</button>
+            <span style={{ display: "inline-block", width: 130, fontSize: 11, color: C.text, fontWeight: "bold", textAlign: "center", fontFamily: "Georgia,serif", whiteSpace: "nowrap" }}>
+              {periodLabel}
+            </span>
+            <button onClick={() => { setContOffset(p => p + 1); playClickSound(); }} style={{ background: "transparent", border: "none", color: C.green, fontSize: 14, fontWeight: "bold", cursor: "pointer", padding: "0 4px", fontFamily: "Georgia,serif" }}>›</button>
+            {contOffset !== 0 && (
+              <button onClick={() => { setContOffset(0); playClickSound(); }} style={{ background: C.greenPale, border: "none", color: C.green, fontSize: 8, padding: "2px 6px", borderRadius: 10, cursor: "pointer", fontWeight: "bold", fontFamily: "Georgia,serif", textTransform: "uppercase", marginLeft: 4 }}>Actual</button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Section pills */}
