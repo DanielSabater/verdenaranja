@@ -253,12 +253,6 @@ export default function App() {
       } else if (e.key === 'ArrowRight') {
         e.preventDefault()
         setCurrentDate(d => nextWorkDay(d, 1))
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault()
-        setCurrentDate(d => addMonths(d, -1))
-      } else if (e.key === 'ArrowDown') {
-        e.preventDefault()
-        setCurrentDate(d => addMonths(d, 1))
       }
     }
 

@@ -38,7 +38,43 @@ export function AppGrid({
   const [dragOver, setDragOverCol] = useState(null) // profId being hovered
   const [menuPos, setMenuPos] = useState(null) // { x, y, profId, hour, hasAppt }
   const dragColRef = useRef(null)
+  const scrollContainerRef = useRef(null)
   const isLiquid = config?.liquidGlass ?? true
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      const activeEl = document.activeElement
+      if (
+        activeEl &&
+        (activeEl.tagName === "INPUT" ||
+         activeEl.tagName === "TEXTAREA" ||
+         activeEl.tagName === "SELECT" ||
+         activeEl.isContentEditable)
+      ) {
+        return
+      }
+
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        const container = scrollContainerRef.current
+        if (!container) return
+
+        e.preventDefault()
+
+        // 1 hour is 2 slots of 30 mins each (2 * 100px = 200px)
+        const scrollAmount = 200
+        const currentScroll = container.scrollTop
+        const targetScroll = e.key === "ArrowDown" ? currentScroll + scrollAmount : currentScroll - scrollAmount
+
+        container.scrollTo({
+          top: targetScroll,
+          behavior: "smooth"
+        })
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [])
 
   useEffect(() => {
     const handleScrollEvent = () => {
@@ -247,7 +283,7 @@ export function AppGrid({
   }
 
   return (
-    <div className="grid-scroll" style={{ overflow: "auto", padding: isMobile ? "0 8px 120px 0" : "0 8px 78px", WebkitOverflowScrolling: "touch", maxHeight: "100%", scrollSnapType: isMobile ? "x mandatory" : "none", scrollPaddingLeft: 60, scrollPaddingBottom: isMobile ? 120 : 78 }}>
+    <div ref={scrollContainerRef} className="grid-scroll" style={{ overflow: "auto", padding: isMobile ? "0 8px 120px 0" : "0 8px 78px", WebkitOverflowScrolling: "touch", maxHeight: "100%", scrollSnapType: isMobile ? "x mandatory" : "none", scrollPaddingLeft: 60, scrollPaddingBottom: isMobile ? 120 : 78 }}>
       <div style={{ paddingTop: 56 }}>
         <table style={{ marginTop: 0, borderCollapse: "collapse", tableLayout: "fixed", width: "100%", minWidth: isMobile ? `calc(52px + ${orderedProfessionals.length} * calc((100vw - 70px) / 2))` : `calc(52px + ${orderedProfessionals.length * 140}px)` }}>
            <thead style={{ position: "sticky", top: 56, zIndex: 100 }}>
@@ -255,29 +291,52 @@ export function AppGrid({
                <th style={{ padding: "6px 4px", width: 52, minWidth: 52, position: "sticky", top: 56, left: 0, zIndex: 101, background: isLiquid ? "rgba(255,255,255,0.65)" : C.white, backdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none", WebkitBackdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none", borderRight: isLiquid ? `2px solid rgba(255,255,255,0.45)` : `2px solid ${C.border}`, boxShadow: "none" }}>
                  <div style={{ fontSize: 7, letterSpacing: "2px", color: C.textSoft, textTransform: "uppercase", textAlign: "center" }}>Hora</div>
                </th>
-               {orderedProfessionals.map((p, idx) => (
-                 <th key={p.id}
-                   draggable
-                   onDragStart={() => onColDragStart(p.id)}
-                   onDragOver={e => onColDragOver(e, p.id)}
-                   onDrop={e => onColDrop(e, p.id)}
-                   onDragEnd={onColDragEnd}
-                   style={{ padding: isMobile ? "6px 2px" : "10px 5px", width: `${100 / orderedProfessionals.length}%`, minWidth: isMobile ? "calc((100vw - 70px) / 2)" : 140, transition: "all .2s", opacity: dragCol === p.id ? 0.4 : 1, borderLeft: dragOver === p.id ? `3px solid ${C.green}` : "none", cursor: "grab", scrollSnapAlign: isMobile ? (idx % 2 === 0 ? "none start" : "none") : "none", scrollSnapStop: isMobile ? "always" : "normal", boxShadow: "none", background: "transparent" }}>
-                   <div onClick={() => setProfPopup(profPopup === p.id ? null : p.id)}
-                     style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, cursor: "pointer" }}>
-                   <div style={{
-                     width: 36, height: 36, borderRadius: "50%",
-                     background: profPopup === p.id ? "rgba(255, 255, 255, 0.75)" : "rgba(255, 255, 255, 0.4)",
-                     backdropFilter: "blur(10px) saturate(180%)",
-                     border: `1.5px solid ${profPopup === p.id ? C.green : "rgba(255, 255, 255, 0.7)"}`,
-                     display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16,
-                     transition: "all .2s",
-                     boxShadow: "inset 0 1px 3px rgba(255, 255, 255, 0.8), 0 4px 10px rgba(0,0,0,0.03)"
-                   }}>{p.emoji}</div>
-                   <span style={{ fontSize: 11, color: profPopup === p.id ? C.green : C.text, fontWeight: profPopup === p.id ? "bold" : "normal" }}>{p.name}</span>
-                 </div>
-               </th>
-            ))}
+               {orderedProfessionals.map((p, idx) => {
+                 const hasTip = Object.values(appointments).some(a => a.profId === p.id && !a.isBlocked && (a.tip || 0) > 0)
+                 return (
+                   <th key={p.id}
+                     draggable
+                     onDragStart={() => onColDragStart(p.id)}
+                     onDragOver={e => onColDragOver(e, p.id)}
+                     onDrop={e => onColDrop(e, p.id)}
+                     onDragEnd={onColDragEnd}
+                     style={{ padding: isMobile ? "6px 2px" : "10px 5px", width: `${100 / orderedProfessionals.length}%`, minWidth: isMobile ? "calc((100vw - 70px) / 2)" : 140, transition: "all .2s", opacity: dragCol === p.id ? 0.4 : 1, borderLeft: dragOver === p.id ? `3px solid ${C.green}` : "none", cursor: "grab", scrollSnapAlign: isMobile ? (idx % 2 === 0 ? "none start" : "none") : "none", scrollSnapStop: isMobile ? "always" : "normal", boxShadow: "none", background: "transparent" }}>
+                     <div onClick={() => setProfPopup(profPopup === p.id ? null : p.id)}
+                       style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, cursor: "pointer" }}>
+                     <div style={{
+                       width: 36, height: 36, borderRadius: "50%",
+                       background: profPopup === p.id ? "rgba(255, 255, 255, 0.75)" : "rgba(255, 255, 255, 0.4)",
+                       backdropFilter: "blur(10px) saturate(180%)",
+                       border: `1.5px solid ${profPopup === p.id ? C.green : "rgba(255, 255, 255, 0.7)"}`,
+                       display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16,
+                       transition: "all .2s",
+                       boxShadow: "inset 0 1px 3px rgba(255, 255, 255, 0.8), 0 4px 10px rgba(0,0,0,0.03)",
+                       position: "relative"
+                     }}>{p.emoji}
+                       {hasTip && (
+                         <div className="prof-badge-tip" style={{
+                           position: "absolute",
+                           top: -4,
+                           right: -4,
+                           width: 14,
+                           height: 14,
+                           borderRadius: "50%",
+                           background: C.white,
+                           border: `1px solid ${C.border}`,
+                           boxShadow: "0 2px 5px rgba(0,0,0,0.15)",
+                           display: "flex",
+                           alignItems: "center",
+                           justifyContent: "center",
+                           fontSize: 8,
+                           zIndex: 10
+                         }}>🎁</div>
+                       )}
+                     </div>
+                     <span style={{ fontSize: 11, color: profPopup === p.id ? C.green : C.text, fontWeight: profPopup === p.id ? "bold" : "normal" }}>{p.name}</span>
+                   </div>
+                 </th>
+                )
+             })}
           </tr>
         </thead>
         <tbody>
