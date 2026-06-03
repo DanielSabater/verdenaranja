@@ -44,36 +44,43 @@ export function usePersistentState(currentDate) {
   
   const lastSaved   = useRef({})
   const isInitial   = useRef(true)
+  const dirtyKeys   = useRef(new Set())
 
   // ── 1. Initial Load & Realtime Subscription ────────────────────────────────
   useEffect(() => {
     const loadStatic = async () => {
-      const { data } = await supabase.from(TABLE).select("id, data")
-      if (!data) {
-        setLoaded(true)
-        return
-      }
-      
-      const updates = {}
-      const legacy = data.find(r => r.id === "allData")?.data || {}
-      
-      data.forEach(row => {
-        const str = JSON.stringify(row.data)
-        lastSaved.current[row.id] = str
-        
-        if (row.id === "config")   setConfig(row.data)
-        if (row.id === "clientes") setClientes(row.data)
-        if (row.id === "gastos")   setGastos(row.data)
-        if (row.id === "sueldos")  setSueldos(row.data)
-        if (row.id.startsWith("day:")) {
-          const dateKey = row.id.replace("day:", "")
-          updates[dateKey] = row.data
+      try {
+        const { data, error } = await supabase.from(TABLE).select("id, data")
+        if (error || !data) {
+          console.error("Failed to load initial data from Supabase, retrying in 5s...", error)
+          setTimeout(loadStatic, 5000)
+          return
         }
-      })
+        
+        const updates = {}
+        const legacy = data.find(r => r.id === "allData")?.data || {}
+        
+        data.forEach(row => {
+          const str = JSON.stringify(row.data)
+          lastSaved.current[row.id] = str
+          
+          if (row.id === "config")   setConfig(row.data)
+          if (row.id === "clientes") setClientes(row.data)
+          if (row.id === "gastos")   setGastos(row.data)
+          if (row.id === "sueldos")  setSueldos(row.data)
+          if (row.id.startsWith("day:")) {
+            const dateKey = row.id.replace("day:", "")
+            updates[dateKey] = row.data
+          }
+        })
 
-      setAllData(prev => ({ ...legacy, ...updates, ...prev }))
-      setLoaded(true)
-      setTimeout(() => { isInitial.current = false }, 1000)
+        setAllData(prev => ({ ...legacy, ...updates, ...prev }))
+        setLoaded(true)
+        setTimeout(() => { isInitial.current = false }, 1000)
+      } catch (err) {
+        console.error("Unexpected error in loadStatic, retrying in 5s...", err)
+        setTimeout(loadStatic, 5000)
+      }
     }
 
     loadStatic()
@@ -165,23 +172,89 @@ export function usePersistentState(currentDate) {
     const saveTimer = setTimeout(async () => {
       const tasks = []
       const check = (id, currentVal) => {
+        // 1. Solo procesamos si el campo fue marcado como modificado por el usuario
+        if (!dirtyKeys.current.has(id)) return
+
         const str = JSON.stringify(currentVal)
+        
+        // Si el estado local coincide con lo guardado, lo sacamos de la lista sucia
+        if (lastSaved.current[id] === str) {
+          dirtyKeys.current.delete(id)
+          return
+        }
+
+        const lastValStr = lastSaved.current[id]
+
+        // 2. Filtro Antivaciado (Salvaguarda de Sobreescritura)
+        if (lastValStr) {
+          try {
+            const lastVal = JSON.parse(lastValStr)
+
+            // Configuración
+            if (id === "config") {
+              const oldProfs = lastVal.professionals || []
+              const newProfs = currentVal.professionals || []
+              if (oldProfs.length > 0 && newProfs.length === 0) {
+                console.error("[Filtro Antivaciado] Sincronización de configuración bloqueada: profesionales vacíos.")
+                alert("Error de seguridad: Se detectó un intento de vaciar la configuración de profesionales. Para proteger tus datos, el guardado automático fue bloqueado. Por favor, recarga la página.")
+                return
+              }
+            }
+
+            // Clientes
+            if (id === "clientes") {
+              if (lastVal.length > 0 && (currentVal || []).length === 0) {
+                console.error("[Filtro Antivaciado] Sincronización de clientes bloqueada: clientes vacíos.")
+                alert("Error de seguridad: Se detectó un intento de vaciar la lista de clientes. El guardado automático fue bloqueado. Por favor, recarga la página.")
+                return
+              }
+            }
+
+            // Turnos diarios
+            if (id.startsWith("day:")) {
+              const oldApptsCount = Object.keys(lastVal || {}).length
+              const newApptsCount = Object.keys(currentVal || {}).length
+
+              if (oldApptsCount > 2 && newApptsCount === 0) {
+                const confirmed = window.confirm(
+                  `Atención: Se detectó que se eliminarán todos los turnos (${oldApptsCount}) agendados para este día. ¿Confirmas esta acción? (Si esto es un error de conexión, cancelá y recargá la página)`
+                )
+                if (!confirmed) {
+                  // Restauramos la referencia de guardado para evitar bucles
+                  lastSaved.current[id] = lastValStr
+                  return
+                }
+              }
+            }
+          } catch (e) {
+            console.error("Safeguard validation error:", e)
+          }
+        }
+
         if (lastSaved.current[id] !== str) {
           lastSaved.current[id] = str
           lsWrite(id.replace("day:", ""), currentVal)
           tasks.push({ id, data: currentVal, updated_at: new Date().toISOString() })
         }
       }
+
       check("config", config)
       check("clientes", clientes)
       check("gastos", gastos)
       check("sueldos", sueldos)
       Object.keys(allData).forEach(date => check(`day:${date}`, allData[date]))
+
       if (tasks.length > 0) {
         setSaveStatus("saving")
         const { error } = await supabase.from(TABLE).upsert(tasks)
-        if (error) setSaveStatus("error")
-        else { setSaveStatus("saved"); setTimeout(() => setSaveStatus("idle"), 1500) }
+        if (error) {
+          setSaveStatus("error")
+        } else {
+          // Limpiamos del set de dirtyKeys los IDs que se guardaron correctamente
+          tasks.forEach(t => dirtyKeys.current.delete(t.id))
+          setSaveStatus("saved")
+          setTimeout(() => setSaveStatus("idle"), 1500)
+        }
       }
     }, 1000)
     return () => clearTimeout(saveTimer)
@@ -189,11 +262,33 @@ export function usePersistentState(currentDate) {
 
   // ── 4. Exposed Setters ─────────────────────────────────────────────────────
   const setAppointments = (updater) => {
+    dirtyKeys.current.add(`day:${currentDate}`)
     setAllData(prev => {
       const current = prev[currentDate] || {}
       const next = typeof updater === "function" ? updater(current) : updater
       return { ...prev, [currentDate]: next }
     })
+  }
+
+  // Setters envolventes para componentes (registran el cambio del usuario en dirtyKeys)
+  const setConfigUser = (updater) => {
+    dirtyKeys.current.add("config")
+    setConfig(updater)
+  }
+
+  const setClientesUser = (updater) => {
+    dirtyKeys.current.add("clientes")
+    setClientes(updater)
+  }
+
+  const setGastosUser = (updater) => {
+    dirtyKeys.current.add("gastos")
+    setGastos(updater)
+  }
+
+  const setSueldosUser = (updater) => {
+    dirtyKeys.current.add("sueldos")
+    setSueldos(updater)
   }
 
   const broadcastEditing = (cellKey, isEditing) => {
@@ -209,10 +304,10 @@ export function usePersistentState(currentDate) {
   return {
     loaded, saveStatus, connStatus,
     allData,   setAppointments,
-    config,    setConfig,
-    clientes,  setClientes,
-    gastos,    setGastos,
-    sueldos,   setSueldos,
+    config,    setConfig: setConfigUser,
+    clientes,  setClientes: setClientesUser,
+    gastos,    setGastos: setGastosUser,
+    sueldos,   setSueldos: setSueldosUser,
     remoteEdits, broadcastEditing
   }
 }
