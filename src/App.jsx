@@ -227,7 +227,15 @@ export default function App() {
         e.preventDefault()
         const tKey = todayKey()
         const isAlreadyToday = currentDate === tKey
-        setCurrentDate(tKey)
+        
+        if (isAlreadyToday && ramas && ramas.length > 1) {
+          const currIdx = ramas.findIndex(r => String(r).trim().toLowerCase() === String(activeRama).trim().toLowerCase())
+          const nextIdx = (currIdx + 1) % ramas.length
+          setActiveRama(ramas[nextIdx])
+        } else {
+          setCurrentDate(tKey)
+        }
+        
         playClickSound()
         
         setTimeout(() => {
@@ -256,7 +264,7 @@ export default function App() {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [currentDate, setCurrentDate])
+  }, [currentDate, setCurrentDate, activeRama, setActiveRama, ramas])
 
   useEffect(() => {
     const handleWakeUp = () => {

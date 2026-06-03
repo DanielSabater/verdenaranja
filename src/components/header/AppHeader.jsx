@@ -66,7 +66,14 @@ export const AppHeader = memo(function AppHeader({
 
   const handleHoyClick = () => {
     const isAlreadyToday = currentDate === tKey
-    setCurrentDate(tKey)
+    if (isAlreadyToday && ramas && ramas.length > 1) {
+      const currIdx = ramas.findIndex(r => String(r).trim().toLowerCase() === String(activeRama).trim().toLowerCase())
+      const nextIdx = (currIdx + 1) % ramas.length
+      setActiveRama(ramas[nextIdx])
+    } else {
+      setCurrentDate(tKey)
+    }
+    
     setHoyBounce(true)
     playClickSound()
     setTimeout(() => setHoyBounce(false), 150)
