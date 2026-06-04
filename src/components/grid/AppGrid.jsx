@@ -34,12 +34,91 @@ export function AppGrid({
   const [profPopup, setProfPopup] = useState(null)
   const [hoveredClientName, setHoveredClientName] = useState(null)
   const [colOrder, setColOrder] = useState(() => { try { const v = localStorage.getItem("pv:colOrder"); return v ? JSON.parse(v) : null } catch { return null } })
+
+  const orderedProfessionals = (() => {
+    if (!colOrder) return professionals
+    const ordered = [...colOrder].map(id => professionals.find(p => p.id === id)).filter(Boolean)
+    const missing = professionals.filter(p => !colOrder.includes(p.id))
+    return [...ordered, ...missing]
+  })()
+
   const [dragCol, setDragCol] = useState(null) // profId being dragged
   const [dragOver, setDragOverCol] = useState(null) // profId being hovered
   const [menuPos, setMenuPos] = useState(null) // { x, y, profId, hour, hasAppt }
   const dragColRef = useRef(null)
   const scrollContainerRef = useRef(null)
   const isLiquid = config?.liquidGlass ?? true
+
+  // ── Pinch to Zoom mobile cols state & handlers ─────────────────────────────
+  const [colsToShow, setColsToShow] = useState(() => {
+    try {
+      const saved = localStorage.getItem("pv:colsToShow")
+      return saved ? Math.max(1, parseInt(saved) || 2) : 2
+    } catch {
+      return 2
+    }
+  })
+  const [showToast, setShowToast] = useState(false)
+  const toastTimeoutRef = useRef(null)
+  const touchStartDistRef = useRef(null)
+  const lastColsRef = useRef(colsToShow)
+  lastColsRef.current = colsToShow
+
+  const colsToShowMobile = Math.min(orderedProfessionals.length, colsToShow)
+
+  const updateColsToShow = (val) => {
+    const nextVal = Math.min(orderedProfessionals.length, Math.max(1, val))
+    if (nextVal !== lastColsRef.current) {
+      setColsToShow(nextVal)
+      try { localStorage.setItem("pv:colsToShow", String(nextVal)) } catch {}
+      setShowToast(true)
+      if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current)
+      toastTimeoutRef.current = setTimeout(() => setShowToast(false), 1200)
+    }
+  }
+
+  const handleTouchStart = (e) => {
+    if (e.touches.length === 2) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      )
+      touchStartDistRef.current = dist
+    }
+  }
+
+  const handleTouchMove = (e) => {
+    if (e.touches.length === 2 && touchStartDistRef.current !== null) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      )
+      const diff = dist - touchStartDistRef.current
+      const threshold = 50 // px of pinch move to trigger col adjustment
+      
+      if (Math.abs(diff) > threshold) {
+        if (diff > 0) {
+          // Pinch apart: zoom in (show fewer columns)
+          if (lastColsRef.current > 1) {
+            updateColsToShow(lastColsRef.current - 1)
+            touchStartDistRef.current = dist
+          }
+        } else {
+          // Pinch together: zoom out (show more columns)
+          if (lastColsRef.current < orderedProfessionals.length) {
+            updateColsToShow(lastColsRef.current + 1)
+            touchStartDistRef.current = dist
+          }
+        }
+      }
+    }
+  }
+
+  const handleTouchEnd = (e) => {
+    if (e.touches.length < 2) {
+      touchStartDistRef.current = null
+    }
+  }
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -162,13 +241,6 @@ export function AppGrid({
     return hour < daySchedule.from || hour >= daySchedule.to
   }
 
-  const orderedProfessionals = (() => {
-    if (!colOrder) return professionals
-    const ordered = [...colOrder].map(id => professionals.find(p => p.id === id)).filter(Boolean)
-    const missing = professionals.filter(p => !colOrder.includes(p.id))
-    return [...ordered, ...missing]
-  })()
-
   const onColDragStart = (profId) => {
     setDragCol(profId)
     dragColRef.current = profId
@@ -283,9 +355,40 @@ export function AppGrid({
   }
 
   return (
-    <div ref={scrollContainerRef} className="grid-scroll" style={{ overflow: "auto", padding: isMobile ? "0 8px 120px 0" : "0 8px 78px", WebkitOverflowScrolling: "touch", maxHeight: "100%", scrollSnapType: isMobile ? "x mandatory" : "none", scrollPaddingLeft: 60, scrollPaddingBottom: isMobile ? 120 : 78 }}>
+    <div 
+      ref={scrollContainerRef} 
+      className="grid-scroll" 
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      style={{ overflow: "auto", padding: isMobile ? "0 8px 120px 0" : "0 8px 78px", WebkitOverflowScrolling: "touch", maxHeight: "100%", scrollSnapType: isMobile ? "x mandatory" : "none", scrollPaddingLeft: 60, scrollPaddingBottom: isMobile ? 120 : 78 }}
+    >
+      {showToast && isMobile && (
+        <div style={{
+          position: "fixed",
+          top: 130,
+          left: "50%",
+          transform: "translateX(-50%)",
+          background: "rgba(42, 61, 46, 0.92)",
+          backdropFilter: "blur(8px)",
+          color: "#fff",
+          padding: "8px 18px",
+          borderRadius: 20,
+          fontSize: 10,
+          fontWeight: "bold",
+          zIndex: 9999,
+          boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
+          pointerEvents: "none",
+          fontFamily: "Georgia, serif",
+          letterSpacing: "0.5px",
+          textTransform: "uppercase",
+          animation: "fadeIn 0.2s ease"
+        }}>
+          🔍 {colsToShowMobile} {colsToShowMobile === 1 ? "Profesional" : "Profesionales"}
+        </div>
+      )}
       <div style={{ paddingTop: 56 }}>
-        <table style={{ marginTop: 0, borderCollapse: "collapse", tableLayout: "fixed", width: "100%", minWidth: isMobile ? `calc(52px + ${orderedProfessionals.length} * calc((100vw - 70px) / 2))` : `calc(52px + ${orderedProfessionals.length * 140}px)` }}>
+        <table style={{ marginTop: 0, borderCollapse: "collapse", tableLayout: "fixed", width: "100%", minWidth: isMobile ? `calc(52px + ${orderedProfessionals.length} * calc((100vw - 70px) / ${colsToShowMobile}))` : `calc(52px + ${orderedProfessionals.length * 140}px)` }}>
            <thead style={{ position: "sticky", top: 56, zIndex: 100 }}>
              <tr style={{ background: isLiquid ? "rgba(255, 255, 255, 0.45)" : C.white, backdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none", WebkitBackdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none", borderBottom: isLiquid ? `2px solid rgba(255,255,255,0.4)` : `2px solid ${C.border}` }}>
                <th style={{ padding: "6px 4px", width: 52, minWidth: 52, position: "sticky", top: 56, left: 0, zIndex: 101, background: isLiquid ? "rgba(255,255,255,0.65)" : C.white, backdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none", WebkitBackdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none", borderRight: isLiquid ? `2px solid rgba(255,255,255,0.45)` : `2px solid ${C.border}`, boxShadow: "none" }}>
@@ -300,7 +403,7 @@ export function AppGrid({
                      onDragOver={e => onColDragOver(e, p.id)}
                      onDrop={e => onColDrop(e, p.id)}
                      onDragEnd={onColDragEnd}
-                     style={{ padding: isMobile ? "6px 2px" : "10px 5px", width: `${100 / orderedProfessionals.length}%`, minWidth: isMobile ? "calc((100vw - 70px) / 2)" : 140, transition: "all .2s", opacity: dragCol === p.id ? 0.4 : 1, borderLeft: dragOver === p.id ? `3px solid ${C.green}` : "none", cursor: "grab", scrollSnapAlign: isMobile ? (idx % 2 === 0 ? "none start" : "none") : "none", scrollSnapStop: isMobile ? "always" : "normal", boxShadow: "none", background: "transparent" }}>
+                     style={{ padding: isMobile ? "6px 2px" : "10px 5px", width: `${100 / orderedProfessionals.length}%`, minWidth: isMobile ? `calc((100vw - 70px) / ${colsToShowMobile})` : 140, transition: "all .2s", opacity: dragCol === p.id ? 0.4 : 1, borderLeft: dragOver === p.id ? `3px solid ${C.green}` : "none", cursor: "grab", scrollSnapAlign: isMobile ? (idx % 2 === 0 ? "none start" : "none") : "none", scrollSnapStop: isMobile ? "always" : "normal", boxShadow: "none", background: "transparent" }}>
                      <div onClick={() => setProfPopup(profPopup === p.id ? null : p.id)}
                        style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, cursor: "pointer" }}>
                      <div style={{
