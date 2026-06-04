@@ -267,7 +267,7 @@ export function ArqueoModal({
                         <div key={g.id || g.monto + g.descripcion} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 8px", background: isIncome ? "#f6fcf8" : "#fcfcff", border: `1px solid ${isIncome ? C.greenMint : C.border}`, borderRadius: 8, fontSize: 10 }}>
                           <div style={{ display: "flex", flexDirection: "column" }}>
                             <span style={{ fontWeight: "bold", color: isIncome ? C.green : C.text }}>
-                              {isIncome ? "💰" : "💵"} {g.descripcion || (isIncome ? "Ingreso" : "Egreso")}
+                              {isIncome ? "💰" : "💵"} {g.descripcion || (isIncome ? "Entrada" : "Salida")}
                             </span>
                             <span style={{ fontSize: 8, color: C.textSoft }}>{isIncome ? "Entrada Efectivo" : "Caja Chica"}</span>
                           </div>
@@ -288,7 +288,7 @@ export function ArqueoModal({
                         <div key={g.id || g.monto + g.descripcion} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 8px", background: isIncome ? "#f6fcf8" : "#fbfbbf10", border: `1px dashed ${isIncome ? C.greenMint : C.border}`, borderRadius: 8, fontSize: 10, opacity: 0.9 }}>
                           <div style={{ display: "flex", flexDirection: "column" }}>
                             <span style={{ color: isIncome ? C.green : C.text }}>
-                              {isIncome ? "💰" : methodIcon} {g.descripcion || (isIncome ? "Ingreso" : "Egreso")}
+                              {isIncome ? "💰" : methodIcon} {g.descripcion || (isIncome ? "Entrada" : "Salida")}
                             </span>
                             <span style={{ fontSize: 8, color: C.textSoft }}>{methodLabel} {isIncome ? "(Entrada)" : ""}</span>
                           </div>
