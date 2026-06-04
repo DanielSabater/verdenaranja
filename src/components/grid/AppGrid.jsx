@@ -375,7 +375,7 @@ export function AppGrid({
     <div 
       ref={scrollContainerRef} 
       className="grid-scroll" 
-      style={{ touchAction: isMobile ? "pan-y" : "auto", overflow: "auto", padding: isMobile ? "0 8px 120px 0" : "0 8px 78px", WebkitOverflowScrolling: "touch", maxHeight: "100%", scrollSnapType: isMobile ? "x mandatory" : "none", scrollPaddingLeft: 60, scrollPaddingBottom: isMobile ? 120 : 78 }}
+      style={{ touchAction: isMobile ? "pan-x pan-y" : "auto", overflow: "auto", padding: isMobile ? "0 8px 120px 0" : "0 8px 78px", WebkitOverflowScrolling: "touch", maxHeight: "100%", scrollSnapType: isMobile ? "x mandatory" : "none", scrollPaddingLeft: 60, scrollPaddingBottom: isMobile ? 120 : 78 }}
     >
       {showToast && isMobile && (
         <div style={{
