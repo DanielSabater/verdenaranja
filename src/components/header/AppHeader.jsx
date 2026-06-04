@@ -135,7 +135,7 @@ export const AppHeader = memo(function AppHeader({
 
           {/* Dynamic Branch Switcher - Ultra clean and responsive */}
           {activeView === "turnos" && ramas && ramas.length > 1 && (
-            <div style={{ 
+            <div className="branch-switcher-container" style={{ 
               display: "flex", 
               gap: 4, 
               background: isLiquid ? "rgba(255, 255, 255, 0.35)" : C.cream, 

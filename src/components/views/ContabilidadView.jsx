@@ -656,7 +656,7 @@ export default function ContabilidadView({
       </div>
 
       {/* Section pills */}
-      <div style={{ display:"flex", gap:6, marginBottom:24 }}>
+      <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:24 }}>
         {TABS.map(t => (
           <button key={t.id} onClick={()=>setSeccion(t.id)} style={{ padding:"7px 18px", borderRadius:20, border:`1.5px solid ${seccion===t.id?C.green:C.border}`, background:seccion===t.id?`linear-gradient(135deg,${C.green},${C.greenLight})`:C.white, color:seccion===t.id?"#fff":C.textSoft, fontSize:11, cursor:"pointer", fontFamily:"Georgia,serif", transition:"all .18s", boxShadow:seccion===t.id?`0 4px 12px rgba(58,125,68,.25)`:"none" }}>{t.label}</button>
         ))}
@@ -664,7 +664,7 @@ export default function ContabilidadView({
 
       {/* ── RESUMEN ── */}
       {seccion==="resumen" && (
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(400px, 1fr))", gap:20, alignItems:"start" }}>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(min(100%, 400px), 1fr))", gap:20, alignItems:"start" }}>
 
           {/* Col 1: KPIs & Totals */}
           <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
