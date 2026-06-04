@@ -690,19 +690,69 @@ export default function App() {
   }, [])
 
   // Show loading only on very first load, not on session changes
-  if (!loaded) return (
-    <div style={{ minHeight: "100vh", background: C.cream, display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div style={{ width: 84, height: 84, borderRadius: "50%", background: "#fff", border: `2px solid ${C.greenMint}`, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", boxShadow: `0 10px 30px rgba(58,125,68,.15)`, animation: "spin 1.8s linear infinite" }}>
-        <img src="/logo.png" alt="Cargando..." style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+  if (!loaded) {
+    const isPremium = config?.premiumLoading ?? true
+    return (
+      <div style={{ position: "fixed", inset: 0, background: C.cream, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999 }}>
+        {isPremium ? (
+          <>
+            {/* Background Animated Gradient Blobs */}
+            <div style={{ position: "absolute", top: "-10%", left: "-10%", width: "50vw", height: "50vw", minWidth: 350, minHeight: 350, borderRadius: "50%", background: "rgba(58,125,68,0.25)", filter: "blur(80px)", animation: "float1 12s infinite alternate ease-in-out" }} />
+            <div style={{ position: "absolute", bottom: "-10%", right: "-10%", width: "60vw", height: "60vw", minWidth: 400, minHeight: 400, borderRadius: "50%", background: "rgba(232,121,58,0.22)", filter: "blur(90px)", animation: "float2 15s infinite alternate ease-in-out" }} />
+            <div style={{ position: "absolute", top: "35%", left: "25%", width: "45vw", height: "45vw", minWidth: 300, minHeight: 300, borderRadius: "50%", background: "rgba(200,134,10,0.18)", filter: "blur(70px)", animation: "float3 14s infinite alternate ease-in-out" }} />
+
+            {/* Apple Frosted Glass Layer */}
+            <div style={{ position: "absolute", inset: 0, background: "rgba(255, 255, 255, 0.42)", backdropFilter: "blur(40px) saturate(190%)", WebkitBackdropFilter: "blur(40px) saturate(190%)", zIndex: 2 }} />
+
+            {/* Main Elegant Card */}
+            <div style={{ position: "relative", zIndex: 3, display: "flex", flexDirection: "column", alignItems: "center", gap: 16, padding: "36px 48px", borderRadius: 28, background: "rgba(255, 255, 255, 0.65)", border: "1px solid rgba(255, 255, 255, 0.7)", boxShadow: "0 16px 40px rgba(58,125,68,0.06)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)", animation: "fadeIn 0.6s ease" }}>
+              {/* Pulsing Logo Sphere */}
+              <div style={{ width: 90, height: 90, borderRadius: "50%", background: "#fff", border: `2px solid ${C.greenMint}`, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", boxShadow: `0 8px 30px rgba(58,125,68,0.12)`, animation: "pulsePulse 2.2s infinite ease-in-out" }}>
+                <img src="/logo.png" alt="Verde Naranja" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              </div>
+              
+              {/* Elegant typography */}
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                <span style={{ fontSize: 9, letterSpacing: "3px", color: C.orange, textTransform: "uppercase", fontWeight: "bold" }}>Diario de Trabajo</span>
+                <span style={{ fontSize: 18, color: C.green, letterSpacing: "1.5px", fontWeight: "bold", fontFamily: "Georgia, serif" }}>VERDE NARANJA</span>
+              </div>
+
+              {/* Small Spinner indicator */}
+              <div style={{ width: 18, height: 18, border: `2px solid ${C.green}20`, borderTop: `2px solid ${C.green}`, borderRadius: "50%", animation: "spin 0.8s linear infinite", marginTop: 8 }} />
+            </div>
+          </>
+        ) : (
+          /* Simple Loading Screen */
+          <div style={{ width: 84, height: 84, borderRadius: "50%", background: "#fff", border: `2px solid ${C.greenMint}`, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", boxShadow: `0 10px 30px rgba(58,125,68,.15)`, animation: "spin 1.8s linear infinite", zIndex: 3 }}>
+            <img src="/logo.png" alt="Cargando..." style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          </div>
+        )}
+
+        <style>{`
+          @keyframes float1 {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(80px, 50px) scale(1.15); }
+          }
+          @keyframes float2 {
+            0% { transform: translate(0, 0) scale(1.1); }
+            100% { transform: translate(-70px, -60px) scale(0.9); }
+          }
+          @keyframes float3 {
+            0% { transform: translate(0, 0) scale(0.95); }
+            100% { transform: translate(-40px, 40px) scale(1.1); }
+          }
+          @keyframes pulsePulse {
+            0%, 100% { transform: scale(1); box-shadow: 0 8px 30px rgba(58,125,68,0.12); }
+            50% { transform: scale(1.05); box-shadow: 0 12px 40px rgba(58,125,68,0.22); }
+          }
+          @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
       </div>
-      <style>{`
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
-    </div>
-  )
+    )
+  }
 
   if (!session) return <Login onLogin={handleLogin} />
 

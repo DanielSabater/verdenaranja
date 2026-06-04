@@ -1079,6 +1079,17 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
                 <div style={{ width:20, height:20, borderRadius:"50%", background:"#fff", position:"absolute", top:2, transition:"left .2s", left:(config.liquidGlass ?? true)?"22px":"2px" }}/>
               </button>
             </div>
+
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", background:C.cream, padding:"12px 16px", borderRadius:12, border:`1.5px solid ${C.border}`, marginTop: 10 }}>
+              <div>
+                <div style={{ fontSize:12, color:C.text }}>Efecto de Carga Premium</div>
+                <div style={{ fontSize:10, color:C.textSoft }}>Activa la pantalla de carga Apple-style con burbujas y desenfoque dinámico</div>
+              </div>
+              <button onClick={() => updateConfig("premiumLoading", !(config.premiumLoading ?? true))}
+                style={{ width:44, height:24, borderRadius:12, border:"none", background:(config.premiumLoading ?? true)?C.green:"#ddd", cursor:"pointer", position:"relative", transition:"background .2s" }}>
+                <div style={{ width:20, height:20, borderRadius:"50%", background:"#fff", position:"absolute", top:2, transition:"left .2s", left:(config.premiumLoading ?? true)?"22px":"2px" }}/>
+              </button>
+            </div>
           </CfgField>
 
           <CfgField label="🎨 Estética y personalización de Bloqueos">

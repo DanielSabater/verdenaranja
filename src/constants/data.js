@@ -70,6 +70,7 @@ export const CONFIG_DEFAULT = {
   blockedColor:     "rojo",
   blockedOpacity:   3,
   gridStyle:        "cards",
+  premiumLoading:   true,
 }
 
 export const BLOCKED_COLORS = [
