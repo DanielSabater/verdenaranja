@@ -292,7 +292,7 @@ export function AppGrid({
                  <div style={{ fontSize: 7, letterSpacing: "2px", color: C.textSoft, textTransform: "uppercase", textAlign: "center" }}>Hora</div>
                </th>
                {orderedProfessionals.map((p, idx) => {
-                 const hasTip = Object.values(appointments).some(a => a.profId === p.id && !a.isBlocked && (a.tip || 0) > 0)
+                 const tipsCount = Object.values(appointments).filter(a => a.profId === p.id && !a.isBlocked && (a.tip || 0) > 0).length
                  return (
                    <th key={p.id}
                      draggable
@@ -312,26 +312,38 @@ export function AppGrid({
                        transition: "all .2s",
                        boxShadow: "inset 0 1px 3px rgba(255, 255, 255, 0.8), 0 4px 10px rgba(0,0,0,0.03)",
                        position: "relative"
-                     }}>{p.emoji}
-                       {hasTip && (
-                         <div className="prof-badge-tip" style={{
-                           position: "absolute",
-                           top: -4,
-                           right: -4,
-                           width: 14,
-                           height: 14,
-                           borderRadius: "50%",
-                           background: C.white,
-                           border: `1px solid ${C.border}`,
-                           boxShadow: "0 2px 5px rgba(0,0,0,0.15)",
-                           display: "flex",
-                           alignItems: "center",
-                           justifyContent: "center",
-                           fontSize: 8,
-                           zIndex: 10
-                         }}>🎁</div>
-                       )}
-                     </div>
+                      }}>{p.emoji}
+                        {tipsCount > 0 && Array.from({ length: tipsCount }).map((_, i) => {
+                          const startAngle = -210;
+                          const endAngle = 30;
+                          const angle = tipsCount === 1
+                            ? -90
+                            : startAngle + (i * (endAngle - startAngle)) / (tipsCount - 1);
+                          const rad = (angle * Math.PI) / 180;
+                          const R = 19;
+                          const giftSize = 14;
+                          const left = 18 + R * Math.cos(rad) - giftSize / 2;
+                          const top = 18 + R * Math.sin(rad) - giftSize / 2;
+                          return (
+                            <div key={i} className="prof-badge-tip" style={{
+                              position: "absolute",
+                              top: top,
+                              left: left,
+                              width: giftSize,
+                              height: giftSize,
+                              borderRadius: "50%",
+                              background: C.white,
+                              border: `1px solid ${C.border}`,
+                              boxShadow: "0 2px 5px rgba(0,0,0,0.15)",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontSize: 8,
+                              zIndex: 10 + i
+                            }}>🎁</div>
+                          );
+                        })}
+                      </div>
                      <span style={{ fontSize: 11, color: profPopup === p.id ? C.green : C.text, fontWeight: profPopup === p.id ? "bold" : "normal" }}>{p.name}</span>
                    </div>
                  </th>
