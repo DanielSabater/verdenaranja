@@ -77,48 +77,65 @@ export function AppGrid({
     }
   }
 
-  const handleTouchStart = (e) => {
-    if (e.touches.length === 2) {
-      const dist = Math.hypot(
-        e.touches[0].clientX - e.touches[1].clientX,
-        e.touches[0].clientY - e.touches[1].clientY
-      )
-      touchStartDistRef.current = dist
-    }
-  }
+  useEffect(() => {
+    const el = scrollContainerRef.current
+    if (!el || !isMobile) return
 
-  const handleTouchMove = (e) => {
-    if (e.touches.length === 2 && touchStartDistRef.current !== null) {
-      const dist = Math.hypot(
-        e.touches[0].clientX - e.touches[1].clientX,
-        e.touches[0].clientY - e.touches[1].clientY
-      )
-      const diff = dist - touchStartDistRef.current
-      const threshold = 50 // px of pinch move to trigger col adjustment
-      
-      if (Math.abs(diff) > threshold) {
-        if (diff > 0) {
-          // Pinch apart (zoom in): show more columns (adds a professional)
-          if (lastColsRef.current < orderedProfessionals.length) {
-            updateColsToShow(lastColsRef.current + 1)
-            touchStartDistRef.current = dist
-          }
-        } else {
-          // Pinch together (zoom out): show fewer columns (removes a professional)
-          if (lastColsRef.current > 1) {
-            updateColsToShow(lastColsRef.current - 1)
-            touchStartDistRef.current = dist
+    const onTouchStartN = (e) => {
+      if (e.touches.length === 2) {
+        if (e.cancelable) e.preventDefault()
+        const dist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        )
+        touchStartDistRef.current = dist
+      }
+    }
+
+    const onTouchMoveN = (e) => {
+      if (e.touches.length === 2 && touchStartDistRef.current !== null) {
+        if (e.cancelable) e.preventDefault()
+        const dist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        )
+        const diff = dist - touchStartDistRef.current
+        const threshold = 40 // lower threshold for smoother response on mobile
+        
+        if (Math.abs(diff) > threshold) {
+          if (diff > 0) {
+            // Pinch apart (zoom in): show more columns (adds a professional)
+            if (lastColsRef.current < orderedProfessionals.length) {
+              updateColsToShow(lastColsRef.current + 1)
+              touchStartDistRef.current = dist
+            }
+          } else {
+            // Pinch together (zoom out): show fewer columns (removes a professional)
+            if (lastColsRef.current > 1) {
+              updateColsToShow(lastColsRef.current - 1)
+              touchStartDistRef.current = dist
+            }
           }
         }
       }
     }
-  }
 
-  const handleTouchEnd = (e) => {
-    if (e.touches.length < 2) {
-      touchStartDistRef.current = null
+    const onTouchEndN = (e) => {
+      if (e.touches.length < 2) {
+        touchStartDistRef.current = null
+      }
     }
-  }
+
+    el.addEventListener("touchstart", onTouchStartN, { passive: false })
+    el.addEventListener("touchmove", onTouchMoveN, { passive: false })
+    el.addEventListener("touchend", onTouchEndN, { passive: true })
+
+    return () => {
+      el.removeEventListener("touchstart", onTouchStartN)
+      el.removeEventListener("touchmove", onTouchMoveN)
+      el.removeEventListener("touchend", onTouchEndN)
+    }
+  }, [isMobile, orderedProfessionals.length])
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -358,10 +375,7 @@ export function AppGrid({
     <div 
       ref={scrollContainerRef} 
       className="grid-scroll" 
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-      style={{ overflow: "auto", padding: isMobile ? "0 8px 120px 0" : "0 8px 78px", WebkitOverflowScrolling: "touch", maxHeight: "100%", scrollSnapType: isMobile ? "x mandatory" : "none", scrollPaddingLeft: 60, scrollPaddingBottom: isMobile ? 120 : 78 }}
+      style={{ touchAction: isMobile ? "pan-y" : "auto", overflow: "auto", padding: isMobile ? "0 8px 120px 0" : "0 8px 78px", WebkitOverflowScrolling: "touch", maxHeight: "100%", scrollSnapType: isMobile ? "x mandatory" : "none", scrollPaddingLeft: 60, scrollPaddingBottom: isMobile ? 120 : 78 }}
     >
       {showToast && isMobile && (
         <div style={{
