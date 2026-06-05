@@ -210,7 +210,7 @@ export default function App() {
   const [chosenServices, setChosenServices] = useState([])
   const [filterCat, setFilterCat] = useState("all")
   const [apptNotes, setApptNotes] = useState("")
-  const [apptTip, setApptTip] = useState("")
+  const [apptTip, setApptTip] = useState({})
   const [apptDiscount, setApptDiscount] = useState("")
   const [paymentSplits, setPaymentSplits] = useState([])
   const [searchTerm, setSearchTerm] = useState("")
@@ -333,18 +333,26 @@ export default function App() {
         }))
 
         setPaymentSplits(finalSplits.length ? finalSplits : [{ methodId: "efectivo", amount: "" }])
-        setApptTip(totalTip > 0 ? Math.round(totalTip).toString() : "")
+        
+        const tipsMap = {}
+        groupKeys.forEach(k => {
+          const a = appointments[k]
+          tipsMap[k] = a.tip > 0 ? Math.round(a.tip).toString() : ""
+        })
+        setApptTip(tipsMap)
+
         setApptDiscount(totalDiscount > 0 ? Math.round(totalDiscount).toString() : "")
       } else {
         const total = apptTotal(appt)
         setMultiPayKeys([payModal])
         setPaymentSplits([{ methodId: "efectivo", amount: total.toString() }])
-        setApptTip("")
+        setApptTip({ [payModal]: "" })
         setApptDiscount("")
       }
     } else {
       setMultiPayKeys([])
       setPaymentSplits([])
+      setApptTip({})
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [payModal])
@@ -588,7 +596,7 @@ export default function App() {
         notes: extraParams.isNote ? "" : apptNotes.trim(),
         paid: prev.paid || false,
         payMethod: prev.payMethod || null,
-        tip: parseFloat(apptTip) || 0,
+        tip: parseFloat(apptTip[editKey || k]) || 0,
         ...extraParams
       }
       return next
@@ -616,7 +624,7 @@ export default function App() {
   const confirmPay = () => {
     const keys = multiPayKeys
     const totalToPay = keys.reduce((sum, k) => sum + apptTotal(appointments[k]), 0)
-    const tipAmount = parseFloat(apptTip) || 0
+    const tipAmount = Object.values(apptTip || {}).reduce((sum, v) => sum + (parseFloat(v) || 0), 0)
     const discountAmount = parseFloat(apptDiscount) || 0
     const validSplits = paymentSplits.filter(r => r.methodId && r.amount !== "" && !isNaN(parseFloat(r.amount)))
     const totalAmountPaid = validSplits.reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0)
@@ -625,6 +633,23 @@ export default function App() {
     // Create or reuse a group ID to keep these appointments linked
     const existingGid = keys.map(k => appointments[k]?.payGroupId).find(g => !!g)
     const gid = existingGid || Date.now()
+
+    // 1. Calcular los totales esperados (servicio - descuento + propina específica) para cada turno
+    const expectedTotals = {}
+    let grandExpectedTotal = 0
+
+    keys.forEach(k => {
+      const appt = appointments[k]
+      if (!appt) return
+      const apptBase = apptTotal(appt)
+      const ratio = totalToPay > 0 ? apptBase / totalToPay : 1 / keys.length
+      const discount = Math.round(discountAmount * ratio)
+      const tip = parseFloat(apptTip[k]) || 0
+      
+      const expected = Math.max(0, apptBase - discount + tip)
+      expectedTotals[k] = expected
+      grandExpectedTotal += expected
+    })
 
     setAppointments(p => {
       const next = { ...p }
@@ -647,14 +672,17 @@ export default function App() {
 
         const apptBase = apptTotal(appt)
         const ratio = totalToPay > 0 ? apptBase / totalToPay : 1 / keys.length
+        
+        // Usamos el ratio esperado que incluye la propina específica para dividir los métodos de pago
+        const expectedRatio = grandExpectedTotal > 0 ? expectedTotals[k] / grandExpectedTotal : ratio
 
         next[k] = {
           ...appt,
           paid: true,
           payGroupId: gid,
           payMethod: validSplits[0]?.methodId || "efectivo",
-          paymentSplits: validSplits.map(s => ({ ...s, amount: Math.round((parseFloat(s.amount) || 0) * ratio) })),
-          tip: Math.round(tipAmount * ratio),
+          paymentSplits: validSplits.map(s => ({ ...s, amount: Math.round((parseFloat(s.amount) || 0) * expectedRatio) })),
+          tip: parseFloat(apptTip[k]) || 0,
           discount: Math.round(discountAmount * ratio)
         }
       })
@@ -797,9 +825,9 @@ export default function App() {
                 quickBlock={quickBlock}
                 paidAppts={paidAppts} totalByProf={totalByProf} earningsByProf={earningsByProf} comisionPct={comisionPct}
                 currentDate={currentDate}
-                onCellClick={(profId, hour) => { setModal({ profId, hour, editKey: null }); setChosenServices([]); setClientName(""); setFilterCat("all"); setApptNotes(""); setApptTip("") }}
-                onEdit={(key, appt) => { setModal({ profId: appt.profId, hour: appt.hour, editKey: key }); setChosenServices([...(appt.services || [])]); setClientName(appt.client); setFilterCat("all"); setApptNotes(appt.notes || ""); setApptTip(appt.tip || "") }}
-                onPay={(key) => { const a = appointments[key]; if (a?.paymentSplits?.length) setPaymentSplits(a.paymentSplits.map(s => ({ ...s }))); else setPaymentSplits([{ methodId: "efectivo", amount: Math.max(0, apptTotal(a) + (a.tip || 0) - (a.discount || 0)) }]); setApptTip(a.tip || ""); setApptDiscount(a.discount || ""); setPayModal(key) }}
+                onCellClick={(profId, hour) => { setModal({ profId, hour, editKey: null }); setChosenServices([]); setClientName(""); setFilterCat("all"); setApptNotes(""); setApptTip({}) }}
+                onEdit={(key, appt) => { setModal({ profId: appt.profId, hour: appt.hour, editKey: key }); setChosenServices([...(appt.services || [])]); setClientName(appt.client); setFilterCat("all"); setApptNotes(appt.notes || ""); setApptTip({ [key]: appt.tip ? appt.tip.toString() : "" }) }}
+                onPay={(key) => { const a = appointments[key]; if (a?.paymentSplits?.length) setPaymentSplits(a.paymentSplits.map(s => ({ ...s }))); else setPaymentSplits([{ methodId: "efectivo", amount: Math.max(0, apptTotal(a) + (a.tip || 0) - (a.discount || 0)) }]); setApptTip({ [key]: a.tip ? a.tip.toString() : "" }); setApptDiscount(a.discount || ""); setPayModal(key) }}
                 onDelete={(key) => setDeleteKey(key)}
                 onToggleTipsRelease={onToggleTipsRelease}
                 CELL_H={CELL_H}

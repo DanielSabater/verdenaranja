@@ -352,7 +352,7 @@ export function AppModals({
 
         const total = multiPayKeys.reduce((s, k) => s + (appointments[k] ? apptTotal(appointments[k]) : 0), 0)
         const discountAmount = parseFloat(apptDiscount) || 0
-        const tipAmount = parseFloat(apptTip) || 0
+        const tipAmount = Object.values(apptTip || {}).reduce((s, v) => s + (parseFloat(v) || 0), 0)
         const totalWithTip = Math.max(0, total - discountAmount + tipAmount)
         const sumPaid = paymentSplits.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0)
         const balance = totalWithTip - sumPaid
@@ -393,6 +393,32 @@ export function AppModals({
                           <span style={{ color: C.text }}>{fmt(sv.price)}</span>
                         </div>
                       ))}
+                      {multiPayKeys.length > 1 && (
+                        <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 6, marginTop: 6 }}>
+                          <span style={{ fontSize: 10, color: C.textSoft }}>🎁 Propina para {prof?.name || "prof."}:</span>
+                          <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+                            <span style={{ fontSize: 10, color: C.textSoft }}>$</span>
+                            <input
+                              type="number"
+                              value={apptTip[k] || ""}
+                              onChange={e => {
+                                const val = e.target.value
+                                const nextTip = { ...apptTip, [k]: val }
+                                setApptTip(nextTip)
+                                
+                                if (paymentSplits.length === 1) {
+                                  const totalTipAmount = Object.values(nextTip).reduce((s, v) => s + (parseFloat(v) || 0), 0)
+                                  const total = multiPayKeys.reduce((s, key) => s + (appointments[key] ? apptTotal(appointments[key]) : 0), 0)
+                                  const discount = parseFloat(apptDiscount) || 0
+                                  setPaymentSplits([{ ...paymentSplits[0], amount: Math.max(0, total - discount + totalTipAmount).toString() }])
+                                }
+                              }}
+                              placeholder="0"
+                              style={{ width: 70, padding: "2px 6px", border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 11, color: C.text, background: C.white, outline: "none", fontFamily: "Georgia,serif", textAlign: "right" }}
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )
                 })}
@@ -432,7 +458,7 @@ export function AppModals({
                         if (paymentSplits.length === 1) {
                           const total = multiPayKeys.reduce((s, key) => s + (appointments[key] ? apptTotal(appointments[key]) : 0), 0)
                           const discount = parseFloat(val) || 0
-                          const tip = parseFloat(apptTip) || 0
+                          const tip = Object.values(apptTip || {}).reduce((s, v) => s + (parseFloat(v) || 0), 0)
                           setPaymentSplits([{ ...paymentSplits[0], amount: Math.max(0, total - discount + tip).toString() }])
                         }
                       }}
@@ -444,26 +470,31 @@ export function AppModals({
 
                 {/* Tip row */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8, paddingTop: 6, borderTop: `1px solid ${C.border}` }}>
-                  <span style={{ fontSize: 11, color: C.textSoft }}>🎁 Propina</span>
-                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                    <span style={{ fontSize: 11, color: C.textSoft }}>$</span>
-                    <input
-                      type="number"
-                      value={apptTip}
-                      onChange={e => {
-                        const val = e.target.value
-                        setApptTip(val)
-                        if (paymentSplits.length === 1) {
-                          const total = multiPayKeys.reduce((s, key) => s + (appointments[key] ? apptTotal(appointments[key]) : 0), 0)
-                          const discount = parseFloat(apptDiscount) || 0
-                          const tip = parseFloat(val) || 0
-                          setPaymentSplits([{ ...paymentSplits[0], amount: Math.max(0, total - discount + tip).toString() }])
-                        }
-                      }}
-                      placeholder="0"
-                      style={{ width: 80, padding: "4px 8px", border: `1.5px solid ${C.border}`, borderRadius: 8, fontSize: 12, color: C.text, background: C.cream, outline: "none", fontFamily: "Georgia,serif", textAlign: "right" }}
-                    />
-                  </div>
+                  <span style={{ fontSize: 11, color: C.textSoft }}>{multiPayKeys.length > 1 ? "🎁 Propina Total" : "🎁 Propina"}</span>
+                  {multiPayKeys.length === 1 ? (
+                    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                      <span style={{ fontSize: 11, color: C.textSoft }}>$</span>
+                      <input
+                        type="number"
+                        value={apptTip[payModal] || ""}
+                        onChange={e => {
+                          const val = e.target.value
+                          const nextTip = { ...apptTip, [payModal]: val }
+                          setApptTip(nextTip)
+                          if (paymentSplits.length === 1) {
+                            const total = multiPayKeys.reduce((s, key) => s + (appointments[key] ? apptTotal(appointments[key]) : 0), 0)
+                            const discount = parseFloat(apptDiscount) || 0
+                            const tip = parseFloat(val) || 0
+                            setPaymentSplits([{ ...paymentSplits[0], amount: Math.max(0, total - discount + tip).toString() }])
+                          }
+                        }}
+                        placeholder="0"
+                        style={{ width: 80, padding: "4px 8px", border: `1.5px solid ${C.border}`, borderRadius: 8, fontSize: 12, color: C.text, background: C.cream, outline: "none", fontFamily: "Georgia,serif", textAlign: "right" }}
+                      />
+                    </div>
+                  ) : (
+                    <span style={{ fontSize: 12, fontWeight: "bold", color: C.text }}>{fmt(tipAmount)}</span>
+                  )}
                 </div>
                 <div style={{ borderTop: `1px solid ${C.border}`, marginTop: 6, paddingTop: 6, display: "flex", justifyContent: "space-between" }}>
                   <span style={{ fontSize: 11, fontWeight: "bold", color: C.text }}>Total{discountAmount > 0 ? " c/descuento" : ""}{tipAmount > 0 ? " + propina" : ""}</span>
