@@ -45,6 +45,7 @@ export function usePersistentState(currentDate) {
   const lastSaved   = useRef({})
   const isInitial   = useRef(true)
   const dirtyKeys   = useRef(new Set())
+  const lastFetchTime = useRef(0)
 
   // ── 1. Initial Load & Realtime Subscription ────────────────────────────────
   useEffect(() => {
@@ -64,17 +65,32 @@ export function usePersistentState(currentDate) {
           const str = JSON.stringify(row.data)
           lastSaved.current[row.id] = str
           
-          if (row.id === "config")   setConfig(row.data)
-          if (row.id === "clientes") setClientes(row.data)
-          if (row.id === "gastos")   setGastos(row.data)
-          if (row.id === "sueldos")  setSueldos(row.data)
+          // Solo actualizamos el estado si no tiene modificaciones locales sin guardar
+          if (!dirtyKeys.current.has(row.id)) {
+            if (row.id === "config")   setConfig(row.data)
+            if (row.id === "clientes") setClientes(row.data)
+            if (row.id === "gastos")   setGastos(row.data)
+            if (row.id === "sueldos")  setSueldos(row.data)
+          }
           if (row.id.startsWith("day:")) {
             const dateKey = row.id.replace("day:", "")
             updates[dateKey] = row.data
           }
         })
 
-        setAllData(prev => ({ ...legacy, ...updates, ...prev }))
+        setAllData(prev => {
+          // Fusionamos prev y updates respetando dirtyKeys
+          const next = { ...legacy, ...prev }
+          Object.keys(updates).forEach(dateKey => {
+            const id = `day:${dateKey}`
+            if (!dirtyKeys.current.has(id)) {
+              next[dateKey] = updates[dateKey]
+            }
+          })
+          return next
+        })
+        
+        lastFetchTime.current = Date.now()
         setLoaded(true)
         setTimeout(() => { isInitial.current = false }, 1000)
       } catch (err) {
@@ -139,6 +155,11 @@ export function usePersistentState(currentDate) {
     const handleReconnect = () => {
       if (supabase && supabase.realtime && supabase.realtime.connection.state !== "connected") {
         supabase.realtime.connect()
+      }
+      const now = Date.now()
+      if (now - lastFetchTime.current > 30000) {
+        lastFetchTime.current = now
+        loadStatic()
       }
     }
     window.addEventListener("focus", handleReconnect)
