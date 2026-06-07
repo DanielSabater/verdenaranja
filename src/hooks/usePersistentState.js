@@ -164,12 +164,27 @@ export function usePersistentState(currentDate) {
     }
     window.addEventListener("focus", handleReconnect)
     document.addEventListener("visibilitychange", handleReconnect)
+    window.addEventListener("online", handleReconnect)
+
+    // Detector de suspensión de la CPU (Salto de tiempo)
+    let lastTime = Date.now()
+    const checkSleep = setInterval(() => {
+      const currentTime = Date.now()
+      // Si el reloj interno salta más de 10 segundos, significa que la CPU estuvo suspendida
+      if (currentTime - lastTime > 10000) {
+        console.log("[usePersistentState] Waking up from suspension, triggering refetch...")
+        handleReconnect()
+      }
+      lastTime = currentTime
+    }, 2000)
 
     return () => { 
       supabase.removeChannel(channel)
       clearInterval(cleanup)
+      clearInterval(checkSleep)
       window.removeEventListener("focus", handleReconnect)
       document.removeEventListener("visibilitychange", handleReconnect)
+      window.removeEventListener("online", handleReconnect)
     }
   }, [])
 
