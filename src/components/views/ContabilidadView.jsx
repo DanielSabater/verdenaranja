@@ -35,6 +35,79 @@ export default function ContabilidadView({
       .catch(err => console.warn("Error fetching official dollar rate:", err))
   }, [])
 
+  const checkAndGenerateFixedGastos = () => {
+    const safeGastos = Array.isArray(gastos) ? gastos : []
+    if (safeGastos.length === 0) return
+
+    const activeFixedGroups = {}
+    safeGastos.forEach(g => {
+      if (g.isFixed && g.fixedGroupId) {
+        if (!activeFixedGroups[g.fixedGroupId]) {
+          activeFixedGroups[g.fixedGroupId] = []
+        }
+        activeFixedGroups[g.fixedGroupId].push(g)
+      }
+    })
+
+    let updated = false
+    const newGastos = [...safeGastos]
+
+    const now = new Date()
+    const currentYear = now.getFullYear()
+    const currentMonth = now.getMonth() // 0-indexed
+
+    Object.entries(activeFixedGroups).forEach(([groupId, instances]) => {
+      instances.sort((a, b) => a.fecha.localeCompare(b.fecha))
+      const originalInstance = instances[0]
+      const latestInstance = instances[instances.length - 1]
+
+      if (!originalInstance) return
+
+      const [startYear, startMonth] = originalInstance.fecha.split("-").map(Number)
+      const skippedMonths = originalInstance.skippedMonths || []
+
+      let tempYear = startYear
+      let tempMonth = startMonth - 1 // 0-indexed
+
+      while (tempYear < currentYear || (tempYear === currentYear && tempMonth <= currentMonth)) {
+        const monthKey = `${tempYear}-${String(tempMonth + 1).padStart(2, "0")}`
+        const isSkipped = skippedMonths.includes(monthKey)
+        const exists = newGastos.some(g => g.fixedGroupId == groupId && g.fecha.startsWith(monthKey))
+
+        if (!exists && !isSkipped) {
+          const newFecha = `${monthKey}-01`
+          const baseInstance = latestInstance || originalInstance
+
+          newGastos.push({
+            id: Date.now() + Math.floor(Math.random() * 1000),
+            descripcion: baseInstance.descripcion,
+            monto: baseInstance.monto,
+            categoria: baseInstance.categoria,
+            fecha: newFecha,
+            isFixed: true,
+            fixedGroupId: Number(groupId),
+            skippedMonths: []
+          })
+          updated = true
+        }
+
+        tempMonth++
+        if (tempMonth > 11) {
+          tempMonth = 0
+          tempYear++
+        }
+      }
+    })
+
+    if (updated) {
+      setGastos(newGastos)
+    }
+  }
+
+  useEffect(() => {
+    checkAndGenerateFixedGastos()
+  }, [])
+
   const playClickSound = () => {
     try {
       const AudioContextClass = window.AudioContext || window.webkitAudioContext
@@ -238,6 +311,30 @@ export default function ContabilidadView({
   const netResult    = totalIncome - totalGastos
   const realNetResult = totalIncome - totalGastos - totalComisiones
   const maxProf      = Math.max(...safeProfessionals.map(p => incomeByProf[p.id]||0), 1)
+
+  const fixedGastosSummary = useMemo(() => {
+    const fixed = gastosRange.filter(g => g.isFixed)
+    const grouped = {}
+    fixed.forEach(g => {
+      const desc = g.descripcion.trim() || "Gasto Fijo"
+      if (!grouped[desc]) {
+        grouped[desc] = {
+          descripcion: desc,
+          monto: 0,
+          categoria: g.categoria,
+          count: 0,
+          rawInstance: g
+        }
+      }
+      grouped[desc].monto += (parseFloat(g.monto) || 0)
+      grouped[desc].count += 1
+      if (g.fecha > grouped[desc].rawInstance.fecha) {
+        grouped[desc].rawInstance = g
+      }
+    })
+    return Object.values(grouped)
+  }, [gastosRange])
+
 
   // ── daily summary logic ──────────────────────────────────────────────────
   const dailySummary = useMemo(() => {
@@ -575,8 +672,12 @@ export default function ContabilidadView({
     setGastoForm({ descripcion:"", monto:"", categoria:"insumos", fecha:todayKey() })
     setGastoModal(false)
   }
-  const editGasto   = (g) => { setGastoForm({ descripcion:g.descripcion, monto:g.monto, categoria:g.categoria, fecha:g.fecha }); setEditGastoId(g.id); setGastoModal(true) }
-  const deleteGasto = (id) => setGastos(p => p.filter(g => g.id!==id))
+  const editGasto   = (g) => { setGastoForm({ descripcion:g.descripcion, monto:g.monto, categoria:g.categoria, fecha:g.fecha, isFixed: !!g.isFixed, fixedGroupId: g.fixedGroupId }); setEditGastoId(g.id); setGastoModal(true) }
+  const deleteGasto = (id) => {
+    if (window.confirm("¿Estás seguro de que deseas eliminar este gasto?")) {
+      setGastos(p => p.filter(g => g.id !== id))
+    }
+  }
 
   const pagarSueldo    = (profId) => setSueldos(p => ({ ...p, [sueldoKey(profId)]: { pagado:true, monto:profSueldo(profId).monto, fecha:todayKey() } }))
   const desmarcarSueldo= (profId) => setSueldos(p => { const n={...p}; delete n[sueldoKey(profId)]; return n })
@@ -712,6 +813,129 @@ export default function ContabilidadView({
                   </div>
                 </div>
               ) : <div style={{ fontSize:11, color:C.textSoft }}>Sin datos</div>}
+            </div>
+
+            {/* Pizza (Donut) Chart for Income Distribution */}
+            <div style={{ background:C.white, borderRadius:16, padding:"18px 20px", border:`1px solid ${C.border}` }}>
+              <div style={{ fontSize:9, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase", marginBottom:12 }}>Distribución de Ingresos</div>
+              {totalIncome === 0 ? (
+                <div style={{ fontSize:11, color:C.textSoft, padding:"20px 0", textAlign:"center" }}>Sin ingresos en este período</div>
+              ) : (() => {
+                const partSueldos = totalComisiones
+                const partGastos = totalGastos
+                const partNeto = Math.max(0, realNetResult)
+                const totalParts = partSueldos + partGastos + partNeto
+                
+                const pctNeto = totalParts > 0 ? (partNeto / totalParts) * 100 : 0
+                const pctSueldos = totalParts > 0 ? (partSueldos / totalParts) * 100 : 0
+                const pctGastos = totalParts > 0 ? (partGastos / totalParts) * 100 : 0
+
+                const r = 65
+                const circ = 2 * Math.PI * r
+                
+                const strokeNeto = (pctNeto / 100) * circ
+                const strokeSueldos = (pctSueldos / 100) * circ
+                const strokeGastos = (pctGastos / 100) * circ
+
+                const offsetNeto = 0
+                const offsetSueldos = -strokeNeto
+                const offsetGastos = -(strokeNeto + strokeSueldos)
+
+                return (
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-around", gap: 20, flexWrap: "wrap", padding: "10px 0" }}>
+                    <div style={{ position: "relative", width: 180, height: 180 }}>
+                      <svg width="180" height="180" viewBox="0 0 180 180">
+                        {/* Background track */}
+                        <circle cx="90" cy="90" r={r} fill="transparent" stroke="#fdfbf7" strokeWidth="22" />
+                        
+                        {/* Ganancia Real slice (Green) */}
+                        {pctNeto > 0 && (
+                          <circle
+                            cx="90"
+                            cy="90"
+                            r={r}
+                            fill="transparent"
+                            stroke={C.green}
+                            strokeWidth="22"
+                            strokeDasharray={`${strokeNeto} ${circ - strokeNeto}`}
+                            strokeDashoffset={offsetNeto}
+                            transform="rotate(-90 90 90)"
+                            strokeLinecap={pctNeto === 100 ? "butt" : "round"}
+                          />
+                        )}
+                        
+                        {/* Sueldos slice (Purple) */}
+                        {pctSueldos > 0 && (
+                          <circle
+                            cx="90"
+                            cy="90"
+                            r={r}
+                            fill="transparent"
+                            stroke="#7c3aed"
+                            strokeWidth="22"
+                            strokeDasharray={`${strokeSueldos} ${circ - strokeSueldos}`}
+                            strokeDashoffset={offsetSueldos}
+                            transform="rotate(-90 90 90)"
+                            strokeLinecap={pctSueldos === 100 ? "butt" : "round"}
+                          />
+                        )}
+                        
+                        {/* Gastos slice (Orange) */}
+                        {pctGastos > 0 && (
+                          <circle
+                            cx="90"
+                            cy="90"
+                            r={r}
+                            fill="transparent"
+                            stroke={C.orange}
+                            strokeWidth="22"
+                            strokeDasharray={`${strokeGastos} ${circ - strokeGastos}`}
+                            strokeDashoffset={offsetGastos}
+                            transform="rotate(-90 90 90)"
+                            strokeLinecap={pctGastos === 100 ? "butt" : "round"}
+                          />
+                        )}
+                      </svg>
+                      {/* Center label */}
+                      <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+                        <span style={{ fontSize: 10, color: C.textSoft, textTransform: "uppercase", letterSpacing: "1px" }}>Neto</span>
+                        <span style={{ fontSize: 18, fontWeight: "bold", color: realNetResult >= 0 ? C.green : "#c04040", marginTop: 2 }}>
+                          {pctNeto.toFixed(0)}%
+                        </span>
+                      </div>
+                    </div>
+
+                    <div style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 160 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ width: 12, height: 12, borderRadius: "50%", background: C.green }} />
+                        <div style={{ display: "flex", flexDirection: "column" }}>
+                          <span style={{ fontSize: 11, color: C.text, fontWeight: "bold" }}>Ganancia: {pctNeto.toFixed(0)}%</span>
+                          <span style={{ fontSize: 10, color: C.textSoft }}>{fmt(partNeto)}</span>
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ width: 12, height: 12, borderRadius: "50%", background: "#7c3aed" }} />
+                        <div style={{ display: "flex", flexDirection: "column" }}>
+                          <span style={{ fontSize: 11, color: C.text, fontWeight: "bold" }}>Sueldos: {pctSueldos.toFixed(0)}%</span>
+                          <span style={{ fontSize: 10, color: C.textSoft }}>{fmt(partSueldos)}</span>
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ width: 12, height: 12, borderRadius: "50%", background: C.orange }} />
+                        <div style={{ display: "flex", flexDirection: "column" }}>
+                          <span style={{ fontSize: 11, color: C.text, fontWeight: "bold" }}>Gastos: {pctGastos.toFixed(0)}%</span>
+                          <span style={{ fontSize: 10, color: C.textSoft }}>{fmt(partGastos)}</span>
+                        </div>
+                      </div>
+                      {realNetResult < 0 && (
+                        <div style={{ fontSize: 10, color: "#c04040", fontWeight: "bold", marginTop: 6, background: "#fdf2f2", padding: "6px 10px", borderRadius: 8 }}>
+                          ⚠️ Déficit: {fmt(Math.abs(realNetResult))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })()}
             </div>
           </div>
 
@@ -969,6 +1193,179 @@ export default function ContabilidadView({
             <button onClick={()=>{ setGastoForm({ descripcion:"", monto:"", categoria:"insumos", fecha:todayKey() }); setEditGastoId(null); setGastoModal(true) }} style={{ padding:"9px 18px", borderRadius:12, border:"none", background:`linear-gradient(135deg,${C.orange},${C.orangeLight})`, color:"#fff", fontSize:11, cursor:"pointer", fontFamily:"Georgia,serif" }}>+ Registrar gasto</button>
           </div>
 
+          {/* Capsules for fixed expenses */}
+          {fixedGastosSummary.length > 0 && (
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(200px, 1fr))", gap:14, marginBottom:20 }}>
+              {fixedGastosSummary.map((item, idx) => {
+                const catInfo = GASTO_CATS.find(c => c.id === item.categoria)
+                const emoji = catInfo?.icon || "📌"
+                const gradients = [
+                  `linear-gradient(135deg, ${C.orange}, ${C.orangeLight})`,
+                  "linear-gradient(135deg, #7c3aed, #a78bfa)",
+                  "linear-gradient(135deg, #1d4ed8, #3b82f6)",
+                  `linear-gradient(135deg, ${C.gold}, ${C.goldLight})`,
+                  "linear-gradient(135deg, #b91c1c, #f87171)",
+                  "linear-gradient(135deg, #059669, #34d399)",
+                ]
+                const bg = gradients[idx % gradients.length]
+                return (
+                  <div 
+                    key={item.descripcion} 
+                    onClick={() => editGasto(item.rawInstance)}
+                    style={{ 
+                      background:bg, 
+                      borderRadius:16, 
+                      padding:"18px 20px", 
+                      color:"#fff", 
+                      boxShadow:"0 8px 24px rgba(0,0,0,.12)",
+                      cursor:"pointer",
+                      transition:"transform 0.2s ease, box-shadow 0.2s ease",
+                      position:"relative"
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = "translateY(-3px)"
+                      e.currentTarget.style.boxShadow = "0 12px 30px rgba(0,0,0,0.18)"
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = "translateY(0)"
+                      e.currentTarget.style.boxShadow = "0 8px 24px rgba(0,0,0,.12)"
+                    }}
+                  >
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:4 }}>
+                      <span style={{ fontSize:8, letterSpacing:"1.5px", textTransform:"uppercase", opacity:.8 }}>{emoji} {item.descripcion}</span>
+                      <span style={{ fontSize:10, opacity:0.8 }} title="Editar gasto">✏️</span>
+                    </div>
+                    <div style={{ fontSize:24, fontWeight:"bold", letterSpacing:"-1px" }}>{fmt(item.monto)}</div>
+                    <div style={{ fontSize:9, opacity:.7, marginTop:4 }}>Gasto fijo · {item.count} {item.count === 1 ? "registro" : "registros"}</div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Pizza (Donut) Chart for Income Distribution */}
+          {totalIncome > 0 && (
+            <div style={{ background:C.white, borderRadius:16, padding:"18px 20px", border:`1px solid ${C.border}`, marginBottom:16 }}>
+              <div style={{ fontSize:9, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase", marginBottom:12 }}>Distribución de Ingresos</div>
+              {(() => {
+                const partSueldos = totalComisiones
+                const partGastos = totalGastos
+                const partNeto = Math.max(0, realNetResult)
+                const totalParts = partSueldos + partGastos + partNeto
+                
+                const pctNeto = totalParts > 0 ? (partNeto / totalParts) * 100 : 0
+                const pctSueldos = totalParts > 0 ? (partSueldos / totalParts) * 100 : 0
+                const pctGastos = totalParts > 0 ? (partGastos / totalParts) * 100 : 0
+
+                const r = 65
+                const circ = 2 * Math.PI * r
+                
+                const strokeNeto = (pctNeto / 100) * circ
+                const strokeSueldos = (pctSueldos / 100) * circ
+                const strokeGastos = (pctGastos / 100) * circ
+
+                const offsetNeto = 0
+                const offsetSueldos = -strokeNeto
+                const offsetGastos = -(strokeNeto + strokeSueldos)
+
+                return (
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-around", gap: 20, flexWrap: "wrap", padding: "10px 0" }}>
+                    <div style={{ position: "relative", width: 180, height: 180 }}>
+                      <svg width="180" height="180" viewBox="0 0 180 180">
+                        {/* Background track */}
+                        <circle cx="90" cy="90" r={r} fill="transparent" stroke="#fdfbf7" strokeWidth="22" />
+                        
+                        {/* Ganancia Real slice (Green) */}
+                        {pctNeto > 0 && (
+                          <circle
+                            cx="90"
+                            cy="90"
+                            r={r}
+                            fill="transparent"
+                            stroke={C.green}
+                            strokeWidth="22"
+                            strokeDasharray={`${strokeNeto} ${circ - strokeNeto}`}
+                            strokeDashoffset={offsetNeto}
+                            transform="rotate(-90 90 90)"
+                            strokeLinecap={pctNeto === 100 ? "butt" : "round"}
+                          />
+                        )}
+                        
+                        {/* Sueldos slice (Purple) */}
+                        {pctSueldos > 0 && (
+                          <circle
+                            cx="90"
+                            cy="90"
+                            r={r}
+                            fill="transparent"
+                            stroke="#7c3aed"
+                            strokeWidth="22"
+                            strokeDasharray={`${strokeSueldos} ${circ - strokeSueldos}`}
+                            strokeDashoffset={offsetSueldos}
+                            transform="rotate(-90 90 90)"
+                            strokeLinecap={pctSueldos === 100 ? "butt" : "round"}
+                          />
+                        )}
+                        
+                        {/* Gastos slice (Orange) */}
+                        {pctGastos > 0 && (
+                          <circle
+                            cx="90"
+                            cy="90"
+                            r={r}
+                            fill="transparent"
+                            stroke={C.orange}
+                            strokeWidth="22"
+                            strokeDasharray={`${strokeGastos} ${circ - strokeGastos}`}
+                            strokeDashoffset={offsetGastos}
+                            transform="rotate(-90 90 90)"
+                            strokeLinecap={pctGastos === 100 ? "butt" : "round"}
+                          />
+                        )}
+                      </svg>
+                      {/* Center label */}
+                      <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+                        <span style={{ fontSize: 10, color: C.textSoft, textTransform: "uppercase", letterSpacing: "1px" }}>Neto</span>
+                        <span style={{ fontSize: 18, fontWeight: "bold", color: realNetResult >= 0 ? C.green : "#c04040", marginTop: 2 }}>
+                          {pctNeto.toFixed(0)}%
+                        </span>
+                      </div>
+                    </div>
+
+                    <div style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 160 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ width: 12, height: 12, borderRadius: "50%", background: C.green }} />
+                        <div style={{ display: "flex", flexDirection: "column" }}>
+                          <span style={{ fontSize: 11, color: C.text, fontWeight: "bold" }}>Ganancia: {pctNeto.toFixed(0)}%</span>
+                          <span style={{ fontSize: 10, color: C.textSoft }}>{fmt(partNeto)}</span>
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ width: 12, height: 12, borderRadius: "50%", background: "#7c3aed" }} />
+                        <div style={{ display: "flex", flexDirection: "column" }}>
+                          <span style={{ fontSize: 11, color: C.text, fontWeight: "bold" }}>Sueldos: {pctSueldos.toFixed(0)}%</span>
+                          <span style={{ fontSize: 10, color: C.textSoft }}>{fmt(partSueldos)}</span>
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ width: 12, height: 12, borderRadius: "50%", background: C.orange }} />
+                        <div style={{ display: "flex", flexDirection: "column" }}>
+                          <span style={{ fontSize: 11, color: C.text, fontWeight: "bold" }}>Gastos: {pctGastos.toFixed(0)}%</span>
+                          <span style={{ fontSize: 10, color: C.textSoft }}>{fmt(partGastos)}</span>
+                        </div>
+                      </div>
+                      {realNetResult < 0 && (
+                        <div style={{ fontSize: 10, color: "#c04040", fontWeight: "bold", marginTop: 6, background: "#fdf2f2", padding: "6px 10px", borderRadius: 8 }}>
+                          ⚠️ Déficit: {fmt(Math.abs(realNetResult))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })()}
+            </div>
+          )}
+
           {/* Bar chart gastos por categoría */}
           {gastosRange.length > 0 && (
             <div style={{ background:C.white, borderRadius:14, padding:"16px 18px", border:`1px solid ${C.border}`, marginBottom:16 }}>
@@ -1000,7 +1397,10 @@ export default function ContabilidadView({
                   return (
                     <div key={g.id} style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:12, padding:"10px 14px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                       <div>
-                        <div style={{ fontSize:13, color:C.text }}>{g.descripcion}</div>
+                        <div style={{ fontSize:13, color:C.text, display: "flex", alignItems: "center", gap: 6 }}>
+                          {g.descripcion}
+                          {g.isFixed && <span title="Gasto Fijo Mensual" style={{ fontSize: 11 }}>📌</span>}
+                        </div>
                         <div style={{ fontSize:10, color:C.textSoft, marginTop:2 }}>{g.fecha} · {cat?.icon} {cat?.label}</div>
                       </div>
                       <div style={{ display:"flex", gap:8, alignItems:"center" }}>
@@ -1329,7 +1729,16 @@ export default function ContabilidadView({
                 <input type="number" value={gastoForm.monto} onChange={e=>setGastoForm(p=>({...p,monto:e.target.value}))} placeholder="0" style={{...inputStyle,paddingLeft:24}}/>
               </div>
             </Field>
-            <div style={{ display:"flex", gap:8, marginTop:8 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, margin: "14px 0 4px", fontSize: 13, color: C.text, cursor: "pointer", fontFamily: "Georgia, serif" }}>
+              <input 
+                type="checkbox" 
+                checked={!!gastoForm.isFixed} 
+                onChange={e => setGastoForm(p => ({ ...p, isFixed: e.target.checked }))} 
+                style={{ cursor: "pointer" }}
+              />
+              📌 Gasto Fijo (se registra solo todos los meses)
+            </label>
+            <div style={{ display:"flex", gap:8, marginTop:12 }}>
               <GhostBtn onClick={()=>{ setGastoModal(false); setEditGastoId(null) }}>Cancelar</GhostBtn>
               <SolidBtn onClick={saveGasto} disabled={!gastoForm.descripcion.trim() || gastoForm.monto === ""} color={C.orange}>{editGastoId?"✅ Guardar cambios":"💸 Registrar gasto"}</SolidBtn>
             </div>

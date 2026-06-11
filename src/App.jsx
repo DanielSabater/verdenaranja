@@ -146,7 +146,7 @@ export default function App() {
   const [contFrom, setContFrom] = useState("")
   const [contTo, setContTo] = useState("")
   const [gastoModal, setGastoModal] = useState(false)
-  const [gastoForm, setGastoForm] = useState({ descripcion: "", monto: "", categoria: "insumos", fecha: todayKey() })
+  const [gastoForm, setGastoForm] = useState({ descripcion: "", monto: "", categoria: "insumos", fecha: todayKey(), isFixed: false })
   const [editGastoId, setEditGastoId] = useState(null)
   
   const [quickGastoModal, setQuickGastoModal] = useState(false)
