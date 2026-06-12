@@ -152,9 +152,16 @@ export function usePersistentState(currentDate) {
       })
     }, 10000)
 
-    const handleReconnect = () => {
-      if (supabase && supabase.realtime && supabase.realtime.connection.state !== "connected") {
-        supabase.realtime.connect()
+     const handleReconnect = () => {
+      try {
+        const state = supabase?.realtime?.connection?.state
+        if (state && state !== "connected") {
+          supabase.realtime.connect()
+        } else if (supabase?.realtime && typeof supabase.realtime.connect === "function") {
+          supabase.realtime.connect()
+        }
+      } catch (err) {
+        console.warn("No se pudo verificar el estado de realtime:", err)
       }
       const now = Date.now()
       if (now - lastFetchTime.current > 30000) {
