@@ -228,6 +228,7 @@ export function AppGrid({
   const [colOrder, setColOrder] = useState(() => { try { const v = localStorage.getItem("pv:colOrder"); return v ? JSON.parse(v) : null } catch { return null } })
 
   const orderedProfessionals = (() => {
+    if (!colOrder) return professionals
     const ordered = [...colOrder].map(id => professionals.find(p => p.id === id)).filter(Boolean)
     const missing = professionals.filter(p => !colOrder.includes(p.id))
     return [...ordered, ...missing]
