@@ -200,7 +200,6 @@ function ApptCard({
           )}
         </div>
       )}
-
       <div onMouseDown={e => { e.stopPropagation(); onResizeStart(e, k, "bottom") }}
         style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 10, cursor: "s-resize", zIndex: 10, borderRadius: "0 0 9px 9px" }} />
     </div>
@@ -224,11 +223,11 @@ export function AppGrid({
   activeRama,
 }) {
   const [profPopup, setProfPopup] = useState(null)
+  const [copiedAgenda, setCopiedAgenda] = useState(false)
   const [hoveredClientName, setHoveredClientName] = useState(null)
   const [colOrder, setColOrder] = useState(() => { try { const v = localStorage.getItem("pv:colOrder"); return v ? JSON.parse(v) : null } catch { return null } })
 
   const orderedProfessionals = (() => {
-    if (!colOrder) return professionals
     const ordered = [...colOrder].map(id => professionals.find(p => p.id === id)).filter(Boolean)
     const missing = professionals.filter(p => !colOrder.includes(p.id))
     return [...ordered, ...missing]
@@ -1051,6 +1050,40 @@ export function AppGrid({
           })
         }
 
+        const copyDailyToClipboard = () => {
+          const element = document.getElementById("prof-daily-receipt-capture")
+          if (!element) return
+          html2canvas(element, {
+            scale: 2,
+            backgroundColor: "#ffffff",
+            useCORS: true
+          }).then(canvas => {
+            canvas.toBlob(blob => {
+              if (!blob) return
+
+              try {
+                navigator.clipboard.write([
+                  new ClipboardItem({
+                    [blob.type]: blob
+                  })
+                ]).then(() => {
+                  setCopiedAgenda(true)
+                  setTimeout(() => setCopiedAgenda(false), 2000)
+                }).catch(err => {
+                  console.error("Clipboard copy failed:", err)
+                  alert("No se pudo copiar al portapapeles automáticamente")
+                })
+              } catch (err) {
+                console.error("Clipboard not supported:", err)
+                alert("Tu navegador no soporta la copia de imágenes al portapapeles")
+              }
+            }, "image/png")
+          }).catch(err => {
+            console.error("Error exporting PNG:", err)
+            alert("Error al exportar a PNG")
+          })
+        }
+
         return (
           <Overlay onClose={() => setProfPopup(null)}>
             <>
@@ -1189,8 +1222,11 @@ export function AppGrid({
                 </div>
                 <div style={{ borderTop: `1px solid ${C.border}`, padding: 14, background: C.cream, display: "flex", gap: 10, justifyContent: "flex-end" }}>
                   <GhostBtn onClick={() => setProfPopup(null)}>Cerrar</GhostBtn>
-                  <SolidBtn onClick={exportDailyAsPng} color={C.green}>
-                    Compartir Agenda
+                  <SolidBtn onClick={exportDailyAsPng} color={C.orange}>
+                    Descargar / Compartir Agenda
+                  </SolidBtn>
+                  <SolidBtn onClick={copyDailyToClipboard} color={C.green}>
+                    {copiedAgenda ? "✓ Copiado" : "Copiar al portapapeles"}
                   </SolidBtn>
                 </div>
               </div>
