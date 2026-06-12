@@ -16,6 +16,197 @@ const smallBtn = (color, isMobile) => ({
   display: "flex", alignItems: "center", justifyContent: "center",
 })
 
+function ApptCard({
+  k, appt, resizePreview, onDragStart, onDragEnd, onEdit, onPay, onDelete,
+  appointments, isDragging, isResizeStart, currentTurnKeys, hoveredClientName,
+  setHoveredClientName, rgbString, alphas, config, C, HOURS, apptDur,
+  apptTotal, apptPaidTotal, isMobile, smallBtn, PAYMENT_METHODS, fmt,
+  onResizeStart, span,
+}) {
+  const [animating, setAnimating] = useState(false)
+  const wasPaid = useRef(appt.paid)
+
+  useEffect(() => {
+    const prevPaid = wasPaid.current
+    wasPaid.current = appt.paid
+    if (appt.paid && !prevPaid && !appt.isBlocked && !appt.isNote) {
+      setAnimating(true)
+      const timer = setTimeout(() => {
+        setAnimating(false)
+      }, 1500)
+      return () => clearTimeout(timer)
+    }
+  }, [appt.paid, appt.isBlocked, appt.isNote])
+
+  const isResizing = resizePreview?.key === k
+  const isCurrentTurn = currentTurnKeys.has(k)
+  const liveSlots = isResizing ? resizePreview.slots : (span || 1)
+  const liveHourIdx = isResizing ? resizePreview.hourIdx : HOURS.indexOf(appt.hour)
+  const liveEndIdx = liveHourIdx + liveSlots
+  const liveHour = HOURS[liveHourIdx] || appt.hour
+  const liveEndHour = liveEndIdx < HOURS.length ? HOURS[liveEndIdx] : "20:00"
+  const liveDurMins = liveSlots * 30
+
+  const showPaid = appt.paid && !animating
+
+  return (
+    <div
+      draggable={!resizePreview}
+      onDragStart={e => { if (resizePreview) { e.preventDefault(); return; } onDragStart(e, k) }}
+      onDragEnd={onDragEnd}
+      onDoubleClick={e => { if (!resizePreview) { e.stopPropagation(); onEdit(k, appointments[k]); } }}
+      className={`appt-card${appt.isBlocked ? " blocked" : (appt.isNote ? " note" : (showPaid ? " paid" : " unpaid"))}${isCurrentTurn && !isDragging && !isResizeStart ? " current" : ""}${hoveredClientName && appt.client === hoveredClientName ? " force-hover" : ""}${animating ? " just-paid-glowing" : ""}`}
+      style={{
+        height: "100%", borderRadius: 9,
+        background: appt.isBlocked
+          ? `repeating-linear-gradient(
+              45deg,
+              rgba(${rgbString}, ${alphas.a1}),
+              rgba(${rgbString}, ${alphas.a1}) 10px,
+              rgba(${rgbString}, ${alphas.a2}) 10px,
+              rgba(${rgbString}, ${alphas.a2}) 20px
+            )`
+          : appt.isNote
+            ? "linear-gradient(135deg, #fffbeb, #fff3bf)"
+            : showPaid
+              ? `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Ctext x='50%25' y='50%25' font-size='18' fill='%233a7d44' opacity='0.1' text-anchor='middle' dominant-baseline='middle' transform='rotate(-25 30 30)'%3E$ %3C/text%3E%3C/svg%3E"), linear-gradient(135deg,${C.greenPale},#d8f0dc)`
+              : `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Ctext x='50%25' y='50%25' font-size='14' fill='%23e8793a' opacity='0.08' text-anchor='middle' dominant-baseline='middle' transform='rotate(-20 30 30)'%3E🕒%3C/text%3E%3C/svg%3E"), linear-gradient(135deg,${C.orangePale},#fde8d4)`,
+        border: appt.isBlocked
+          ? (config.gridStyle === "classic" ? `1px dashed rgba(${rgbString}, ${alphas.border})` : `1.5px dashed rgba(${rgbString}, ${alphas.border})`)
+          : appt.isNote
+            ? "1.5px solid #ffe066"
+            : isResizeStart
+              ? `1.5px solid ${C.greenLight}`
+              : isCurrentTurn && !isDragging
+                ? `1.5px solid #4a90e2`
+                : `1.5px solid ${showPaid ? C.greenLight : C.orangeLight}`,
+        padding: "6px 7px 6px",
+        display: "flex", flexDirection: "column",
+        boxShadow: isDragging
+          ? `0 10px 30px rgba(58,125,68,.30)`
+          : appt.isBlocked
+            ? "none"
+            : appt.isNote
+              ? "0 2px 8px rgba(133, 100, 4, 0.08)"
+              : `0 2px 8px ${showPaid ? "rgba(58,125,68,0.1)" : "rgba(232,121,58,0.1)"}`,
+        opacity: isDragging ? 0.45 : 1,
+        transform: isDragging ? "scale(0.97)" : "scale(1)",
+        transition: isResizing ? "none" : "opacity .15s, box-shadow .15s, transform .15s",
+        cursor: "grab",
+        position: "relative",
+        overflow: "hidden",
+      }}
+    >
+      {animating && (
+        <>
+          <div className="botanical-glow-overlay" />
+          <div className="botanical-leaf-particle leaf-1">🍃</div>
+          <div className="botanical-leaf-particle leaf-2">🌿</div>
+          <div className="botanical-leaf-particle leaf-3">🍃</div>
+        </>
+      )}
+
+      <div onMouseDown={e => { e.stopPropagation(); onResizeStart(e, k, "top") }}
+        style={{ position: "absolute", top: 0, left: 0, right: 0, height: 8, cursor: "n-resize", zIndex: 10, borderRadius: "9px 9px 0 0" }} />
+
+      {isResizing && (() => {
+        const snappedChange = resizePreview.edge === "top"
+          ? (resizePreview.hourIdx - resizePreview.origHourIdx) * 100
+          : (resizePreview.slots - resizePreview.origSlots) * 100
+        const visualDelta = resizePreview.deltaY - snappedChange
+        return (
+          <div style={{
+            position: "absolute",
+            top: resizePreview.edge === "top" ? visualDelta : -2,
+            bottom: resizePreview.edge === "bottom" ? -visualDelta : -2,
+            left: -2, right: -2,
+            border: `2px dashed ${C.green}`,
+            borderRadius: 9,
+            pointerEvents: "none",
+            zIndex: 100,
+            boxShadow: `0 0 10px rgba(58,125,68,0.2)`
+          }} />
+        )
+      })()}
+
+      {isResizing && (
+        <div style={{ position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)", background: C.green, color: "#fff", borderRadius: 8, padding: "2px 8px", fontSize: 9, fontWeight: "bold", letterSpacing: "1px", whiteSpace: "nowrap", zIndex: 20, pointerEvents: "none", boxShadow: "0 2px 8px rgba(58,125,68,.35)" }}>{liveHour} – {liveEndHour} · {liveDurMins} min</div>
+      )}
+
+      <div style={{ position: "absolute", top: 4, right: 5, fontSize: 9, color: "rgba(100,130,100,.4)", pointerEvents: "none", zIndex: 3 }}>⠿</div>
+
+      <div style={{ overflow: "hidden", marginTop: 2, position: "relative", zIndex: 2 }}>
+         {appt.isNote ? (
+           <div>
+             <div style={{ fontSize: 9, fontWeight: "bold", color: "#856404", display: "flex", alignItems: "center", gap: 3, marginBottom: 4 }}>
+               <span>📌</span> Anotación
+             </div>
+             <div style={{ fontSize: 11, color: "#856404", fontWeight: "500", lineHeight: 1.3, whiteSpace: "normal", wordBreak: "break-word" }}>
+               {appt.client}
+             </div>
+             <div style={{ fontSize: 9, color: "rgba(133, 100, 4, 0.7)", marginTop: 6 }}>
+               <span style={{ color: isResizing ? C.green : "rgba(133, 100, 4, 0.7)", fontWeight: isResizing ? "bold" : "normal", transition: "color .15s" }}>
+                 {isResizing ? `${liveHour} – ${liveEndHour}` : `${apptDur(appt)} min`}
+               </span>
+             </div>
+            </div>
+         ) : (
+           <>
+             <div style={{ fontSize: 11, fontWeight: "bold", color: appt.isBlocked ? C.red : C.text, marginBottom: 1, paddingRight: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+               {appt.isBlocked ? "" : appt.client}
+             </div>
+             {!appt.isBlocked && (appt.services || []).map((sv, i) => (
+               <div key={i} style={{ fontSize: 9, color: showPaid ? C.green : C.orange, lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sv.icon} {sv.name}</div>
+             ))}
+             {appt.notes && (
+               <div style={{ fontSize: 9, color: appt.isBlocked ? C.red : C.textSoft, fontStyle: "italic", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", opacity: appt.isBlocked ? 0.8 : 1 }}>📝 {appt.notes}</div>
+             )}
+             <div style={{ fontSize: 9, color: C.textSoft, marginTop: 2 }}>
+                <span style={{ color: isResizing ? C.green : C.textSoft, fontWeight: isResizing ? "bold" : "normal", transition: "color .15s" }}>
+                  {isResizing ? `${liveHour} – ${liveEndHour}` : `${apptDur(appt)} min`}
+                </span>
+                {!appt.isBlocked && <>{" · "}<span style={{ color: C.orange, fontWeight: "bold" }}>{fmt(showPaid ? apptPaidTotal(appt) : apptTotal(appt))}</span></>}
+             </div>
+           </>
+         )}
+        {appt.createdAt && (
+          <div style={{ fontSize: 8, color: C.textSoft, marginTop: 1, opacity: .7 }}>🕐 Tomado a las {appt.createdAt}</div>
+        )}
+        {!appt.isBlocked && showPaid && (
+          <div style={{ fontSize: 8, color: C.green, marginTop: 1, letterSpacing: ".8px" }}>
+            {appt.paymentSplits?.length > 1
+              ? appt.paymentSplits.map((r, i) => { const pm = PAYMENT_METHODS.find(m => m.id === r.methodId); return <span key={i} style={{ marginRight: 3 }}>{pm?.icon} {fmt(r.amount)}</span> })
+              : <>✓ {PAYMENT_METHODS.find(m => m.id === appt.payMethod)?.icon} {PAYMENT_METHODS.find(m => m.id === appt.payMethod)?.label}</>
+            }
+          </div>
+        )}
+        {!appt.isBlocked && appt.tip > 0 && (
+          <div style={{ fontSize: 8, color: C.gold, marginTop: 1 }}>🎁 Propina: {fmt(appt.tip)}</div>
+        )}
+      </div>
+
+      {!appt.isBlocked && (
+        <div style={{ position: "absolute", bottom: isMobile ? 4 : 6, right: isMobile ? 4 : 6, display: "flex", alignItems: "center", gap: isMobile ? 3 : 4, zIndex: 12 }}>
+          <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); onDelete(k) }} style={{ width: 22, height: 22, borderRadius: 6, border: `1px solid ${C.border}`, background: "rgba(255,255,255,.9)", color: "#c0a0a0", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>✕</button>
+          {appt.isNote ? (
+            <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); onEdit(k, appointments[k]) }} style={smallBtn(C.green, isMobile)}>{isMobile ? "✏️" : "✏️ Editar"}</button>
+          ) : (
+            showPaid
+              ? (() => {
+                const pmColor = PAYMENT_METHODS.find(m => m.id === appt.payMethod)?.color || "#7a9e7a"
+                return <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); onPay(k) }} style={smallBtn(pmColor, isMobile)}>{isMobile ? "✏️" : "✏️ Pago"}</button>
+              })()
+              : <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); onPay(k) }} style={smallBtn(C.orange, isMobile)}>{isMobile ? "💰" : "💰 Abonar"}</button>
+          )}
+        </div>
+      )}
+
+      <div onMouseDown={e => { e.stopPropagation(); onResizeStart(e, k, "bottom") }}
+        style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 10, cursor: "s-resize", zIndex: 10, borderRadius: "0 0 9px 9px" }} />
+    </div>
+  )
+}
+
 export function AppGrid({
   professionals, appointments, isMobile,
   config,

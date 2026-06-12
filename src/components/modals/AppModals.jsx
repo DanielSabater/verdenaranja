@@ -424,7 +424,7 @@ export function AppModals({
                 })}
 
                 {otherPending.length > 0 && (
-                  <div style={{ marginTop: 8, padding: "8px 10px", background: "#fff", borderRadius: 8, border: `1.5px dashed ${C.orangeLight}` }}>
+                  <div className="pulse-option-container" style={{ marginTop: 8, padding: "8px 10px", background: "#fff", borderRadius: 8, border: `1.5px dashed ${C.orangeLight}` }}>
                     <div style={{ fontSize: 9, color: C.orange, fontWeight: "bold", marginBottom: 6, textTransform: "uppercase" }}>¿Sumar otros turnos de {appt.client} hoy?</div>
                     {otherPending.map(([k, a]) => {
                       const prof = professionals?.find(p => p.id === a.profId)
@@ -436,8 +436,8 @@ export function AppModals({
                             const total = nextKeys.reduce((s, key) => s + (appointments[key] ? apptTotal(appointments[key]) : 0), 0)
                             setPaymentSplits([{ ...paymentSplits[0], amount: total.toString() }])
                           }
-                        }} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", padding: "4px 0" }}>
-                          <span style={{ fontSize: 11, color: C.text }}>➕ {prof?.name}: {(a.services || []).map(s => s.name).join(", ")}</span>
+                        }} className="other-pending-item" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", padding: "4px 0" }}>
+                          <span style={{ fontSize: 11, color: C.text }}><span className="pulse-plus-icon">➕</span> {prof?.name}: {(a.services || []).map(s => s.name).join(", ")}</span>
                           <span style={{ fontSize: 11, fontWeight: "bold", color: C.text }}>{fmt(apptTotal(a))}</span>
                         </div>
                       )
