@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react"
 import { createPortal } from "react-dom"
+import html2canvas from "html2canvas"
 import { C } from "../../constants/colors.js"
 import { PAYMENT_METHODS, GASTO_CATS } from "../../constants/data.js"
 import { fmt, apptTotal, apptPaidTotal, apptComisionableTotal } from "../../utils/appointments.js"
@@ -1758,6 +1759,27 @@ export default function ContabilidadView({
         const [sy, sm] = sueldoPeriod.split("-").map(Number)
         const monthName = MESES_ES[sm - 1]
         const periodLabel = `${monthName.charAt(0).toUpperCase() + monthName.slice(1)} ${sy}`
+
+        const exportAsPng = () => {
+          const element = document.getElementById("salary-receipt-card")
+          if (!element) return
+          html2canvas(element, {
+            scale: 2,
+            backgroundColor: "#ffffff",
+            useCORS: true
+          }).then(canvas => {
+            const dataUrl = canvas.toDataURL("image/png")
+            const link = document.createElement("a")
+            link.download = `Recibo_${p.name}_${periodLabel.replace(/\s+/g, "_")}.png`
+            link.href = dataUrl
+            document.body.appendChild(link)
+            link.click()
+            document.body.removeChild(link)
+          }).catch(err => {
+            console.error("Error exporting PNG:", err)
+            alert("Error al exportar a PNG")
+          })
+        }
         
         return (
           <>
@@ -1783,82 +1805,88 @@ export default function ContabilidadView({
                 boxShadow: "0 20px 60px rgba(58,125,68,0.15)"
               }}>
                 
-                {/* Visual Ticket header wrapper */}
-                <div style={{ 
-                  textAlign: "center", 
-                  paddingBottom: 12, 
-                  borderBottom: `1px dashed ${C.border}`,
-                  marginBottom: 16
-                }}>
-                  <div style={{ fontSize: 14, fontWeight: "bold", color: C.text, fontFamily: "Georgia,serif" }}>
-                    Comprobante de Sueldo
+                {/* ID wrapper for PNG Capture */}
+                <div id="salary-receipt-card" style={{ background: C.white, padding: "8px", borderRadius: 12 }}>
+                  {/* Visual Ticket header wrapper */}
+                  <div style={{ 
+                    textAlign: "center", 
+                    paddingBottom: 12, 
+                    borderBottom: `1px dashed ${C.border}`,
+                    marginBottom: 16
+                  }}>
+                    <div style={{ fontSize: 14, fontWeight: "bold", color: C.text, fontFamily: "Georgia,serif" }}>
+                      Comprobante de Sueldo
+                    </div>
+                    <div style={{ fontSize: 11, color: C.textSoft, marginTop: 4 }}>
+                      {p.name} · {periodLabel}
+                    </div>
                   </div>
-                  <div style={{ fontSize: 11, color: C.textSoft, marginTop: 4 }}>
-                    {p.name} · {periodLabel}
-                  </div>
-                </div>
 
-                {/* Daily Breakdown Table */}
-                <div style={{ marginBottom: 16 }}>
-                  <div style={{ maxHeight: 240, overflowY: "auto", border: `1px solid ${C.border}`, borderRadius: 10 }}>
-                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-                      <thead>
-                        <tr style={{ background: C.cream, borderBottom: `1px solid ${C.border}`, position: "sticky", top: 0, zIndex: 10 }}>
-                          <th style={{ padding: "8px 10px", textAlign: "left", color: C.textSoft, fontSize: 10, textTransform: "uppercase" }}>Fecha</th>
-                          <th style={{ padding: "8px 10px", textAlign: "right", color: C.textSoft, fontSize: 10, textTransform: "uppercase", fontWeight: "bold" }}>Monto</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {dailyBreakdown.length === 0 ? (
-                          <tr>
-                            <td colSpan={2} style={{ padding: "20px 10px", textAlign: "center", color: C.textSoft }}>
-                              Sin actividad registrada
-                            </td>
+                  {/* Daily Breakdown Table */}
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ maxHeight: 240, overflowY: "auto", border: `1px solid ${C.border}`, borderRadius: 10 }}>
+                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                        <thead>
+                          <tr style={{ background: C.cream, borderBottom: `1px solid ${C.border}`, position: "sticky", top: 0, zIndex: 10 }}>
+                            <th style={{ padding: "8px 10px", textAlign: "left", color: C.textSoft, fontSize: 10, textTransform: "uppercase" }}>Fecha</th>
+                            <th style={{ padding: "8px 10px", textAlign: "right", color: C.textSoft, fontSize: 10, textTransform: "uppercase", fontWeight: "bold" }}>Monto</th>
                           </tr>
-                        ) : (
-                          dailyBreakdown.map(d => (
-                            <tr key={d.dk} style={{ borderBottom: `1px solid #f3faf5` }}>
-                              <td style={{ padding: "8px 10px", color: C.text }}>{d.shortLabel}</td>
-                              <td style={{ padding: "8px 10px", textAlign: "right", color: C.green, fontWeight: "bold" }}>{fmt(d.comision)}</td>
+                        </thead>
+                        <tbody>
+                          {dailyBreakdown.length === 0 ? (
+                            <tr>
+                              <td colSpan={2} style={{ padding: "20px 10px", textAlign: "center", color: C.textSoft }}>
+                                Sin actividad registrada
+                              </td>
                             </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
+                          ) : (
+                            dailyBreakdown.map(d => (
+                              <tr key={d.dk} style={{ borderBottom: `1px solid #f3faf5` }}>
+                                <td style={{ padding: "8px 10px", color: C.text }}>{d.shortLabel}</td>
+                                <td style={{ padding: "8px 10px", textAlign: "right", color: C.green, fontWeight: "bold" }}>{fmt(d.comision)}</td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
-                </div>
 
-                {/* Final Totals summary */}
-                <div style={{ 
-                  background: C.cream, 
-                  borderRadius: 10, 
-                  border: `1px solid ${C.border}`, 
-                  padding: "12px 14px", 
-                  marginBottom: 16,
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center"
-                }}>
-                  <span style={{ fontSize: 11, fontWeight: "bold", color: C.textSoft, letterSpacing: "1px" }}>
-                    SUELDO NETO:
-                  </span>
-                  <span style={{ fontSize: 18, fontWeight: "bold", color: C.green }}>
-                    {fmt(stats.comision)}
-                  </span>
-                </div>
-                
-                {sd.monto !== "" && (
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 10px 16px" }}>
-                    <span style={{ fontSize: 10, color: C.textSoft }}>Monto Liquidado / Pagado:</span>
-                    <span style={{ fontSize: 14, fontWeight: "bold", color: C.orange }}>{fmt(parseFloat(sd.monto) || 0)}</span>
+                  {/* Final Totals summary */}
+                  <div style={{ 
+                    background: C.cream, 
+                    borderRadius: 10, 
+                    border: `1px solid ${C.border}`, 
+                    padding: "12px 14px", 
+                    marginBottom: 16,
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center"
+                  }}>
+                    <span style={{ fontSize: 11, fontWeight: "bold", color: C.textSoft, letterSpacing: "1px" }}>
+                      SUELDO NETO:
+                    </span>
+                    <span style={{ fontSize: 18, fontWeight: "bold", color: C.green }}>
+                      {fmt(stats.comision)}
+                    </span>
                   </div>
-                )}
+                  
+                  {sd.monto !== "" && (
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 10px 16px" }}>
+                      <span style={{ fontSize: 10, color: C.textSoft }}>Monto Liquidado / Pagado:</span>
+                      <span style={{ fontSize: 14, fontWeight: "bold", color: C.orange }}>{fmt(parseFloat(sd.monto) || 0)}</span>
+                    </div>
+                  )}
+                </div>
 
                 {/* Buttons */}
-                <div style={{ display: "flex", gap: 8 }}>
+                <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
                   <GhostBtn onClick={() => setReceiptProf(null)}>Cerrar</GhostBtn>
                   <SolidBtn onClick={() => window.print()} color={C.green}>
-                    Imprimir / PDF
+                    PDF
+                  </SolidBtn>
+                  <SolidBtn onClick={exportAsPng} color={C.orange}>
+                    PNG
                   </SolidBtn>
                 </div>
 

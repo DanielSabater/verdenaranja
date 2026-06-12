@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from "react"
 import { C } from "../../constants/colors.js"
 import { PAYMENT_METHODS, HOURS, BLOCKED_COLORS, getBlockedAlphas } from "../../constants/data.js"
-import { fmt, cellKey, apptTotal, apptDur, apptPaidTotal } from "../../utils/appointments.js"
-import { Overlay, ModalHeader, GhostBtn, modalBox } from "../ui/index.jsx"
-import { todayKey } from "../../utils/dates.js"
+import { fmt, cellKey, apptTotal, apptDur, apptPaidTotal, apptComisionableTotal } from "../../utils/appointments.js"
+import { Overlay, ModalHeader, GhostBtn, SolidBtn, modalBox } from "../ui/index.jsx"
+import { todayKey, fmtDate } from "../../utils/dates.js"
+import html2canvas from "html2canvas"
 
 const smallBtn = (color, isMobile) => ({
   padding: isMobile ? "4px 8px" : "6px 12px", borderRadius: 8, border: "none",
@@ -795,146 +796,284 @@ export function AppGrid({
         const prof = professionals.find(p => p.id === profPopup)
         if (!prof) return null
         const s = getProfSummary(prof.id)
-        const sortedAppts = [...s.appts].sort((a, b) => (a.hour || "").localeCompare(b.hour || ""))
+        const sortedAppts = [...s.appts]
+          .filter(a => !a.isBlocked)
+          .sort((a, b) => (a.hour || "").localeCompare(b.hour || ""))
+
+        const exportDailyAsPng = () => {
+          const element = document.getElementById("prof-daily-receipt-capture")
+          if (!element) return
+          html2canvas(element, {
+            scale: 2,
+            backgroundColor: "#ffffff",
+            useCORS: true
+          }).then(canvas => {
+            const dataUrl = canvas.toDataURL("image/png")
+            const link = document.createElement("a")
+            link.download = `Agenda_${prof.name}_${currentDate || todayKey()}.png`
+            link.href = dataUrl
+            document.body.appendChild(link)
+            link.click()
+            document.body.removeChild(link)
+          }).catch(err => {
+            console.error("Error exporting PNG:", err)
+            alert("Error al exportar a PNG")
+          })
+        }
+
         return (
           <Overlay onClose={() => setProfPopup(null)}>
-            <div
-              className="prof-summary-sheet"
-              style={{
-                position: "fixed",
-                top: "68px",
-                bottom: isMobile ? "calc(166px + env(safe-area-inset-bottom))" : "80px",
-                left: "50%",
-                transform: "translateX(-50%)",
-                width: isMobile ? "calc(100vw - 24px)" : "min(900px, calc(100vw - 32px))",
-                display: "flex",
-                flexDirection: "column",
-                background: C.white,
-                borderRadius: 18,
-                boxShadow: "0 24px 80px rgba(20,60,30,.16)",
-                border: `1px solid ${C.border}`,
-                overflow: "hidden",
-                padding: 0,
-                zIndex: 201,
-              }}
-            >
-              <div style={{ padding: 24, overflowY: "auto", flex: 1 }}>
-                <ModalHeader emoji={prof.emoji} sub="Resumen de turnos">
-                  {prof.name} · {s.appts.length} turno{s.appts.length !== 1 ? "s" : ""}
-                </ModalHeader>
+            <>
+              <div
+                className="prof-summary-sheet"
+                style={{
+                  position: "fixed",
+                  top: "68px",
+                  bottom: isMobile ? "calc(166px + env(safe-area-inset-bottom))" : "80px",
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  width: isMobile ? "calc(100vw - 24px)" : "min(900px, calc(100vw - 32px))",
+                  display: "flex",
+                  flexDirection: "column",
+                  background: C.white,
+                  borderRadius: 18,
+                  boxShadow: "0 24px 80px rgba(20,60,30,.16)",
+                  border: `1px solid ${C.border}`,
+                  overflow: "hidden",
+                  padding: 0,
+                  zIndex: 201,
+                }}
+              >
+                <div style={{ padding: 24, overflowY: "auto", flex: 1 }}>
+                  <ModalHeader emoji={prof.emoji} sub="Resumen de turnos">
+                    {prof.name} · {s.appts.length} turno{s.appts.length !== 1 ? "s" : ""}
+                  </ModalHeader>
 
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 10, marginBottom: 16 }}>
-                  {[
-                    ["📅 Turnos", s.appts.length, C.textSoft],
-                    ["✅ Cobrados", s.paid.length, C.green],
-                    ["💰 Total", fmt(s.total), C.orange],
-                  ].map(([label, val, col]) => (
-                    <div key={label} style={{ background: C.cream, borderRadius: 12, padding: "10px 12px" }}>
-                      <div style={{ fontSize: 9, color: C.textSoft, letterSpacing: "1px" }}>{label}</div>
-                      <div style={{ fontSize: 15, color: col, fontWeight: "bold", marginTop: 6 }}>{val}</div>
-                    </div>
-                  ))}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 10, marginBottom: 16 }}>
+                    {[
+                      ["📅 Turnos", s.appts.length, C.textSoft],
+                      ["✅ Cobrados", s.paid.length, C.green],
+                      ["💰 Total", fmt(s.total), C.orange],
+                    ].map(([label, val, col]) => (
+                      <div key={label} style={{ background: C.cream, borderRadius: 12, padding: "10px 12px" }}>
+                        <div style={{ fontSize: 9, color: C.textSoft, letterSpacing: "1px" }}>{label}</div>
+                        <div style={{ fontSize: 15, color: col, fontWeight: "bold", marginTop: 6 }}>{val}</div>
+                      </div>
+                    ))}
 
-                  {/* Propinas Card */}
-                  <div style={{ 
-                    background: C.cream, 
-                    borderRadius: 12, 
-                    padding: "10px 12px", 
-                    display: "flex", 
-                    flexDirection: "column", 
-                    justifyContent: "space-between",
-                    minHeight: 65,
-                    position: "relative"
-                  }}>
-                    <div>
-                      <div style={{ fontSize: 9, color: C.textSoft, letterSpacing: "1px" }}>🎁 Propinas</div>
-                      <div style={{ fontSize: 15, color: C.gold, fontWeight: "bold", marginTop: 6 }}>{fmt(s.tips)}</div>
+                    {/* Propinas Card */}
+                    <div style={{ 
+                      background: C.cream, 
+                      borderRadius: 12, 
+                      padding: "10px 12px", 
+                      display: "flex", 
+                      flexDirection: "column", 
+                      justifyContent: "space-between",
+                      minHeight: 65,
+                      position: "relative"
+                    }}>
+                      <div>
+                        <div style={{ fontSize: 9, color: C.textSoft, letterSpacing: "1px" }}>🎁 Propinas</div>
+                        <div style={{ fontSize: 15, color: C.gold, fontWeight: "bold", marginTop: 6 }}>{fmt(s.tips)}</div>
+                      </div>
+                      {s.tips > 0 && (() => {
+                        const pPaidApptsWithTips = s.paid.filter(a => (a.tip || 0) > 0)
+                        const isTipsReleased = pPaidApptsWithTips.length > 0 && pPaidApptsWithTips.every(a => a.tipReleased)
+                        return (
+                          <button
+                            onClick={() => onToggleTipsRelease(prof.id, !isTipsReleased)}
+                            style={{
+                              marginTop: 8,
+                              padding: "4px 8px",
+                              borderRadius: 6,
+                              border: "none",
+                              background: isTipsReleased ? `linear-gradient(135deg, #2d6a36, ${C.green})` : `linear-gradient(135deg, ${C.gold}, ${C.goldLight})`,
+                              color: "#fff",
+                              fontSize: 8,
+                              fontWeight: "bold",
+                              cursor: "pointer",
+                              transition: "all .15s ease-in-out",
+                              letterSpacing: "0.5px",
+                              boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              gap: 3,
+                              outline: "none"
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.85"; e.currentTarget.style.transform = "scale(1.03)" }}
+                            onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; e.currentTarget.style.transform = "scale(1)" }}
+                          >
+                            {isTipsReleased ? "✓ ENTREGADA" : "🔓 LIBERAR"}
+                          </button>
+                        )
+                      })()}
                     </div>
-                    {s.tips > 0 && (() => {
-                      const pPaidApptsWithTips = s.paid.filter(a => (a.tip || 0) > 0)
-                      const isTipsReleased = pPaidApptsWithTips.length > 0 && pPaidApptsWithTips.every(a => a.tipReleased)
-                      return (
-                        <button
-                          onClick={() => onToggleTipsRelease(prof.id, !isTipsReleased)}
-                          style={{
-                            marginTop: 8,
-                            padding: "4px 8px",
-                            borderRadius: 6,
-                            border: "none",
-                            background: isTipsReleased ? `linear-gradient(135deg, #2d6a36, ${C.green})` : `linear-gradient(135deg, ${C.gold}, ${C.goldLight})`,
-                            color: "#fff",
-                            fontSize: 8,
-                            fontWeight: "bold",
-                            cursor: "pointer",
-                            transition: "all .15s ease-in-out",
-                            letterSpacing: "0.5px",
-                            boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            gap: 3,
-                            outline: "none"
-                          }}
-                          onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.85"; e.currentTarget.style.transform = "scale(1.03)" }}
-                          onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; e.currentTarget.style.transform = "scale(1)" }}
-                        >
-                          {isTipsReleased ? "✓ ENTREGADA" : "🔓 LIBERAR"}
-                        </button>
-                      )
-                    })()}
                   </div>
-                </div>
 
-                {Object.keys(s.byMethod).length > 0 && (
-                  <div style={{ marginBottom: 18 }}>
-                    <div style={{ fontSize: 10, letterSpacing: "2px", color: C.textSoft, textTransform: "uppercase", marginBottom: 8 }}>Por método de pago</div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 8 }}>
-                      {PAYMENT_METHODS.filter(pm => s.byMethod[pm.id] > 0).map(pm => (
-                        <div key={pm.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11, color: C.textSoft }}>
-                          <span>{pm.icon} {pm.label}</span>
-                          <span style={{ fontWeight: "bold", color: pm.color }}>{fmt(s.byMethod[pm.id])}</span>
+                  {Object.keys(s.byMethod).length > 0 && (
+                    <div style={{ marginBottom: 18 }}>
+                      <div style={{ fontSize: 10, letterSpacing: "2px", color: C.textSoft, textTransform: "uppercase", marginBottom: 8 }}>Por método de pago</div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 8 }}>
+                        {PAYMENT_METHODS.filter(pm => s.byMethod[pm.id] > 0).map(pm => (
+                          <div key={pm.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11, color: C.textSoft }}>
+                            <span>{pm.icon} {pm.label}</span>
+                            <span style={{ fontWeight: "bold", color: pm.color }}>{fmt(s.byMethod[pm.id])}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div style={{ fontSize: 10, letterSpacing: "2px", color: C.textSoft, textTransform: "uppercase", marginBottom: 10 }}>Detalle de turnos</div>
+                  {sortedAppts.length > 0 ? (
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 10 }}>
+                      {sortedAppts.map((a, index) => (
+                        <div key={index} style={{ borderRadius: 14, border: `1px solid ${C.border}`, padding: 12, background: C.white }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "baseline", marginBottom: 6 }}>
+                            <div style={{ fontSize: 12, fontWeight: "bold", color: C.text }}>{a.hour} · {a.client}</div>
+                            <div style={{ fontSize: 11, color: a.paid ? C.green : C.orange, fontWeight: "bold" }}>
+                              {a.paid ? fmt(apptPaidTotal(a)) : "⏳ Pendiente"}
+                            </div>
+                          </div>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+                            {(a.services || []).map((sv, i) => (
+                              <span key={i} style={{ fontSize: 11, color: C.textSoft, background: C.cream, borderRadius: 10, padding: "4px 8px" }}>
+                                {sv.icon} {sv.name}
+                              </span>
+                            ))}
+                          </div>
+                          <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", fontSize: 11, color: C.textSoft }}>
+                            <span>{renderPaymentMethod(a)}</span>
+                            {a.tip > 0 && <span style={{ color: C.gold }}>🎁 {fmt(a.tip)}</span>}
+                          </div>
+                          {a.notes && (
+                            <div style={{ marginTop: 8, fontSize: 10, color: C.textSoft, fontStyle: "italic" }}>📝 {a.notes}</div>
+                          )}
                         </div>
                       ))}
                     </div>
-                  </div>
-                )}
+                  ) : (
+                    <div style={{ fontSize: 11, color: C.textSoft, fontStyle: "italic", textAlign: "center", padding: "22px 0" }}>Sin turnos registrados para esta profesional.</div>
+                  )}
+                </div>
+                <div style={{ borderTop: `1px solid ${C.border}`, padding: 14, background: C.cream, display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                  <GhostBtn onClick={() => setProfPopup(null)}>Cerrar</GhostBtn>
+                  <SolidBtn onClick={exportDailyAsPng} color={C.green}>
+                    Compartir Agenda
+                  </SolidBtn>
+                </div>
+              </div>
 
-                <div style={{ fontSize: 10, letterSpacing: "2px", color: C.textSoft, textTransform: "uppercase", marginBottom: 10 }}>Detalle de turnos</div>
-                {sortedAppts.length > 0 ? (
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 10 }}>
-                    {sortedAppts.map((a, index) => (
-                      <div key={index} style={{ borderRadius: 14, border: `1px solid ${C.border}`, padding: 12, background: C.white }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "baseline", marginBottom: 6 }}>
-                          <div style={{ fontSize: 12, fontWeight: "bold", color: C.text }}>{a.hour} · {a.client}</div>
-                          <div style={{ fontSize: 11, color: a.paid ? C.green : C.orange, fontWeight: "bold" }}>
-                            {a.paid ? fmt(apptPaidTotal(a)) : "⏳ Pendiente"}
-                          </div>
+              {/* Offscreen element for PNG Export */}
+              <div 
+                id="prof-daily-receipt-capture" 
+                style={{ 
+                  position: "absolute", 
+                  left: "-9999px", 
+                  top: "-9999px", 
+                  width: "385px", 
+                  background: C.white, 
+                  padding: "24px", 
+                  borderRadius: "16px",
+                  fontFamily: "Georgia, serif",
+                  color: C.text,
+                  border: `1.5px solid ${C.border}`
+                }}
+              >
+                {/* Header */}
+                <div style={{ textAlign: "center", borderBottom: `1.5px dashed ${C.border}`, paddingBottom: "16px", marginBottom: "16px" }}>
+                  <div style={{ fontSize: "14px", fontWeight: "bold", color: C.green, letterSpacing: "1px", textTransform: "uppercase" }}>
+                    Detalle de turnos del día
+                  </div>
+                  <div style={{ fontSize: "20px", fontWeight: "bold", marginTop: "8px" }}>
+                    {prof.name}
+                  </div>
+                  <div style={{ fontSize: "11px", color: C.textSoft, marginTop: "6px", textTransform: "capitalize" }}>
+                    {fmtDate(currentDate || todayKey())}
+                  </div>
+                </div>
+
+                {/* Turnos List */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+                  {sortedAppts.length === 0 ? (
+                    <div style={{ textAlign: "center", fontSize: "12px", color: C.textSoft, fontStyle: "italic", padding: "20px 0" }}>
+                      Sin turnos registrados para hoy.
+                    </div>
+                  ) : (
+                    sortedAppts.map((a, idx) => (
+                      <div key={idx} style={{ paddingBottom: "12px", borderBottom: idx === sortedAppts.length - 1 ? "none" : "1px solid #e8f5eb" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "4px" }}>
+                          <span style={{ fontSize: "13px", fontWeight: "bold", color: C.text }}>{a.hour}</span>
+                          <span style={{ fontSize: "11px", color: a.paid ? C.green : C.orange, fontWeight: "bold" }}>
+                            {a.paid ? `Abonado: ${fmt(apptPaidTotal(a))}` : "⏳ Pendiente"}
+                          </span>
                         </div>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+                        <div style={{ fontSize: "12px", color: C.text, fontWeight: "600", marginBottom: "4px" }}>
+                          Clienta: {a.client}
+                        </div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
                           {(a.services || []).map((sv, i) => (
-                            <span key={i} style={{ fontSize: 11, color: C.textSoft, background: C.cream, borderRadius: 10, padding: "4px 8px" }}>
+                            <span key={i} style={{ fontSize: "10px", color: C.textSoft, background: C.cream, padding: "2px 6px", borderRadius: "8px", border: `1px solid ${C.border}` }}>
                               {sv.icon} {sv.name}
                             </span>
                           ))}
                         </div>
-                        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", fontSize: 11, color: C.textSoft }}>
-                          <span>{renderPaymentMethod(a)}</span>
-                          {a.tip > 0 && <span style={{ color: C.gold }}>🎁 {fmt(a.tip)}</span>}
-                        </div>
-                        {a.notes && (
-                          <div style={{ marginTop: 8, fontSize: 10, color: C.textSoft, fontStyle: "italic" }}>📝 {a.notes}</div>
-                        )}
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div style={{ fontSize: 11, color: C.textSoft, fontStyle: "italic", textAlign: "center", padding: "22px 0" }}>Sin turnos registrados para esta profesional.</div>
-                )}
+                    ))
+                  )}
+                </div>
+
+                {/* Total worked summary */}
+                {sortedAppts.length > 0 && (() => {
+                  const totalWorked = sortedAppts.reduce((sumVal, a) => sumVal + apptPaidTotal(a), 0)
+                  const totalComisionable = sortedAppts.reduce((sumVal, a) => sumVal + apptComisionableTotal(a), 0)
+                  const totalEarned = totalComisionable * (comisionPct / 100)
+                  return (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 16 }}>
+                      <div style={{ 
+                        background: C.cream, 
+                        borderRadius: 10, 
+                        border: `1px solid ${C.border}`, 
+                        padding: "12px 14px", 
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center"
+                      }}>
+                        <span style={{ fontSize: 11, fontWeight: "bold", color: C.textSoft, letterSpacing: "1px" }}>
+                          TOTAL TRABAJADO:
+                        </span>
+                        <span style={{ fontSize: 16, fontWeight: "bold", color: C.green }}>
+                          {fmt(totalWorked)}
+                        </span>
+                      </div>
+
+                      <div style={{ 
+                        background: "#f3faf5", 
+                        borderRadius: 10, 
+                        border: `1.5px solid ${C.greenMint}`, 
+                        padding: "12px 14px", 
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center"
+                      }}>
+                        <span style={{ fontSize: 11, fontWeight: "bold", color: C.green, letterSpacing: "1px" }}>
+                          COMISIÓN ({comisionPct}%):
+                        </span>
+                        <span style={{ fontSize: 16, fontWeight: "bold", color: C.green }}>
+                          {fmt(totalEarned)}
+                        </span>
+                      </div>
+                    </div>
+                  )
+                })()}
+
+                {/* Footer Note */}
+                <div style={{ textAlign: "center", borderTop: `1.5px dashed ${C.border}`, paddingTop: "12px", marginTop: "16px", fontSize: "9px", color: C.textSoft }}>
+                  Generado por {config?.empresaNombre || "Perla Verde"}
+                </div>
               </div>
-              <div style={{ borderTop: `1px solid ${C.border}`, padding: 14, background: C.cream, display: "flex", justifyContent: "flex-end" }}>
-                <GhostBtn onClick={() => setProfPopup(null)}>Cerrar</GhostBtn>
-              </div>
-            </div>
+            </>
           </Overlay>
         )
       })()}
