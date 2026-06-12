@@ -808,13 +808,52 @@ export function AppGrid({
             backgroundColor: "#ffffff",
             useCORS: true
           }).then(canvas => {
-            const dataUrl = canvas.toDataURL("image/png")
-            const link = document.createElement("a")
-            link.download = `Agenda_${prof.name}_${currentDate || todayKey()}.png`
-            link.href = dataUrl
-            document.body.appendChild(link)
-            link.click()
-            document.body.removeChild(link)
+            canvas.toBlob(blob => {
+              if (!blob) return
+
+              // 1. Download image file
+              const dataUrl = URL.createObjectURL(blob)
+              const link = document.createElement("a")
+              link.download = `Agenda_${prof.name}_${currentDate || todayKey()}.png`
+              link.href = dataUrl
+              document.body.appendChild(link)
+              link.click()
+              document.body.removeChild(link)
+              URL.revokeObjectURL(dataUrl)
+
+              // 2. Copy image to clipboard and open WhatsApp
+              const triggerWhatsApp = () => {
+                let opened = false
+                const handleBlur = () => { opened = true }
+                window.addEventListener("blur", handleBlur)
+                
+                // Attempt to open native WhatsApp client
+                window.location.href = "whatsapp://"
+                
+                setTimeout(() => {
+                  window.removeEventListener("blur", handleBlur)
+                  if (!opened) {
+                    window.open("https://web.whatsapp.com/", "_blank")
+                  }
+                }, 1500)
+              }
+
+              try {
+                navigator.clipboard.write([
+                  new ClipboardItem({
+                    [blob.type]: blob
+                  })
+                ]).then(() => {
+                  triggerWhatsApp()
+                }).catch(err => {
+                  console.error("Clipboard copy failed, opening WhatsApp anyway:", err)
+                  triggerWhatsApp()
+                })
+              } catch (err) {
+                console.error("Clipboard not supported, opening WhatsApp anyway:", err)
+                triggerWhatsApp()
+              }
+            }, "image/png")
           }).catch(err => {
             console.error("Error exporting PNG:", err)
             alert("Error al exportar a PNG")
