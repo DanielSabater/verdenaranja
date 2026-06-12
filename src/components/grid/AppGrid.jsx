@@ -994,95 +994,106 @@ export function AppGrid({
         const exportDailyAsPng = () => {
           const element = document.getElementById("prof-daily-receipt-capture")
           if (!element) return
-          html2canvas(element, {
-            scale: 2,
-            backgroundColor: "#ffffff",
-            useCORS: true
-          }).then(canvas => {
-            canvas.toBlob(blob => {
-              if (!blob) return
 
-              // 1. Download image file
-              const dataUrl = URL.createObjectURL(blob)
-              const link = document.createElement("a")
-              link.download = `Agenda_${prof.name}_${currentDate || todayKey()}.png`
-              link.href = dataUrl
-              document.body.appendChild(link)
-              link.click()
-              document.body.removeChild(link)
-              URL.revokeObjectURL(dataUrl)
+          const triggerWhatsApp = () => {
+            let opened = false
+            const handleBlur = () => { opened = true }
+            window.addEventListener("blur", handleBlur)
+            
+            // Attempt to open native WhatsApp client
+            window.location.href = "whatsapp://"
+            
+            setTimeout(() => {
+              window.removeEventListener("blur", handleBlur)
+              if (!opened) {
+                window.open("https://web.whatsapp.com/", "_blank")
+              }
+            }, 1500)
+          }
 
-              // 2. Copy image to clipboard and open WhatsApp
-              const triggerWhatsApp = () => {
-                let opened = false
-                const handleBlur = () => { opened = true }
-                window.addEventListener("blur", handleBlur)
-                
-                // Attempt to open native WhatsApp client
-                window.location.href = "whatsapp://"
-                
-                setTimeout(() => {
-                  window.removeEventListener("blur", handleBlur)
-                  if (!opened) {
-                    window.open("https://web.whatsapp.com/", "_blank")
+          try {
+            const clipboardPromise = new Promise((resolve, reject) => {
+              html2canvas(element, {
+                scale: 2,
+                backgroundColor: "#ffffff",
+                useCORS: true
+              }).then(canvas => {
+                canvas.toBlob(blob => {
+                  if (blob) {
+                    // 1. Download image file
+                    const dataUrl = URL.createObjectURL(blob)
+                    const link = document.createElement("a")
+                    link.download = `Agenda_${prof.name}_${currentDate || todayKey()}.png`
+                    link.href = dataUrl
+                    document.body.appendChild(link)
+                    link.click()
+                    document.body.removeChild(link)
+                    URL.revokeObjectURL(dataUrl)
+
+                    resolve(blob)
+                  } else {
+                    reject(new Error("Blob creation failed"))
                   }
-                }, 1500)
-              }
+                }, "image/png")
+              }).catch(err => {
+                reject(err)
+              })
+            })
 
-              try {
-                navigator.clipboard.write([
-                  new ClipboardItem({
-                    [blob.type]: blob
-                  })
-                ]).then(() => {
-                  triggerWhatsApp()
-                }).catch(err => {
-                  console.error("Clipboard copy failed, opening WhatsApp anyway:", err)
-                  triggerWhatsApp()
-                })
-              } catch (err) {
-                console.error("Clipboard not supported, opening WhatsApp anyway:", err)
-                triggerWhatsApp()
-              }
-            }, "image/png")
-          }).catch(err => {
-            console.error("Error exporting PNG:", err)
-            alert("Error al exportar a PNG")
-          })
+            navigator.clipboard.write([
+              new ClipboardItem({
+                "image/png": clipboardPromise
+              })
+            ]).then(() => {
+              triggerWhatsApp()
+            }).catch(err => {
+              console.error("Clipboard copy failed, opening WhatsApp anyway:", err)
+              triggerWhatsApp()
+            })
+          } catch (err) {
+            console.error("Clipboard not supported, opening WhatsApp anyway:", err)
+            triggerWhatsApp()
+          }
         }
 
         const copyDailyToClipboard = () => {
           const element = document.getElementById("prof-daily-receipt-capture")
           if (!element) return
-          html2canvas(element, {
-            scale: 2,
-            backgroundColor: "#ffffff",
-            useCORS: true
-          }).then(canvas => {
-            canvas.toBlob(blob => {
-              if (!blob) return
 
-              try {
-                navigator.clipboard.write([
-                  new ClipboardItem({
-                    [blob.type]: blob
-                  })
-                ]).then(() => {
-                  setCopiedAgenda(true)
-                  setTimeout(() => setCopiedAgenda(false), 2000)
-                }).catch(err => {
-                  console.error("Clipboard copy failed:", err)
-                  alert("No se pudo copiar al portapapeles automáticamente")
-                })
-              } catch (err) {
-                console.error("Clipboard not supported:", err)
-                alert("Tu navegador no soporta la copia de imágenes al portapapeles")
-              }
-            }, "image/png")
-          }).catch(err => {
-            console.error("Error exporting PNG:", err)
-            alert("Error al exportar a PNG")
-          })
+          try {
+            const clipboardPromise = new Promise((resolve, reject) => {
+              html2canvas(element, {
+                scale: 2,
+                backgroundColor: "#ffffff",
+                useCORS: true
+              }).then(canvas => {
+                canvas.toBlob(blob => {
+                  if (blob) {
+                    resolve(blob)
+                  } else {
+                    reject(new Error("Blob creation failed"))
+                  }
+                }, "image/png")
+              }).catch(err => {
+                reject(err)
+              })
+            })
+
+            navigator.clipboard.write([
+              new ClipboardItem({
+                "image/png": clipboardPromise
+              })
+            ]).then(() => {
+              setCopiedAgenda(true)
+              setTimeout(() => setCopiedAgenda(false), 2000)
+            }).catch(err => {
+              console.error("Clipboard copy failed:", err)
+              alert("No se pudo copiar al portapapeles automáticamente")
+            })
+          } catch (err) {
+            console.error("Clipboard not supported:", err)
+            alert("Tu navegador no soporta la copia de imágenes al portapapeles")
+          }
         }
 
         return (
