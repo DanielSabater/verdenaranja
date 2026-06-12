@@ -1244,6 +1244,93 @@ export default function ContabilidadView({
             </div>
           )}
 
+          {/* Break-even / Outgoings Coverage Card */}
+          {totalIncome > 0 && (() => {
+            const totalOutgoings = totalGastos + totalComisiones
+            const coveragePct = totalOutgoings > 0 ? Math.min(100, (totalIncome / totalOutgoings) * 100) : 100
+            const isCovered = totalIncome >= totalOutgoings
+            const difference = totalIncome - totalOutgoings
+            
+            return (
+              <div style={{ 
+                background: C.white, 
+                borderRadius: 16, 
+                padding: "20px", 
+                border: `1px solid ${isCovered ? C.greenLight : C.border}`, 
+                boxShadow: isCovered ? `0 8px 24px rgba(58, 125, 68, 0.08)` : `0 8px 24px rgba(0,0,0,0.02)`,
+                marginBottom: 16,
+                position: "relative",
+                overflow: "hidden"
+              }}>
+                {/* Decorative status strip */}
+                <div style={{ 
+                  position: "absolute", 
+                  top: 0, 
+                  left: 0, 
+                  height: 4, 
+                  right: 0, 
+                  background: isCovered ? `linear-gradient(90deg, ${C.green}, ${C.greenLight})` : `linear-gradient(90deg, ${C.orange}, ${C.orangeLight})` 
+                }} />
+
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+                  <div>
+                    <div style={{ fontSize: 9, letterSpacing: "2px", color: C.textSoft, textTransform: "uppercase" }}>Punto de Equilibrio</div>
+                    <div style={{ fontSize: 16, fontWeight: "bold", color: C.text, marginTop: 4 }}>
+                      {isCovered ? "🎉 ¡Gastos y Sueldos Cubiertos!" : "📉 Cubriendo Egresos"}
+                    </div>
+                  </div>
+                  <div style={{ 
+                    background: isCovered ? "#eaf7ed" : "#fff5ed", 
+                    color: isCovered ? C.green : C.orange, 
+                    fontSize: 11, 
+                    fontWeight: "bold", 
+                    padding: "4px 10px", 
+                    borderRadius: 12 
+                  }}>
+                    {isCovered ? "Ganancia Neta" : "En Progreso"}
+                  </div>
+                </div>
+
+                {/* Progress Bar Container */}
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 6 }}>
+                    <span style={{ color: C.textSoft }}>Cobertura del negocio</span>
+                    <span style={{ fontWeight: "bold", color: isCovered ? C.green : C.orange }}>
+                      {totalOutgoings > 0 ? ((totalIncome / totalOutgoings) * 100).toFixed(0) : "100"}%
+                    </span>
+                  </div>
+                  <div style={{ height: 12, background: "#f0f0f0", borderRadius: 6, overflow: "hidden", position: "relative" }}>
+                    <div style={{ 
+                      height: "100%", 
+                      width: `${coveragePct}%`, 
+                      background: isCovered ? `linear-gradient(90deg, ${C.green}, ${C.greenLight})` : `linear-gradient(90deg, ${C.orange}, ${C.orangeLight})`, 
+                      borderRadius: 6,
+                      transition: "width 0.5s ease"
+                    }} />
+                  </div>
+                </div>
+
+                {/* Grid details */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 12, borderTop: `1px solid ${C.border}`, paddingTop: 12 }}>
+                  <div>
+                    <div style={{ fontSize: 9, color: C.textSoft, textTransform: "uppercase" }}>Ingresos Totales</div>
+                    <div style={{ fontSize: 13, fontWeight: "bold", color: C.green }}>{fmt(totalIncome)}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 9, color: C.textSoft, textTransform: "uppercase" }}>Egresos (Gastos + Sueldos)</div>
+                    <div style={{ fontSize: 13, fontWeight: "bold", color: C.orange }}>{fmt(totalOutgoings)}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 9, color: C.textSoft, textTransform: "uppercase" }}>{isCovered ? "Resultado Neto" : "Faltante para Cubrir"}</div>
+                    <div style={{ fontSize: 13, fontWeight: "bold", color: isCovered ? C.green : "#c04040" }}>
+                      {fmt(Math.abs(difference))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
           {/* Pizza (Donut) Chart for Income Distribution */}
           {totalIncome > 0 && (
             <div style={{ background:C.white, borderRadius:16, padding:"18px 20px", border:`1px solid ${C.border}`, marginBottom:16 }}>
