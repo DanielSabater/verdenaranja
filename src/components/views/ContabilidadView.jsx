@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from "react"
 import { createPortal } from "react-dom"
 import html2canvas from "html2canvas"
+import { jsPDF } from "jspdf"
 import { C } from "../../constants/colors.js"
 import { PAYMENT_METHODS, GASTO_CATS } from "../../constants/data.js"
 import { fmt, apptTotal, apptPaidTotal, apptComisionableTotal } from "../../utils/appointments.js"
@@ -1880,8 +1881,32 @@ export default function ContabilidadView({
             alert("Error al exportar a PNG")
           })
         }
+
+        const exportAsPdf = () => {
+          const element = document.getElementById("salary-receipt-card")
+          if (!element) return
+          html2canvas(element, {
+            scale: 2,
+            backgroundColor: "#ffffff",
+            useCORS: true
+          }).then(canvas => {
+            const imgData = canvas.toDataURL("image/jpeg", 0.95)
+            const imgWidth = 150
+            const imgHeight = (canvas.height * imgWidth) / canvas.width
+            const doc = new jsPDF({
+              orientation: "portrait",
+              unit: "mm",
+              format: [imgWidth, imgHeight]
+            })
+            doc.addImage(imgData, "JPEG", 0, 0, imgWidth, imgHeight)
+            doc.save(`Recibo_${p.name}_${periodLabel.replace(/\s+/g, "_")}.pdf`)
+          }).catch(err => {
+            console.error("Error exporting PDF:", err)
+            alert("Error al exportar a PDF")
+          })
+        }
         
-        return (
+        return createPortal(
           <>
             {/* Inject dynamic print stylesheet */}
             <style dangerouslySetInnerHTML={{ __html: `
@@ -1893,121 +1918,138 @@ export default function ContabilidadView({
               }
             ` }} />
 
-            <Overlay onClose={() => setReceiptProf(null)}>
+            <Overlay 
+              onClose={() => setReceiptProf(null)}
+              style={{
+                top: "56px",
+                bottom: "0",
+                alignItems: "flex-start",
+                justifyContent: "center",
+                paddingTop: "16px",
+                paddingBottom: "24px"
+              }}
+            >
               <div style={{ 
                 ...modalBox, 
                 width: "min(600px, calc(100vw - 20px))", 
+                maxHeight: "calc(100% - 32px)",
                 padding: "20px 24px",
                 position: "relative",
                 background: C.white,
                 borderRadius: 16,
                 border: `1.5px solid ${C.border}`,
-                boxShadow: "0 20px 60px rgba(58,125,68,0.15)"
+                boxShadow: "0 20px 60px rgba(58,125,68,0.15)",
+                display: "flex",
+                flexDirection: "column",
+                overflow: "hidden"
               }}>
                 
-                {/* ID wrapper for PNG Capture */}
-                <div id="salary-receipt-card" style={{ background: C.white, padding: "8px", borderRadius: 12 }}>
-                  {/* Visual Ticket header wrapper */}
-                  <div style={{ 
-                    textAlign: "center", 
-                    paddingBottom: 12, 
-                    borderBottom: `1px dashed ${C.border}`,
-                    marginBottom: 16
-                  }}>
-                    <div style={{ fontSize: 14, fontWeight: "bold", color: C.text, fontFamily: "Georgia,serif" }}>
-                      Comprobante de Sueldo
+                {/* Scrollable content wrapper with hidden scrollbar */}
+                <div className="no-scrollbar" style={{ flex: 1, overflowY: "auto", marginBottom: 12 }}>
+                  {/* ID wrapper for PNG Capture */}
+                  <div id="salary-receipt-card" style={{ background: C.white, padding: "8px", borderRadius: 12 }}>
+                    {/* Visual Ticket header wrapper */}
+                    <div style={{ 
+                      textAlign: "center", 
+                      paddingBottom: 12, 
+                      borderBottom: `1px dashed ${C.border}`,
+                      marginBottom: 16
+                    }}>
+                      <div style={{ fontSize: 14, fontWeight: "bold", color: C.text, fontFamily: "Georgia,serif" }}>
+                        Comprobante de Sueldo
+                      </div>
+                      <div style={{ fontSize: 11, color: C.textSoft, marginTop: 4 }}>
+                        {p.name} · {periodLabel}
+                      </div>
                     </div>
-                    <div style={{ fontSize: 11, color: C.textSoft, marginTop: 4 }}>
-                      {p.name} · {periodLabel}
-                    </div>
-                  </div>
 
-                  {/* Daily Breakdown Detail List */}
-                  <div style={{ marginBottom: 16 }}>
-                    <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: 12, background: C.white }}>
-                      {dailyBreakdown.length === 0 ? (
-                        <div style={{ padding: "20px 10px", textAlign: "center", color: C.textSoft, fontSize: 11 }}>
-                          Sin actividad registrada
-                        </div>
-                      ) : (
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 }}>
-                          {dailyBreakdown.map(d => (
-                            <div key={d.dk} style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: 8, background: C.white, display: "flex", flexDirection: "column", gap: 6 }}>
-                              {/* Day Header */}
-                              <div style={{ 
-                                display: "flex", 
-                                justifyContent: "space-between", 
-                                alignItems: "center", 
-                                fontWeight: "bold", 
-                                color: C.text, 
-                                fontSize: 9.8, 
-                                background: C.cream, 
-                                padding: "4px 6px", 
-                                borderRadius: 5
-                              }}>
-                                <span>{d.shortLabel} ({d.turnos})</span>
-                                <span style={{ color: C.green }}>{fmt(d.comision)}</span>
-                              </div>
-                              {/* Appointments list */}
-                              <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                                {d.appts.map((a, aIdx) => (
-                                  <div key={aIdx} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", fontSize: 8.8 }}>
-                                    <div style={{ flex: 1, paddingRight: 4 }}>
-                                      <div style={{ color: C.text, fontWeight: "500", lineHeight: 1.1 }}>
-                                        {a.hour} · {a.client}
+                    {/* Daily Breakdown Detail List */}
+                    <div style={{ marginBottom: 16 }}>
+                      <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: 12, background: C.white }}>
+                        {dailyBreakdown.length === 0 ? (
+                          <div style={{ padding: "20px 10px", textAlign: "center", color: C.textSoft, fontSize: 11 }}>
+                            Sin actividad registrada
+                          </div>
+                        ) : (
+                          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 10 }}>
+                            {dailyBreakdown.map(d => (
+                              <div key={d.dk} style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: 8, background: C.white, display: "flex", flexDirection: "column", gap: 6 }}>
+                                {/* Day Header */}
+                                <div style={{ 
+                                  display: "flex", 
+                                  justifyContent: "space-between", 
+                                  alignItems: "center", 
+                                  fontWeight: "bold", 
+                                  color: C.text, 
+                                  fontSize: 9.8, 
+                                  background: C.cream, 
+                                  padding: "4px 6px", 
+                                  borderRadius: 5
+                                }}>
+                                  <span>{d.shortLabel} ({d.turnos})</span>
+                                  <span style={{ color: C.green }}>{fmt(d.comision)}</span>
+                                </div>
+                                {/* Appointments list */}
+                                <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                                  {d.appts.map((a, aIdx) => (
+                                    <div key={aIdx} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", fontSize: 8.8 }}>
+                                      <div style={{ flex: 1, paddingRight: 4 }}>
+                                        <div style={{ color: C.text, fontWeight: "500", lineHeight: 1.1 }}>
+                                          {a.hour} · {a.client}
+                                        </div>
+                                        <div style={{ display: "flex", flexWrap: "wrap", gap: 2, marginTop: 2 }}>
+                                          {a.services.map((sv, sIdx) => (
+                                            <span key={sIdx} style={{ fontSize: 7.5, color: C.textSoft, background: "#f0faf2", padding: "0 3px", borderRadius: 3, border: `1px solid ${C.border}` }}>
+                                              {sv.name}
+                                            </span>
+                                          ))}
+                                        </div>
                                       </div>
-                                      <div style={{ display: "flex", flexWrap: "wrap", gap: 2, marginTop: 2 }}>
-                                        {a.services.map((sv, sIdx) => (
-                                          <span key={sIdx} style={{ fontSize: 7.5, color: C.textSoft, background: "#f0faf2", padding: "0 3px", borderRadius: 3, border: `1px solid ${C.border}` }}>
-                                            {sv.name}
-                                          </span>
-                                        ))}
+                                      <div style={{ textAlign: "right", color: C.textSoft, fontWeight: "bold", whiteSpace: "nowrap" }}>
+                                        {fmt(a.amount)}
                                       </div>
                                     </div>
-                                    <div style={{ textAlign: "right", color: C.textSoft, fontWeight: "bold", whiteSpace: "nowrap" }}>
-                                      {fmt(a.amount)}
-                                    </div>
-                                  </div>
-                                ))}
+                                  ))}
+                                </div>
                               </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Final Totals summary */}
-                  <div style={{ 
-                    background: C.cream, 
-                    borderRadius: 10, 
-                    border: `1px solid ${C.border}`, 
-                    padding: "12px 14px", 
-                    marginBottom: 16,
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center"
-                  }}>
-                    <span style={{ fontSize: 11, fontWeight: "bold", color: C.textSoft, letterSpacing: "1px" }}>
-                      COMISIÓN ({comisionPct}%):
-                    </span>
-                    <span style={{ fontSize: 18, fontWeight: "bold", color: C.green }}>
-                      {fmt(stats.comision)}
-                    </span>
-                  </div>
-                  
-                  {sd.monto !== "" && (
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 10px 16px" }}>
-                      <span style={{ fontSize: 10, color: C.textSoft }}>Monto Liquidado / Pagado:</span>
-                      <span style={{ fontSize: 14, fontWeight: "bold", color: C.orange }}>{fmt(parseFloat(sd.monto) || 0)}</span>
+                    {/* Final Totals summary */}
+                    <div style={{ 
+                      background: C.cream, 
+                      borderRadius: 10, 
+                      border: `1px solid ${C.border}`, 
+                      padding: "12px 14px", 
+                      marginBottom: 16,
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center"
+                    }}>
+                      <span style={{ fontSize: 11, fontWeight: "bold", color: C.textSoft, letterSpacing: "1px" }}>
+                        COMISIÓN ({comisionPct}%):
+                      </span>
+                      <span style={{ fontSize: 18, fontWeight: "bold", color: C.green }}>
+                        {fmt(stats.comision)}
+                      </span>
                     </div>
-                  )}
+                    
+                    {sd.monto !== "" && (
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 10px 16px" }}>
+                        <span style={{ fontSize: 10, color: C.textSoft }}>Monto Liquidado / Pagado:</span>
+                        <span style={{ fontSize: 14, fontWeight: "bold", color: C.orange }}>{fmt(parseFloat(sd.monto) || 0)}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
-                {/* Buttons */}
-                <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                {/* Buttons (Fixed at the bottom) */}
+                <div style={{ display: "flex", gap: 8, flexShrink: 0, paddingTop: 10, borderTop: `1px solid ${C.border}` }}>
                   <GhostBtn onClick={() => setReceiptProf(null)}>Cerrar</GhostBtn>
-                  <SolidBtn onClick={() => window.print()} color={C.green}>
+                  <SolidBtn onClick={exportAsPdf} color={C.green}>
                     PDF
                   </SolidBtn>
                   <SolidBtn onClick={exportAsPng} color={C.orange}>
@@ -2089,7 +2131,8 @@ export default function ContabilidadView({
               </div>,
               document.body
             )}
-          </>
+          </>,
+          document.body
         )
       })()}
 
