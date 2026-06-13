@@ -607,6 +607,7 @@ export default function ContabilidadView({
       let dayComisionable = 0
       let dayTurnos = 0
       let dayPropinas = 0
+      const dayAppts = []
       
       const safeDayData = dayData || {}
       Object.values(safeDayData).forEach(appt => {
@@ -615,8 +616,19 @@ export default function ContabilidadView({
           dayComisionable += apptComisionableTotal(appt)
           dayPropinas  += appt.tip || 0
           dayTurnos++
+          
+          dayAppts.push({
+            client: appt.client || "Sin nombre",
+            hour: appt.hour || "--:--",
+            services: appt.services || [],
+            amount: apptPaidTotal(appt),
+            comision: apptComisionableTotal(appt) * (comisionPct/100)
+          })
         }
       })
+      
+      // Sort daily appointments chronologically
+      dayAppts.sort((a, b) => (a.hour || "").localeCompare(b.hour || ""))
       
       if (dayTurnos > 0) {
         days.push({
@@ -627,7 +639,8 @@ export default function ContabilidadView({
           facturado: dayFacturado,
           comision: dayComisionable * (comisionPct/100),
           propinas: dayPropinas,
-          total: (dayComisionable * (comisionPct/100)) + dayPropinas
+          total: (dayComisionable * (comisionPct/100)) + dayPropinas,
+          appts: dayAppts
         })
       }
     })
@@ -1883,7 +1896,7 @@ export default function ContabilidadView({
             <Overlay onClose={() => setReceiptProf(null)}>
               <div style={{ 
                 ...modalBox, 
-                width: "min(400px, calc(100vw - 20px))", 
+                width: "min(600px, calc(100vw - 20px))", 
                 padding: "20px 24px",
                 position: "relative",
                 background: C.white,
@@ -1909,33 +1922,58 @@ export default function ContabilidadView({
                     </div>
                   </div>
 
-                  {/* Daily Breakdown Table */}
+                  {/* Daily Breakdown Detail List */}
                   <div style={{ marginBottom: 16 }}>
-                    <div style={{ maxHeight: 240, overflowY: "auto", border: `1px solid ${C.border}`, borderRadius: 10 }}>
-                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-                        <thead>
-                          <tr style={{ background: C.cream, borderBottom: `1px solid ${C.border}`, position: "sticky", top: 0, zIndex: 10 }}>
-                            <th style={{ padding: "8px 10px", textAlign: "left", color: C.textSoft, fontSize: 10, textTransform: "uppercase" }}>Fecha</th>
-                            <th style={{ padding: "8px 10px", textAlign: "right", color: C.textSoft, fontSize: 10, textTransform: "uppercase", fontWeight: "bold" }}>Monto</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {dailyBreakdown.length === 0 ? (
-                            <tr>
-                              <td colSpan={2} style={{ padding: "20px 10px", textAlign: "center", color: C.textSoft }}>
-                                Sin actividad registrada
-                              </td>
-                            </tr>
-                          ) : (
-                            dailyBreakdown.map(d => (
-                              <tr key={d.dk} style={{ borderBottom: `1px solid #f3faf5` }}>
-                                <td style={{ padding: "8px 10px", color: C.text }}>{d.shortLabel}</td>
-                                <td style={{ padding: "8px 10px", textAlign: "right", color: C.green, fontWeight: "bold" }}>{fmt(d.comision)}</td>
-                              </tr>
-                            ))
-                          )}
-                        </tbody>
-                      </table>
+                    <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: 12, background: C.white }}>
+                      {dailyBreakdown.length === 0 ? (
+                        <div style={{ padding: "20px 10px", textAlign: "center", color: C.textSoft, fontSize: 11 }}>
+                          Sin actividad registrada
+                        </div>
+                      ) : (
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 }}>
+                          {dailyBreakdown.map(d => (
+                            <div key={d.dk} style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: 8, background: C.white, display: "flex", flexDirection: "column", gap: 6 }}>
+                              {/* Day Header */}
+                              <div style={{ 
+                                display: "flex", 
+                                justifyContent: "space-between", 
+                                alignItems: "center", 
+                                fontWeight: "bold", 
+                                color: C.text, 
+                                fontSize: 9.8, 
+                                background: C.cream, 
+                                padding: "4px 6px", 
+                                borderRadius: 5
+                              }}>
+                                <span>{d.shortLabel} ({d.turnos})</span>
+                                <span style={{ color: C.green }}>{fmt(d.comision)}</span>
+                              </div>
+                              {/* Appointments list */}
+                              <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                                {d.appts.map((a, aIdx) => (
+                                  <div key={aIdx} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", fontSize: 8.8 }}>
+                                    <div style={{ flex: 1, paddingRight: 4 }}>
+                                      <div style={{ color: C.text, fontWeight: "500", lineHeight: 1.1 }}>
+                                        {a.hour} · {a.client}
+                                      </div>
+                                      <div style={{ display: "flex", flexWrap: "wrap", gap: 2, marginTop: 2 }}>
+                                        {a.services.map((sv, sIdx) => (
+                                          <span key={sIdx} style={{ fontSize: 7.5, color: C.textSoft, background: "#f0faf2", padding: "0 3px", borderRadius: 3, border: `1px solid ${C.border}` }}>
+                                            {sv.name}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    </div>
+                                    <div style={{ textAlign: "right", color: C.textSoft, fontWeight: "bold", whiteSpace: "nowrap" }}>
+                                      {fmt(a.amount)}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -1951,7 +1989,7 @@ export default function ContabilidadView({
                     alignItems: "center"
                   }}>
                     <span style={{ fontSize: 11, fontWeight: "bold", color: C.textSoft, letterSpacing: "1px" }}>
-                      SUELDO NETO:
+                      COMISIÓN ({comisionPct}%):
                     </span>
                     <span style={{ fontSize: 18, fontWeight: "bold", color: C.green }}>
                       {fmt(stats.comision)}
@@ -1987,7 +2025,7 @@ export default function ContabilidadView({
                   fontFamily: "Georgia, serif", 
                   color: "#000000", 
                   width: "100%",
-                  maxWidth: "400px",
+                  maxWidth: "600px",
                   margin: "0 auto",
                   padding: "10px"
                 }}>
@@ -1996,31 +2034,44 @@ export default function ContabilidadView({
                     Liquidación: {p.name} ({periodLabel})
                   </div>
 
-                  {/* Print Table */}
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px", marginBottom: "15px" }}>
-                    <thead>
-                      <tr style={{ borderBottom: "1.5px solid #000000" }}>
-                        <th style={{ padding: "6px 0", textAlign: "left", width: "60%" }}>Fecha</th>
-                        <th style={{ padding: "6px 0", textAlign: "right", width: "40%", fontWeight: "bold" }}>Monto</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {dailyBreakdown.length === 0 ? (
-                        <tr>
-                          <td colSpan={2} style={{ padding: "15px 0", textAlign: "center" }}>
-                            Sin actividad registrada.
-                          </td>
-                        </tr>
-                      ) : (
-                        dailyBreakdown.map(d => (
-                          <tr key={d.dk} style={{ borderBottom: "1px solid #e0e0e0" }}>
-                            <td style={{ padding: "6px 0" }}>{d.dateLabel}</td>
-                            <td style={{ padding: "6px 0", textAlign: "right", fontWeight: "bold" }}>{fmt(d.comision)}</td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
+                  {/* Print Breakdown */}
+                  <div style={{ marginBottom: "15px" }}>
+                    {dailyBreakdown.length === 0 ? (
+                      <div style={{ textAlign: "center", padding: "15px 0", fontSize: "12px" }}>
+                        Sin actividad registrada.
+                      </div>
+                    ) : (
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "10px" }}>
+                        {dailyBreakdown.map(d => (
+                          <div key={d.dk} style={{ border: "1px solid #000000", borderRadius: "8px", padding: "8px", pageBreakInside: "avoid", display: "flex", flexDirection: "column", gap: "6px" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "bold", fontSize: "9.5px", borderBottom: "1px solid #000000", paddingBottom: "4px" }}>
+                              <span>{d.dateLabel} ({d.turnos})</span>
+                              <span>{fmt(d.comision)}</span>
+                            </div>
+                            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                              {d.appts.map((a, aIdx) => (
+                                <div key={aIdx} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", fontSize: "8.5px" }}>
+                                  <div style={{ flex: 1, paddingRight: "4px" }}>
+                                    <div style={{ fontWeight: "500", lineHeight: 1.1 }}>{a.hour} · {a.client}</div>
+                                    <div style={{ fontSize: "7.5px", color: "#555555", display: "flex", flexWrap: "wrap", gap: "2px", marginTop: "2px" }}>
+                                      {a.services.map((sv, sIdx) => (
+                                        <span key={sIdx} style={{ border: "1px solid #cccccc", padding: "0 3px", borderRadius: "3px" }}>
+                                          {sv.name}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                  <div style={{ textAlign: "right", fontWeight: "bold", whiteSpace: "nowrap" }}>
+                                    {fmt(a.amount)}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
 
                   {/* Print Summary Box */}
                   <div style={{ 
@@ -2031,7 +2082,7 @@ export default function ContabilidadView({
                     alignItems: "center",
                     pageBreakInside: "avoid"
                   }}>
-                    <span style={{ fontWeight: "bold", fontSize: "13px" }}>SUELDO NETO:</span>
+                    <span style={{ fontWeight: "bold", fontSize: "13px" }}>COMISIÓN ({comisionPct}%):</span>
                     <span style={{ fontWeight: "bold", fontSize: "18px" }}>{fmt(stats.comision)}</span>
                   </div>
                 </div>
