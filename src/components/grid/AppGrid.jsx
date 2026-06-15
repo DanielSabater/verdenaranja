@@ -817,7 +817,7 @@ export function AppGrid({
                             transition: isResizing ? "none" : "opacity .15s, box-shadow .15s, transform .15s",
                             cursor: "grab",
                             position: "relative",
-                            overflow: "visible",
+                            overflow: "hidden",
                           }}
                         >
                           <div onMouseDown={e => { e.stopPropagation(); onResizeStart(e, k, "top") }}

@@ -334,6 +334,21 @@ select {
 /* ── Appointment card glow on hover ── */
 .appt-card {
   transition: box-shadow 0.2s ease, transform 0.2s ease !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+  overflow: hidden !important;
+}
+
+.appt-card::-webkit-scrollbar,
+.appt-card *::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.appt-card * {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
 }
 
 .appt-card:hover,

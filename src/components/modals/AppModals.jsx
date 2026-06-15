@@ -69,7 +69,9 @@ export function AppModals({
 
   const safeClientes = clientes || []
   const suggestions = safeClientes.filter(cl =>
-    clientName.length > 1 && cl.name.toLowerCase().includes(clientName.toLowerCase())
+    clientName.length > 1 &&
+    cl.name.toLowerCase().includes(clientName.toLowerCase()) &&
+    cl.name.toLowerCase() !== clientName.trim().toLowerCase()
   )
   const isNewCliente = clientName.trim().length > 1 &&
     !safeClientes.some(cl => cl.name.toLowerCase() === clientName.trim().toLowerCase())
@@ -85,7 +87,7 @@ export function AppModals({
       {modal && (
         <Overlay onClose={() => setModal(null)}>
           <div className="modal-sheet" style={{ ...modalBox, display: "flex", flexDirection: "column", padding: "24px", overflow: "hidden", height: isNoteMode ? "auto" : 680 }}>
-            <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", justifyContent: "center", paddingRight: 4 }}>
+            <div className="no-scrollbar" style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", justifyContent: "center" }}>
               <div style={{ width: "100%", maxWidth: 460 }}>
                 <ModalHeader
                   emoji={isNoteMode ? "📌" : (modal.editKey ? "✏️" : "🌿")}
