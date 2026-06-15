@@ -86,7 +86,7 @@ export function AppModals({
       {/* ── MODAL NUEVO / EDITAR ── */}
       {modal && (
         <Overlay onClose={() => setModal(null)}>
-          <div className="modal-sheet" style={{ ...modalBox, display: "flex", flexDirection: "column", padding: "24px", overflow: "hidden", height: isNoteMode ? "auto" : 680 }}>
+          <div className="modal-sheet" style={{ ...modalBox, display: "flex", flexDirection: "column", padding: "24px", overflow: "hidden", height: "auto", maxHeight: 680 }}>
             <div className="no-scrollbar" style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", justifyContent: "center" }}>
               <div style={{ width: "100%", maxWidth: 460 }}>
                 <ModalHeader
@@ -284,7 +284,7 @@ export function AppModals({
                           </button>
                         ))}
                       </div>
-                      <div className="service-scroll" style={{ width: "100%", display: "flex", flexDirection: "column", gap: 5, maxHeight: 240, overflowY: "auto", paddingRight: 3 }}>
+                      <div className="service-scroll" style={{ width: "100%", display: "flex", flexDirection: "column", gap: 5, maxHeight: 300, overflowY: "auto", paddingRight: 3 }}>
                         {filteredServices.map((s, idx) => {
                           const isChosen = chosenServices.some(x => x.id === s.id)
                           const isFirstMatch = idx === serviceHighlightIdx
