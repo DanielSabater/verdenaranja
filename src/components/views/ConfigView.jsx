@@ -318,7 +318,7 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
           <style>{`
             .services-grid-header {
               display: grid;
-              grid-template-columns: 38px minmax(120px, 1fr) 98px 90px 105px 105px 80px 36px;
+              grid-template-columns: 38px minmax(120px, 1fr) 90px 80px 100px 100px 75px 80px 36px;
               gap: 8px;
               padding: 0 12px;
               align-items: center;
@@ -330,7 +330,7 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
               border-radius: 14px;
               padding: 8px 12px;
               display: grid;
-              grid-template-columns: 38px minmax(120px, 1fr) 98px 90px 105px 105px 80px 36px;
+              grid-template-columns: 38px minmax(120px, 1fr) 90px 80px 100px 100px 75px 80px 36px;
               gap: 8px;
               align-items: center;
               box-shadow: 0 2px 8px rgba(0,0,0,.01);
@@ -349,8 +349,9 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
             .svc-col-price { order: 4; }
             .svc-col-category { order: 5; }
             .svc-col-rama { order: 6; }
-            .svc-col-excluido { order: 7; display: flex; align-items: center; justify-content: center; }
-            .svc-col-remove { order: 8; }
+            .svc-col-comisionPct { order: 7; }
+            .svc-col-excluido { order: 8; display: flex; align-items: center; justify-content: center; }
+            .svc-col-remove { order: 9; }
             .svc-excluido-lbl { display: none; }
             @media (max-width: 768px) {
               .services-grid-header {
@@ -631,6 +632,7 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
                       { label: "Precio", align: "center" },
                       { label: "Categoría", align: "left" },
                       { label: "Rama", align: "left" },
+                      { label: "% Comi.", align: "center" },
                       { label: "Sin Comi.", align: "center" },
                       { label: "", align: "center" }
                     ].map((h, i) => (
@@ -762,6 +764,22 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
                               <option key={r} value={r}>{getDatalistLabel(r)}</option>
                             ))}
                           </select>
+                          
+                          {/* % Comisión */}
+                          <div className="svc-col-comisionPct" style={{ display: "flex", alignItems: "center", border: `1.5px solid ${C.border}`, borderRadius: 9, background: C.cream, height: 34, padding: "0 8px", width: "100%" }}>
+                            <input
+                              type="number"
+                              min={0}
+                              max={100}
+                              placeholder={`${config.comisionPct}%`}
+                              value={svc.comisionPct !== undefined && svc.comisionPct !== null ? svc.comisionPct : ""}
+                              onChange={e => {
+                                const val = e.target.value === "" ? null : parseInt(e.target.value)
+                                updateSvc(svc.id, "comisionPct", isNaN(val) ? null : val)
+                              }}
+                              style={{ border: "none", width: "100%", height: "100%", fontSize: 11, textAlign: "center", color: C.green, fontWeight: "bold", background: "transparent", outline: "none", padding: 0 }}
+                            />
+                          </div>
 
                           {/* Sin Comisión Toggle */}
                           <div className="svc-col-excluido">
@@ -849,6 +867,24 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
                       <option key={r} value={r}>{getDatalistLabel(r)}</option>
                     ))}
                   </select>
+                </div>
+
+                <div style={{ marginBottom:20 }}>
+                  <div style={{ fontSize:8, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase", marginBottom:6 }}>% Comisión Personalizado (Opcional)</div>
+                  <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                    <input 
+                      type="number" 
+                      min={0}
+                      max={100}
+                      placeholder={`Hereda global (${config.comisionPct}%)`} 
+                      value={newSvc.comisionPct !== undefined && newSvc.comisionPct !== null ? newSvc.comisionPct : ""} 
+                      onChange={e=> {
+                        const val = e.target.value === "" ? null : parseInt(e.target.value)
+                        setNewSvc(p=>({...p,comisionPct: isNaN(val) ? null : val}))
+                      }}
+                      style={{...cfgInput, width:"100%", boxSizing:"border-box"}} 
+                    />
+                  </div>
                 </div>
 
                 <div style={{ marginBottom:20, display: "flex", alignItems: "center", gap: 8 }}>

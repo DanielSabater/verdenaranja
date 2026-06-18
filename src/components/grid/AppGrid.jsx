@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react"
 import { C } from "../../constants/colors.js"
 import { PAYMENT_METHODS, HOURS, BLOCKED_COLORS, getBlockedAlphas } from "../../constants/data.js"
-import { fmt, cellKey, apptTotal, apptDur, apptPaidTotal, apptComisionableTotal } from "../../utils/appointments.js"
+import { fmt, cellKey, apptTotal, apptDur, apptPaidTotal, apptComisionableTotal, apptComisionTotal } from "../../utils/appointments.js"
 import { Overlay, ModalHeader, GhostBtn, SolidBtn, modalBox } from "../ui/index.jsx"
 import { todayKey, fmtDate } from "../../utils/dates.js"
 import html2canvas from "html2canvas"
@@ -214,7 +214,7 @@ export function AppGrid({
   isOccupied, spanOf,
   onDragStart, onDragEnd, onDragOver, onDragLeave, onDrop,
   onResizeStart,
-  paidAppts, totalByProf, earningsByProf, comisionPct,
+  paidAppts, totalByProf, earningsByProf, comisionPct, services,
   onCellClick, onEdit, onPay, onDelete,
   CELL_H,
   currentDate,
@@ -1306,7 +1306,7 @@ export function AppGrid({
                 {sortedAppts.length > 0 && (() => {
                   const totalWorked = sortedAppts.reduce((sumVal, a) => sumVal + apptPaidTotal(a), 0)
                   const totalComisionable = sortedAppts.reduce((sumVal, a) => sumVal + apptComisionableTotal(a), 0)
-                  const totalEarned = totalComisionable * (comisionPct / 100)
+                  const totalEarned = sortedAppts.reduce((sumVal, a) => sumVal + apptComisionTotal(a, comisionPct, services), 0)
                   return (
                     <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 16 }}>
                       <div style={{ 

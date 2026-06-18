@@ -39,3 +39,25 @@ export const apptComisionableTotal = (a) => {
   return Math.round(comiSvc * ratio)
 }
 
+export const apptComisionTotal = (a, globalComisionPct, activeServices = []) => {
+  if (a?.isBlocked) return 0
+  const services = Array.isArray(a?.services) ? a.services : []
+  const totalSvc = services.reduce((s, sv) => s + (sv?.price || 0), 0)
+  if (totalSvc === 0) return 0
+
+  const paidTotal = apptPaidTotal(a)
+  const ratio = paidTotal / totalSvc
+
+  return services.reduce((sum, sv) => {
+    const liveSvc = Array.isArray(activeServices) ? activeServices.find(s => s.id === sv.id) : null
+    const isExcluido = liveSvc ? !!liveSvc.excluidoComision : !!sv.excluidoComision
+    if (isExcluido) return sum
+
+    const comisionableAmt = sv.price * ratio
+    const livePct = liveSvc?.comisionPct
+    const pct = livePct !== undefined && livePct !== null ? livePct : (sv.comisionPct !== undefined && sv.comisionPct !== null ? sv.comisionPct : globalComisionPct)
+    return sum + (comisionableAmt * (pct / 100))
+  }, 0)
+}
+
+

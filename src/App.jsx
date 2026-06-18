@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from "react"
 import { C } from "./constants/colors.js"
 import { PAYMENT_METHODS, HOURS } from "./constants/data.js"
-import { cellKey, apptTotal, apptDur, apptPaidTotal, apptComisionableTotal } from "./utils/appointments.js"
+import { cellKey, apptTotal, apptDur, apptPaidTotal, apptComisionableTotal, apptComisionTotal } from "./utils/appointments.js"
 import { toDateKey, todayKey, isWorkDay, nextWorkDay, addMonths } from "./utils/dates.js"
 import { useIsMobile } from "./hooks/useIsMobile.js"
 import { usePersistentState } from "./hooks/usePersistentState.js"
@@ -394,7 +394,7 @@ export default function App() {
   )
   const totalByProf = useCallback((pId) => paidAppts.filter(a => a.profId === pId).reduce((s, a) => s + apptPaidTotal(a), 0), [paidAppts])
   const comisionableByProf = useCallback((pId) => paidAppts.filter(a => a.profId === pId).reduce((s, a) => s + apptComisionableTotal(a), 0), [paidAppts])
-  const earningsByProf = useCallback((pId) => comisionableByProf(pId) * (comisionPct / 100), [comisionableByProf, comisionPct])
+  const earningsByProf = useCallback((pId) => paidAppts.filter(a => a.profId === pId).reduce((s, a) => s + apptComisionTotal(a, comisionPct, services), 0), [paidAppts, comisionPct, services])
   const totalByMethod = useCallback((mid) => {
     const base = paidAppts.reduce((s, a) => {
       if (a.paymentSplits?.length) {
@@ -823,7 +823,7 @@ export default function App() {
                 onDragStart={onDragStart} onDragEnd={onDragEnd} onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}
                 onResizeStart={onResizeStart}
                 quickBlock={quickBlock}
-                paidAppts={paidAppts} totalByProf={totalByProf} earningsByProf={earningsByProf} comisionPct={comisionPct}
+                paidAppts={paidAppts} totalByProf={totalByProf} earningsByProf={earningsByProf} comisionPct={comisionPct} services={services}
                 currentDate={currentDate}
                 onCellClick={(profId, hour) => { setModal({ profId, hour, editKey: null }); setChosenServices([]); setClientName(""); setFilterCat("all"); setApptNotes(""); setApptTip({}) }}
                 onEdit={(key, appt) => { setModal({ profId: appt.profId, hour: appt.hour, editKey: key }); setChosenServices([...(appt.services || [])]); setClientName(appt.client); setFilterCat("all"); setApptNotes(appt.notes || ""); setApptTip({ [key]: appt.tip ? appt.tip.toString() : "" }) }}
@@ -840,6 +840,7 @@ export default function App() {
         {activeView === "contabilidad" && (
           <div key="v-cont" className="pv-view pv-bg" style={{ overflowY: "auto", flex: 1, paddingTop: 72 }}><ContabilidadView
             allData={allData} professionals={config.professionals} comisionPct={comisionPct}
+            services={config.services}
             gastos={gastos} setGastos={setGastos}
             sueldos={sueldos} setSueldos={setSueldos}
             sueldoPeriod={sueldoPeriod} setSueldoPeriod={setSueldoPeriod}

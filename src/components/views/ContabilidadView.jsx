@@ -4,16 +4,17 @@ import html2canvas from "html2canvas"
 import { jsPDF } from "jspdf"
 import { C } from "../../constants/colors.js"
 import { PAYMENT_METHODS, GASTO_CATS } from "../../constants/data.js"
-import { fmt, apptTotal, apptPaidTotal, apptComisionableTotal } from "../../utils/appointments.js"
+import { fmt, apptTotal, apptPaidTotal, apptComisionableTotal, apptComisionTotal } from "../../utils/appointments.js"
 import { fmtDate, todayKey, toDateKey, MESES_ES, fmtShort } from "../../utils/dates.js"
 import { Overlay, ModalHeader, Field, GhostBtn, SolidBtn, inputStyle, modalBox } from "../ui/index.jsx"
 
 export default function ContabilidadView({
-  allData, professionals, comisionPct, gastos, setGastos,
+  allData, professionals, comisionPct, services, gastos, setGastos,
   gastoModal, setGastoModal, gastoForm, setGastoForm, editGastoId, setEditGastoId,
   sueldos, setSueldos, sueldoPeriod, setSueldoPeriod,
   contPeriod, setContPeriod, contFrom, setContFrom, contTo, setContTo,
 }) {
+  const safeServices = services || []
   const [seccion, setSeccion] = useState("resumen")
   const [expandedDates, setExpandedDates] = useState({})
   const [receiptProf, setReceiptProf] = useState(null)
@@ -276,7 +277,7 @@ export default function ContabilidadView({
       Object.values(safeDayData).forEach(appt => {
         if (!appt?.paid) return
         const t = apptPaidTotal(appt)
-        const comi = apptComisionableTotal(appt)
+        const comi = apptComisionTotal(appt, comisionPct, safeServices)
         total += t
         turns += 1
         byProf[appt.profId] = (byProf[appt.profId] || 0) + t
@@ -301,15 +302,15 @@ export default function ContabilidadView({
       })
     })
     return { totalIncome: total, incomeByProf: byProf, comisionByProf: byComiProf, turnsByProf, incomeByMethod: byMethod, totalTurns: turns, incomeByService: byService, countByService: countService, incomeByDOW: byDOW }
-  }, [safeAllData, safeProfessionals, rangeFrom, rangeTo])
+  }, [safeAllData, safeProfessionals, rangeFrom, rangeTo, comisionPct])
 
   const avgTicket = totalTurns > 0 ? totalIncome / totalTurns : 0
 
   const gastosRange  = safeGastos.filter(g => inRange(g.fecha))
   const totalGastos  = gastosRange.reduce((s,g) => s+(parseFloat(g.monto)||0), 0)
   const totalComisiones = useMemo(() => {
-    return safeProfessionals.reduce((sum, p) => sum + (comisionByProf[p.id] || 0) * (comisionPct/100), 0)
-  }, [safeProfessionals, comisionByProf, comisionPct])
+    return safeProfessionals.reduce((sum, p) => sum + (comisionByProf[p.id] || 0), 0)
+  }, [safeProfessionals, comisionByProf])
   const netResult    = totalIncome - totalGastos
   const realNetResult = totalIncome - totalGastos - totalComisiones
   const maxProf      = Math.max(...safeProfessionals.map(p => incomeByProf[p.id]||0), 1)
@@ -383,6 +384,7 @@ export default function ContabilidadView({
           emoji: p.emoji,
           turnsCount: 0,
           total: 0,
+          comision: 0,
           comisionable: 0,
           efectivo: 0,
           debito: 0,
@@ -401,6 +403,7 @@ export default function ContabilidadView({
             const apptTotalPaid = apptPaidTotal(appt)
             profMap[profId].total += apptTotalPaid
             profMap[profId].comisionable += apptComisionableTotal(appt)
+            profMap[profId].comision += apptComisionTotal(appt, comisionPct, safeServices)
             
             if (appt.paymentSplits?.length) {
               appt.paymentSplits.forEach(s => {
@@ -605,7 +608,7 @@ export default function ContabilidadView({
       if (diasFilter && diasFilter !== "all" && !diasFilter.includes(dk)) return
       
       let dayFacturado = 0
-      let dayComisionable = 0
+      let dayComision = 0
       let dayTurnos = 0
       let dayPropinas = 0
       const dayAppts = []
@@ -614,7 +617,7 @@ export default function ContabilidadView({
       Object.values(safeDayData).forEach(appt => {
         if (appt?.paid && appt.profId === profId) {
           dayFacturado += apptPaidTotal(appt)
-          dayComisionable += apptComisionableTotal(appt)
+          dayComision += apptComisionTotal(appt, comisionPct, safeServices)
           dayPropinas  += appt.tip || 0
           dayTurnos++
           
@@ -623,7 +626,7 @@ export default function ContabilidadView({
             hour: appt.hour || "--:--",
             services: appt.services || [],
             amount: apptPaidTotal(appt),
-            comision: apptComisionableTotal(appt) * (comisionPct/100)
+            comision: apptComisionTotal(appt, comisionPct, safeServices)
           })
         }
       })
@@ -638,9 +641,9 @@ export default function ContabilidadView({
           shortLabel: fmtShort(dk),
           turnos: dayTurnos,
           facturado: dayFacturado,
-          comision: dayComisionable * (comisionPct/100),
+          comision: dayComision,
           propinas: dayPropinas,
-          total: (dayComisionable * (comisionPct/100)) + dayPropinas,
+          total: dayComision + dayPropinas,
           appts: dayAppts
         })
       }
@@ -649,7 +652,7 @@ export default function ContabilidadView({
   }
 
   const profStats = (profId, diasFilter) => {
-    let facturado=0, turnos=0, propinas=0, comisionable=0
+    let facturado=0, turnos=0, propinas=0, comision=0
     const diasSet = new Set()
     Object.entries(safeAllData).forEach(([dk, dayData]) => {
       if (!dk.startsWith(sueldoPeriod)) return
@@ -659,14 +662,14 @@ export default function ContabilidadView({
       Object.values(safeDayData).forEach(appt => {
         if (appt?.paid && appt.profId === profId) {
           facturado += apptPaidTotal(appt)
-          comisionable += apptComisionableTotal(appt)
+          comision += apptComisionTotal(appt, comisionPct, safeServices)
           propinas  += appt.tip || 0
           turnos++
           diasSet.add(dk)
         }
       })
     })
-    return { facturado, turnos, propinas, dias: diasSet.size, comision: comisionable * (comisionPct/100) }
+    return { facturado, turnos, propinas, dias: diasSet.size, comision }
   }
   const earningsInMonth = (profId) => profStats(profId, "all").comision
   const changeSueldoMonth = (delta) => {
@@ -1177,7 +1180,7 @@ export default function ContabilidadView({
                 .sort((a, b) => (incomeByProf[b.id] || 0) - (incomeByProf[a.id] || 0))
                 .map(p => {
                   const inc = incomeByProf[p.id] || 0
-                  const com = (comisionByProf[p.id] || 0) * (comisionPct/100)
+                  const com = comisionByProf[p.id] || 0
                   const pct = (inc/maxProf)*100
                   return (
                   <div key={p.id} style={{ marginBottom:12 }}>
@@ -1794,7 +1797,7 @@ export default function ContabilidadView({
                                     <div style={{ color: p.debito > 0 ? C.amber : C.textSoft, fontSize:10 }}>💳 {p.debito > 0 ? fmt(p.debito) : "—"}</div>
                                     <div style={{ color: p.mercadopago > 0 ? C.mp : C.textSoft, fontSize:10 }}>📲 {p.mercadopago > 0 ? fmt(p.mercadopago) : "—"}</div>
                                     <div style={{ textAlign:"right", fontWeight:"bold", color:C.green, fontSize:11 }}>
-                                      Total: {fmt(p.total)} <span style={{ color:C.gold, fontSize:9, fontWeight:"500", marginLeft:4 }}>· Comi: {fmt(p.comisionable * (comisionPct/100))}</span>
+                                      Total: {fmt(p.total)} <span style={{ color:C.gold, fontSize:9, fontWeight:"500", marginLeft:4 }}>· Comi: {fmt(p.comision)}</span>
                                     </div>
                                   </div>
                                 ))}
