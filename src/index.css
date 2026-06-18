@@ -323,6 +323,7 @@ select {
 
 .pv-view {
   animation: pvFade 0.2s ease forwards;
+  scrollbar-gutter: stable;
 }
 
 .pv-bg {

@@ -137,11 +137,11 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
   }
 
   return (
-    <div style={{ maxWidth:860, margin:"0 auto", padding:"16px 12px 100px" }}>
+    <div style={{ maxWidth: seccion === "servicios" ? "96%" : 860, margin:"0 auto", padding:"16px 12px 100px", transition: "max-width 0.3s ease" }}>
 
 
       {/* Section tabs */}
-      <div style={{ display:"flex", gap:12, marginBottom:28, flexWrap:"wrap", alignItems:"center", justifyContent:"space-between" }}>
+      <div style={{ maxWidth: 836, margin: "0 auto 28px", display:"flex", gap:12, flexWrap:"wrap", alignItems:"center", justifyContent:"space-between" }}>
         <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
           {TABS.map(t => (
             <button key={t.id} onClick={()=>setSeccion(t.id)} style={{
@@ -393,6 +393,140 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
               }
               .svc-excluido-lbl { display: inline !important; }
             }
+            .branches-grid-container {
+              display: grid;
+              grid-template-columns: 1fr;
+              gap: 20px;
+            }
+            @media (min-width: 1100px) {
+              .branches-grid-container {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 24px;
+                align-items: start;
+              }
+              .branches-grid-container .services-grid-header {
+                display: grid !important;
+                grid-template-columns: 32px minmax(120px, 1.85fr) 76px 70px 85px 85px 52px 30px 30px !important;
+                gap: 6px !important;
+                padding: 0 8px !important;
+                margin-bottom: 4px !important;
+              }
+              .branches-grid-container .services-grid-header div {
+                font-size: 8px !important;
+                letter-spacing: 0.5px !important;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+              }
+              .branches-grid-container .service-row-card {
+                display: grid !important;
+                grid-template-columns: 32px minmax(120px, 1.85fr) 76px 70px 85px 85px 52px 30px 30px !important;
+                gap: 6px !important;
+                padding: 6px 8px !important;
+              }
+              .branches-grid-container .service-mobile-row-top,
+              .branches-grid-container .service-mobile-row-grid {
+                display: contents !important;
+              }
+              .branches-grid-container .svc-col-icon {
+                order: 1 !important;
+                width: 32px !important;
+                height: 32px !important;
+                font-size: 16px !important;
+                border-radius: 8px !important;
+              }
+              .branches-grid-container .svc-col-name {
+                order: 2 !important;
+                height: 32px !important;
+                padding: 0 6px !important;
+                font-size: 11px !important;
+                border-radius: 8px !important;
+              }
+              .branches-grid-container .svc-col-duration {
+                order: 3 !important;
+                font-size: 10px !important;
+                gap: 2px !important;
+                justify-content: center !important;
+              }
+              .branches-grid-container .svc-col-duration > div {
+                height: 32px !important;
+                border-radius: 8px !important;
+                max-width: 72px !important;
+              }
+              .branches-grid-container .svc-col-duration button {
+                width: 18px !important;
+                font-size: 11px !important;
+              }
+              .branches-grid-container .svc-col-duration div {
+                font-size: 11px !important;
+              }
+              .branches-grid-container .svc-col-duration span {
+                font-size: 9px !important;
+              }
+              .branches-grid-container .svc-col-price {
+                order: 4 !important;
+                height: 32px !important;
+                padding: 0 6px !important;
+                border-radius: 8px !important;
+              }
+              .branches-grid-container .svc-col-price input {
+                font-size: 11px !important;
+              }
+              .branches-grid-container .svc-col-price span {
+                font-size: 11px !important;
+                margin-right: 2px !important;
+              }
+              .branches-grid-container .svc-col-category {
+                order: 5 !important;
+                height: 32px !important;
+                padding: 0 4px !important;
+                font-size: 10.5px !important;
+                border-radius: 8px !important;
+              }
+              .branches-grid-container .svc-col-rama {
+                order: 6 !important;
+                height: 32px !important;
+                padding: 0 4px !important;
+                font-size: 10.5px !important;
+                border-radius: 8px !important;
+              }
+              .branches-grid-container .svc-col-comisionPct {
+                order: 7 !important;
+                height: 32px !important;
+                padding: 0 4px !important;
+                border-radius: 8px !important;
+              }
+              .branches-grid-container .svc-col-comisionPct input {
+                font-size: 11px !important;
+              }
+              .branches-grid-container .svc-col-excluido {
+                order: 8 !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                background: transparent !important;
+                border: none !important;
+                padding: 0 !important;
+              }
+              .branches-grid-container .svc-col-excluido input {
+                width: 16px !important;
+                height: 16px !important;
+              }
+              .branches-grid-container .svc-excluido-lbl {
+                display: none !important;
+              }
+              .branches-grid-container .svc-col-remove {
+                order: 9 !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+              }
+              .branches-grid-container .svc-col-remove button {
+                width: 32px !important;
+                height: 32px !important;
+                font-size: 11px !important;
+              }
+            }
           `}</style>
 
           {/* Add button + filters at the top */}
@@ -586,226 +720,230 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
               )
             }
 
-            return servicesRamas.map(ramaName => {
-              const ramaServices = filteredSvcs.filter(s => String(s.rama || "manos").trim().toLowerCase() === ramaName)
-              if (ramaServices.length === 0) return null
+            return (
+              <div className="branches-grid-container">
+                {servicesRamas.map(ramaName => {
+                  const ramaServices = filteredSvcs.filter(s => String(s.rama || "manos").trim().toLowerCase() === ramaName)
+                  if (ramaServices.length === 0) return null
 
-              return (
-                <div key={ramaName} style={{ marginBottom: 24 }}>
-                  {/* Rama Section Header */}
-                  <div style={{
-                    fontSize: 12,
-                    fontWeight: "bold",
-                    color: C.green,
-                    fontFamily: "Georgia, serif",
-                    letterSpacing: "1px",
-                    textTransform: "uppercase",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    marginTop: 18,
-                    marginBottom: 12,
-                    borderBottom: `2px solid ${C.greenPale}`,
-                    paddingBottom: 6
-                  }}>
-                    <span>{getDatalistLabel(ramaName)}</span>
-                    <span style={{
-                      fontSize: 10,
-                      fontWeight: "normal",
-                      color: C.textSoft,
-                      background: C.greenPale,
-                      padding: "2px 8px",
-                      borderRadius: 12,
-                      marginLeft: 8,
-                      textTransform: "none"
-                    }}>
-                      {ramaServices.length} {ramaServices.length === 1 ? "servicio" : "servicios"}
-                    </span>
-                  </div>
-
-                  {/* Column headers */}
-                  <div className="services-grid-header">
-                    {[
-                      { label: "Ícono", align: "center" },
-                      { label: "Nombre", align: "left" },
-                      { label: "Duración", align: "center" },
-                      { label: "Precio", align: "center" },
-                      { label: "Categoría", align: "left" },
-                      { label: "Rama", align: "left" },
-                      { label: "% Comi.", align: "center" },
-                      { label: "Sin Comi.", align: "center" },
-                      { label: "", align: "center" }
-                    ].map((h, i) => (
-                      <div key={i} style={{ 
-                        fontSize: 8, 
-                        letterSpacing: "1.5px", 
-                        color: C.textSoft, 
-                        textTransform: "uppercase", 
+                  return (
+                    <div key={ramaName} style={{ marginBottom: 24 }}>
+                      {/* Rama Section Header */}
+                      <div style={{
+                        fontSize: 12,
                         fontWeight: "bold",
-                        textAlign: h.align
-                      }}>{h.label}</div>
-                    ))}
-                  </div>
-
-                  {/* Services List */}
-                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    {ramaServices.map(svc => (
-                      <div key={svc.id} className="service-row-card">
-                        
-                        <div className="service-mobile-row-top">
-                          {/* Emoji */}
-                          <div className="svc-col-icon" onClick={()=>setEmojiPicker(emojiPicker===`svc-${svc.id}`?null:`svc-${svc.id}`)} style={{
-                            width:38,height:38,borderRadius:10,cursor:"pointer",
-                            background:C.cream, border:`1.5px solid ${emojiPicker===`svc-${svc.id}`?C.green:C.border}`,
-                            display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,
-                            transition:"all .15s",
-                            margin: "0 auto"
-                          }}>{svc.icon}</div>
-
-                          {/* Name */}
-                          <input 
-                            className="svc-col-name"
-                            value={svc.name} 
-                            onChange={e=>updateSvc(svc.id,"name",e.target.value)}
-                            style={rowInputStyle} 
-                            placeholder="Nombre del servicio" 
-                          />
-
-                          {/* Remove button */}
-                          <div className="svc-col-remove" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-                            <button 
-                              onClick={() => { if (window.confirm(`¿Eliminar "${svc.name}"?`)) removeSvc(svc.id) }} 
-                              style={{
-                                width: 32,
-                                height: 32,
-                                borderRadius: "50%",
-                                border: "none",
-                                background: "#fde8e8",
-                                color: "#c04040",
-                                fontSize: 12,
-                                cursor: "pointer",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                transition: "all .15s ease-in-out"
-                              }}
-                              onMouseEnter={e => { e.currentTarget.style.background = "#c04040"; e.currentTarget.style.color = "#fff" }}
-                              onMouseLeave={e => { e.currentTarget.style.background = "#fde8e8"; e.currentTarget.style.color = "#c04040" }}
-                            >✕</button>
-                          </div>
-                        </div>
-
-                        <div className="service-mobile-row-grid">
-                          {/* Duration */}
-                          <div className="svc-col-duration" style={{ display:"flex", alignItems:"center", gap:3, justifyContent: "center" }}>
-                            <div style={{ display: "flex", alignItems: "center", border: `1.5px solid ${C.border}`, borderRadius: 9, background: C.white, overflow: "hidden", height: 34, width: "100%", maxWidth: 84 }}>
-                              <button 
-                                onClick={() => updateSvc(svc.id, "duration", Math.max(0, (svc.duration || 0) - 5))}
-                                style={{ width: 24, height: "100%", border: "none", background: C.cream, color: C.textSoft, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", outline: "none", transition: "background .15s" }}
-                                onMouseEnter={e => e.currentTarget.style.background = C.greenPale}
-                                onMouseLeave={e => e.currentTarget.style.background = C.cream}
-                              >−</button>
-                              <div style={{ flex: 1, textAlign: "center", fontSize: 11, fontWeight: "bold", color: C.text }}>
-                                {svc.duration}
-                              </div>
-                              <button 
-                                onClick={() => updateSvc(svc.id, "duration", (svc.duration || 0) + 5)}
-                                style={{ width: 24, height: "100%", border: "none", background: C.cream, color: C.textSoft, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", outline: "none", transition: "background .15s" }}
-                                onMouseEnter={e => { e.currentTarget.style.background = C.greenPale }}
-                                onMouseLeave={e => { e.currentTarget.style.background = C.cream }}
-                              >+</button>
-                            </div>
-                            <span style={{ fontSize:9, color:C.textSoft }}>min</span>
-                          </div>
-
-                          {/* Price */}
-                          <div className="svc-col-price" style={{ display: "flex", alignItems: "center", border: `1.5px solid ${C.border}`, borderRadius: 9, background: C.cream, height: 34, padding: "0 8px", width: "100%" }}>
-                            <span style={{ fontSize: 11, color: C.textSoft, fontWeight: "bold", marginRight: 4 }}>$</span>
-                            <input
-                              type="text"
-                              value={Number(svc.price).toLocaleString("es-AR")}
-                              onChange={e => {
-                                const raw = e.target.value.replace(/\./g, "").replace(/[^\d]/g, "")
-                                updateSvc(svc.id, "price", raw === "" ? 0 : parseInt(raw) || 0)
-                              }}
-                              style={{ border: "none", width: "100%", height: "100%", fontSize: 11, textAlign: "right", color: C.orange, fontWeight: "bold", background: "transparent", outline: "none", padding: 0 }}
-                            />
-                          </div>
-
-                          {/* Category */}
-                          <select 
-                            className="svc-col-category"
-                            value={svc.category} 
-                            onChange={e=>updateSvc(svc.id,"category",e.target.value)}
-                            style={{ 
-                              ...rowInputStyle, 
-                              fontSize: 10, 
-                              padding: "0 6px", 
-                              cursor: "pointer"
-                            }}
-                          >
-                            {CAT_OPTIONS.map(c=><option key={c.id} value={c.id}>{c.icon} {c.label}</option>)}
-                          </select>
-
-                          {/* Rama */}
-                          <select
-                            className="svc-col-rama"
-                            value={svc.rama || "manos"}
-                            onChange={e=>updateSvc(svc.id,"rama",e.target.value)}
-                            style={{ 
-                              ...rowInputStyle, 
-                              fontSize: 10, 
-                              color: C.green,
-                              fontWeight: "bold",
-                              cursor: "pointer"
-                            }}
-                          >
-                            {uniqueRamas.map(r => (
-                              <option key={r} value={r}>{getDatalistLabel(r)}</option>
-                            ))}
-                          </select>
-                          
-                          {/* % Comisión */}
-                          <div className="svc-col-comisionPct" style={{ display: "flex", alignItems: "center", border: `1.5px solid ${C.border}`, borderRadius: 9, background: C.cream, height: 34, padding: "0 8px", width: "100%" }}>
-                            <input
-                              type="number"
-                              min={0}
-                              max={100}
-                              placeholder={`${config.comisionPct}%`}
-                              value={svc.comisionPct !== undefined && svc.comisionPct !== null ? svc.comisionPct : ""}
-                              onChange={e => {
-                                const val = e.target.value === "" ? null : parseInt(e.target.value)
-                                updateSvc(svc.id, "comisionPct", isNaN(val) ? null : val)
-                              }}
-                              style={{ border: "none", width: "100%", height: "100%", fontSize: 11, textAlign: "center", color: C.green, fontWeight: "bold", background: "transparent", outline: "none", padding: 0 }}
-                            />
-                          </div>
-
-                          {/* Sin Comisión Toggle */}
-                          <div className="svc-col-excluido">
-                            <span className="svc-excluido-lbl" style={{ fontSize: 10, color: C.textSoft, fontWeight: "bold", marginRight: 4 }}>🚫 Sin Comisión</span>
-                            <input 
-                              type="checkbox" 
-                              checked={!!svc.excluidoComision} 
-                              onChange={e=>updateSvc(svc.id,"excluidoComision",e.target.checked)} 
-                              style={{ cursor: "pointer", width: 16, height: 16, accentColor: C.green }}
-                            />
-                          </div>
-                        </div>
-
-                        {/* Inline emoji picker */}
-                        {emojiPicker === `svc-${svc.id}` && (
-                          <div style={{ gridColumn:"1 / -1", marginTop: 8, width: "100%" }}>
-                            <EmojiPicker current={svc.icon} onSelect={e=>{updateSvc(svc.id,"icon",e);setEmojiPicker(null);}} />
-                          </div>
-                        )}
-
+                        color: C.green,
+                        fontFamily: "Georgia, serif",
+                        letterSpacing: "1px",
+                        textTransform: "uppercase",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        marginTop: 18,
+                        marginBottom: 12,
+                        borderBottom: `2px solid ${C.greenPale}`,
+                        paddingBottom: 6
+                      }}>
+                        <span>{getDatalistLabel(ramaName)}</span>
+                        <span style={{
+                          fontSize: 10,
+                          fontWeight: "normal",
+                          color: C.textSoft,
+                          background: C.greenPale,
+                          padding: "2px 8px",
+                          borderRadius: 12,
+                          marginLeft: 8,
+                          textTransform: "none"
+                        }}>
+                          {ramaServices.length} {ramaServices.length === 1 ? "servicio" : "servicios"}
+                        </span>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              )
-            })
+
+                      {/* Column headers */}
+                      <div className="services-grid-header">
+                        {[
+                          { label: "Ícono", align: "center" },
+                          { label: "Nombre", align: "left" },
+                          { label: "Duración", align: "center" },
+                          { label: "Precio", align: "center" },
+                          { label: "Categoría", align: "left" },
+                          { label: "Rama", align: "left" },
+                          { label: "% Comi.", align: "center" },
+                          { label: "Sin Comi.", align: "center" },
+                          { label: "", align: "center" }
+                        ].map((h, i) => (
+                          <div key={i} style={{ 
+                            fontSize: 8, 
+                            letterSpacing: "1.5px", 
+                            color: C.textSoft, 
+                            textTransform: "uppercase", 
+                            fontWeight: "bold",
+                            textAlign: h.align
+                          }}>{h.label}</div>
+                        ))}
+                      </div>
+
+                      {/* Services List */}
+                      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                        {ramaServices.map(svc => (
+                          <div key={svc.id} className="service-row-card">
+                            
+                            <div className="service-mobile-row-top">
+                              {/* Emoji */}
+                              <div className="svc-col-icon" onClick={()=>setEmojiPicker(emojiPicker===`svc-${svc.id}`?null:`svc-${svc.id}`)} style={{
+                                width:38,height:38,borderRadius:10,cursor:"pointer",
+                                background:C.cream, border:`1.5px solid ${emojiPicker===`svc-${svc.id}`?C.green:C.border}`,
+                                display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,
+                                transition:"all .15s",
+                                margin: "0 auto"
+                              }}>{svc.icon}</div>
+
+                              {/* Name */}
+                              <input 
+                                className="svc-col-name"
+                                value={svc.name} 
+                                onChange={e=>updateSvc(svc.id,"name",e.target.value)}
+                                style={rowInputStyle} 
+                                placeholder="Nombre del servicio" 
+                              />
+
+                              {/* Remove button */}
+                              <div className="svc-col-remove" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                <button 
+                                  onClick={() => { if (window.confirm(`¿Eliminar "${svc.name}"?`)) removeSvc(svc.id) }} 
+                                  style={{
+                                    width: 32,
+                                    height: 32,
+                                    borderRadius: "50%",
+                                    border: "none",
+                                    background: "#fde8e8",
+                                    color: "#c04040",
+                                    fontSize: 12,
+                                    cursor: "pointer",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    transition: "all .15s ease-in-out"
+                                  }}
+                                  onMouseEnter={e => { e.currentTarget.style.background = "#c04040"; e.currentTarget.style.color = "#fff" }}
+                                  onMouseLeave={e => { e.currentTarget.style.background = "#fde8e8"; e.currentTarget.style.color = "#c04040" }}
+                                >✕</button>
+                              </div>
+                            </div>
+
+                            <div className="service-mobile-row-grid">
+                              {/* Duration */}
+                              <div className="svc-col-duration" style={{ display:"flex", alignItems:"center", gap:3, justifyContent: "center" }}>
+                                <div style={{ display: "flex", alignItems: "center", border: `1.5px solid ${C.border}`, borderRadius: 9, background: C.white, overflow: "hidden", height: 34, width: "100%", maxWidth: 84 }}>
+                                  <button 
+                                    onClick={() => updateSvc(svc.id, "duration", Math.max(0, (svc.duration || 0) - 5))}
+                                    style={{ width: 24, height: "100%", border: "none", background: C.cream, color: C.textSoft, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", outline: "none", transition: "background .15s" }}
+                                    onMouseEnter={e => e.currentTarget.style.background = C.greenPale}
+                                    onMouseLeave={e => e.currentTarget.style.background = C.cream}
+                                    >−</button>
+                                  <div style={{ flex: 1, textAlign: "center", fontSize: 11, fontWeight: "bold", color: C.text }}>
+                                    {svc.duration}
+                                  </div>
+                                  <button 
+                                    onClick={() => updateSvc(svc.id, "duration", (svc.duration || 0) + 5)}
+                                    style={{ width: 24, height: "100%", border: "none", background: C.cream, color: C.textSoft, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", outline: "none", transition: "background .15s" }}
+                                    onMouseEnter={e => { e.currentTarget.style.background = C.greenPale }}
+                                    onMouseLeave={e => { e.currentTarget.style.background = C.cream }}
+                                    >+</button>
+                                </div>
+                                <span style={{ fontSize:9, color:C.textSoft }}>min</span>
+                              </div>
+
+                              {/* Price */}
+                              <div className="svc-col-price" style={{ display: "flex", alignItems: "center", border: `1.5px solid ${C.border}`, borderRadius: 9, background: C.cream, height: 34, padding: "0 8px", width: "100%" }}>
+                                <span style={{ fontSize: 11, color: C.textSoft, fontWeight: "bold", marginRight: 4 }}>$</span>
+                                <input
+                                  type="text"
+                                  value={Number(svc.price).toLocaleString("es-AR")}
+                                  onChange={e => {
+                                    const raw = e.target.value.replace(/\./g, "").replace(/[^\d]/g, "")
+                                    updateSvc(svc.id, "price", raw === "" ? 0 : parseInt(raw) || 0)
+                                  }}
+                                  style={{ border: "none", width: "100%", height: "100%", fontSize: 11, textAlign: "right", color: C.orange, fontWeight: "bold", background: "transparent", outline: "none", padding: 0 }}
+                                />
+                              </div>
+
+                              {/* Category */}
+                              <select 
+                                className="svc-col-category"
+                                value={svc.category} 
+                                onChange={e=>updateSvc(svc.id,"category",e.target.value)}
+                                style={{ 
+                                  ...rowInputStyle, 
+                                  fontSize: 10, 
+                                  padding: "0 6px", 
+                                  cursor: "pointer"
+                                }}
+                              >
+                                {CAT_OPTIONS.map(c=><option key={c.id} value={c.id}>{c.icon} {c.label}</option>)}
+                              </select>
+
+                              {/* Rama */}
+                              <select
+                                className="svc-col-rama"
+                                value={svc.rama || "manos"}
+                                onChange={e=>updateSvc(svc.id,"rama",e.target.value)}
+                                style={{ 
+                                  ...rowInputStyle, 
+                                  fontSize: 10, 
+                                  color: C.green,
+                                  fontWeight: "bold",
+                                  cursor: "pointer"
+                                }}
+                              >
+                                {uniqueRamas.map(r => (
+                                  <option key={r} value={r}>{getDatalistLabel(r)}</option>
+                                ))}
+                              </select>
+                              
+                              {/* % Comisión */}
+                              <div className="svc-col-comisionPct" style={{ display: "flex", alignItems: "center", border: `1.5px solid ${C.border}`, borderRadius: 9, background: C.cream, height: 34, padding: "0 8px", width: "100%" }}>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={100}
+                                  placeholder={`${config.comisionPct}%`}
+                                  value={svc.comisionPct !== undefined && svc.comisionPct !== null ? svc.comisionPct : ""}
+                                  onChange={e => {
+                                    const val = e.target.value === "" ? null : parseInt(e.target.value)
+                                    updateSvc(svc.id, "comisionPct", isNaN(val) ? null : val)
+                                  }}
+                                  style={{ border: "none", width: "100%", height: "100%", fontSize: 11, textAlign: "center", color: C.green, fontWeight: "bold", background: "transparent", outline: "none", padding: 0 }}
+                                />
+                              </div>
+
+                              {/* Sin Comisión Toggle */}
+                              <div className="svc-col-excluido">
+                                <span className="svc-excluido-lbl" style={{ fontSize: 10, color: C.textSoft, fontWeight: "bold", marginRight: 4 }}>🚫 Sin Comisión</span>
+                                <input 
+                                  type="checkbox" 
+                                  checked={!!svc.excluidoComision} 
+                                  onChange={e=>updateSvc(svc.id,"excluidoComision",e.target.checked)} 
+                                  style={{ cursor: "pointer", width: 16, height: 16, accentColor: C.green }}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Inline emoji picker */}
+                            {emojiPicker === `svc-${svc.id}` && (
+                              <div style={{ gridColumn:"1 / -1", marginTop: 8, width: "100%" }}>
+                                <EmojiPicker current={svc.icon} onSelect={e=>{updateSvc(svc.id,"icon",e);setEmojiPicker(null);}} />
+                              </div>
+                            )}
+
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )
           })()}
 
           {/* New service modal */}
