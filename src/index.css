@@ -595,3 +595,37 @@ select {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* ── Fila Horaria Highlight Flash (Key H) ── */
+.row-highlight-flash td {
+  position: relative;
+}
+
+.row-highlight-flash td::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 235, 59, 0.4);
+  box-shadow: inset 0 0 14px rgba(255, 235, 59, 0.25);
+  pointer-events: none;
+  z-index: 10;
+  animation: cellOverlayFlash 2.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes cellOverlayFlash {
+  0% {
+    opacity: 0;
+  }
+  5% {
+    opacity: 1;
+  }
+  15% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}

@@ -226,6 +226,8 @@ export function AppGrid({
   const [copiedAgenda, setCopiedAgenda] = useState(false)
   const [hoveredClientName, setHoveredClientName] = useState(null)
   const [colOrder, setColOrder] = useState(() => { try { const v = localStorage.getItem("pv:colOrder"); return v ? JSON.parse(v) : null } catch { return null } })
+  const [highlightedHour, setHighlightedHour] = useState(null)
+  const highlightTimeoutRef = useRef(null)
 
   const orderedProfessionals = (() => {
     if (!colOrder) return professionals
@@ -397,6 +399,15 @@ export function AppGrid({
           top: Math.max(0, targetScrollTop),
           behavior: "smooth"
         })
+
+        // Highlight visual flash effect
+        if (highlightTimeoutRef.current) {
+          clearTimeout(highlightTimeoutRef.current)
+        }
+        setHighlightedHour(closestHour)
+        highlightTimeoutRef.current = setTimeout(() => {
+          setHighlightedHour(null)
+        }, 2500)
       }
     }
 
@@ -408,7 +419,12 @@ export function AppGrid({
       setTimeout(handleScrollEvent, 350)
     }
 
-    return () => window.removeEventListener("scroll-to-today-hour", handleScrollEvent)
+    return () => {
+      window.removeEventListener("scroll-to-today-hour", handleScrollEvent)
+      if (highlightTimeoutRef.current) {
+        clearTimeout(highlightTimeoutRef.current)
+      }
+    }
   }, [HOURS, currentDate])
 
   const [now, setNow] = useState(new Date())
@@ -661,8 +677,10 @@ export function AppGrid({
           </tr>
         </thead>
         <tbody>
-          {HOURS.map((hour, hIdx) => (
-            <tr key={hour} data-hour={hour} style={{ background: config.gridStyle === "classic" ? (hIdx % 2 === 0 ? C.white : C.cream) : "transparent", height: 100 }}>
+          {HOURS.map((hour, hIdx) => {
+            const isHighlighted = highlightedHour === hour
+            return (
+              <tr key={hour} data-hour={hour} className={isHighlighted ? "row-highlight-flash" : ""} style={{ background: config.gridStyle === "classic" ? (hIdx % 2 === 0 ? C.white : C.cream) : "transparent", height: 100 }}>
               {/* Hour Cell */}
               {(() => {
                 const isActive = activeHour === hour
@@ -947,7 +965,7 @@ export function AppGrid({
                 )
               })}
             </tr>
-          ))}
+          )})}
         </tbody>
 
         <tfoot>
