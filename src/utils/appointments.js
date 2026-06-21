@@ -39,7 +39,7 @@ export const apptComisionableTotal = (a) => {
   return Math.round(comiSvc * ratio)
 }
 
-export const apptComisionTotal = (a, globalComisionPct, activeServices = []) => {
+export const apptComisionTotal = (a, globalComisionPct, activeServices = [], dateExceptions = {}, apptDate = null) => {
   if (a?.isBlocked) return 0
   const services = Array.isArray(a?.services) ? a.services : []
   const totalSvc = services.reduce((s, sv) => s + (sv?.price || 0), 0)
@@ -48,6 +48,12 @@ export const apptComisionTotal = (a, globalComisionPct, activeServices = []) => 
   const paidTotal = apptPaidTotal(a)
   const ratio = paidTotal / totalSvc
 
+  // Check if there is a commission exception for this date
+  let comisionPctToUse = globalComisionPct
+  if (apptDate && dateExceptions && typeof dateExceptions === "object" && dateExceptions[apptDate] !== undefined) {
+    comisionPctToUse = parseFloat(dateExceptions[apptDate])
+  }
+
   return services.reduce((sum, sv) => {
     const liveSvc = Array.isArray(activeServices) ? activeServices.find(s => s.id === sv.id) : null
     const isExcluido = liveSvc ? !!liveSvc.excluidoComision : !!sv.excluidoComision
@@ -55,7 +61,7 @@ export const apptComisionTotal = (a, globalComisionPct, activeServices = []) => 
 
     const comisionableAmt = sv.price * ratio
     const livePct = liveSvc?.comisionPct
-    const pct = livePct !== undefined && livePct !== null ? livePct : (sv.comisionPct !== undefined && sv.comisionPct !== null ? sv.comisionPct : globalComisionPct)
+    const pct = livePct !== undefined && livePct !== null ? livePct : (sv.comisionPct !== undefined && sv.comisionPct !== null ? sv.comisionPct : comisionPctToUse)
     return sum + (comisionableAmt * (pct / 100))
   }, 0)
 }

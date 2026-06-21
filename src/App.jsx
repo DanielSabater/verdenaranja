@@ -394,7 +394,7 @@ export default function App() {
   )
   const totalByProf = useCallback((pId) => paidAppts.filter(a => a.profId === pId).reduce((s, a) => s + apptPaidTotal(a), 0), [paidAppts])
   const comisionableByProf = useCallback((pId) => paidAppts.filter(a => a.profId === pId).reduce((s, a) => s + apptComisionableTotal(a), 0), [paidAppts])
-  const earningsByProf = useCallback((pId) => paidAppts.filter(a => a.profId === pId).reduce((s, a) => s + apptComisionTotal(a, comisionPct, services), 0), [paidAppts, comisionPct, services])
+  const earningsByProf = useCallback((pId) => paidAppts.filter(a => a.profId === pId).reduce((s, a) => s + apptComisionTotal(a, comisionPct, services, config.dateExceptions || {}, currentDate), 0), [paidAppts, comisionPct, services, config.dateExceptions, currentDate])
   const totalByMethod = useCallback((mid) => {
     const base = paidAppts.reduce((s, a) => {
       if (a.paymentSplits?.length) {
@@ -840,7 +840,7 @@ export default function App() {
         {activeView === "contabilidad" && (
           <div key="v-cont" className="pv-view pv-bg" style={{ overflowY: "auto", flex: 1, paddingTop: 72 }}><ContabilidadView
             allData={allData} professionals={config.professionals} comisionPct={comisionPct}
-            services={config.services}
+            services={config.services} config={config}
             gastos={gastos} setGastos={setGastos}
             sueldos={sueldos} setSueldos={setSueldos}
             sueldoPeriod={sueldoPeriod} setSueldoPeriod={setSueldoPeriod}

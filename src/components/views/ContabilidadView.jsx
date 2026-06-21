@@ -9,7 +9,7 @@ import { fmtDate, todayKey, toDateKey, MESES_ES, fmtShort } from "../../utils/da
 import { Overlay, ModalHeader, Field, GhostBtn, SolidBtn, inputStyle, modalBox } from "../ui/index.jsx"
 
 export default function ContabilidadView({
-  allData, professionals, comisionPct, services, gastos, setGastos,
+  allData, professionals, comisionPct, services, config, gastos, setGastos,
   gastoModal, setGastoModal, gastoForm, setGastoForm, editGastoId, setEditGastoId,
   sueldos, setSueldos, sueldoPeriod, setSueldoPeriod,
   contPeriod, setContPeriod, contFrom, setContFrom, contTo, setContTo,
@@ -277,7 +277,7 @@ export default function ContabilidadView({
       Object.values(safeDayData).forEach(appt => {
         if (!appt?.paid) return
         const t = apptPaidTotal(appt)
-        const comi = apptComisionTotal(appt, comisionPct, safeServices)
+        const comi = apptComisionTotal(appt, comisionPct, safeServices, config?.dateExceptions || {}, dk)
         total += t
         turns += 1
         byProf[appt.profId] = (byProf[appt.profId] || 0) + t
@@ -302,7 +302,7 @@ export default function ContabilidadView({
       })
     })
     return { totalIncome: total, incomeByProf: byProf, comisionByProf: byComiProf, turnsByProf, incomeByMethod: byMethod, totalTurns: turns, incomeByService: byService, countByService: countService, incomeByDOW: byDOW }
-  }, [safeAllData, safeProfessionals, rangeFrom, rangeTo, comisionPct])
+  }, [safeAllData, safeProfessionals, rangeFrom, rangeTo, comisionPct, config?.dateExceptions])
 
   const avgTicket = totalTurns > 0 ? totalIncome / totalTurns : 0
 
@@ -403,7 +403,7 @@ export default function ContabilidadView({
             const apptTotalPaid = apptPaidTotal(appt)
             profMap[profId].total += apptTotalPaid
             profMap[profId].comisionable += apptComisionableTotal(appt)
-            profMap[profId].comision += apptComisionTotal(appt, comisionPct, safeServices)
+            profMap[profId].comision += apptComisionTotal(appt, comisionPct, safeServices, config?.dateExceptions || {}, dk)
             
             if (appt.paymentSplits?.length) {
               appt.paymentSplits.forEach(s => {
@@ -466,7 +466,7 @@ export default function ContabilidadView({
         profBreakdown: Object.values(profMap).filter(p => p.turnsCount > 0)
       }
     })
-  }, [rangeFrom, rangeTo, safeAllData, safeGastos, safeProfessionals])
+  }, [rangeFrom, rangeTo, safeAllData, safeGastos, safeProfessionals, config?.dateExceptions])
 
   // ── period-based chart data ──────────────────────────────────────────────
   const isMonthlyView = useMemo(() => {
@@ -617,7 +617,7 @@ export default function ContabilidadView({
       Object.values(safeDayData).forEach(appt => {
         if (appt?.paid && appt.profId === profId) {
           dayFacturado += apptPaidTotal(appt)
-          dayComision += apptComisionTotal(appt, comisionPct, safeServices)
+          dayComision += apptComisionTotal(appt, comisionPct, safeServices, config?.dateExceptions || {}, dk)
           dayPropinas  += appt.tip || 0
           dayTurnos++
           
@@ -626,7 +626,7 @@ export default function ContabilidadView({
             hour: appt.hour || "--:--",
             services: appt.services || [],
             amount: apptPaidTotal(appt),
-            comision: apptComisionTotal(appt, comisionPct, safeServices)
+            comision: apptComisionTotal(appt, comisionPct, safeServices, config?.dateExceptions || {}, dk)
           })
         }
       })
@@ -662,7 +662,7 @@ export default function ContabilidadView({
       Object.values(safeDayData).forEach(appt => {
         if (appt?.paid && appt.profId === profId) {
           facturado += apptPaidTotal(appt)
-          comision += apptComisionTotal(appt, comisionPct, safeServices)
+          comision += apptComisionTotal(appt, comisionPct, safeServices, config?.dateExceptions || {}, dk)
           propinas  += appt.tip || 0
           turnos++
           diasSet.add(dk)

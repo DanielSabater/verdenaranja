@@ -2,6 +2,7 @@ import { useState } from "react"
 import { C } from "../../constants/colors.js"
 import { CAT_OPTIONS as CAT_OPTIONS_DEFAULT, EMOJI_SUGGESTIONS, BLOCKED_COLORS } from "../../constants/data.js"
 import { GhostBtn, SolidBtn } from "../ui/index.jsx"
+import { MESES_ES, todayKey } from "../../utils/dates.js"
 
 // ─── Config View ──────────────────────────────────────────────────────────────
 
@@ -16,6 +17,13 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
   const [newRamaModal, setNewRamaModal] = useState(false)
   const [newRama,      setNewRama]      = useState({ label: "" })
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [excViewDate,  setExcViewDate]  = useState(() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
+  })
+  const [selectedExcDate, setSelectedExcDate] = useState(null)
+  const [selectedExcPct,  setSelectedExcPct]  = useState("")
+  const [calOpen,         setCalOpen]         = useState(false)
 
   // Safety guard
   const profs    = config?.professionals || []
@@ -1186,6 +1194,287 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
             <div style={{ fontSize:10,color:C.textSoft,marginTop:6 }}>
               Con {config.comisionPct}% de comisión, sobre $10.000 cada profesional gana <strong style={{color:C.gold}}>${(10000*config.comisionPct/100).toLocaleString("es-AR")}</strong>
             </div>
+          </CfgField>
+
+          <CfgField label="📆 Comisiones especiales por fecha (Excepciones)">
+            <div style={{ background: C.cream, padding: "14px 16px", borderRadius: 12, border: `1.5px solid ${C.border}` }}>
+              
+              {/* Form to add an exception */}
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end", marginBottom: 16, position: "relative" }}>
+                
+                {/* Date selection field with popup calendar */}
+                <div style={{ flex: 1, minWidth: 160, position: "relative" }}>
+                  <span style={{ fontSize: 8, letterSpacing: "1px", color: C.textSoft, textTransform: "uppercase", display: "block", marginBottom: 4 }}>Seleccionar Fecha</span>
+                  <button
+                    type="button"
+                    onClick={() => setCalOpen(!calOpen)}
+                    style={{
+                      ...cfgInput,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      cursor: "pointer",
+                      width: "100%",
+                      height: 38,
+                      background: C.white,
+                      textAlign: "left"
+                    }}
+                  >
+                    <span>{selectedExcDate ? (() => {
+                      const [y, m, d] = selectedExcDate.split("-")
+                      return `${d}/${m}/${y}`
+                    })() : "Elegir fecha... 📅"}</span>
+                  </button>
+
+                  {calOpen && (() => {
+                    const [vy, vm] = excViewDate.split("-").map(Number)
+                    const firstDay = new Date(vy, vm - 1, 1)
+                    const lastDay = new Date(vy, vm, 0)
+                    const startDow = (firstDay.getDay() + 6) % 7
+                    const cells = []
+                    for (let i = 0; i < startDow; i++) cells.push(null)
+                    for (let d = 1; d <= lastDay.getDate(); d++) cells.push(d)
+                    while (cells.length % 7 !== 0) cells.push(null)
+
+                    const prevMonth = (e) => {
+                      e.stopPropagation()
+                      let m = vm - 1, y = vy
+                      if (m < 1) { m = 12; y-- }
+                      setExcViewDate(`${y}-${String(m).padStart(2, "0")}`)
+                    }
+                    const nextMonth = (e) => {
+                      e.stopPropagation()
+                      let m = vm + 1, y = vy
+                      if (m > 12) { m = 1; y++ }
+                      setExcViewDate(`${y}-${String(m).padStart(2, "0")}`)
+                    }
+
+                    return (
+                      <div 
+                        onClick={e => e.stopPropagation()} 
+                        style={{
+                          position: "absolute",
+                          top: "100%",
+                          left: 0,
+                          zIndex: 150,
+                          marginTop: 6,
+                          background: C.white,
+                          borderRadius: 12,
+                          border: `1.5px solid ${C.border}`,
+                          boxShadow: `0 8px 24px rgba(58,125,68,.12)`,
+                          padding: "12px 14px",
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          width: 240
+                        }}
+                      >
+                        {/* Month Navigator */}
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", marginBottom: 10 }}>
+                          <button 
+                            type="button" 
+                            onClick={prevMonth} 
+                            style={{ 
+                              width: 26, height: 26, borderRadius: "50%", border: `1.5px solid ${C.border}`, 
+                              background: C.white, color: C.green, fontSize: 14, cursor: "pointer", 
+                              display: "flex", alignItems: "center", justifyContent: "center"
+                            }}
+                          >
+                            ‹
+                          </button>
+                          <div style={{ fontSize: 12, color: C.text, fontWeight: "bold", fontFamily: "Georgia, serif", textTransform: "capitalize" }}>
+                            {MESES_ES[vm - 1]} {vy}
+                          </div>
+                          <button 
+                            type="button" 
+                            onClick={nextMonth} 
+                            style={{ 
+                              width: 26, height: 26, borderRadius: "50%", border: `1.5px solid ${C.border}`, 
+                              background: C.white, color: C.green, fontSize: 14, cursor: "pointer", 
+                              display: "flex", alignItems: "center", justifyContent: "center"
+                            }}
+                          >
+                            ›
+                          </button>
+                        </div>
+
+                        {/* Day Headers */}
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2, width: "100%", textAlign: "center", marginBottom: 4 }}>
+                          {["Lu","Ma","Mi","Ju","Vi","Sá","Do"].map(d => (
+                            <div key={d} style={{ fontSize: 8, letterSpacing: "0.5px", textTransform: "uppercase", color: d === "Do" ? "#c08080" : C.textSoft, fontFamily: "Georgia, serif", fontWeight: "bold" }}>
+                              {d}
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Calendar Grid */}
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, width: "100%" }}>
+                          {cells.map((day, idx) => {
+                            if (!day) return <div key={`empty-${idx}`} style={{ aspectRatio: "1/1" }} />
+                            
+                            const dateStr = `${vy}-${String(vm).padStart(2, "0")}-${String(day).padStart(2, "0")}`
+                            const hasExc = config.dateExceptions && config.dateExceptions[dateStr] !== undefined
+                            const isSelected = selectedExcDate === dateStr
+                            const isToday = dateStr === todayKey()
+                            const dow = idx % 7
+                            const isSun = dow === 6
+
+                            return (
+                              <button
+                                key={dateStr}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedExcDate(dateStr)
+                                  setCalOpen(false)
+                                }}
+                                style={{
+                                  aspectRatio: "1/1",
+                                  borderRadius: 8,
+                                  border: isSelected ? `2px solid ${C.green}` : `1px solid ${C.border}`,
+                                  background: isSelected 
+                                    ? C.greenPale 
+                                    : hasExc 
+                                      ? C.goldPale 
+                                      : isToday 
+                                        ? C.cream 
+                                        : C.white,
+                                  color: isSelected 
+                                    ? C.green 
+                                    : isSun 
+                                      ? "#c08080" 
+                                      : C.text,
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  cursor: "pointer",
+                                  fontFamily: "Georgia, serif",
+                                  fontSize: 11,
+                                  fontWeight: hasExc || isSelected ? "bold" : "normal",
+                                  position: "relative",
+                                  padding: 0
+                                }}
+                              >
+                                {day}
+                                {hasExc && (
+                                  <div style={{ 
+                                    position: "absolute", 
+                                    bottom: 2, 
+                                    width: 3, 
+                                    height: 3, 
+                                    borderRadius: "50%", 
+                                    background: C.gold 
+                                  }} />
+                                )}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )
+                  })()}
+                </div>
+
+                {/* Percentage override */}
+                <div style={{ width: 100 }}>
+                  <span style={{ fontSize: 8, letterSpacing: "1px", color: C.textSoft, textTransform: "uppercase", display: "block", marginBottom: 4 }}>Comisión (%)</span>
+                  <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                    <input 
+                      type="number" 
+                      value={selectedExcPct}
+                      onChange={(e) => setSelectedExcPct(e.target.value)}
+                      placeholder="Ej: 60" 
+                      min={1} 
+                      max={100} 
+                      style={{ ...cfgInput, paddingRight: 20 }} 
+                    />
+                    <span style={{ position: "absolute", right: 8, fontSize: 11, color: C.textSoft, fontWeight: "bold" }}>%</span>
+                  </div>
+                </div>
+
+                {/* Add button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const pctVal = parseInt(selectedExcPct)
+                    if (!selectedExcDate || isNaN(pctVal) || pctVal < 1 || pctVal > 100) {
+                      alert("Por favor elegí una fecha y un porcentaje válido (1-100)")
+                      return
+                    }
+                    setConfig(prev => ({
+                      ...prev,
+                      dateExceptions: {
+                        ...(prev.dateExceptions || {}),
+                        [selectedExcDate]: pctVal
+                      }
+                    }))
+                    setSelectedExcDate(null)
+                    setSelectedExcPct("")
+                  }}
+                  style={{
+                    padding: "8px 16px",
+                    height: 38,
+                    borderRadius: 9,
+                    border: "none",
+                    background: `linear-gradient(135deg, ${C.green}, ${C.greenLight})`,
+                    color: "#fff",
+                    fontSize: 11,
+                    fontWeight: "bold",
+                    cursor: "pointer",
+                    fontFamily: "Georgia, serif"
+                  }}
+                >
+                  ＋ Agregar
+                </button>
+              </div>
+
+              {/* List of exceptions */}
+              {Object.keys(config.dateExceptions || {}).length === 0 ? (
+                <div style={{ fontSize: 10, color: C.textSoft, fontStyle: "italic", textAlign: "center", padding: "10px 0" }}>
+                  No hay comisiones especiales configuradas todavía.
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 180, overflowY: "auto", paddingRight: 4 }}>
+                  {Object.entries(config.dateExceptions || {})
+                    .sort(([a], [b]) => a.localeCompare(b))
+                    .map(([dateKey, pct]) => {
+                      const [y, m, d] = dateKey.split("-")
+                      const formattedDate = `${d}/${m}/${y}`
+                      return (
+                        <div key={dateKey} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: C.white, padding: "6px 12px", borderRadius: 8, border: `1px solid ${C.border}` }}>
+                          <span style={{ fontSize: 11, color: C.text }}>
+                            📅 <strong>{formattedDate}</strong> ➔ <span style={{ color: C.gold, fontWeight: "bold" }}>{pct}%</span> de comisión
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!window.confirm(`¿Eliminar la comisión especial para el día ${formattedDate}?`)) return
+                              setConfig(prev => {
+                                const nextExceptions = { ...(prev.dateExceptions || {}) }
+                                delete nextExceptions[dateKey]
+                                return {
+                                  ...prev,
+                                  dateExceptions: nextExceptions
+                                }
+                              })
+                            }}
+                            style={{
+                              border: "none",
+                              background: "transparent",
+                              color: "#c04040",
+                              cursor: "pointer",
+                              fontSize: 12,
+                              padding: "4px"
+                            }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      )
+                    })}
+                </div>
+              )}
+            </div>
+            <div style={{ fontSize:10, color:C.textSoft, marginTop:6 }}>Configurá comisiones diferentes para días de eventos, feriados, etc. Los turnos de estas fechas específicas se liquidarán con el porcentaje asignado.</div>
           </CfgField>
 
           <CfgField label="🎨 Estética del calendario">
