@@ -22,6 +22,8 @@ export default function ContabilidadView({
   const [hoveredProfId, setHoveredProfId] = useState(null)
   const [dollarRate, setDollarRate] = useState(940)
   const [contOffset, setContOffset] = useState(0)
+  const [compYear1, setCompYear1] = useState(() => new Date().getFullYear())
+  const [compYear2, setCompYear2] = useState(() => new Date().getFullYear() - 1)
 
   useEffect(() => {
     setContOffset(0)
@@ -554,6 +556,50 @@ export default function ContabilidadView({
     })
   }, [chartRange, safeAllData, isMonthlyView])
 
+  // ── Year over Year monthly billing comparison data ────────────────────────
+  const comparisonData = useMemo(() => {
+    const monthlyIncome = {}
+    Object.entries(safeAllData).forEach(([dk, dayData]) => {
+      const match = dk.match(/^(\d{4})-(\d{2})-\d{2}$/)
+      if (!match) return
+      const year = parseInt(match[1])
+      const monthIdx = parseInt(match[2]) - 1 // 0-11
+      
+      let dayTotal = 0
+      Object.values(dayData || {}).forEach(appt => {
+        if (appt?.paid) {
+          dayTotal += apptPaidTotal(appt)
+        }
+      })
+      
+      if (!monthlyIncome[year]) {
+        monthlyIncome[year] = Array(12).fill(0)
+      }
+      monthlyIncome[year][monthIdx] += dayTotal
+    })
+    return monthlyIncome
+  }, [safeAllData])
+
+  const availableYears = useMemo(() => {
+    const years = Object.keys(comparisonData).map(Number).sort((a, b) => b - a)
+    if (years.length === 0) {
+      years.push(new Date().getFullYear())
+    }
+    return years
+  }, [comparisonData])
+
+  useEffect(() => {
+    if (availableYears.length > 0) {
+      if (!availableYears.includes(compYear1)) {
+        setCompYear1(availableYears[0])
+      }
+      const defaultYear2 = availableYears[1] || (availableYears[0] - 1)
+      if (!availableYears.includes(compYear2) && compYear2 !== defaultYear2) {
+        setCompYear2(defaultYear2)
+      }
+    }
+  }, [availableYears])
+
   const dailyDataWorked = useMemo(() => {
     return dailyData.filter(d => d.income > 0)
   }, [dailyData])
@@ -1069,6 +1115,124 @@ export default function ContabilidadView({
                           <span style={{ width:8, height:8, borderRadius:99, background:"#1d4ed8" }}></span>
                           <span>USD (Máx: US$ {Math.round(maxUSD).toLocaleString("es-AR")})</span>
                         </div>
+                      </div>
+                    </div>
+                  )
+                })()}
+              </div>
+            </div>
+
+            <div 
+              className="chart-card-zoom"
+              onClick={() => setActiveZoomedChart("comparison")}
+              style={{ background:C.white, borderRadius:16, padding:"18px 20px", border:`1px solid ${C.border}` }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }} onClick={e => e.stopPropagation()}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  <div style={{ fontSize:8, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase" }}>Comparativa de Facturación Mensual</div>
+                  <div style={{ fontSize:10, color:C.textSoft }}>Ene - Dic (Estático)</div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <select 
+                    value={compYear1} 
+                    onChange={e => setCompYear1(Number(e.target.value))} 
+                    style={{ fontSize: 10, padding: "2px 4px", borderRadius: 6, border: `1.5px solid ${C.border}`, outline: "none", color: C.text, cursor: "pointer", fontFamily: "Georgia, serif" }}
+                  >
+                    {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
+                    {!availableYears.includes(compYear1) && <option value={compYear1}>{compYear1}</option>}
+                  </select>
+                  <span style={{ fontSize: 10, color: C.textSoft }}>vs</span>
+                  <select 
+                    value={compYear2} 
+                    onChange={e => setCompYear2(Number(e.target.value))} 
+                    style={{ fontSize: 10, padding: "2px 4px", borderRadius: 6, border: `1.5px solid ${C.border}`, outline: "none", color: C.text, cursor: "pointer", fontFamily: "Georgia, serif" }}
+                  >
+                    {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
+                    {!availableYears.includes(compYear2) && <option value={compYear2}>{compYear2}</option>}
+                  </select>
+                  <div 
+                    className="zoom-badge" 
+                    onClick={(e) => { e.stopPropagation(); setActiveZoomedChart("comparison"); }}
+                    style={{ fontSize: 9, color: C.green, background: "#f3faf5", padding: "2px 8px", borderRadius: 8, display: "flex", alignItems: "center", gap: 3, fontWeight: "bold", cursor: "pointer", marginLeft: 4 }}
+                  >
+                    <span>🔍</span> Ampliar
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ width:"100%", display:"flex", justifyContent:"center" }}>
+                {(() => {
+                  const values1 = comparisonData[compYear1] || Array(12).fill(0)
+                  const values2 = comparisonData[compYear2] || Array(12).fill(0)
+                  const maxVal = Math.max(1, ...values1, ...values2)
+                  const innerW = chartWidth - 48
+                  
+                  const points1 = values1.map((value, i) => {
+                    const x = 24 + (innerW / 11) * i
+                    const y = 200 - (value / maxVal) * 160
+                    return `${i === 0 ? "M" : "L"} ${x} ${y}`
+                  }).join(" ")
+                  
+                  const points2 = values2.map((value, i) => {
+                    const x = 24 + (innerW / 11) * i
+                    const y = 200 - (value / maxVal) * 160
+                    return `${i === 0 ? "M" : "L"} ${x} ${y}`
+                  }).join(" ")
+
+                  const totalYear1 = values1.reduce((a, b) => a + b, 0)
+                  const totalYear2 = values2.reduce((a, b) => a + b, 0)
+                  const diffPct = totalYear2 > 0 ? ((totalYear1 - totalYear2) / totalYear2) * 100 : 0
+                  
+                  return (
+                    <div style={{ width: "100%" }}>
+                      <svg viewBox={`0 0 ${chartWidth} 220`} style={{ width:"100%", maxWidth:"100%", height:220, display:"block" }}>
+                        {[...Array(6)].map((_, idx) => {
+                          const y = 20 + idx * 36
+                          return <line key={idx} x1={24} y1={y} x2={chartWidth - 24} y2={y} stroke="#f2f2f2" strokeWidth="1" />
+                        })}
+                        <path d={`M24 200 L${chartWidth - 24} 200`} stroke="#ddd" strokeWidth="1" />
+                        
+                        {/* Year 2 Line (Orange) */}
+                        <path d={points2} fill="none" stroke={C.orange} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" opacity={0.65} />
+                        {values2.map((value, i) => {
+                          const x = 24 + (innerW / 11) * i
+                          const y = 200 - (value / maxVal) * 160
+                          return <circle key={`y2-${i}`} cx={x} cy={y} r="3" fill={C.orange} opacity={0.8} />
+                        })}
+
+                        {/* Year 1 Line (Green) */}
+                        <path d={points1} fill="none" stroke={C.green} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                        {values1.map((value, i) => {
+                          const x = 24 + (innerW / 11) * i
+                          const y = 200 - (value / maxVal) * 160
+                          return <circle key={`y1-${i}`} cx={x} cy={y} r="3.5" fill={C.green} />
+                        })}
+
+                        {/* X-axis labels for months */}
+                        {["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"].map((m, i) => {
+                          const x = 24 + (innerW / 11) * i
+                          return (
+                            <text key={i} x={x} y={212} fill={C.textSoft} fontSize="7" textAnchor="middle">
+                              {m}
+                            </text>
+                          )
+                        })}
+                      </svg>
+                      
+                      <div style={{ display:"flex", justifyContent: "center", gap:16, marginTop:8, flexWrap: "wrap", alignItems: "center" }}>
+                        <div style={{ display:"flex", alignItems:"center", gap:5, fontSize:9, color:C.textSoft }}>
+                          <span style={{ width:8, height:8, borderRadius:99, background:C.green }}></span>
+                          <span>{compYear1}: <strong>{fmt(totalYear1)}</strong></span>
+                        </div>
+                        <div style={{ display:"flex", alignItems:"center", gap:5, fontSize:9, color:C.textSoft }}>
+                          <span style={{ width:8, height:8, borderRadius:99, background:C.orange }}></span>
+                          <span>{compYear2}: <strong>{fmt(totalYear2)}</strong></span>
+                        </div>
+                        {totalYear2 > 0 && (
+                          <div style={{ fontSize:9, fontWeight:"bold", color: diffPct >= 0 ? C.green : "#c04040", background: diffPct >= 0 ? C.greenPale : "#fde8e8", padding: "2px 6px", borderRadius: 8 }}>
+                            {diffPct >= 0 ? `+${diffPct.toFixed(1)}%` : `${diffPct.toFixed(1)}%`}
+                          </div>
+                        )}
                       </div>
                     </div>
                   )
@@ -2162,6 +2326,7 @@ export default function ContabilidadView({
             >
               {activeZoomedChart === "prof" ? "Ingresos por Profesional" :
                activeZoomedChart === "daily" ? "Actividad Diaria Detallada" :
+               activeZoomedChart === "comparison" ? "Comparativa de Facturación Mensual" :
                "Rendimiento por Día de Semana"}
             </ModalHeader>
 
@@ -2411,6 +2576,180 @@ export default function ContabilidadView({
                           {fmt(totalIncome)}
                         </div>
                       </div>
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {activeZoomedChart === "comparison" && (() => {
+                const values1 = comparisonData[compYear1] || Array(12).fill(0)
+                const values2 = comparisonData[compYear2] || Array(12).fill(0)
+                const maxVal = Math.max(1, ...values1, ...values2)
+                const zoomWidth = 960
+                const zoomInnerWidth = 865
+                const zoomHeight = 360
+                const zoomInnerHeight = 300
+                const gridPoints = [...Array(6)].map((_, idx) => 30 + idx * 60)
+
+                const points1 = values1.map((value, i) => {
+                  const x = 80 + (zoomInnerWidth / 11) * i
+                  const y = 330 - (value / maxVal) * 300
+                  return `${i === 0 ? "M" : "L"} ${x} ${y}`
+                }).join(" ")
+
+                const points2 = values2.map((value, i) => {
+                  const x = 80 + (zoomInnerWidth / 11) * i
+                  const y = 330 - (value / maxVal) * 300
+                  return `${i === 0 ? "M" : "L"} ${x} ${y}`
+                }).join(" ")
+
+                const totalYear1 = values1.reduce((a, b) => a + b, 0)
+                const totalYear2 = values2.reduce((a, b) => a + b, 0)
+                const diffTotal = totalYear1 - totalYear2
+                const diffTotalPct = totalYear2 > 0 ? (diffTotal / totalYear2) * 100 : 0
+
+                return (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                    <div style={{ display: "flex", gap: 12, alignItems: "center", justifyContent: "flex-end" }}>
+                      <span style={{ fontSize: 11, color: C.textSoft }}>Comparar años:</span>
+                      <select 
+                        value={compYear1} 
+                        onChange={e => setCompYear1(Number(e.target.value))} 
+                        style={{ fontSize: 11, padding: "4px 8px", borderRadius: 8, border: `1.5px solid ${C.border}`, outline: "none", color: C.text, cursor: "pointer", fontFamily: "Georgia, serif" }}
+                      >
+                        {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
+                      </select>
+                      <span style={{ fontSize: 11, color: C.textSoft }}>con</span>
+                      <select 
+                        value={compYear2} 
+                        onChange={e => setCompYear2(Number(e.target.value))} 
+                        style={{ fontSize: 11, padding: "4px 8px", borderRadius: 8, border: `1.5px solid ${C.border}`, outline: "none", color: C.text, cursor: "pointer", fontFamily: "Georgia, serif" }}
+                      >
+                        {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
+                      </select>
+                    </div>
+
+                    <div style={{ 
+                      width: "100%", 
+                      background: C.cream, 
+                      borderRadius: 14, 
+                      padding: "20px 14px", 
+                      border: `1.5px solid ${C.border}`, 
+                      overflowX: "auto" 
+                    }}>
+                      <svg viewBox={`0 0 ${zoomWidth} ${zoomHeight}`} style={{ width: "100%", minWidth: 480, height: "auto", display: "block" }}>
+                        {gridPoints.map((yVal, idx) => {
+                          const value = Math.round(maxVal - (idx / 5) * maxVal)
+                          return (
+                            <g key={idx}>
+                              <line x1={80} y1={yVal} x2={zoomWidth - 15} y2={yVal} stroke="#e4ebe6" strokeWidth="1" strokeDasharray="3 3" />
+                              <text x={70} y={yVal + 4} fill={C.textSoft} fontSize="10" textAnchor="end" fontFamily="monospace">
+                                {fmt(value)}
+                              </text>
+                            </g>
+                          )
+                        })}
+
+                        <line x1={80} y1={330} x2={zoomWidth - 15} y2={330} stroke="#cbd5ce" strokeWidth="1.5" />
+
+                        {/* Year 2 Line (Orange) */}
+                        <path d={points2} fill="none" stroke={C.orange} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" opacity={0.6} />
+                        {values2.map((value, i) => {
+                          const x = 80 + (zoomInnerWidth / 11) * i
+                          const y = 330 - (value / maxVal) * 300
+                          return (
+                            <g key={`y2-${i}`}>
+                              <circle cx={x} cy={y} r="5" fill={C.orange} stroke={C.white} strokeWidth="1" opacity={0.8} />
+                              {value > 0 && (
+                                <text x={x} y={y - 10} fill={C.orange} fontSize="8" textAnchor="middle" style={{ paintOrder: "stroke", stroke: "#ffffff", strokeWidth: "3px" }}>
+                                  {fmt(value)}
+                                </text>
+                              )}
+                            </g>
+                          )
+                        })}
+
+                        {/* Year 1 Line (Green) */}
+                        <path d={points1} fill="none" stroke={C.green} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+                        {values1.map((value, i) => {
+                          const x = 80 + (zoomInnerWidth / 11) * i
+                          const y = 330 - (value / maxVal) * 300
+                          return (
+                            <g key={`y1-${i}`}>
+                              <circle cx={x} cy={y} r="6.5" fill={C.green} stroke={C.white} strokeWidth="1.5" />
+                              {value > 0 && (
+                                <text x={x} y={y - 10} fill={C.green} fontSize="9.5" fontWeight="bold" textAnchor="middle" style={{ paintOrder: "stroke", stroke: "#ffffff", strokeWidth: "3px" }}>
+                                  {fmt(value)}
+                                </text>
+                              )}
+                            </g>
+                          )
+                        })}
+
+                        {MESES_ES.map((m, i) => {
+                          const x = 80 + (zoomInnerWidth / 11) * i
+                          return (
+                            <g key={i}>
+                              <text x={x} y={352} fill={C.textSoft} fontSize="9.5" textAnchor="middle" fontWeight="bold">
+                                {m.charAt(0).toUpperCase() + m.slice(1)}
+                              </text>
+                              <line x1={x} y1={330} x2={x} y2={334} stroke="#cbd5ce" strokeWidth="1" />
+                            </g>
+                          )
+                        })}
+                      </svg>
+                    </div>
+
+                    <div style={{ background: C.white, borderRadius: 14, border: `1.5px solid ${C.border}`, padding: "20px", overflowX: "auto" }}>
+                      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                        <thead>
+                          <tr style={{ borderBottom: `2px solid ${C.border}`, textAlign: "left" }}>
+                            <th style={{ padding: "10px 8px", fontSize: 11, color: C.textSoft }}>Mes</th>
+                            <th style={{ padding: "10px 8px", fontSize: 11, color: C.textSoft }}>Facturado {compYear1}</th>
+                            <th style={{ padding: "10px 8px", fontSize: 11, color: C.textSoft }}>Facturado {compYear2}</th>
+                            <th style={{ padding: "10px 8px", fontSize: 11, color: C.textSoft }}>Diferencia</th>
+                            <th style={{ padding: "10px 8px", fontSize: 11, color: C.textSoft, textAlign: "right" }}>Variación</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {MESES_ES.map((monthName, idx) => {
+                            const val1 = values1[idx]
+                            const val2 = values2[idx]
+                            const diff = val1 - val2
+                            const pct = val2 > 0 ? (diff / val2) * 100 : 0
+                            return (
+                              <tr key={idx} style={{ borderBottom: `1.5px solid #f9f9f9` }}>
+                                <td style={{ padding: "10px 8px", fontSize: 12, fontWeight: "bold", color: C.text }}>
+                                  {monthName.charAt(0).toUpperCase() + monthName.slice(1)}
+                                </td>
+                                <td style={{ padding: "10px 8px", fontSize: 12, color: C.green, fontWeight: "bold" }}>
+                                  {val1 > 0 ? fmt(val1) : "—"}
+                                </td>
+                                <td style={{ padding: "10px 8px", fontSize: 12, color: C.orange }}>
+                                  {val2 > 0 ? fmt(val2) : "—"}
+                                </td>
+                                <td style={{ padding: "10px 8px", fontSize: 12, color: diff >= 0 ? C.green : "#c04040", fontWeight: diff !== 0 ? "bold" : "normal" }}>
+                                  {diff > 0 ? `+${fmt(diff)}` : diff < 0 ? fmt(diff) : "—"}
+                                </td>
+                                <td style={{ padding: "10px 8px", fontSize: 12, textAlign: "right", color: diff >= 0 ? C.green : "#c04040", fontWeight: diff !== 0 ? "bold" : "normal" }}>
+                                  {val2 > 0 ? (pct >= 0 ? `+${pct.toFixed(1)}%` : `${pct.toFixed(1)}%`) : val1 > 0 ? "Nuevo" : "—"}
+                                </td>
+                              </tr>
+                            )
+                          })}
+                          <tr style={{ borderTop: `2px solid ${C.border}`, background: C.cream, fontWeight: "bold" }}>
+                            <td style={{ padding: "12px 8px", fontSize: 12, color: C.text }}>Total Anual</td>
+                            <td style={{ padding: "12px 8px", fontSize: 12, color: C.green }}>{fmt(totalYear1)}</td>
+                            <td style={{ padding: "12px 8px", fontSize: 12, color: C.orange }}>{fmt(totalYear2)}</td>
+                            <td style={{ padding: "12px 8px", fontSize: 12, color: diffTotal >= 0 ? C.green : "#c04040" }}>
+                              {diffTotal > 0 ? `+${fmt(diffTotal)}` : diffTotal < 0 ? fmt(diffTotal) : "—"}
+                            </td>
+                            <td style={{ padding: "12px 8px", fontSize: 12, textAlign: "right", color: diffTotal >= 0 ? C.green : "#c04040" }}>
+                              {totalYear2 > 0 ? (diffTotalPct >= 0 ? `+${diffTotalPct.toFixed(1)}%` : `${diffTotalPct.toFixed(1)}%`) : "—"}
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
                     </div>
                   </div>
                 )
