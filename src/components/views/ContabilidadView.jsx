@@ -61,6 +61,56 @@ export default function ContabilidadView({
   const [compYear2, setCompYear2] = useState(() => new Date().getFullYear() - 1)
   const [compCurrency, setCompCurrency] = useState("ARS")
 
+  const [isDesktop, setIsDesktop] = useState(typeof window !== "undefined" ? window.innerWidth > 768 : true)
+  useEffect(() => {
+    const handleResize = () => setIsDesktop(window.innerWidth > 768)
+    window.addEventListener("resize", handleResize)
+    return () => window.removeEventListener("resize", handleResize)
+  }, [])
+
+  const [chartsOrder, setChartsOrder] = useState(() => {
+    try {
+      const stored = localStorage.getItem("pv:contabilidad_charts_order")
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        const required = ["prof", "comparison", "consolidated", "daily", "dow"]
+        if (Array.isArray(parsed) && parsed.length === required.length && required.every(x => parsed.includes(x))) {
+          return parsed
+        }
+      }
+    } catch (e) {}
+    return ["prof", "comparison", "consolidated", "daily", "dow"]
+  })
+  const [draggedId, setDraggedId] = useState(null)
+
+  const handleDragStart = (e, id) => {
+    setDraggedId(id)
+    e.dataTransfer.effectAllowed = "move"
+  }
+  const handleDragOver = (e, id) => {
+    e.preventDefault()
+  }
+  const handleDrop = (e, targetId) => {
+    e.preventDefault()
+    if (draggedId === targetId) return
+    setChartsOrder(prev => {
+      const next = [...prev]
+      const draggedIdx = next.indexOf(draggedId)
+      const targetIdx = next.indexOf(targetId)
+      if (draggedIdx > -1 && targetIdx > -1) {
+        next.splice(draggedIdx, 1)
+        next.splice(targetIdx, 0, draggedId)
+      }
+      try {
+        localStorage.setItem("pv:contabilidad_charts_order", JSON.stringify(next))
+      } catch (err) {}
+      return next
+    })
+  }
+  const handleDragEnd = () => {
+    setDraggedId(null)
+  }
+
   useEffect(() => {
     setContOffset(0)
   }, [contPeriod])
@@ -1041,335 +1091,447 @@ export default function ContabilidadView({
 
           {/* Col 2: Performance Charts */}
           <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
-            <div 
-              className="chart-card-zoom"
-              onClick={() => setActiveZoomedChart("prof")}
-              style={{ background:C.white, borderRadius:16, padding:"18px 20px", border:`1px solid ${C.border}` }}
-            >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                <div style={{ fontSize:8, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase" }}>Ingresos por profesional</div>
-                <div className="zoom-badge" style={{ fontSize: 9, color: C.green, background: "#f3faf5", padding: "2px 8px", borderRadius: 8, display: "flex", alignItems: "center", gap: 3, fontWeight: "bold" }}>
-                  <span>🔍</span> Ampliar
-                </div>
-              </div>
-              <div style={{ width:"100%", display:"flex", justifyContent:"center" }}>
-                <svg viewBox={`0 0 ${chartWidth} 220`} style={{ width:"100%", maxWidth:"100%", height:220, display:"block" }}>
-                  {[...Array(6)].map((_, idx) => {
-                    const y = 20 + idx * 36
-                    return <line key={idx} x1={24} y1={y} x2={chartWidth - 24} y2={y} stroke="#f2f2f2" strokeWidth="1" />
-                  })}
-                  <path d={`M24 200 L${chartWidth - 24} 200`} stroke="#ddd" strokeWidth="1" />
-                  {turnosChart.map((prof, idx) => {
-                    const color = [C.green, C.orange, C.gold, C.greenLight, C.orangeLight][idx % 5]
-                    const points = prof.values.map((value, i) => {
-                      const x = 24 + (chartInnerWidth / Math.max(chartRange.length - 1, 1)) * i
-                      const y = 200 - (value / maxTurns) * 160
-                      return `${i===0?"M":"L"} ${x} ${y}`
-                    }).join(" ")
-                    return (
-                      <g key={prof.id}>
-                        <path d={points} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                        {prof.values.map((value, i) => {
-                          const x = 24 + (chartInnerWidth / Math.max(chartRange.length - 1, 1)) * i
-                          const y = 200 - (value / maxTurns) * 160
-                          return <circle key={i} cx={x} cy={y} r="3.5" fill={color} />
-                        })}
-                      </g>
-                    )
-                  })}
-                </svg>
-              </div>
-              <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginTop:12 }}>
-                {turnosChart.map((prof, idx) => (
-                  <div key={prof.id} style={{ display:"flex", alignItems:"center", gap:5, fontSize:9, color:C.textSoft }}>
-                    <span style={{ width:8, height:8, borderRadius:99, background:[C.green, C.orange, C.gold, C.greenLight, C.orangeLight][idx % 5] }}></span>
-                    <span>{prof.name}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div 
-              className="chart-card-zoom"
-              onClick={() => setActiveZoomedChart("comparison")}
-              style={{ background:C.white, borderRadius:16, padding:"18px 20px", border:`1px solid ${C.border}` }}
-            >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }} onClick={e => e.stopPropagation()}>
-                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                  <div style={{ fontSize:8, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase" }}>Comparativa de Facturación Mensual</div>
-                  <div style={{ fontSize:10, color:C.textSoft }}>Ene - Dic (Estático)</div>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  {/* Currency Selector Pills */}
-                  <div style={{ display: "flex", gap: 3, background: C.cream, padding: 2, borderRadius: 8, border: `1.5px solid ${C.border}`, marginRight: 4 }}>
-                    {[["ARS", "ARS"], ["USD_OFICIAL", "USD Of."], ["USD_BLUE", "USD Blue"]].map(([id, label]) => (
-                      <button
-                        key={id}
-                        onClick={(e) => { e.stopPropagation(); setCompCurrency(id); }}
-                        style={{
-                          padding: "2px 6px",
-                          fontSize: 9,
-                          border: "none",
-                          borderRadius: 6,
-                          background: compCurrency === id ? C.green : "transparent",
-                          color: compCurrency === id ? "#fff" : C.textSoft,
-                          cursor: "pointer",
-                          fontFamily: "Georgia, serif",
-                          fontWeight: compCurrency === id ? "bold" : "normal",
-                          transition: "all 0.1s"
-                        }}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-
-                  <select 
-                    value={compYear1} 
-                    onChange={e => setCompYear1(Number(e.target.value))} 
-                    style={{ fontSize: 10, padding: "2px 4px", borderRadius: 6, border: `1.5px solid ${C.border}`, outline: "none", color: C.text, cursor: "pointer", fontFamily: "Georgia, serif" }}
-                  >
-                    {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
-                    {!availableYears.includes(compYear1) && <option value={compYear1}>{compYear1}</option>}
-                  </select>
-                  <span style={{ fontSize: 10, color: C.textSoft }}>vs</span>
-                  <select 
-                    value={compYear2} 
-                    onChange={e => setCompYear2(Number(e.target.value))} 
-                    style={{ fontSize: 10, padding: "2px 4px", borderRadius: 6, border: `1.5px solid ${C.border}`, outline: "none", color: C.text, cursor: "pointer", fontFamily: "Georgia, serif" }}
-                  >
-                    {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
-                    {!availableYears.includes(compYear2) && <option value={compYear2}>{compYear2}</option>}
-                  </select>
+            {chartsOrder.map(chartId => {
+              if (chartId === "prof") {
+                return (
                   <div 
-                    className="zoom-badge" 
-                    onClick={(e) => { e.stopPropagation(); setActiveZoomedChart("comparison"); }}
-                    style={{ fontSize: 9, color: C.green, background: "#f3faf5", padding: "2px 8px", borderRadius: 8, display: "flex", alignItems: "center", gap: 3, fontWeight: "bold", cursor: "pointer", marginLeft: 4 }}
+                    key="prof"
+                    className="chart-card-zoom"
+                    onClick={() => setActiveZoomedChart("prof")}
+                    draggable={isDesktop}
+                    onDragStart={(e) => handleDragStart(e, "prof")}
+                    onDragOver={(e) => handleDragOver(e, "prof")}
+                    onDrop={(e) => handleDrop(e, "prof")}
+                    onDragEnd={handleDragEnd}
+                    style={{ 
+                      background:C.white, 
+                      borderRadius:16, 
+                      padding:"18px 20px", 
+                      border:`1px solid ${C.border}`,
+                      cursor: isDesktop ? (draggedId === "prof" ? "grabbing" : "grab") : "default",
+                      opacity: draggedId === "prof" ? 0.4 : 1,
+                      transition: "opacity 0.2s ease"
+                    }}
                   >
-                    <span>🔍</span> Ampliar
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ width:"100%", display:"flex", justifyContent:"center" }}>
-                {(() => {
-                  const rawValues1 = comparisonData[compYear1] || Array(12).fill(0)
-                  const rawValues2 = comparisonData[compYear2] || Array(12).fill(0)
-
-                  // Convert values to selected currency
-                  const values1 = rawValues1.map((v, i) => convertValue(v, compYear1, i, compCurrency, dollarRate))
-                  const values2 = rawValues2.map((v, i) => convertValue(v, compYear2, i, compCurrency, dollarRate))
-
-                  const maxVal = Math.max(1, ...values1, ...values2)
-                  const innerW = chartWidth - 48
-                  
-                  const isCurrentYear1 = compYear1 === new Date().getFullYear()
-                  const isCurrentYear2 = compYear2 === new Date().getFullYear()
-                  const currentMonthIdx = new Date().getMonth()
-
-                  const plotValues1 = isCurrentYear1 ? values1.slice(0, currentMonthIdx + 1) : values1
-                  const plotValues2 = isCurrentYear2 ? values2.slice(0, currentMonthIdx + 1) : values2
-
-                  const points1 = plotValues1.map((value, i) => {
-                    const x = 24 + (innerW / 11) * i
-                    const y = 200 - (value / maxVal) * 160
-                    return `${i === 0 ? "M" : "L"} ${x} ${y}`
-                  }).join(" ")
-                  
-                  const points2 = plotValues2.map((value, i) => {
-                    const x = 24 + (innerW / 11) * i
-                    const y = 200 - (value / maxVal) * 160
-                    return `${i === 0 ? "M" : "L"} ${x} ${y}`
-                  }).join(" ")
-
-                  const totalYear1 = values1.reduce((a, b) => a + b, 0)
-                  const totalYear2 = values2.reduce((a, b) => a + b, 0)
-                  
-                  const commonMonthsCount = isCurrentYear1 || isCurrentYear2 ? currentMonthIdx + 1 : 12
-                  const commonSum1 = values1.slice(0, commonMonthsCount).reduce((a, b) => a + b, 0)
-                  const commonSum2 = values2.slice(0, commonMonthsCount).reduce((a, b) => a + b, 0)
-                  const diffPct = commonSum2 > 0 ? ((commonSum1 - commonSum2) / commonSum2) * 100 : 0
-                  const labelPeriod = isCurrentYear1 || isCurrentYear2 ? ` (Ene-${MESES_ES[currentMonthIdx].slice(0,3)})` : ""
-                  
-                  return (
-                    <div style={{ width: "100%" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                      <div style={{ display: "flex", alignItems: "center" }}>
+                        {isDesktop && <span style={{ color: C.textSoft, marginRight: 6, fontSize: 11, cursor: "grab", fontWeight: "bold" }}>⋮⋮</span>}
+                        <div style={{ fontSize:8, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase" }}>Ingresos por profesional</div>
+                      </div>
+                      <div className="zoom-badge" style={{ fontSize: 9, color: C.green, background: "#f3faf5", padding: "2px 8px", borderRadius: 8, display: "flex", alignItems: "center", gap: 3, fontWeight: "bold" }}>
+                        <span>🔍</span> Ampliar
+                      </div>
+                    </div>
+                    <div style={{ width:"100%", display:"flex", justifyContent:"center" }}>
                       <svg viewBox={`0 0 ${chartWidth} 220`} style={{ width:"100%", maxWidth:"100%", height:220, display:"block" }}>
                         {[...Array(6)].map((_, idx) => {
                           const y = 20 + idx * 36
                           return <line key={idx} x1={24} y1={y} x2={chartWidth - 24} y2={y} stroke="#f2f2f2" strokeWidth="1" />
                         })}
                         <path d={`M24 200 L${chartWidth - 24} 200`} stroke="#ddd" strokeWidth="1" />
-                        
-                        {/* Year 2 Line (Orange) */}
-                        <path d={points2} fill="none" stroke={C.orange} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" opacity={0.65} />
-                        {plotValues2.map((value, i) => {
-                          const x = 24 + (innerW / 11) * i
-                          const y = 200 - (value / maxVal) * 160
-                          return <circle key={`y2-${i}`} cx={x} cy={y} r="3" fill={C.orange} opacity={0.8} />
-                        })}
-
-                        {/* Year 1 Line (Green) */}
-                        <path d={points1} fill="none" stroke={C.green} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                        {plotValues1.map((value, i) => {
-                          const x = 24 + (innerW / 11) * i
-                          const y = 200 - (value / maxVal) * 160
-                          return <circle key={`y1-${i}`} cx={x} cy={y} r="3.5" fill={C.green} />
-                        })}
-
-                        {/* X-axis labels for months */}
-                        {["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"].map((m, i) => {
-                          const x = 24 + (innerW / 11) * i
+                        {turnosChart.map((prof, idx) => {
+                          const color = [C.green, C.orange, C.gold, C.greenLight, C.orangeLight][idx % 5]
+                          const points = prof.values.map((value, i) => {
+                            const x = 24 + (chartInnerWidth / Math.max(chartRange.length - 1, 1)) * i
+                            const y = 200 - (value / maxTurns) * 160
+                            return `${i===0?"M":"L"} ${x} ${y}`
+                          }).join(" ")
                           return (
-                            <text key={i} x={x} y={212} fill={C.textSoft} fontSize="7" textAnchor="middle">
-                              {m}
-                            </text>
+                            <g key={prof.id}>
+                              <path d={points} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                              {prof.values.map((value, i) => {
+                                const x = 24 + (chartInnerWidth / Math.max(chartRange.length - 1, 1)) * i
+                                const y = 200 - (value / maxTurns) * 160
+                                return <circle key={i} cx={x} cy={y} r="3.5" fill={color} />
+                              })}
+                            </g>
                           )
                         })}
                       </svg>
-                      
-                      <div style={{ display:"flex", justifyContent: "center", gap:16, marginTop:8, flexWrap: "wrap", alignItems: "center" }}>
-                        <div style={{ display:"flex", alignItems:"center", gap:5, fontSize:9, color:C.textSoft }}>
-                          <span style={{ width:8, height:8, borderRadius:99, background:C.green }}></span>
-                          <span>{compYear1}: <strong>{fmtComp(totalYear1, compCurrency)}</strong></span>
+                    </div>
+                    <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginTop:12 }}>
+                      {turnosChart.map((prof, idx) => (
+                        <div key={prof.id} style={{ display:"flex", alignItems:"center", gap:5, fontSize:9, color:C.textSoft }}>
+                          <span style={{ width:8, height:8, borderRadius:99, background:[C.green, C.orange, C.gold, C.greenLight, C.orangeLight][idx % 5] }}></span>
+                          <span>{prof.name}</span>
                         </div>
-                        <div style={{ display:"flex", alignItems:"center", gap:5, fontSize:9, color:C.textSoft }}>
-                          <span style={{ width:8, height:8, borderRadius:99, background:C.orange }}></span>
-                          <span>{compYear2}: <strong>{fmtComp(totalYear2, compCurrency)}</strong></span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              }
+
+              if (chartId === "comparison") {
+                return (
+                  <div 
+                    key="comparison"
+                    className="chart-card-zoom"
+                    onClick={() => setActiveZoomedChart("comparison")}
+                    draggable={isDesktop}
+                    onDragStart={(e) => handleDragStart(e, "comparison")}
+                    onDragOver={(e) => handleDragOver(e, "comparison")}
+                    onDrop={(e) => handleDrop(e, "comparison")}
+                    onDragEnd={handleDragEnd}
+                    style={{ 
+                      background:C.white, 
+                      borderRadius:16, 
+                      padding:"18px 20px", 
+                      border:`1px solid ${C.border}`,
+                      cursor: isDesktop ? (draggedId === "comparison" ? "grabbing" : "grab") : "default",
+                      opacity: draggedId === "comparison" ? 0.4 : 1,
+                      transition: "opacity 0.2s ease"
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }} onClick={e => e.stopPropagation()}>
+                      <div style={{ display: "flex", alignItems: "center" }}>
+                        {isDesktop && <span style={{ color: C.textSoft, marginRight: 6, fontSize: 11, cursor: "grab", fontWeight: "bold" }}>⋮⋮</span>}
+                        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                          <div style={{ fontSize:8, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase" }}>Comparativa de Facturación Mensual</div>
+                          <div style={{ fontSize:10, color:C.textSoft }}>Ene - Dic (Estático)</div>
                         </div>
-                        {commonSum2 > 0 && (
-                          <div style={{ fontSize:9, fontWeight:"bold", color: diffPct >= 0 ? C.green : "#c04040", background: diffPct >= 0 ? C.greenPale : "#fde8e8", padding: "2px 6px", borderRadius: 8 }}>
-                            {diffPct >= 0 ? `+${diffPct.toFixed(1)}%` : `${diffPct.toFixed(1)}%`}{labelPeriod}
-                          </div>
-                        )}
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        {/* Currency Selector Pills */}
+                        <div style={{ display: "flex", gap: 3, background: C.cream, padding: 2, borderRadius: 8, border: `1.5px solid ${C.border}`, marginRight: 4 }}>
+                          {[["ARS", "ARS"], ["USD_OFICIAL", "USD Of."], ["USD_BLUE", "USD Blue"]].map(([id, label]) => (
+                            <button
+                              key={id}
+                              onClick={(e) => { e.stopPropagation(); setCompCurrency(id); }}
+                              style={{
+                                padding: "2px 6px",
+                                fontSize: 9,
+                                border: "none",
+                                borderRadius: 6,
+                                background: compCurrency === id ? C.green : "transparent",
+                                color: compCurrency === id ? "#fff" : C.textSoft,
+                                cursor: "pointer",
+                                fontFamily: "Georgia, serif",
+                                fontWeight: compCurrency === id ? "bold" : "normal",
+                                transition: "all 0.1s"
+                              }}
+                            >
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+
+                        <select 
+                          value={compYear1} 
+                          onChange={e => setCompYear1(Number(e.target.value))} 
+                          style={{ fontSize: 10, padding: "2px 4px", borderRadius: 6, border: `1.5px solid ${C.border}`, outline: "none", color: C.text, cursor: "pointer", fontFamily: "Georgia, serif" }}
+                        >
+                          {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
+                          {!availableYears.includes(compYear1) && <option value={compYear1}>{compYear1}</option>}
+                        </select>
+                        <span style={{ fontSize: 10, color: C.textSoft }}>vs</span>
+                        <select 
+                          value={compYear2} 
+                          onChange={e => setCompYear2(Number(e.target.value))} 
+                          style={{ fontSize: 10, padding: "2px 4px", borderRadius: 6, border: `1.5px solid ${C.border}`, outline: "none", color: C.text, cursor: "pointer", fontFamily: "Georgia, serif" }}
+                        >
+                          {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
+                          {!availableYears.includes(compYear2) && <option value={compYear2}>{compYear2}</option>}
+                        </select>
+                        <div 
+                          className="zoom-badge" 
+                          onClick={(e) => { e.stopPropagation(); setActiveZoomedChart("comparison"); }}
+                          style={{ fontSize: 9, color: C.green, background: "#f3faf5", padding: "2px 8px", borderRadius: 8, display: "flex", alignItems: "center", gap: 3, fontWeight: "bold", cursor: "pointer", marginLeft: 4 }}
+                        >
+                          <span>🔍</span> Ampliar
+                        </div>
                       </div>
                     </div>
-                  )
-                })()}
-              </div>
-            </div>
 
-            <div style={{ background:C.white, borderRadius:16, padding:"18px 20px", border:`1px solid ${C.border}` }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                <div style={{ fontSize:8, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase" }}>Evolución de Ingresos Consolidados (ARS vs USD)</div>
-                <div style={{ fontSize:8, color:C.green, background:"#f3faf5", padding:"2px 8px", borderRadius:8, fontWeight:"bold" }}>Sin días vacíos</div>
-              </div>
-              <div style={{ width:"100%", display:"flex", justifyContent:"center" }}>
-                {dailyDataWorked.length === 0 ? (
-                  <div style={{ fontSize:11, color:C.textSoft, padding: "40px 0", textAlign: "center" }}>Sin datos facturados en este período</div>
-                ) : (() => {
-                  const maxARS = Math.max(...dailyDataWorked.map(d => d.income), 1)
-                  const maxUSD = Math.max(...dailyDataWorked.map(d => d.income / dollarRate), 1)
-                  const innerW = chartWidth - 48
-                  
-                  // Generate points for ARS (Green line)
-                  const pointsARS = dailyDataWorked.map((d, i) => {
-                    const x = 24 + (innerW / Math.max(dailyDataWorked.length - 1, 1)) * i
-                    const y = 200 - (d.income / maxARS) * 160
-                    return `${i === 0 ? "M" : "L"} ${x} ${y}`
-                  }).join(" ")
-                  
-                  // Generate points for USD (Blue line)
-                  const pointsUSD = dailyDataWorked.map((d, i) => {
-                    const x = 24 + (innerW / Math.max(dailyDataWorked.length - 1, 1)) * i
-                    const y = 200 - ((d.income / dollarRate) / maxUSD) * 160
-                    return `${i === 0 ? "M" : "L"} ${x} ${y}`
-                  }).join(" ")
-                  
-                  return (
-                    <div style={{ width: "100%" }}>
-                      <svg viewBox={`0 0 ${chartWidth} 220`} style={{ width:"100%", maxWidth:"100%", height:220, display:"block" }}>
-                        {[...Array(6)].map((_, idx) => {
-                          const y = 20 + idx * 36
-                          return <line key={idx} x1={24} y1={y} x2={chartWidth - 24} y2={y} stroke="#f2f2f2" strokeWidth="1" />
-                        })}
-                        <path d={`M24 200 L${chartWidth - 24} 200`} stroke="#ddd" strokeWidth="1" />
+                    <div style={{ width:"100%", display:"flex", justifyContent:"center" }}>
+                      {(() => {
+                        const rawValues1 = comparisonData[compYear1] || Array(12).fill(0)
+                        const rawValues2 = comparisonData[compYear2] || Array(12).fill(0)
+
+                        // Convert values to selected currency
+                        const values1 = rawValues1.map((v, i) => convertValue(v, compYear1, i, compCurrency, dollarRate))
+                        const values2 = rawValues2.map((v, i) => convertValue(v, compYear2, i, compCurrency, dollarRate))
+
+                        const maxVal = Math.max(1, ...values1, ...values2)
+                        const innerW = chartWidth - 48
                         
-                        {/* ARS Line (Green) */}
-                        <path d={pointsARS} fill="none" stroke={C.green} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                        {dailyDataWorked.map((d, i) => {
+                        const isCurrentYear1 = compYear1 === new Date().getFullYear()
+                        const isCurrentYear2 = compYear2 === new Date().getFullYear()
+                        const currentMonthIdx = new Date().getMonth()
+
+                        const plotValues1 = isCurrentYear1 ? values1.slice(0, currentMonthIdx + 1) : values1
+                        const plotValues2 = isCurrentYear2 ? values2.slice(0, currentMonthIdx + 1) : values2
+
+                        const points1 = plotValues1.map((value, i) => {
+                          const x = 24 + (innerW / 11) * i
+                          const y = 200 - (value / maxVal) * 160
+                          return `${i === 0 ? "M" : "L"} ${x} ${y}`
+                        }).join(" ")
+                        
+                        const points2 = plotValues2.map((value, i) => {
+                          const x = 24 + (innerW / 11) * i
+                          const y = 200 - (value / maxVal) * 160
+                          return `${i === 0 ? "M" : "L"} ${x} ${y}`
+                        }).join(" ")
+
+                        const totalYear1 = values1.reduce((a, b) => a + b, 0)
+                        const totalYear2 = values2.reduce((a, b) => a + b, 0)
+                        
+                        const commonMonthsCount = isCurrentYear1 || isCurrentYear2 ? currentMonthIdx + 1 : 12
+                        const commonSum1 = values1.slice(0, commonMonthsCount).reduce((a, b) => a + b, 0)
+                        const commonSum2 = values2.slice(0, commonMonthsCount).reduce((a, b) => a + b, 0)
+                        const diffPct = commonSum2 > 0 ? ((commonSum1 - commonSum2) / commonSum2) * 100 : 0
+                        const labelPeriod = isCurrentYear1 || isCurrentYear2 ? ` (Ene-${MESES_ES[currentMonthIdx].slice(0,3)})` : ""
+                        
+                        return (
+                          <div style={{ width: "100%" }}>
+                            <svg viewBox={`0 0 ${chartWidth} 220`} style={{ width:"100%", maxWidth:"100%", height:220, display:"block" }}>
+                              {[...Array(6)].map((_, idx) => {
+                                const y = 20 + idx * 36
+                                return <line key={idx} x1={24} y1={y} x2={chartWidth - 24} y2={y} stroke="#f2f2f2" strokeWidth="1" />
+                              })}
+                              <path d={`M24 200 L${chartWidth - 24} 200`} stroke="#ddd" strokeWidth="1" />
+                              
+                              {/* Year 2 Line (Orange) */}
+                              <path d={points2} fill="none" stroke={C.orange} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" opacity={0.65} />
+                              {plotValues2.map((value, i) => {
+                                const x = 24 + (innerW / 11) * i
+                                const y = 200 - (value / maxVal) * 160
+                                return <circle key={`y2-${i}`} cx={x} cy={y} r="3" fill={C.orange} opacity={0.8} />
+                              })}
+
+                              {/* Year 1 Line (Green) */}
+                              <path d={points1} fill="none" stroke={C.green} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                              {plotValues1.map((value, i) => {
+                                const x = 24 + (innerW / 11) * i
+                                const y = 200 - (value / maxVal) * 160
+                                return <circle key={`y1-${i}`} cx={x} cy={y} r="3.5" fill={C.green} />
+                              })}
+
+                              {/* X-axis labels for months */}
+                              {["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"].map((m, i) => {
+                                const x = 24 + (innerW / 11) * i
+                                return (
+                                  <text key={i} x={x} y={212} fill={C.textSoft} fontSize="7" textAnchor="middle">
+                                    {m}
+                                  </text>
+                                )
+                              })}
+                            </svg>
+                            
+                            <div style={{ display:"flex", justifyContent: "center", gap:16, marginTop:8, flexWrap: "wrap", alignItems: "center" }}>
+                              <div style={{ display:"flex", alignItems:"center", gap:5, fontSize:9, color:C.textSoft }}>
+                                <span style={{ width:8, height:8, borderRadius:99, background:C.green }}></span>
+                                <span>{compYear1}: <strong>{fmtComp(totalYear1, compCurrency)}</strong></span>
+                              </div>
+                              <div style={{ display:"flex", alignItems:"center", gap:5, fontSize:9, color:C.textSoft }}>
+                                <span style={{ width:8, height:8, borderRadius:99, background:C.orange }}></span>
+                                <span>{compYear2}: <strong>{fmtComp(totalYear2, compCurrency)}</strong></span>
+                              </div>
+                              {commonSum2 > 0 && (
+                                <div style={{ fontSize:9, fontWeight:"bold", color: diffPct >= 0 ? C.green : "#c04040", background: diffPct >= 0 ? C.greenPale : "#fde8e8", padding: "2px 6px", borderRadius: 8 }}>
+                                  {diffPct >= 0 ? `+${diffPct.toFixed(1)}%` : `${diffPct.toFixed(1)}%`}{labelPeriod}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })()}
+                    </div>
+                  </div>
+                );
+              }
+
+              if (chartId === "consolidated") {
+                return (
+                  <div 
+                    key="consolidated"
+                    draggable={isDesktop}
+                    onDragStart={(e) => handleDragStart(e, "consolidated")}
+                    onDragOver={(e) => handleDragOver(e, "consolidated")}
+                    onDrop={(e) => handleDrop(e, "consolidated")}
+                    onDragEnd={handleDragEnd}
+                    style={{ 
+                      background:C.white, 
+                      borderRadius:16, 
+                      padding:"18px 20px", 
+                      border:`1px solid ${C.border}`,
+                      cursor: isDesktop ? (draggedId === "consolidated" ? "grabbing" : "grab") : "default",
+                      opacity: draggedId === "consolidated" ? 0.4 : 1,
+                      transition: "opacity 0.2s ease"
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                      <div style={{ display: "flex", alignItems: "center" }}>
+                        {isDesktop && <span style={{ color: C.textSoft, marginRight: 6, fontSize: 11, cursor: "grab", fontWeight: "bold" }}>⋮⋮</span>}
+                        <div style={{ fontSize:8, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase" }}>Evolución de Ingresos Consolidados (ARS vs USD)</div>
+                      </div>
+                      <div style={{ fontSize:8, color:C.green, background:"#f3faf5", padding:"2px 8px", borderRadius:8, fontWeight:"bold" }}>Sin días vacíos</div>
+                    </div>
+                    <div style={{ width:"100%", display:"flex", justifyContent:"center" }}>
+                      {dailyDataWorked.length === 0 ? (
+                        <div style={{ fontSize:11, color:C.textSoft, padding: "40px 0", textAlign: "center" }}>Sin datos facturados en este período</div>
+                      ) : (() => {
+                        const maxARS = Math.max(...dailyDataWorked.map(d => d.income), 1)
+                        const maxUSD = Math.max(...dailyDataWorked.map(d => d.income / dollarRate), 1)
+                        const innerW = chartWidth - 48
+                        
+                        // Generate points for ARS (Green line)
+                        const pointsARS = dailyDataWorked.map((d, i) => {
                           const x = 24 + (innerW / Math.max(dailyDataWorked.length - 1, 1)) * i
                           const y = 200 - (d.income / maxARS) * 160
-                          return <circle key={`ars-${i}`} cx={x} cy={y} r="3" fill={C.green} />
-                        })}
+                          return `${i === 0 ? "M" : "L"} ${x} ${y}`
+                        }).join(" ")
                         
-                        {/* USD Line (Blue) */}
-                        <path d={pointsUSD} fill="none" stroke="#1d4ed8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                        {dailyDataWorked.map((d, i) => {
+                        // Generate points for USD (Blue line)
+                        const pointsUSD = dailyDataWorked.map((d, i) => {
                           const x = 24 + (innerW / Math.max(dailyDataWorked.length - 1, 1)) * i
                           const y = 200 - ((d.income / dollarRate) / maxUSD) * 160
-                          return <circle key={`usd-${i}`} cx={x} cy={y} r="3" fill="#1d4ed8" />
-                        })}
-                      </svg>
-                      
-                      <div style={{ display:"flex", justifyContent: "center", gap:16, marginTop:12, flexWrap: "wrap" }}>
-                        <div style={{ display:"flex", alignItems:"center", gap:5, fontSize:9, color:C.textSoft }}>
-                          <span style={{ width:8, height:8, borderRadius:99, background:C.green }}></span>
-                          <span>ARS (Máx: {fmt(maxARS)})</span>
-                        </div>
-                        <div style={{ display:"flex", alignItems:"center", gap:5, fontSize:9, color:C.textSoft }}>
-                          <span style={{ width:8, height:8, borderRadius:99, background:"#1d4ed8" }}></span>
-                          <span>USD (Máx: US$ {Math.round(maxUSD).toLocaleString("es-AR")})</span>
-                        </div>
+                          return `${i === 0 ? "M" : "L"} ${x} ${y}`
+                        }).join(" ")
+                        
+                        return (
+                          <div style={{ width: "100%" }}>
+                            <svg viewBox={`0 0 ${chartWidth} 220`} style={{ width:"100%", maxWidth:"100%", height:220, display:"block" }}>
+                              {[...Array(6)].map((_, idx) => {
+                                const y = 20 + idx * 36
+                                return <line key={idx} x1={24} y1={y} x2={chartWidth - 24} y2={y} stroke="#f2f2f2" strokeWidth="1" />
+                              })}
+                              <path d={`M24 200 L${chartWidth - 24} 200`} stroke="#ddd" strokeWidth="1" />
+                              
+                              {/* ARS Line (Green) */}
+                              <path d={pointsARS} fill="none" stroke={C.green} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                              {dailyDataWorked.map((d, i) => {
+                                const x = 24 + (innerW / Math.max(dailyDataWorked.length - 1, 1)) * i
+                                const y = 200 - (d.income / maxARS) * 160
+                                return <circle key={`ars-${i}`} cx={x} cy={y} r="3" fill={C.green} />
+                              })}
+                              
+                              {/* USD Line (Blue) */}
+                              <path d={pointsUSD} fill="none" stroke="#1d4ed8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                              {dailyDataWorked.map((d, i) => {
+                                const x = 24 + (innerW / Math.max(dailyDataWorked.length - 1, 1)) * i
+                                const y = 200 - ((d.income / dollarRate) / maxUSD) * 160
+                                return <circle key={`usd-${i}`} cx={x} cy={y} r="3" fill="#1d4ed8" />
+                              })}
+                            </svg>
+                            
+                            <div style={{ display:"flex", justifyContent: "center", gap:16, marginTop:12, flexWrap: "wrap" }}>
+                              <div style={{ display:"flex", alignItems:"center", gap:5, fontSize:9, color:C.textSoft }}>
+                                <span style={{ width:8, height:8, borderRadius:99, background:C.green }}></span>
+                                <span>ARS (Máx: {fmt(maxARS)})</span>
+                              </div>
+                              <div style={{ display:"flex", alignItems:"center", gap:5, fontSize:9, color:C.textSoft }}>
+                                <span style={{ width:8, height:8, borderRadius:99, background:"#1d4ed8" }}></span>
+                                <span>USD (Máx: US$ {Math.round(maxUSD).toLocaleString("es-AR")})</span>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })()}
+                    </div>
+                  </div>
+                );
+              }
+
+              if (chartId === "daily") {
+                return (
+                  <div 
+                    key="daily"
+                    className="chart-card-zoom"
+                    onClick={() => setActiveZoomedChart("daily")}
+                    draggable={isDesktop}
+                    onDragStart={(e) => handleDragStart(e, "daily")}
+                    onDragOver={(e) => handleDragOver(e, "daily")}
+                    onDrop={(e) => handleDrop(e, "daily")}
+                    onDragEnd={handleDragEnd}
+                    style={{ 
+                      background:C.white, 
+                      borderRadius:16, 
+                      padding:"18px 20px", 
+                      border:`1px solid ${C.border}`,
+                      boxShadow:`0 2px 12px ${C.shadow}`, 
+                      overflow:"hidden",
+                      cursor: isDesktop ? (draggedId === "daily" ? "grabbing" : "grab") : "default",
+                      opacity: draggedId === "daily" ? 0.4 : 1,
+                      transition: "opacity 0.2s ease"
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                      <div style={{ display: "flex", alignItems: "center" }}>
+                        {isDesktop && <span style={{ color: C.textSoft, marginRight: 6, fontSize: 11, cursor: "grab", fontWeight: "bold" }}>⋮⋮</span>}
+                        <div style={{ fontSize:8, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase" }}>Actividad diaria ({dailyData.length} d)</div>
+                      </div>
+                      <div className="zoom-badge" style={{ fontSize: 9, color: C.green, background: "#f3faf5", padding: "2px 8px", borderRadius: 8, display: "flex", alignItems: "center", gap: 3, fontWeight: "bold" }}>
+                        <span>🔍</span> Ampliar
                       </div>
                     </div>
-                  )
-                })()}
-              </div>
-            </div>
-
-            <div 
-              className="chart-card-zoom"
-              onClick={() => setActiveZoomedChart("daily")}
-              style={{ background:C.white, borderRadius:16, padding:"18px 20px", border:`1px solid ${C.border}`, boxShadow:`0 2px 12px ${C.shadow}`, overflow:"hidden" }}
-            >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                <div style={{ fontSize:8, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase" }}>Actividad diaria ({dailyData.length} d)</div>
-                <div className="zoom-badge" style={{ fontSize: 9, color: C.green, background: "#f3faf5", padding: "2px 8px", borderRadius: 8, display: "flex", alignItems: "center", gap: 3, fontWeight: "bold" }}>
-                  <span>🔍</span> Ampliar
-                </div>
-              </div>
-              <div style={{ display:"flex", alignItems:"flex-end", gap:2, height:140, paddingBottom:20, position:"relative" }}>
-                {dailyData.map((d, i) => {
-                  const h = Math.max(2, (d.income / maxDay) * 120)
-                  const isToday = d.k === todayKey()
-                  const showLabel = dailyData.length <= 14 || i % Math.ceil(dailyData.length / 10) === 0 || i === dailyData.length - 1
-                  return (
-                    <div key={i} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", height:"100%", justifyContent:"flex-end", position:"relative" }}>
-                      <div style={{ width:"100%", height:h, borderRadius:"2px 2px 0 0", background:isToday?`linear-gradient(180deg,${C.orange},${C.orangeLight})`:d.income>0?`linear-gradient(180deg,${C.green},${C.greenLight})`:"#f5f5f5", transition:"height .3s ease" }}/>
-                      {showLabel && (
-                        <div style={{ position:"absolute", bottom:-16, fontSize:7, color:isToday?C.orange:C.textSoft, fontWeight:isToday?"bold":"normal", whiteSpace:"nowrap" }}>{d.label}</div>
-                      )}
+                    <div style={{ display:"flex", alignItems:"flex-end", gap:2, height:140, paddingBottom:20, position:"relative" }}>
+                      {dailyData.map((d, i) => {
+                        const h = Math.max(2, (d.income / maxDay) * 120)
+                        const isToday = d.k === todayKey()
+                        const showLabel = dailyData.length <= 14 || i % Math.ceil(dailyData.length / 10) === 0 || i === dailyData.length - 1
+                        return (
+                          <div key={i} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", height:"100%", justifyContent:"flex-end", position:"relative" }}>
+                            <div style={{ width:"100%", height:h, borderRadius:"2px 2px 0 0", background:isToday?`linear-gradient(180deg,${C.orange},${C.orangeLight})`:d.income>0?`linear-gradient(180deg,${C.green},${C.greenLight})`:"#f5f5f5", transition:"height .3s ease" }}/>
+                            {showLabel && (
+                              <div style={{ position:"absolute", bottom:-16, fontSize:7, color:isToday?C.orange:C.textSoft, fontWeight:isToday?"bold":"normal", whiteSpace:"nowrap" }}>{d.label}</div>
+                            )}
+                          </div>
+                        )
+                      })}
                     </div>
-                  )
-                })}
-              </div>
-            </div>
+                  </div>
+                );
+              }
 
-            <div 
-              className="chart-card-zoom"
-              onClick={() => setActiveZoomedChart("dow")}
-              style={{ background:C.white, borderRadius:16, padding:"18px 20px", border:`1px solid ${C.border}` }}
-            >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                <div style={{ fontSize:8, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase" }}>Rendimiento por día de semana</div>
-                <div className="zoom-badge" style={{ fontSize: 9, color: C.green, background: "#f3faf5", padding: "2px 8px", borderRadius: 8, display: "flex", alignItems: "center", gap: 3, fontWeight: "bold" }}>
-                  <span>🔍</span> Ampliar
-                </div>
-              </div>
-              <div style={{ display:"flex", alignItems:"flex-end", justifyContent:"space-between", height:120, gap:8, paddingBottom:20 }}>
-                {["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"].map((label, dow) => {
-                  const val = incomeByDOW[dow] || 0
-                  const maxDOW = Math.max(...Object.values(incomeByDOW), 1)
-                  const h = (val / maxDOW) * 80
-                  return (
-                    <div key={label} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:6 }}>
-                      <div style={{ width:"100%", height:h, borderRadius:4, background:val>0?`linear-gradient(180deg,${C.green},${C.greenLight})`:"#f0f0f0", transition:"height .4s" }}/>
-                      <div style={{ fontSize:8, color:C.textSoft }}>{label}</div>
+              if (chartId === "dow") {
+                return (
+                  <div 
+                    key="dow"
+                    className="chart-card-zoom"
+                    onClick={() => setActiveZoomedChart("dow")}
+                    draggable={isDesktop}
+                    onDragStart={(e) => handleDragStart(e, "dow")}
+                    onDragOver={(e) => handleDragOver(e, "dow")}
+                    onDrop={(e) => handleDrop(e, "dow")}
+                    onDragEnd={handleDragEnd}
+                    style={{ 
+                      background:C.white, 
+                      borderRadius:16, 
+                      padding:"18px 20px", 
+                      border:`1px solid ${C.border}`,
+                      cursor: isDesktop ? (draggedId === "dow" ? "grabbing" : "grab") : "default",
+                      opacity: draggedId === "dow" ? 0.4 : 1,
+                      transition: "opacity 0.2s ease"
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                      <div style={{ display: "flex", alignItems: "center" }}>
+                        {isDesktop && <span style={{ color: C.textSoft, marginRight: 6, fontSize: 11, cursor: "grab", fontWeight: "bold" }}>⋮⋮</span>}
+                        <div style={{ fontSize:8, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase" }}>Rendimiento por día de semana</div>
+                      </div>
+                      <div className="zoom-badge" style={{ fontSize: 9, color: C.green, background: "#f3faf5", padding: "2px 8px", borderRadius: 8, display: "flex", alignItems: "center", gap: 3, fontWeight: "bold" }}>
+                        <span>🔍</span> Ampliar
+                      </div>
                     </div>
-                  )
-                })}
-              </div>
-            </div>
+                    <div style={{ display:"flex", alignItems:"flex-end", justifyContent:"space-between", height:120, gap:8, paddingBottom:20 }}>
+                      {["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"].map((label, dow) => {
+                        const val = incomeByDOW[dow] || 0
+                        const maxDOW = Math.max(...Object.values(incomeByDOW), 1)
+                        const h = (val / maxDOW) * 80
+                        return (
+                          <div key={label} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:6 }}>
+                            <div style={{ width:"100%", height:h, borderRadius:4, background:val>0?`linear-gradient(180deg,${C.green},${C.greenLight})`:"#f0f0f0", transition:"height .4s" }}/>
+                            <div style={{ fontSize:8, color:C.textSoft }}>{label}</div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })}
           </div>
 
           {/* Col 3: Breakdown Breakdown */}
