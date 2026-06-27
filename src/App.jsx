@@ -448,7 +448,7 @@ export default function App() {
     for (const [k, a] of Object.entries(appointments)) {
       if (k === ignoreKey) continue
       const [pid, h] = k.split("||")
-      if (parseInt(pid) !== profId) continue
+      if (String(pid) !== String(profId)) continue
       const startIdx = HOURS.indexOf(h)
       const requestedSlots = a.manualSlots ?? Math.ceil(apptDur(a) / 30)
 
@@ -457,7 +457,7 @@ export default function App() {
         const checkHour = HOURS[startIdx + s]
         if (!checkHour) { actualSlots = s; break }
         const checkKey = cellKey(profId, checkHour)
-        if (appointments[checkKey] && checkKey !== ignoreKey) {
+        if (appointments[checkKey]) {
           actualSlots = s
           break
         }
@@ -528,7 +528,7 @@ export default function App() {
     const appt = appointments[key]
     const origHourIdx = HOURS.indexOf(appt.hour)
     const origSlots = Math.max(1, Math.ceil(apptDur(appt) / 30))
-    resizeRef.current = { key, edge, startY: e.clientY, origHourIdx, origSlots, profId: appt.profId }
+    resizeRef.current = { key, edge, startY: e.clientY, origHourIdx, origSlots, profId: appt.profId, latestHourIdx: origHourIdx, latestSlots: origSlots }
     setResizePreview({ key, hourIdx: origHourIdx, slots: origSlots, deltaY: 0, edge, origSlots, origHourIdx, profId: appt.profId })
     const onMove = (ev) => {
       const r = resizeRef.current; if (!r) return
@@ -563,19 +563,37 @@ export default function App() {
         slots = Math.max(1, r.origSlots - (hourIdx - r.origHourIdx))
       }
 
+      r.latestHourIdx = hourIdx
+      r.latestSlots = slots
       setResizePreview({ key: r.key, hourIdx, slots, deltaY: ev.clientY - r.startY, edge: r.edge, origSlots: r.origSlots, origHourIdx: r.origHourIdx, profId: r.profId })
     }
     const onUp = () => {
       window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp)
       const r = resizeRef.current; if (!r) return
-      setResizePreview(prev => {
-        if (!prev) return null
-        const newHour = HOURS[prev.hourIdx]; const newKey = cellKey(r.profId, newHour)
-        let conflict = false
-        for (let s = 0; s < prev.slots; s++) { const h = HOURS[prev.hourIdx + s]; if (!h || isOccupied(r.profId, h, r.key)) { conflict = true; break } }
-        if (!conflict) setAppointments(p => { const next = { ...p }; const appt = next[r.key]; delete next[r.key]; next[newKey] = { ...appt, hour: newHour, manualSlots: prev.slots, manualDur: prev.slots * 30 }; return next })
-        return null
-      })
+      
+      const finalHourIdx = r.latestHourIdx ?? r.origHourIdx
+      const finalSlots = r.latestSlots ?? r.origSlots
+      const newHour = HOURS[finalHourIdx]
+      const newKey = cellKey(r.profId, newHour)
+      
+      let conflict = false
+      for (let s = 0; s < finalSlots; s++) {
+        const h = HOURS[finalHourIdx + s]
+        if (!h || isOccupied(r.profId, h, r.key)) { conflict = true; break }
+      }
+      
+      if (!conflict) {
+        setAppointments(p => {
+          const next = { ...p }
+          const apptObj = next[r.key]
+          if (apptObj) {
+            delete next[r.key]
+            next[newKey] = { ...apptObj, hour: newHour, manualSlots: finalSlots, manualDur: finalSlots * 30 }
+          }
+          return next
+        })
+      }
+      setResizePreview(null)
       resizeRef.current = null
     }
     window.addEventListener("mousemove", onMove); window.addEventListener("mouseup", onUp)
@@ -593,6 +611,7 @@ export default function App() {
       const next = { ...p }
       if (editKey && editKey !== k) delete next[editKey]
       next[k] = {
+        ...prev,
         profId,
         hour,
         client: clientName.trim(),

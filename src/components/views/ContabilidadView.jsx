@@ -858,7 +858,7 @@ export default function ContabilidadView({
         }
         .zoom-modal-overlay {
           position: fixed;
-          top: 58px;
+          top: 56px;
           bottom: 0;
           left: 0;
           right: 0;
@@ -874,6 +874,13 @@ export default function ContabilidadView({
           .zoom-modal-overlay {
             bottom: 62px;
           }
+        }
+        .no-scrollbar::-webkit-scrollbar {
+          display: none !important;
+        }
+        .no-scrollbar {
+          -ms-overflow-style: none !important;
+          scrollbar-width: none !important;
         }
       ` }} />
 
@@ -2553,13 +2560,55 @@ export default function ContabilidadView({
             width: "min(1200px, calc(100vw - 24px))",
             maxWidth: "1200px",
             maxHeight: "calc(100% - 32px)",
-            padding: "20px 28px 24px",
+            padding: 0,
             background: C.white,
             borderRadius: 20,
             boxShadow: "0 20px 50px rgba(0,0,0,0.15)",
-            border: `1.5px solid ${C.greenMint}`
+            border: `1.5px solid ${C.greenMint}`,
+            overflow: "hidden",
+            display: "flex",
+            flexDirection: "column",
+            position: "relative"
           }}>
-            <ModalHeader 
+            <button
+              onClick={() => setActiveZoomedChart(null)}
+              style={{
+                position: "absolute",
+                top: 16,
+                right: 20,
+                width: 32,
+                height: 32,
+                borderRadius: "50%",
+                border: "none",
+                background: "#f3f4f6",
+                color: C.textSoft,
+                fontSize: 18,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                transition: "all 0.15s ease",
+                zIndex: 10
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "#e5e7eb"
+                e.currentTarget.style.color = C.text
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "#f3f4f6"
+                e.currentTarget.style.color = C.textSoft
+              }}
+            >
+              &times;
+            </button>
+            <div className="no-scrollbar" style={{
+              overflowY: "auto",
+              padding: "20px 28px 24px",
+              flex: 1,
+              display: "flex",
+              flexDirection: "column"
+            }}>
+              <ModalHeader 
               emoji="📊" 
               sub="Visualización detallada y ampliada"
             >
@@ -3119,11 +3168,7 @@ export default function ContabilidadView({
               })()}
             </div>
 
-            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 24 }}>
-              <GhostBtn onClick={() => setActiveZoomedChart(null)} style={{ padding: "10px 24px", fontSize: 12 }}>
-                Cerrar Ventana
-              </GhostBtn>
-            </div>
+          </div>
           </div>
         </div>
       )}

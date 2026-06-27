@@ -733,7 +733,7 @@ export function AppGrid({
                 })()
 
                 const isEditingRemote = !appt && remoteEdits?.[k]
-                const isBlocked = (!appt && isOccupied(prof.id, hour)) || isCoveredByResize || (isResizeOriginal && !isResizeStart) || isEditingRemote
+                const isBlocked = (!appt && isOccupied(prof.id, hour, resizePreview?.key)) || isCoveredByResize || (isResizeOriginal && !isResizeStart) || isEditingRemote
                 if (isBlocked && !isEditingRemote) return null
 
                 const isDragging = draggingKey === k

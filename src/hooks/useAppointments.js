@@ -21,7 +21,7 @@ export function useAppointments(appointments, setAppointments) {
     for (const [k, a] of Object.entries(appointments)) {
       if (k === ignoreKey) continue
       const [pid, h] = k.split("||")
-      if (parseInt(pid) !== profId) continue
+      if (String(pid) !== String(profId)) continue
       const startIdx = HOURS.indexOf(h)
       const requestedSlots = a.manualSlots ?? Math.ceil(apptDur(a) / 30)
       
@@ -30,7 +30,7 @@ export function useAppointments(appointments, setAppointments) {
         const checkHour = HOURS[startIdx + s]
         if (!checkHour) { actualSlots = s; break }
         const checkKey = cellKey(profId, checkHour)
-        if (appointments[checkKey] && checkKey !== ignoreKey) {
+        if (appointments[checkKey]) {
           actualSlots = s
           break
         }
