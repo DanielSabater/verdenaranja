@@ -225,22 +225,26 @@ export default function App() {
 
       if (e.key?.toLowerCase() === 'h') {
         e.preventDefault()
+        const isCmdOrCtrl = e.ctrlKey || e.metaKey
         const tKey = todayKey()
-        const isAlreadyToday = currentDate === tKey
         
-        if (isAlreadyToday && ramas && ramas.length > 1) {
-          const currIdx = ramas.findIndex(r => String(r).trim().toLowerCase() === String(activeRama).trim().toLowerCase())
-          const nextIdx = (currIdx + 1) % ramas.length
-          setActiveRama(ramas[nextIdx])
+        if (isCmdOrCtrl) {
+          if (ramas && ramas.length > 1) {
+            const currIdx = ramas.findIndex(r => String(r).trim().toLowerCase() === String(activeRama).trim().toLowerCase())
+            const nextIdx = (currIdx + 1) % ramas.length
+            setActiveRama(ramas[nextIdx])
+          }
         } else {
-          setCurrentDate(tKey)
+          const isAlreadyToday = currentDate === tKey
+          if (!isAlreadyToday) {
+            setCurrentDate(tKey)
+          }
+          setTimeout(() => {
+            window.dispatchEvent(new CustomEvent("scroll-to-today-hour"))
+          }, isAlreadyToday ? 50 : 250)
         }
         
         playClickSound()
-        
-        setTimeout(() => {
-          window.dispatchEvent(new CustomEvent("scroll-to-today-hour"))
-        }, isAlreadyToday ? 50 : 250)
       } else if (e.key?.toLowerCase() === 'v') {
         e.preventDefault()
         setPrivacyMode(p => !p)

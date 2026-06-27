@@ -404,10 +404,13 @@ export function AppGrid({
         if (highlightTimeoutRef.current) {
           clearTimeout(highlightTimeoutRef.current)
         }
-        setHighlightedHour(closestHour)
-        highlightTimeoutRef.current = setTimeout(() => {
-          setHighlightedHour(null)
-        }, 2500)
+        setHighlightedHour(null)
+        setTimeout(() => {
+          setHighlightedHour(closestHour)
+          highlightTimeoutRef.current = setTimeout(() => {
+            setHighlightedHour(null)
+          }, 2500)
+        }, 30)
       }
     }
 
