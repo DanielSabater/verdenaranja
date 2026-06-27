@@ -806,6 +806,7 @@ export default function App() {
         setActiveRama={setActiveRama}
         ramas={ramas}
         privacyMode={privacyMode}
+        gastos={gastos}
       />
       <div className="main-content" style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
 
