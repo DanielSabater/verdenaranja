@@ -67,6 +67,60 @@ export const AppHeader = memo(function AppHeader({
     return grossIncomeToday - grandEarnings - dailyExpensesTotal
   }, [grossIncomeToday, grandEarnings, dailyExpensesTotal])
 
+  const [currentMonthRevenue, prevMonthRevenue, progressPercent, prevMonthVal] = useMemo(() => {
+    if (!currentDate) return [0, 0, 0, 1]
+    const parts = currentDate.split("-")
+    if (parts.length < 2) return [0, 0, 0, 1]
+    const year = parseInt(parts[0], 10)
+    const month = parseInt(parts[1], 10)
+    if (isNaN(year) || isNaN(month)) return [0, 0, 0, 1]
+
+    const currentMonthStr = `${year}-${String(month).padStart(2, "0")}`
+    
+    let prevMonthVal = month - 1
+    let prevYearVal = year
+    if (prevMonthVal < 1) {
+      prevMonthVal = 12
+      prevYearVal = year - 1
+    }
+    const prevMonthStr = `${prevYearVal}-${String(prevMonthVal).padStart(2, "0")}`
+
+    let currentTotal = 0
+    let prevTotal = 0
+
+    Object.keys(allData || {}).forEach(dateStr => {
+      const dayAppts = allData[dateStr] || {}
+      const isCurrentMonth = dateStr.startsWith(currentMonthStr)
+      const isPrevMonth = dateStr.startsWith(prevMonthStr)
+
+      if (isCurrentMonth || isPrevMonth) {
+        Object.values(dayAppts).forEach(a => {
+          if (a.paid && allProfsMap.has(a.profId)) {
+            let apptAmt = 0
+            if (a.paymentSplits?.length) {
+              apptAmt = a.paymentSplits.reduce((acc, r) => acc + (parseFloat(r.amount) || 0), 0)
+            } else {
+              apptAmt = apptPaidTotal(a)
+            }
+            if (isCurrentMonth) currentTotal += apptAmt
+            else prevTotal += apptAmt
+          }
+        })
+      }
+    })
+
+    const progress = prevTotal > 0
+      ? (currentTotal / prevTotal) * 100
+      : 0
+
+    return [currentTotal, prevTotal, progress, prevMonthVal]
+  }, [allData, currentDate, allProfsMap])
+
+  const prevMonthNameCapitalized = useMemo(() => {
+    const prevMonthName = MESES_ES[prevMonthVal - 1] || "Mes Ant."
+    return prevMonthName.charAt(0).toUpperCase() + prevMonthName.slice(1)
+  }, [prevMonthVal])
+
   const [dollarRate, setDollarRate] = useState(940)
   useEffect(() => {
     fetch("https://dolarapi.com/v1/dolares/oficial")
@@ -137,12 +191,24 @@ export const AppHeader = memo(function AppHeader({
       icon: "💵",
       textColor: C.white,
       isUSD: true
+    },
+    meta_mes_anterior: {
+      id: "meta_mes_anterior",
+      label: "Progreso vs Mes Anterior",
+      val: progressPercent,
+      bg: progressPercent >= 100 ? `linear-gradient(135deg,#2d6a36,${C.green})` : `linear-gradient(135deg,${C.gold},${C.goldLight})`,
+      tag: `Progreso vs ${prevMonthNameCapitalized.slice(0, 3)}.`,
+      icon: "🎯",
+      textColor: C.white,
+      isPercent: true
     }
   }
 
   const activeMetric = METRICS[selectedMetric] || METRICS.comisiones
-  const hasValue = activeMetric.val !== 0 || activeMetric.id.startsWith("ganancia")
-  const formatFn = activeMetric.isUSD ? fmtUSD : fmt
+  const hasValue = activeMetric.val !== 0 || activeMetric.id.startsWith("ganancia") || activeMetric.isPercent
+  const formatFn = activeMetric.isPercent
+    ? (v) => `${v.toFixed(1)}%`
+    : (activeMetric.isUSD ? fmtUSD : fmt)
   const metricBg = hasValue ? activeMetric.bg : "#f0f0f0"
   const metricColor = hasValue ? activeMetric.textColor : "#ccc"
   const metricLabelColor = hasValue ? "rgba(255,255,255,.75)" : "#bbb"
@@ -391,6 +457,11 @@ export const AppHeader = memo(function AppHeader({
                   e.stopPropagation()
                   setMetricMenuOpen(p => !p)
                 }}
+                title={
+                  activeMetric.id === "meta_mes_anterior"
+                    ? `Recaudado este mes: ${fmt(currentMonthRevenue)} / Meta (${prevMonthNameCapitalized}): ${fmt(prevMonthRevenue)}`
+                    : activeMetric.label
+                }
                 style={{ 
                   background: metricBg, 
                   borderRadius: 9, 
@@ -477,7 +548,9 @@ export const AppHeader = memo(function AppHeader({
                             </div>
                           </div>
                           <div style={{ fontSize: 11, fontWeight: "bold", color: isSelected ? C.green : C.textSoft, fontVariantNumeric: "tabular-nums" }}>
-                            {m.isUSD ? fmtUSD(m.val) : fmt(m.val)}
+                            {m.isPercent
+                              ? `${m.val.toFixed(1)}%`
+                              : (m.isUSD ? fmtUSD(m.val) : fmt(m.val))}
                           </div>
                         </button>
                       )
@@ -509,6 +582,11 @@ export const AppHeader = memo(function AppHeader({
                   e.stopPropagation()
                   setMetricMenuOpen(p => !p)
                 }}
+                title={
+                  activeMetric.id === "meta_mes_anterior"
+                    ? `Recaudado este mes: ${fmt(currentMonthRevenue)} / Meta (${prevMonthNameCapitalized}): ${fmt(prevMonthRevenue)}`
+                    : activeMetric.label
+                }
                 style={{ 
                   background: metricBg, 
                   borderRadius: 9, 
@@ -588,7 +666,9 @@ export const AppHeader = memo(function AppHeader({
                             </div>
                           </div>
                           <div style={{ fontSize: 11, fontWeight: "bold", color: isSelected ? C.green : C.textSoft, fontVariantNumeric: "tabular-nums" }}>
-                            {m.isUSD ? fmtUSD(m.val) : fmt(m.val)}
+                            {m.isPercent
+                              ? `${m.val.toFixed(1)}%`
+                              : (m.isUSD ? fmtUSD(m.val) : fmt(m.val))}
                           </div>
                         </button>
                       )
