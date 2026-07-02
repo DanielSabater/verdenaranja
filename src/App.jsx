@@ -63,15 +63,6 @@ export default function App() {
   const isMobile = useIsMobile()
   const [privacyMode, setPrivacyMode] = useState(false)
   const [arqueoModal, setArqueoModal] = useState(false)
-  const [billCounts, setBillCounts] = useState({
-    100: 0,
-    200: 0,
-    500: 0,
-    1000: 0,
-    2000: 0,
-    10000: 0,
-    20000: 0
-  })
   const [session, setSession] = useState(() => {
     const t = localStorage.getItem("pv_token")
     return t ? { token: t } : null
@@ -98,12 +89,16 @@ export default function App() {
   const {
     loaded, saveStatus, connStatus,
     allData, setAppointments,
+    allArqueos, setArqueo,
     gastos, setGastos,
     sueldos, setSueldos,
     config, setConfig,
     clientes, setClientes,
     remoteEdits, broadcastEditing
   } = usePersistentState(currentDate)
+
+  const billCounts = allArqueos[currentDate] || { 100: 0, 200: 0, 500: 0, 1000: 0, 2000: 0, 10000: 0, 20000: 0 }
+  const setBillCounts = setArqueo
 
   const [activeRama, setActiveRama] = useState("manos")
   const ramas = useMemo(() => {
@@ -279,32 +274,7 @@ export default function App() {
     }
   }, [currentDate, setCurrentDate])
 
-  // Persist billCounts to localStorage keyed by currentDate
-  useEffect(() => {
-    const key = `vn_arqueo_${currentDate}`
-    const saved = localStorage.getItem(key)
-    if (saved) {
-      try {
-        setBillCounts(JSON.parse(saved))
-      } catch (e) {
-        setBillCounts({ 100: 0, 200: 0, 500: 0, 1000: 0, 2000: 0, 10000: 0, 20000: 0 })
-      }
-    } else {
-      setBillCounts({ 100: 0, 200: 0, 500: 0, 1000: 0, 2000: 0, 10000: 0, 20000: 0 })
-    }
-  }, [currentDate])
 
-  useEffect(() => {
-    const key = `vn_arqueo_${currentDate}`
-    const hasValues = Object.values(billCounts).some(v => v > 0)
-    if (hasValues) {
-      localStorage.setItem(key, JSON.stringify(billCounts))
-    } else {
-      if (localStorage.getItem(key)) {
-        localStorage.removeItem(key)
-      }
-    }
-  }, [billCounts, currentDate])
 
   useEffect(() => {
     if (payModal) {

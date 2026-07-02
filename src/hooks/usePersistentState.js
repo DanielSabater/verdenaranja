@@ -33,6 +33,24 @@ export function usePersistentState(currentDate) {
   const [connStatus, setConnStatus] = useState("connecting") // online, offline, connecting
   
   const [allData,    setAllData]    = useState({})
+  const [allArqueos, setAllArqueos] = useState(() => {
+    const initial = {}
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i)
+        if (key && key.startsWith("vn_arqueo_")) {
+          const date = key.replace("vn_arqueo_", "")
+          const val = localStorage.getItem(key)
+          if (val) {
+            initial[date] = JSON.parse(val)
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to pre-populate arqueos from localStorage:", e)
+    }
+    return initial
+  })
   const [config,     setConfig]     = useState(() => lsRead("config") || CONFIG_DEFAULT)
   const [clientes,   setClientes]   = useState(() => lsRead("clientes") || [])
   const [gastos,     setGastos]     = useState(() => lsRead("gastos") || [])
@@ -46,6 +64,7 @@ export function usePersistentState(currentDate) {
   const isInitial   = useRef(true)
   const dirtyKeys   = useRef(new Set())
   const lastFetchTime = useRef(0)
+  const fetchedDates = useRef(new Set())
 
   // ── 1. Initial Load & Realtime Subscription ────────────────────────────────
   useEffect(() => {
@@ -59,6 +78,7 @@ export function usePersistentState(currentDate) {
         }
         
         const updates = {}
+        const arqueoUpdates = {}
         const legacy = data.find(r => r.id === "allData")?.data || {}
         
         data.forEach(row => {
@@ -75,8 +95,31 @@ export function usePersistentState(currentDate) {
           if (row.id.startsWith("day:")) {
             const dateKey = row.id.replace("day:", "")
             updates[dateKey] = row.data
+            fetchedDates.current.add(dateKey)
+          }
+          if (row.id.startsWith("arqueo:")) {
+            const dateKey = row.id.replace("arqueo:", "")
+            arqueoUpdates[dateKey] = row.data
+            fetchedDates.current.add(dateKey)
           }
         })
+
+        // Detect local-only arqueos to sync
+        try {
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i)
+            if (key && key.startsWith("vn_arqueo_")) {
+              const dateKey = key.replace("vn_arqueo_", "")
+              const id = `arqueo:${dateKey}`
+              if (!arqueoUpdates[dateKey]) {
+                console.log(`[usePersistentState] Arqueo local detectado para ${dateKey} no existente en Supabase, marcando para subir.`)
+                dirtyKeys.current.add(id)
+              }
+            }
+          }
+        } catch (e) {
+          console.warn("Error detecting local-only arqueos:", e)
+        }
 
         setAllData(prev => {
           // Fusionamos prev y updates respetando dirtyKeys
@@ -85,6 +128,17 @@ export function usePersistentState(currentDate) {
             const id = `day:${dateKey}`
             if (!dirtyKeys.current.has(id)) {
               next[dateKey] = updates[dateKey]
+            }
+          })
+          return next
+        })
+
+        setAllArqueos(prev => {
+          const next = { ...prev }
+          Object.keys(arqueoUpdates).forEach(dateKey => {
+            const id = `arqueo:${dateKey}`
+            if (!dirtyKeys.current.has(id)) {
+              next[dateKey] = arqueoUpdates[dateKey]
             }
           })
           return next
@@ -119,6 +173,10 @@ export function usePersistentState(currentDate) {
           if (row.id.startsWith("day:")) {
             const dateKey = row.id.replace("day:", "")
             setAllData(prev => ({ ...prev, [dateKey]: row.data }))
+          }
+          if (row.id.startsWith("arqueo:")) {
+            const dateKey = row.id.replace("arqueo:", "")
+            setAllArqueos(prev => ({ ...prev, [dateKey]: row.data }))
           }
         }
       })
@@ -198,15 +256,36 @@ export function usePersistentState(currentDate) {
   // ── 2. Load Specific Day ────────────────────────────────────────────────────
   useEffect(() => {
     if (!currentDate || !loaded) return
-    const loadDay = async () => {
-      const id = `day:${currentDate}`
-      const { data } = await supabase.from(TABLE).select("data").eq("id", id).maybeSingle()
-      if (data) {
-        lastSaved.current[id] = JSON.stringify(data.data)
-        setAllData(prev => ({ ...prev, [currentDate]: data.data }))
+    if (fetchedDates.current.has(currentDate)) return
+
+    const loadDayAndArqueo = async () => {
+      const dateToFetch = currentDate
+      fetchedDates.current.add(dateToFetch)
+
+      const id = `day:${dateToFetch}`
+      const arqueoId = `arqueo:${dateToFetch}`
+
+      try {
+        const [dayRes, arqueoRes] = await Promise.all([
+          supabase.from(TABLE).select("data").eq("id", id).maybeSingle(),
+          supabase.from(TABLE).select("data").eq("id", arqueoId).maybeSingle()
+        ])
+
+        if (dayRes.data) {
+          lastSaved.current[id] = JSON.stringify(dayRes.data.data)
+          setAllData(prev => ({ ...prev, [dateToFetch]: dayRes.data.data }))
+        }
+        if (arqueoRes.data) {
+          lastSaved.current[arqueoId] = JSON.stringify(arqueoRes.data.data)
+          setAllArqueos(prev => ({ ...prev, [dateToFetch]: arqueoRes.data.data }))
+        }
+      } catch (err) {
+        console.error(`Failed to load data for date ${dateToFetch}:`, err)
+        fetchedDates.current.delete(dateToFetch)
       }
     }
-    if (!allData[currentDate]) loadDay()
+
+    loadDayAndArqueo()
   }, [currentDate, loaded])
 
   // ── 3. Auto-Save Engine ─────────────────────────────────────────────────────
@@ -276,7 +355,12 @@ export function usePersistentState(currentDate) {
 
         if (lastSaved.current[id] !== str) {
           lastSaved.current[id] = str
-          lsWrite(id.replace("day:", ""), currentVal)
+          if (id.startsWith("arqueo:")) {
+            const date = id.replace("arqueo:", "")
+            try { localStorage.setItem(`vn_arqueo_${date}`, str) } catch {}
+          } else {
+            lsWrite(id.replace("day:", ""), currentVal)
+          }
           tasks.push({ id, data: currentVal, updated_at: new Date().toISOString() })
         }
       }
@@ -286,6 +370,7 @@ export function usePersistentState(currentDate) {
       check("gastos", gastos)
       check("sueldos", sueldos)
       Object.keys(allData).forEach(date => check(`day:${date}`, allData[date]))
+      Object.keys(allArqueos).forEach(date => check(`arqueo:${date}`, allArqueos[date]))
 
       if (tasks.length > 0) {
         setSaveStatus("saving")
@@ -301,13 +386,22 @@ export function usePersistentState(currentDate) {
       }
     }, 1000)
     return () => clearTimeout(saveTimer)
-  }, [allData, config, clientes, gastos, sueldos, loaded])
+  }, [allData, allArqueos, config, clientes, gastos, sueldos, loaded])
 
   // ── 4. Exposed Setters ─────────────────────────────────────────────────────
   const setAppointments = (updater) => {
     dirtyKeys.current.add(`day:${currentDate}`)
     setAllData(prev => {
       const current = prev[currentDate] || {}
+      const next = typeof updater === "function" ? updater(current) : updater
+      return { ...prev, [currentDate]: next }
+    })
+  }
+
+  const setArqueo = (updater) => {
+    dirtyKeys.current.add(`arqueo:${currentDate}`)
+    setAllArqueos(prev => {
+      const current = prev[currentDate] || { 100: 0, 200: 0, 500: 0, 1000: 0, 2000: 0, 10000: 0, 20000: 0 }
       const next = typeof updater === "function" ? updater(current) : updater
       return { ...prev, [currentDate]: next }
     })
@@ -347,6 +441,7 @@ export function usePersistentState(currentDate) {
   return {
     loaded, saveStatus, connStatus,
     allData,   setAppointments,
+    allArqueos, setArqueo,
     config,    setConfig: setConfigUser,
     clientes,  setClientes: setClientesUser,
     gastos,    setGastos: setGastosUser,
