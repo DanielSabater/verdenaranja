@@ -2299,7 +2299,7 @@ export default function ContabilidadView({
           const element = document.getElementById("salary-receipt-card")
           if (!element) return
           html2canvas(element, {
-            scale: 2,
+            scale: 3,
             backgroundColor: "#ffffff",
             useCORS: true,
             onclone: (clonedDoc) => {
@@ -2324,7 +2324,7 @@ export default function ContabilidadView({
           const element = document.getElementById("salary-receipt-card")
           if (!element) return
           html2canvas(element, {
-            scale: 2,
+            scale: 3,
             backgroundColor: "#ffffff",
             useCORS: true,
             onclone: (clonedDoc) => {
@@ -2332,7 +2332,7 @@ export default function ContabilidadView({
               elms.forEach(el => el.style.display = "none")
             }
           }).then(canvas => {
-            const imgData = canvas.toDataURL("image/jpeg", 0.95)
+            const imgData = canvas.toDataURL("image/png")
             const imgWidth = 150
             const imgHeight = (canvas.height * imgWidth) / canvas.width
             const doc = new jsPDF({
@@ -2340,7 +2340,7 @@ export default function ContabilidadView({
               unit: "mm",
               format: [imgWidth, imgHeight]
             })
-            doc.addImage(imgData, "JPEG", 0, 0, imgWidth, imgHeight)
+            doc.addImage(imgData, "PNG", 0, 0, imgWidth, imgHeight, undefined, "FAST")
             doc.save(`Recibo_${p.name}_${periodLabel.replace(/\s+/g, "_")}.pdf`)
           }).catch(err => {
             console.error("Error exporting PDF:", err)
