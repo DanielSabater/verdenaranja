@@ -735,8 +735,9 @@ export default function ContabilidadView({
   
   const cleanClientName = (name) => {
     if (!name) return "";
-    const cleaned = name
+    let cleaned = name
       .replace(/(?:\+?\d{1,4}[-.\s]?)?\(?\d{2,5}\)?[-.\s]?\d{3,5}[-.\s]?\d{3,5}(?:[-.\s]?\d{1,5})?/g, "")
+      .replace(/\(?\b\d{4,}\b\)?/g, "")
       .replace(/\(\s*\)/g, "")
       .replace(/[-\s]+$/g, "")
       .replace(/^\s+/, "")
