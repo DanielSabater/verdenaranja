@@ -733,6 +733,18 @@ export default function ContabilidadView({
   const sueldoKey   = (profId) => `${profId}||${sueldoPeriod}`
   const profSueldo  = (profId) => safeSueldos[sueldoKey(profId)] || { pagado:false, monto:"", fecha:"" }
   
+  const cleanClientName = (name) => {
+    if (!name) return "";
+    const cleaned = name
+      .replace(/(?:\+?\d{1,4}[-.\s]?)?\(?\d{2,5}\)?[-.\s]?\d{3,5}[-.\s]?\d{3,5}(?:[-.\s]?\d{1,5})?/g, "")
+      .replace(/\(\s*\)/g, "")
+      .replace(/[-\s]+$/g, "")
+      .replace(/^\s+/, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    return cleaned || "Cliente";
+  }
+
   const getDailyBreakdown = (profId, diasFilter) => {
     const days = []
     Object.entries(safeAllData).forEach(([dk, dayData]) => {
@@ -754,7 +766,7 @@ export default function ContabilidadView({
           dayTurnos++
           
           dayAppts.push({
-            client: appt.client || "Sin nombre",
+            client: cleanClientName(appt.client || "Sin nombre"),
             hour: appt.hour || "--:--",
             services: appt.services || [],
             amount: apptPaidTotal(appt),
