@@ -733,6 +733,25 @@ export default function ContabilidadView({
   const sueldoKey   = (profId) => `${profId}||${sueldoPeriod}`
   const profSueldo  = (profId) => safeSueldos[sueldoKey(profId)] || { pagado:false, monto:"", fecha:"" }
   
+  const parseClientName = (fullName) => {
+    if (!fullName) return { name: "", phone: "" };
+    const fullPhoneRegex = /(?:\+?\d{1,4}[-.\s]?)?\(?\d{2,5}\)?[-.\s]?\d{3,5}[-.\s]?\d{3,5}(?:[-.\s]?\d{1,5})?/g;
+    const shortPhoneRegex = /\(?\b\d{4,}\b\)?/g;
+    let phoneMatch = fullName.match(fullPhoneRegex) || fullName.match(shortPhoneRegex);
+    
+    if (phoneMatch) {
+      const phoneStr = phoneMatch[0];
+      const index = fullName.lastIndexOf(phoneStr);
+      const namePart = fullName.substring(0, index).trim();
+      const cleanedName = namePart.replace(/[-\s]+$/g, "").trim();
+      return {
+        name: cleanedName || "Cliente",
+        phone: fullName.substring(index)
+      };
+    }
+    return { name: fullName, phone: "" };
+  }
+
   const getDailyBreakdown = (profId, diasFilter) => {
     const days = []
     Object.entries(safeAllData).forEach(([dk, dayData]) => {
@@ -753,8 +772,10 @@ export default function ContabilidadView({
           dayPropinas  += appt.tip || 0
           dayTurnos++
           
+          const parsed = parseClientName(appt.client || "Sin nombre")
           dayAppts.push({
-            client: appt.client || "Sin nombre",
+            clientName: parsed.name,
+            clientPhone: parsed.phone,
             hour: appt.hour || "--:--",
             services: appt.services || [],
             amount: apptPaidTotal(appt),
@@ -2278,9 +2299,13 @@ export default function ContabilidadView({
           const element = document.getElementById("salary-receipt-card")
           if (!element) return
           html2canvas(element, {
-            scale: 2,
+            scale: 3,
             backgroundColor: "#ffffff",
-            useCORS: true
+            useCORS: true,
+            onclone: (clonedDoc) => {
+              const elms = clonedDoc.querySelectorAll(".phone-suffix")
+              elms.forEach(el => el.style.display = "none")
+            }
           }).then(canvas => {
             const dataUrl = canvas.toDataURL("image/png")
             const link = document.createElement("a")
@@ -2299,11 +2324,15 @@ export default function ContabilidadView({
           const element = document.getElementById("salary-receipt-card")
           if (!element) return
           html2canvas(element, {
-            scale: 2,
+            scale: 3,
             backgroundColor: "#ffffff",
-            useCORS: true
+            useCORS: true,
+            onclone: (clonedDoc) => {
+              const elms = clonedDoc.querySelectorAll(".phone-suffix")
+              elms.forEach(el => el.style.display = "none")
+            }
           }).then(canvas => {
-            const imgData = canvas.toDataURL("image/jpeg", 0.95)
+            const imgData = canvas.toDataURL("image/png")
             const imgWidth = 150
             const imgHeight = (canvas.height * imgWidth) / canvas.width
             const doc = new jsPDF({
@@ -2311,7 +2340,7 @@ export default function ContabilidadView({
               unit: "mm",
               format: [imgWidth, imgHeight]
             })
-            doc.addImage(imgData, "JPEG", 0, 0, imgWidth, imgHeight)
+            doc.addImage(imgData, "PNG", 0, 0, imgWidth, imgHeight, undefined, "FAST")
             doc.save(`Recibo_${p.name}_${periodLabel.replace(/\s+/g, "_")}.pdf`)
           }).catch(err => {
             console.error("Error exporting PDF:", err)
@@ -2327,6 +2356,7 @@ export default function ContabilidadView({
                 body { background: #ffffff !important; color: #000000 !important; }
                 #root { display: none !important; }
                 #printable-receipt-portal { display: block !important; position: absolute; left: 0; top: 0; width: 100% !important; margin: 0 !important; padding: 10px !important; box-sizing: border-box !important; }
+                .phone-suffix { display: none !important; }
                 @page { margin: 1.5cm; }
               }
             ` }} />
@@ -2408,7 +2438,8 @@ export default function ContabilidadView({
                                     <div key={aIdx} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", fontSize: 8.8 }}>
                                       <div style={{ flex: 1, paddingRight: 4 }}>
                                         <div style={{ color: C.text, fontWeight: "500", lineHeight: 1.1 }}>
-                                          {a.hour} · {a.client}
+                                          {a.hour} · {a.clientName}
+                                          {a.clientPhone && <span className="phone-suffix" style={{ color: C.textSoft, fontSize: 8 }}>{a.clientPhone}</span>}
                                         </div>
                                         <div style={{ display: "flex", flexWrap: "wrap", gap: 2, marginTop: 2 }}>
                                           {a.services.map((sv, sIdx) => (
@@ -2507,7 +2538,10 @@ export default function ContabilidadView({
                               {d.appts.map((a, aIdx) => (
                                 <div key={aIdx} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", fontSize: "8.5px" }}>
                                   <div style={{ flex: 1, paddingRight: "4px" }}>
-                                    <div style={{ fontWeight: "500", lineHeight: 1.1 }}>{a.hour} · {a.client}</div>
+                                    <div style={{ fontWeight: "500", lineHeight: 1.1 }}>
+                                      {a.hour} · {a.clientName}
+                                      {a.clientPhone && <span className="phone-suffix" style={{ color: "#777777", fontSize: "7.5px" }}>{a.clientPhone}</span>}
+                                    </div>
                                     <div style={{ fontSize: "7.5px", color: "#555555", display: "flex", flexWrap: "wrap", gap: "2px", marginTop: "2px" }}>
                                       {a.services.map((sv, sIdx) => (
                                         <span key={sIdx} style={{ border: "1px solid #cccccc", padding: "0 3px", borderRadius: "3px" }}>
