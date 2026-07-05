@@ -18,7 +18,8 @@ function getRamaEmoji(rama) {
 export const AppHeader = memo(function AppHeader({
   config, activeView, setActiveView, saveStatus, connStatus, totalByMethod, grandTotal, grandEarnings, onLogout,
   currentDate, setCurrentDate, calendarOpen, setCalendarOpen, calViewDate, setCalViewDate, allData, onQuickGasto,
-  professionals, activeRama, setActiveRama, ramas, privacyMode, gastos
+  professionals, activeRama, setActiveRama, ramas, privacyMode, gastos,
+  notebookOpen, onOpenNotebook, todoTasks
 }) {
   const isMobileNav = typeof window !== "undefined" && window.innerWidth <= 1100
   const tKey = todayKey()
@@ -45,6 +46,7 @@ export const AppHeader = memo(function AppHeader({
 
   // Calculate today's values for metrics
   const appointments = allData[currentDate] || {}
+  const hasUncheckedTasks = todoTasks && todoTasks.some(t => !t.completed)
   const allProfsMap = useMemo(() => new Set((config?.professionals || []).map(p => p.id)), [config?.professionals])
   const paidAppts = useMemo(() => Object.values(appointments).filter(a => a.paid && allProfsMap.has(a.profId)), [appointments, allProfsMap])
 
@@ -815,6 +817,50 @@ export const AppHeader = memo(function AppHeader({
               <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", marginLeft: 8, marginRight: 4, width: 95, flexShrink: 0 }}>
                 <div style={{ fontSize: 11, color: isDiffMonth ? "#e63946" : C.green, fontWeight: "bold", textTransform: "uppercase", letterSpacing: ".8px" }}>{monthName}</div>
                 <div style={{ fontSize: 9, color: C.textSoft, opacity: .8, marginTop: -1 }}>{y}</div>
+              </div>
+            </div>
+
+            {/* Island 3: Notepad (Bottom Left) */}
+            <div style={{
+              position: "absolute", left: 0,
+              background: isLiquid ? "rgba(255, 255, 255, 0.45)" : C.white,
+              backdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none",
+              WebkitBackdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none",
+              borderRadius: 24,
+              boxShadow: isLiquid ? "0 8px 32px rgba(31, 38, 135, 0.08), inset 0 1px 1px rgba(255, 255, 255, 0.3)" : `0 4px 20px ${C.shadow}`,
+              border: isLiquid ? "1px solid rgba(255, 255, 255, 0.55)" : `1.5px solid ${C.border}`,
+              display: "flex", alignItems: "center",
+              padding: "6px",
+              pointerEvents: "auto",
+              flexShrink: 0
+            }}>
+              <div style={{ position: "relative" }}>
+                <button 
+                  onClick={onOpenNotebook} 
+                  style={{
+                    width: 46, height: 46, borderRadius: 18, border: `none`,
+                    background: C.orangePale,
+                    fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                    transition: "all .18s",
+                    boxShadow: "none"
+                  }}
+                  title="Anotador"
+                >📝</button>
+                {hasUncheckedTasks && (
+                  <div style={{
+                    position: "absolute",
+                    top: -2,
+                    right: -2,
+                    width: 11,
+                    height: 11,
+                    borderRadius: "50%",
+                    backgroundColor: "#ff4d4f",
+                    border: `1.5px solid ${C.orangePale}`,
+                    boxShadow: "0 2px 5px rgba(0,0,0,0.18)",
+                    pointerEvents: "none",
+                    zIndex: 15
+                  }} />
+                )}
               </div>
             </div>
 

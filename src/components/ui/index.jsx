@@ -41,7 +41,7 @@ export function Field({ label, children, style }) {
   )
 }
 
-export function GhostBtn({ onClick, children }) {
+export function GhostBtn({ onClick, children, style = {} }) {
   return (
     <button onClick={onClick} style={{
       flex: 1, padding: "10px 0", borderRadius: 11,
@@ -49,13 +49,14 @@ export function GhostBtn({ onClick, children }) {
       color: C.textSoft, fontSize: 9, letterSpacing: "1.5px",
       textTransform: "uppercase", cursor: "pointer",
       fontFamily: "Georgia,serif", transition: "all .15s",
+      ...style
     }}>
       {children}
     </button>
   )
 }
 
-export function SolidBtn({ onClick, children, disabled = false, color = C.green }) {
+export function SolidBtn({ onClick, children, disabled = false, color = C.green, style = {} }) {
   return (
     <button onClick={onClick} disabled={disabled} style={{
       flex: 2, padding: "10px 0", borderRadius: 11, border: "none",
@@ -66,6 +67,7 @@ export function SolidBtn({ onClick, children, disabled = false, color = C.green 
       fontFamily: "Georgia,serif",
       boxShadow: disabled ? "none" : `0 4px 14px ${color}40`,
       transition: "all .2s",
+      ...style
     }}>
       {children}
     </button>

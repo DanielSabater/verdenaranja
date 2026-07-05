@@ -10,10 +10,11 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON)
 
 // ── localStorage helpers ──────────────────────────────────────────────────────
 const LS_KEYS = {
-  config:   "pv:config",
-  clientes: "pv:clientes",
-  gastos:   "pv:gastos",
-  sueldos:  "pv:sueldos",
+  config:    "pv:config",
+  clientes:  "pv:clientes",
+  gastos:    "pv:gastos",
+  sueldos:   "pv:sueldos",
+  todoTasks: "pv:todo_tasks",
 }
 
 function lsRead(key) {
@@ -37,6 +38,7 @@ export function usePersistentState(currentDate) {
   const [clientes,   setClientes]   = useState(() => lsRead("clientes") || [])
   const [gastos,     setGastos]     = useState(() => lsRead("gastos") || [])
   const [sueldos,    setSueldos]    = useState(() => lsRead("sueldos") || {})
+  const [todoTasks,  setTodoTasks]  = useState(() => lsRead("todo_tasks") || [])
 
   const [remoteEdits, setRemoteEdits] = useState({}) 
   const sessionId   = useRef(Math.random().toString(36).substring(7))
@@ -71,6 +73,7 @@ export function usePersistentState(currentDate) {
             if (row.id === "clientes") setClientes(row.data)
             if (row.id === "gastos")   setGastos(row.data)
             if (row.id === "sueldos")  setSueldos(row.data)
+            if (row.id === "todo_tasks") setTodoTasks(row.data)
           }
           if (row.id.startsWith("day:")) {
             const dateKey = row.id.replace("day:", "")
@@ -116,6 +119,7 @@ export function usePersistentState(currentDate) {
           if (row.id === "clientes") setClientes(row.data)
           if (row.id === "gastos")   setGastos(row.data)
           if (row.id === "sueldos")  setSueldos(row.data)
+          if (row.id === "todo_tasks") setTodoTasks(row.data)
           if (row.id.startsWith("day:")) {
             const dateKey = row.id.replace("day:", "")
             setAllData(prev => ({ ...prev, [dateKey]: row.data }))
@@ -285,6 +289,7 @@ export function usePersistentState(currentDate) {
       check("clientes", clientes)
       check("gastos", gastos)
       check("sueldos", sueldos)
+      check("todo_tasks", todoTasks)
       Object.keys(allData).forEach(date => check(`day:${date}`, allData[date]))
 
       if (tasks.length > 0) {
@@ -301,7 +306,7 @@ export function usePersistentState(currentDate) {
       }
     }, 1000)
     return () => clearTimeout(saveTimer)
-  }, [allData, config, clientes, gastos, sueldos, loaded])
+  }, [allData, config, clientes, gastos, sueldos, todoTasks, loaded])
 
   // ── 4. Exposed Setters ─────────────────────────────────────────────────────
   const setAppointments = (updater) => {
@@ -334,6 +339,11 @@ export function usePersistentState(currentDate) {
     setSueldos(updater)
   }
 
+  const setTodoTasksUser = (updater) => {
+    dirtyKeys.current.add("todo_tasks")
+    setTodoTasks(updater)
+  }
+
   const broadcastEditing = (cellKey, isEditing) => {
     if (channelRef.current) {
       channelRef.current.send({
@@ -351,6 +361,7 @@ export function usePersistentState(currentDate) {
     clientes,  setClientes: setClientesUser,
     gastos,    setGastos: setGastosUser,
     sueldos,   setSueldos: setSueldosUser,
+    todoTasks, setTodoTasks: setTodoTasksUser,
     remoteEdits, broadcastEditing
   }
 }

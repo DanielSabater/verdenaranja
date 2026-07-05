@@ -572,7 +572,19 @@ export function AppModals({
                 </span>
               </div>
 
-              <div style={{ display: "flex", gap: 8 }}>
+              <div style={{ display: "flex", gap: 8, width: "100%" }}>
+                {appt.paid && (
+                  <GhostBtn 
+                    onClick={() => {
+                      if (window.confirm("¿Seguro que querés desmarcar el pago de este turno?")) {
+                        confirmPay(true)
+                      }
+                    }} 
+                    style={{ borderColor: C.red, color: C.red }}
+                  >
+                    Desmarcar Pago
+                  </GhostBtn>
+                )}
                 <GhostBtn onClick={() => setPayModal(null)}>Cancelar</GhostBtn>
                 <SolidBtn onClick={() => { playPaySound(); confirmPay() }} color={appt.paid ? C.green : C.orange}>
                   {appt.paid ? "✏️ Actualizar pago" : "💰 Confirmar pago"}

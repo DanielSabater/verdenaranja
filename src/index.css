@@ -628,4 +628,32 @@ select {
   100% {
     opacity: 0;
   }
+}
+
+/* ── Notebook Popover ── */
+.notebook-popover {
+  position: fixed !important;
+  left: 16px !important;
+  bottom: 80px !important;
+  z-index: 200 !important;
+  width: min(380px, calc(100vw - 32px)) !important;
+  box-sizing: border-box !important;
+  animation: notebookSlideUp 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+@media (max-width: 1100px) {
+  .notebook-popover {
+    bottom: calc(160px + env(safe-area-inset-bottom)) !important;
+  }
+}
+
+@keyframes notebookSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

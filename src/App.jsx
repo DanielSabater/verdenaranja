@@ -10,6 +10,7 @@ import { DateNav } from "./components/grid/DateNav.jsx"
 import { AppGrid } from "./components/grid/AppGrid.jsx"
 import { AppModals } from "./components/modals/AppModals.jsx"
 import { ArqueoModal } from "./components/modals/ArqueoModal.jsx"
+import { NotebookModal } from "./components/modals/NotebookModal.jsx"
 import ContabilidadView from "./components/views/ContabilidadView.jsx"
 import ConfigView from "./components/views/ConfigView.jsx"
 import ClientesView from "./components/views/ClientesView.jsx"
@@ -102,8 +103,75 @@ export default function App() {
     sueldos, setSueldos,
     config, setConfig,
     clientes, setClientes,
+    todoTasks, setTodoTasks,
     remoteEdits, broadcastEditing
   } = usePersistentState(currentDate)
+
+  const playPageSound = () => {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)()
+      const bufferSize = ctx.sampleRate * 0.4
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate)
+      const data = buffer.getChannelData(0)
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = Math.random() * 2 - 1
+      }
+      const noiseNode = ctx.createBufferSource()
+      noiseNode.buffer = buffer
+
+      const filter = ctx.createBiquadFilter()
+      filter.type = "bandpass"
+      filter.frequency.setValueAtTime(1000, ctx.currentTime)
+      filter.frequency.exponentialRampToValueAtTime(1600, ctx.currentTime + 0.15)
+      filter.frequency.exponentialRampToValueAtTime(900, ctx.currentTime + 0.4)
+      filter.Q.setValueAtTime(3.0, ctx.currentTime)
+
+      const gainNode = ctx.createGain()
+      gainNode.gain.setValueAtTime(0.0, ctx.currentTime)
+      gainNode.gain.linearRampToValueAtTime(0.06, ctx.currentTime + 0.08)
+      gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4)
+
+      noiseNode.connect(filter)
+      filter.connect(gainNode)
+      gainNode.connect(ctx.destination)
+
+      noiseNode.start(ctx.currentTime)
+      noiseNode.stop(ctx.currentTime + 0.4)
+    } catch (e) {
+      console.warn("Failed to play page sound:", e)
+    }
+  }
+
+  const [notebookOpen, setNotebookOpen] = useState(false)
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      const activeEl = document.activeElement
+      if (activeEl && (
+        activeEl.tagName === "INPUT" || 
+        activeEl.tagName === "TEXTAREA" || 
+        activeEl.isContentEditable
+      )) {
+        return
+      }
+
+      const key = e.key.toLowerCase()
+      if (key === "n") {
+        e.preventDefault()
+        playPageSound()
+        setNotebookOpen(prev => !prev)
+      } else if (key === "g") {
+        e.preventDefault()
+        setQuickGastoModal(true)
+      } else if (key === "c") {
+        e.preventDefault()
+        setCalendarOpen(prev => !prev)
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [])
 
   const [activeRama, setActiveRama] = useState("manos")
   const ramas = useMemo(() => {
@@ -644,14 +712,14 @@ export default function App() {
     }))
   }
 
-  const confirmPay = () => {
+  const confirmPay = (forceUnpay = false) => {
     const keys = multiPayKeys
     const totalToPay = keys.reduce((sum, k) => sum + apptTotal(appointments[k]), 0)
     const tipAmount = Object.values(apptTip || {}).reduce((sum, v) => sum + (parseFloat(v) || 0), 0)
     const discountAmount = parseFloat(apptDiscount) || 0
     const validSplits = paymentSplits.filter(r => r.methodId && r.amount !== "" && !isNaN(parseFloat(r.amount)))
     const totalAmountPaid = validSplits.reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0)
-    const isUnpaying = totalAmountPaid === 0
+    const isUnpaying = forceUnpay || validSplits.length === 0
 
     // Create or reuse a group ID to keep these appointments linked
     const existingGid = keys.map(k => appointments[k]?.payGroupId).find(g => !!g)
@@ -826,6 +894,9 @@ export default function App() {
         ramas={ramas}
         privacyMode={privacyMode}
         gastos={gastos}
+        notebookOpen={notebookOpen}
+        onOpenNotebook={() => { playPageSound(); setNotebookOpen(v => !v); }}
+        todoTasks={todoTasks}
       />
       <div className="main-content" style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
 
@@ -1014,6 +1085,14 @@ export default function App() {
           billCounts={billCounts}
           setBillCounts={setBillCounts}
         />
+
+        <NotebookModal
+          isOpen={notebookOpen}
+          onClose={() => { playPageSound(); setNotebookOpen(false); }}
+          todoTasks={todoTasks}
+          setTodoTasks={setTodoTasks}
+        />
+
       </div>{/* end main-content */}
       <nav className="bottom-nav" style={{
         position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 100,
