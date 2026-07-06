@@ -164,6 +164,7 @@ export function NotebookModal({ isOpen, onClose, todoTasks, setTodoTasks }) {
                   style={{
                     background: "transparent",
                     border: "none",
+                    minHeight: "unset", // Anula min-height global de mobile
                     cursor: "pointer",
                     color: C.textSoft,
                     fontSize: 20,
@@ -227,6 +228,7 @@ export function NotebookModal({ isOpen, onClose, todoTasks, setTodoTasks }) {
                     style={{
                       width: 18,
                       height: 18,
+                      minHeight: "unset", // Anula min-height global de mobile
                       borderRadius: "50%",
                       border: `1.5px solid ${task.completed ? C.green : C.textSoft}`,
                       background: task.completed ? C.greenPale : "transparent",
@@ -321,6 +323,7 @@ export function NotebookModal({ isOpen, onClose, todoTasks, setTodoTasks }) {
                       fontSize: 14,
                       width: 28,
                       height: 32, // Alto de un renglón
+                      minHeight: "unset", // Anula min-height global de mobile
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
@@ -401,6 +404,7 @@ export function NotebookModal({ isOpen, onClose, todoTasks, setTodoTasks }) {
                       letterSpacing: "0.5px",
                       padding: "0 8px",
                       height: 32,
+                      minHeight: "unset", // Anula min-height global de mobile
                       display: "flex",
                       alignItems: "center",
                       alignSelf: "flex-end"
@@ -436,6 +440,7 @@ export function NotebookModal({ isOpen, onClose, todoTasks, setTodoTasks }) {
                     padding: "4px 10px",
                     fontSize: 10,
                     color: C.textSoft,
+                    minHeight: "unset", // Anula min-height global de mobile
                     cursor: "pointer",
                     fontFamily: "Georgia, serif",
                     transition: "all 0.15s"
