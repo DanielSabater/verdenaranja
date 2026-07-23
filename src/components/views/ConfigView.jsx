@@ -68,8 +68,27 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
 
   const removeProf = (id) => {
     const prof = profs.find(p => p.id === id)
-    if (!window.confirm(`¿Eliminar a ${prof?.name || "esta profesional"}? Esta acción no se puede deshacer.`)) return
-    setConfig(p => ({ ...p, professionals: p.professionals.filter(pr => pr.id!==id) }))
+    if (!prof) return
+    const hasAppts = Object.values(allData || {}).some(dayData =>
+      Object.values(dayData || {}).some(a => a.profId === id && !a.isBlocked)
+    )
+    if (hasAppts) {
+      if (!window.confirm(`¿Dar de baja a ${prof.name}? Conservará sus datos históricos y turnos pasados. A partir de hoy no aparecerá en el calendario.`)) return
+      setConfig(p => ({
+        ...p,
+        professionals: p.professionals.map(pr => pr.id === id ? { ...pr, deletedAt: todayKey() } : pr)
+      }))
+    } else {
+      if (!window.confirm(`¿Eliminar por completo a ${prof.name}? No tiene turnos registrados.`)) return
+      setConfig(p => ({ ...p, professionals: p.professionals.filter(pr => pr.id !== id) }))
+    }
+  }
+
+  const restoreProf = (id) => {
+    setConfig(p => ({
+      ...p,
+      professionals: p.professionals.map(pr => pr.id === id ? { ...pr, deletedAt: null } : pr)
+    }))
   }
 
   // ── Services ─────────────────────────────────────────────────────────────
@@ -258,7 +277,7 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
       {/* ── PROFESIONALES ───────────────────────────────────── */}
       {seccion === "profesionales" && (
         <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
-          {profs.map((prof, idx) => (
+          {profs.filter(p => !p.deletedAt).map((prof, idx) => (
             <SectionCard key={prof.id}>
               <div style={{ display:"flex", alignItems:"center", gap:14, flexWrap:"wrap" }}>
                 <div style={{ textAlign:"center", flexShrink:0 }}>
@@ -295,7 +314,7 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
                   <div style={{ background:C.greenPale, border:`1px solid ${C.greenMint}`, borderRadius:8, padding:"4px 10px", fontSize:11, color:C.textSoft }}>
                     #{idx+1}
                   </div>
-                  <button onClick={()=>removeProf(prof.id)} style={{
+                  <button onClick={()=>removeProf(prof.id)} title="Dar de baja o eliminar profesional" style={{
                     width:32,height:32,borderRadius:"50%",border:"none",
                     background:"#fde8e8",color:"#c04040",fontSize:14,cursor:"pointer",
                   }}>✕</button>
@@ -315,6 +334,41 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
             color:C.green, fontSize:12, cursor:"pointer", fontFamily:"Georgia,serif",
             letterSpacing:"1px", transition:"all .15s",
           }}>＋ Agregar profesional</button>
+
+          {/* Section for deactivated professionals */}
+          {profs.some(p => p.deletedAt) && (
+            <div style={{ marginTop: 24, borderTop: `1px solid ${C.border}`, paddingTop: 16 }}>
+              <div style={{ fontSize: 13, color: C.textSoft, marginBottom: 12, fontWeight: "bold", display: "flex", alignItems: "center", gap: 6 }}>
+                <span>👩‍🦳</span> Profesionales de baja (Históricas)
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {profs.filter(p => p.deletedAt).map(prof => (
+                  <div key={prof.id} style={{
+                    background: "#fdfdfd", border: `1px dashed ${C.border}`, borderRadius: 12,
+                    padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between",
+                    opacity: 0.85
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span style={{ fontSize: 20 }}>{prof.emoji}</span>
+                      <div>
+                        <strong style={{ fontSize: 13, color: C.text }}>{prof.name}</strong>
+                        <div style={{ fontSize: 10, color: C.textSoft }}>
+                          Especialidad: {getDatalistLabel(prof.rama || "manos")} · De baja desde: {prof.deletedAt}
+                        </div>
+                      </div>
+                    </div>
+                    <button onClick={() => restoreProf(prof.id)} style={{
+                      padding: "6px 12px", borderRadius: 8, border: `1px solid ${C.greenMint}`,
+                      background: C.greenPale, color: C.green, fontSize: 11, cursor: "pointer",
+                      fontWeight: "bold", transition: "all .15s"
+                    }}>
+                      ↺ Reactivar
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

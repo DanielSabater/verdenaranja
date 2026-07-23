@@ -170,10 +170,11 @@ export default function App() {
 
   const [activeRama, setActiveRama] = useState("manos")
   const ramas = useMemo(() => {
-    // Extract unique normalized ramas from professionals + custom branches in config
-    const profRamas = config?.professionals 
-      ? config.professionals.map(p => String(p.rama || "manos").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""))
-      : ["manos"]
+    // Extract unique normalized ramas from active professionals + custom branches in config
+    const activeProfs = (config?.professionals || []).filter(p => !p.deletedAt || currentDate < p.deletedAt)
+    const profRamas = activeProfs.length > 0
+      ? activeProfs.map(p => String(p.rama || "manos").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""))
+      : (config?.professionals || []).map(p => String(p.rama || "manos").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""))
     const customRamas = (config?.customRamas || []).map(r => String(r || "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""))
     
     const list = Array.from(new Set([
@@ -182,7 +183,7 @@ export default function App() {
     ])).filter(Boolean)
     
     return list.length ? list : ["manos"]
-  }, [config.professionals, config.customRamas])
+  }, [config.professionals, config.customRamas, currentDate])
 
   useEffect(() => {
     const normalized = String(activeRama).trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
@@ -419,14 +420,20 @@ export default function App() {
   const resizeRef = useRef(null)
 
 
+  const appointments = allData[currentDate] || {}
+
   const professionals = useMemo(() => {
     const activeLower = String(activeRama).trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-    return config.professionals.filter(p => String(p.rama || "manos").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") === activeLower)
-  }, [config.professionals, activeRama])
+    return (config?.professionals || []).filter(p => {
+      const matchRama = String(p.rama || "manos").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") === activeLower
+      if (!matchRama) return false
+      const isActiveOnDate = !p.deletedAt || currentDate < p.deletedAt
+      const hasApptsOnDate = Object.values(appointments).some(a => a.profId === p.id && !a.isBlocked)
+      return isActiveOnDate || hasApptsOnDate
+    })
+  }, [config.professionals, activeRama, currentDate, appointments])
   const services = config.services
   const comisionPct = config.comisionPct
-
-  const appointments = allData[currentDate] || {}
 
   // ── Memoized so drag state changes don't re-render header ──────────────────
   const allProfsMap = useMemo(() => new Set(config.professionals.map(p => p.id)), [config.professionals])
@@ -1035,6 +1042,7 @@ export default function App() {
           searchTerm={searchTerm} setSearchTerm={setSearchTerm}
           paymentSplits={paymentSplits} setPaymentSplits={setPaymentSplits}
           professionals={professionals}
+          allProfessionals={config.professionals}
           services={services} filteredServices={filteredServices}
           saveAppt={saveAppt} confirmPay={confirmPay} doDelete={doDelete}
           addSplit={addSplit} removeSplit={removeSplit} updateSplit={updateSplit}

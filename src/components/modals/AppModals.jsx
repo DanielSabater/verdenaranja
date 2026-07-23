@@ -50,6 +50,7 @@ export function AppModals({
   modalSubtotal, modalDuration,
   appointments,
   professionals,
+  allProfessionals,
   clientes, setClientes,
   allData,
   multiPayKeys, setMultiPayKeys,
@@ -95,7 +96,7 @@ export function AppModals({
                 >
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", gap: 10 }}>
                     <span>
-                      {professionals?.find(p => p.id === modal.profId)?.name} · {modal.hour} hs
+                      {(allProfessionals || professionals)?.find(p => p.id === modal.profId)?.name} · {modal.hour} hs
                     </span>
                     {!modal.editKey && (
                       <button
@@ -373,7 +374,7 @@ export function AppModals({
                 {multiPayKeys.map(k => {
                   const a = appointments[k]
                   if (!a) return null
-                  const prof = professionals?.find(p => p.id === a.profId)
+                  const prof = (allProfessionals || professionals)?.find(p => p.id === a.profId)
                   return (
                     <div key={k} style={{ marginBottom: multiPayKeys.length > 1 ? 12 : 0, paddingBottom: multiPayKeys.length > 1 ? 8 : 0, borderBottom: multiPayKeys.length > 1 ? `1px dashed ${C.border}` : "none" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
@@ -429,7 +430,7 @@ export function AppModals({
                   <div className="pulse-option-container" style={{ marginTop: 8, padding: "8px 10px", background: "#fff", borderRadius: 8, border: `1.5px dashed ${C.orangeLight}` }}>
                     <div style={{ fontSize: 9, color: C.orange, fontWeight: "bold", marginBottom: 6, textTransform: "uppercase" }}>¿Sumar otros turnos de {appt.client} hoy?</div>
                     {otherPending.map(([k, a]) => {
-                      const prof = professionals?.find(p => p.id === a.profId)
+                      const prof = (allProfessionals || professionals)?.find(p => p.id === a.profId)
                       return (
                         <div key={k} onClick={() => {
                           const nextKeys = [...multiPayKeys, k]

@@ -693,21 +693,36 @@ export default function ContabilidadView({
   const maxDay = Math.max(...dailyData.map(d => d.income), 1)
 
   const turnosChart = useMemo(() => {
-    return safeProfessionals.map((prof) => ({
-      ...prof,
-      values: chartRange.map(({ k }) => {
-        if (isMonthlyView) {
-          return Object.entries(safeAllData)
-            .filter(([dk]) => dk.startsWith(k))
-            .flatMap(([, dayData]) => Object.values(dayData || {}))
-            .filter(a => a?.paid && a.profId === prof.id)
-            .reduce((s, a) => s + apptPaidTotal(a), 0)
-        } else {
-          const dayData = safeAllData[k] || {}
-          return Object.values(dayData).filter(a => a?.paid && a.profId === prof.id).reduce((s, a) => s + apptPaidTotal(a), 0)
-        }
-      }),
-    }))
+    return safeProfessionals
+      .filter(prof => {
+        if (!prof.deletedAt) return true
+        return chartRange.some(({ k }) => {
+          if (isMonthlyView) {
+            return Object.entries(safeAllData)
+              .filter(([dk]) => dk.startsWith(k))
+              .flatMap(([, dayData]) => Object.values(dayData || {}))
+              .some(a => a?.paid && a.profId === prof.id)
+          } else {
+            const dayData = safeAllData[k] || {}
+            return Object.values(dayData).some(a => a?.paid && a.profId === prof.id)
+          }
+        })
+      })
+      .map((prof) => ({
+        ...prof,
+        values: chartRange.map(({ k }) => {
+          if (isMonthlyView) {
+            return Object.entries(safeAllData)
+              .filter(([dk]) => dk.startsWith(k))
+              .flatMap(([, dayData]) => Object.values(dayData || {}))
+              .filter(a => a?.paid && a.profId === prof.id)
+              .reduce((s, a) => s + apptPaidTotal(a), 0)
+          } else {
+            const dayData = safeAllData[k] || {}
+            return Object.values(dayData).filter(a => a?.paid && a.profId === prof.id).reduce((s, a) => s + apptPaidTotal(a), 0)
+          }
+        }),
+      }))
   }, [safeProfessionals, safeAllData, chartRange, isMonthlyView])
 
   const maxTurns = Math.max(1, ...turnosChart.flatMap(p => p.values))
@@ -1964,7 +1979,17 @@ export default function ContabilidadView({
 
           {/* Grid de profesionales */}
           <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(280px, 1fr))", gap:14 }}>
-            {safeProfessionals.map(p => {
+            {safeProfessionals
+              .filter(p => {
+                const sueldoStartMonth = sueldoPeriod + "-01"
+                const hasActivityInMonth = Object.entries(safeAllData).some(([dk, dayData]) => {
+                  return dk.startsWith(sueldoPeriod) && Object.values(dayData || {}).some(appt => appt.profId === p.id && appt.paid)
+                })
+                const isSueldoPaid = profSueldo(p.id).pagado
+                const isActiveInMonth = !p.deletedAt || p.deletedAt >= sueldoStartMonth
+                return isActiveInMonth || hasActivityInMonth || isSueldoPaid
+              })
+              .map(p => {
               const sd    = profSueldo(p.id)
               const selectedDays = sd.dias || "all"
               const stats = profStats(p.id, selectedDays)
