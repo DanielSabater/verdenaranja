@@ -61,6 +61,10 @@ export default function ContabilidadView({
   const [compYear2, setCompYear2] = useState(() => new Date().getFullYear() - 1)
   const [compCurrency, setCompCurrency] = useState("ARS")
 
+  const [gastoSortBy, setGastoSortBy] = useState("fecha-desc")
+  const [gastoCategoryFilter, setGastoCategoryFilter] = useState("todas")
+  const [gastoSearchQuery, setGastoSearchQuery] = useState("")
+
   const [isDesktop, setIsDesktop] = useState(typeof window !== "undefined" ? window.innerWidth > 768 : true)
   useEffect(() => {
     const handleResize = () => setIsDesktop(window.innerWidth > 768)
@@ -425,6 +429,50 @@ export default function ContabilidadView({
     })
     return Object.values(grouped)
   }, [gastosRange])
+
+  const processedGastos = useMemo(() => {
+    let result = [...gastosRange]
+
+    if (gastoCategoryFilter !== "todas") {
+      result = result.filter(g => g.categoria === gastoCategoryFilter)
+    }
+
+    if (gastoSearchQuery.trim()) {
+      const q = gastoSearchQuery.toLowerCase().trim()
+      result = result.filter(g => 
+        (g.descripcion && g.descripcion.toLowerCase().includes(q)) ||
+        (g.monto && String(g.monto).includes(q))
+      )
+    }
+
+    result.sort((a, b) => {
+      const mA = parseFloat(a.monto) || 0
+      const mB = parseFloat(b.monto) || 0
+      const dA = a.fecha || ""
+      const dB = b.fecha || ""
+      const tA = (a.descripcion || "").trim().toLowerCase()
+      const tB = (b.descripcion || "").trim().toLowerCase()
+
+      switch (gastoSortBy) {
+        case "monto-desc":
+          return mB - mA
+        case "monto-asc":
+          return mA - mB
+        case "fecha-asc":
+          return dA.localeCompare(dB)
+        case "fecha-desc":
+          return dB.localeCompare(dA)
+        case "nombre-asc":
+          return tA.localeCompare(tB)
+        case "nombre-desc":
+          return tB.localeCompare(tA)
+        default:
+          return dB.localeCompare(dA)
+      }
+    })
+
+    return result
+  }, [gastosRange, gastoCategoryFilter, gastoSearchQuery, gastoSortBy])
 
 
   // ── daily summary logic ──────────────────────────────────────────────────
@@ -849,13 +897,17 @@ export default function ContabilidadView({
   // ── gasto handlers ─────────────────────────────────────────────────────────
   const saveGasto = () => {
     if (!gastoForm.descripcion.trim() || gastoForm.monto === "") return
+    const isFixed = !!gastoForm.isFixed
+    const fixedGroupId = isFixed ? (gastoForm.fixedGroupId || Date.now()) : undefined
+    const gastoToSave = { ...gastoForm, isFixed, fixedGroupId }
+
     if (editGastoId) {
-      setGastos(p => p.map(g => g.id===editGastoId ? {...g,...gastoForm} : g))
+      setGastos(p => p.map(g => g.id===editGastoId ? {...g, ...gastoToSave} : g))
       setEditGastoId(null)
     } else {
-      setGastos(p => [...p, { id:Date.now(), ...gastoForm }])
+      setGastos(p => [...p, { id:Date.now(), ...gastoToSave }])
     }
-    setGastoForm({ descripcion:"", monto:"", categoria:"insumos", fecha:todayKey() })
+    setGastoForm({ descripcion:"", monto:"", categoria:"insumos", fecha:todayKey(), isFixed: false, fixedGroupId: undefined })
     setGastoModal(false)
   }
   const editGasto   = (g) => { setGastoForm({ descripcion:g.descripcion, monto:g.monto, categoria:g.categoria, fecha:g.fecha, isFixed: !!g.isFixed, fixedGroupId: g.fixedGroupId }); setEditGastoId(g.id); setGastoModal(true) }
@@ -1917,6 +1969,53 @@ export default function ContabilidadView({
             </div>
           )}
 
+          {/* Barra de Filtros y Ordenamiento */}
+          {gastosRange.length > 0 && (
+            <div style={{ background: C.white, borderRadius: 14, padding: "12px 16px", border: `1px solid ${C.border}`, marginBottom: 16, display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center", flex: 1, minWidth: 260 }}>
+                {/* Buscador */}
+                <div style={{ position: "relative", flex: 1, minWidth: 180 }}>
+                  <input 
+                    type="text" 
+                    value={gastoSearchQuery} 
+                    onChange={e => setGastoSearchQuery(e.target.value)} 
+                    placeholder="🔍 Buscar gasto..." 
+                    style={{ ...inputStyle, padding: "8px 12px", fontSize: 12, borderRadius: 10 }} 
+                  />
+                </div>
+
+                {/* Categoría */}
+                <select 
+                  value={gastoCategoryFilter} 
+                  onChange={e => setGastoCategoryFilter(e.target.value)} 
+                  style={{ ...inputStyle, padding: "8px 12px", fontSize: 12, borderRadius: 10, cursor: "pointer", width: "auto" }}
+                >
+                  <option value="todas">📁 Todas las categorías</option>
+                  {GASTO_CATS.map(cat => (
+                    <option key={cat.id} value={cat.id}>{cat.icon} {cat.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Ordenamiento */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 11, color: C.textSoft, fontWeight: "bold" }}>Ordenar por:</span>
+                <select 
+                  value={gastoSortBy} 
+                  onChange={e => setGastoSortBy(e.target.value)} 
+                  style={{ ...inputStyle, padding: "8px 12px", fontSize: 12, borderRadius: 10, cursor: "pointer", width: "auto" }}
+                >
+                  <option value="fecha-desc">📅 Fecha (Más reciente primero)</option>
+                  <option value="fecha-asc">📅 Fecha (Más antiguo primero)</option>
+                  <option value="monto-desc">💵 Monto (Mayor a Menor)</option>
+                  <option value="monto-asc">💵 Monto (Menor a Mayor)</option>
+                  <option value="nombre-asc">🔤 Nombre (A - Z)</option>
+                  <option value="nombre-desc">🔤 Nombre (Z - A)</option>
+                </select>
+              </div>
+            </div>
+          )}
+
           {/* Bar chart gastos por categoría */}
           {gastosRange.length > 0 && (
             <div style={{ background:C.white, borderRadius:14, padding:"16px 18px", border:`1px solid ${C.border}`, marginBottom:16 }}>
@@ -1942,27 +2041,34 @@ export default function ContabilidadView({
 
           {gastosRange.length===0
             ? <div style={{ textAlign:"center", color:C.textSoft, fontSize:13, padding:40 }}>Sin gastos en este período</div>
-            : <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-                {gastosRange.sort((a,b)=>b.fecha.localeCompare(a.fecha)).map(g => {
-                  const cat = GASTO_CATS.find(c=>c.id===g.categoria)
-                  return (
-                    <div key={g.id} style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:12, padding:"10px 14px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                      <div>
-                        <div style={{ fontSize:13, color:C.text, display: "flex", alignItems: "center", gap: 6 }}>
-                          {g.descripcion}
-                          {g.isFixed && <span title="Gasto Fijo Mensual" style={{ fontSize: 11 }}>📌</span>}
+            : processedGastos.length===0
+              ? <div style={{ textAlign:"center", color:C.textSoft, fontSize:13, padding:40, background:C.white, borderRadius:14, border:`1px solid ${C.border}` }}>
+                  No se encontraron gastos que coincidan con la búsqueda o filtro aplicados.
+                  <div style={{ marginTop:10 }}>
+                    <button onClick={() => { setGastoSearchQuery(""); setGastoCategoryFilter("todas"); }} style={{ padding:"6px 14px", borderRadius:8, border:`1px solid ${C.border}`, background:C.white, fontSize:11, cursor:"pointer" }}>Restablecer filtros</button>
+                  </div>
+                </div>
+              : <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                  {processedGastos.map(g => {
+                    const cat = GASTO_CATS.find(c=>c.id===g.categoria)
+                    return (
+                      <div key={g.id} style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:12, padding:"10px 14px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                        <div>
+                          <div style={{ fontSize:13, color:C.text, display: "flex", alignItems: "center", gap: 6 }}>
+                            {g.descripcion}
+                            {g.isFixed && <span title="Gasto Fijo Mensual" style={{ fontSize: 11 }}>📌</span>}
+                          </div>
+                          <div style={{ fontSize:10, color:C.textSoft, marginTop:2 }}>{g.fecha} · {cat?.icon} {cat?.label}</div>
                         </div>
-                        <div style={{ fontSize:10, color:C.textSoft, marginTop:2 }}>{g.fecha} · {cat?.icon} {cat?.label}</div>
+                        <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+                          <div style={{ fontSize:15, fontWeight:"bold", color:C.orange }}>{fmt(g.monto)}</div>
+                          <button onClick={()=>editGasto(g)} style={{ padding:"3px 8px", borderRadius:7, border:`1px solid ${C.border}`, background:C.white, fontSize:10, cursor:"pointer" }}>✏️</button>
+                          <button onClick={()=>deleteGasto(g.id)} style={{ padding:"3px 8px", borderRadius:7, border:"none", background:"#fde8e8", color:"#c04040", fontSize:10, cursor:"pointer" }}>🗑️</button>
+                        </div>
                       </div>
-                      <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-                        <div style={{ fontSize:15, fontWeight:"bold", color:C.orange }}>{fmt(g.monto)}</div>
-                        <button onClick={()=>editGasto(g)} style={{ padding:"3px 8px", borderRadius:7, border:`1px solid ${C.border}`, background:C.white, fontSize:10, cursor:"pointer" }}>✏️</button>
-                        <button onClick={()=>deleteGasto(g.id)} style={{ padding:"3px 8px", borderRadius:7, border:"none", background:"#fde8e8", color:"#c04040", fontSize:10, cursor:"pointer" }}>🗑️</button>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
+                    )
+                  })}
+                </div>
           }
         </div>
       )}
