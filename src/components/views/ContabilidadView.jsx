@@ -1337,7 +1337,7 @@ export default function ContabilidadView({
                 return (
                   <div 
                     key="comparison"
-                    className="chart-card-zoom"
+                    className="chart-card-zoom no-scrollbar"
                     onClick={() => setActiveZoomedChart("comparison")}
                     draggable={isDesktop}
                     onDragStart={(e) => handleDragStart(e, "comparison")}
@@ -3063,7 +3063,7 @@ export default function ContabilidadView({
                "Rendimiento por Día de Semana"}
             </ModalHeader>
 
-            <div style={{ margin: "20px 0", width: "100%", overflowX: "auto" }}>
+            <div className="no-scrollbar" style={{ margin: "20px 0", width: "100%", overflowX: "auto" }}>
               {activeZoomedChart === "prof" && (() => {
                 // Expanded Line SVG chart
                 const zoomWidth = 960
@@ -3077,7 +3077,7 @@ export default function ContabilidadView({
                 return (
                   <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
                     {/* Top: SVG container */}
-                    <div style={{ 
+                    <div className="no-scrollbar" style={{ 
                       width: "100%", 
                       background: C.cream, 
                       borderRadius: 14, 
@@ -3218,7 +3218,7 @@ export default function ContabilidadView({
                 // Expanded Daily Activity chart
                 return (
                   <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                    <div style={{ 
+                    <div className="no-scrollbar" style={{ 
                       background: C.cream, 
                       borderRadius: 14, 
                       padding: "24px 20px 30px", 
@@ -3506,7 +3506,7 @@ export default function ContabilidadView({
                       </div>
                     </div>
 
-                    <div style={{ width: "100%", background: C.cream, borderRadius: 14, padding: "20px 14px", border: `1.5px solid ${C.border}`, overflowX: "auto" }}>
+                    <div className="no-scrollbar" style={{ width: "100%", background: C.cream, borderRadius: 14, padding: "20px 14px", border: `1.5px solid ${C.border}`, overflowX: "auto" }}>
                       <svg viewBox={`0 0 ${zoomWidth} ${zoomHeight}`} style={{ width: "100%", minWidth: 480, height: "auto", display: "block" }}>
                         {gridPoints.map((yVal, idx) => {
                           const value = Math.round(maxVal - (idx / 5) * maxVal)
