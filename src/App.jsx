@@ -936,8 +936,43 @@ export default function App() {
           const accentColor = isIngreso ? C.green : C.orange
           return (
             <>
-              <div onClick={() => setQuickGastoModal(false)} style={{ position: "fixed", inset: 0, zIndex: 299 }} />
-              <div onClick={e => e.stopPropagation()} style={{ position: "fixed", bottom: 76, right: 12, width: 330, maxWidth: "92vw", zIndex: 300, background: "rgba(255, 255, 255, 0.65)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", borderRadius: 16, border: `1.5px solid rgba(205, 224, 208, 0.6)`, boxShadow: "0 12px 40px rgba(58,125,68,.18)", padding: "16px 20px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
+              <div 
+                onClick={() => setQuickGastoModal(false)} 
+                style={{ 
+                  position: "fixed", 
+                  inset: 0, 
+                  zIndex: 299, 
+                  background: "rgba(20,40,24,.38)", 
+                  backdropFilter: "blur(5px)", 
+                  WebkitBackdropFilter: "blur(5px)",
+                  animation: "fadeIn .18s ease" 
+                }} 
+              />
+              <div 
+                onClick={e => e.stopPropagation()} 
+                style={{ 
+                  position: "fixed", 
+                  top: "50%", 
+                  left: "50%", 
+                  transform: "translate(-50%, -50%)", 
+                  width: 340, 
+                  maxWidth: "92vw", 
+                  maxHeight: "85vh", 
+                  overflowY: "auto", 
+                  zIndex: 300, 
+                  background: "rgba(255, 255, 255, 0.88)", 
+                  backdropFilter: "blur(24px) saturate(190%)", 
+                  WebkitBackdropFilter: "blur(24px) saturate(190%)", 
+                  borderRadius: 22, 
+                  border: `1.5px solid rgba(205, 224, 208, 0.8)`, 
+                  boxShadow: "0 20px 60px rgba(0, 0, 0, 0.22)", 
+                  padding: "20px 20px 20px", 
+                  display: "flex", 
+                  flexDirection: "column", 
+                  gap: 12,
+                  animation: "slideUp .2s cubic-bezier(0.16, 1, 0.3, 1)"
+                }}
+              >
                 {/* Close & Header */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div style={{ fontSize: 13, color: C.text, fontWeight: "bold", display: "flex", alignItems: "center", gap: 6 }}>
@@ -1076,8 +1111,11 @@ export default function App() {
         position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 100,
         flexShrink: 0,
         justifyContent: "space-around", alignItems: "stretch",
-        background: C.white, borderTop: `2px solid ${C.greenMint}`,
-        height: 62, boxShadow: "0 -4px 20px rgba(58,125,68,.10)",
+        background: (config?.liquidGlass ?? true) ? "rgba(255, 255, 255, 0.45)" : C.white,
+        backdropFilter: (config?.liquidGlass ?? true) ? "blur(30px) saturate(200%)" : "none",
+        WebkitBackdropFilter: (config?.liquidGlass ?? true) ? "blur(30px) saturate(200%)" : "none",
+        borderTop: (config?.liquidGlass ?? true) ? "none" : `1px solid ${C.border}`,
+        height: 62, boxShadow: (config?.liquidGlass ?? true) ? "0 -4px 30px rgba(0, 0, 0, 0.03)" : `0 -4px 20px ${C.shadow}`,
         paddingBottom: "env(safe-area-inset-bottom)",
       }}>
         {[
