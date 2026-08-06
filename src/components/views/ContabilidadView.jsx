@@ -923,7 +923,7 @@ export default function ContabilidadView({
   const TABS = [{ id:"resumen", label:"📊 Resumen" }, { id:"diario", label:"📅 Detalle Diario" }, { id:"gastos", label:"💸 Gastos" }, { id:"sueldos", label:"👩 Sueldos" }]
 
   return (
-    <div style={{ width:"100%", maxWidth:1440, margin:"0 auto", padding:"20px 24px 160px", boxSizing:"border-box" }}>
+    <div style={{ width:"100%", maxWidth:1440, margin:"0 auto", padding: isDesktop ? "20px 24px 160px" : "14px 12px 140px", boxSizing:"border-box", overflowX: "hidden" }}>
       <style dangerouslySetInnerHTML={{ __html: `
         .chart-card-zoom {
           transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
@@ -1010,11 +1010,11 @@ export default function ContabilidadView({
 
       {/* ── RESUMEN ── */}
       {seccion==="resumen" && (
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(min(100%, 400px), 1fr))", gap:20, alignItems:"start" }}>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(min(100%, 340px), 1fr))", gap:20, alignItems:"start" }}>
 
           {/* Col 1: KPIs & Totals */}
           <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(200px, 1fr))", gap:14 }}>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(min(100%, 150px), 1fr))", gap: isDesktop ? 14 : 10 }}>
               {(() => {
                 const fmtUSD = (v) => "US$ " + Math.round(v).toLocaleString("es-AR")
                 return [
@@ -1711,7 +1711,7 @@ export default function ContabilidadView({
 
           {/* Capsules for fixed expenses */}
           {fixedGastosSummary.length > 0 && (
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(200px, 1fr))", gap:14, marginBottom:20 }}>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(min(100%, 160px), 1fr))", gap:14, marginBottom:20 }}>
               {fixedGastosSummary.map((item, idx) => {
                 const catInfo = GASTO_CATS.find(c => c.id === item.categoria)
                 const emoji = catInfo?.icon || "📌"
@@ -1826,7 +1826,7 @@ export default function ContabilidadView({
                 </div>
 
                 {/* Grid details */}
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 12, borderTop: `1px solid ${C.border}`, paddingTop: 12 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 110px), 1fr))", gap: 12, borderTop: `1px solid ${C.border}`, paddingTop: 12 }}>
                   <div>
                     <div style={{ fontSize: 9, color: C.textSoft, textTransform: "uppercase" }}>Ingresos Totales</div>
                     <div style={{ fontSize: 13, fontWeight: "bold", color: C.green }}>{fmt(totalIncome)}</div>
@@ -2084,7 +2084,7 @@ export default function ContabilidadView({
           </div>
 
           {/* Grid de profesionales */}
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(280px, 1fr))", gap:14 }}>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(min(100%, 280px), 1fr))", gap:14 }}>
             {safeProfessionals
               .filter(p => {
                 const sueldoStartMonth = sueldoPeriod + "-01"

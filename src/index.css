@@ -102,6 +102,7 @@ select {
 .main-content {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -324,6 +325,8 @@ select {
 .pv-view {
   animation: pvFade 0.2s ease forwards;
   scrollbar-gutter: stable;
+  overflow-x: hidden;
+  max-width: 100vw;
 }
 
 .pv-bg {

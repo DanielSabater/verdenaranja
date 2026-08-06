@@ -910,7 +910,7 @@ export default function App() {
         )}
 
         {activeView === "contabilidad" && (
-          <div key="v-cont" className="pv-view pv-bg" style={{ overflowY: "auto", flex: 1, paddingTop: 72 }}><ContabilidadView
+          <div key="v-cont" className="pv-view pv-bg" style={{ overflowY: "auto", overflowX: "hidden", flex: 1, paddingTop: 72 }}><ContabilidadView
             allData={allData} professionals={config.professionals} comisionPct={comisionPct}
             services={config.services} config={config}
             gastos={gastos} setGastos={setGastos}
@@ -925,8 +925,8 @@ export default function App() {
           /></div>
         )}
 
-        {activeView === "config" && <div key="v-cfg" className="pv-view pv-bg" style={{ overflowY: "auto", flex: 1, paddingTop: 72 }}><ConfigView config={config} setConfig={setConfig} allData={allData} gastos={gastos} sueldos={sueldos} clientes={clientes} onLogout={handleLogout} /></div>}
-        {activeView === "clientes" && <div key="v-cli" className="pv-view pv-bg" style={{ overflowY: "auto", flex: 1, paddingTop: 72 }}><ClientesView clientes={clientes} setClientes={setClientes} allData={allData} /></div>}
+        {activeView === "config" && <div key="v-cfg" className="pv-view pv-bg" style={{ overflowY: "auto", overflowX: "hidden", flex: 1, paddingTop: 72 }}><ConfigView config={config} setConfig={setConfig} allData={allData} gastos={gastos} sueldos={sueldos} clientes={clientes} onLogout={handleLogout} /></div>}
+        {activeView === "clientes" && <div key="v-cli" className="pv-view pv-bg" style={{ overflowY: "auto", overflowX: "hidden", flex: 1, paddingTop: 72 }}><ClientesView clientes={clientes} setClientes={setClientes} allData={allData} /></div>}
 
 
         {/* Bottom nav (mobile) */}
