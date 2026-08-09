@@ -941,32 +941,27 @@ export default function App() {
                 style={{ 
                   position: "fixed", 
                   inset: 0, 
-                  zIndex: 299, 
-                  background: "rgba(20,40,24,.38)", 
-                  backdropFilter: "blur(5px)", 
-                  WebkitBackdropFilter: "blur(5px)",
-                  animation: "fadeIn .18s ease" 
+                  zIndex: 299 
                 }} 
               />
               <div 
                 onClick={e => e.stopPropagation()} 
                 style={{ 
                   position: "fixed", 
-                  top: "50%", 
-                  left: "50%", 
-                  transform: "translate(-50%, -50%)", 
-                  width: 340, 
+                  bottom: 76, 
+                  right: 16, 
+                  width: 330, 
                   maxWidth: "92vw", 
                   maxHeight: "85vh", 
                   overflowY: "auto", 
                   zIndex: 300, 
-                  background: "rgba(255, 255, 255, 0.88)", 
-                  backdropFilter: "blur(24px) saturate(190%)", 
-                  WebkitBackdropFilter: "blur(24px) saturate(190%)", 
-                  borderRadius: 22, 
+                  background: "rgba(255, 255, 255, 0.95)", 
+                  backdropFilter: "blur(20px)", 
+                  WebkitBackdropFilter: "blur(20px)", 
+                  borderRadius: 18, 
                   border: `1.5px solid rgba(205, 224, 208, 0.8)`, 
-                  boxShadow: "0 20px 60px rgba(0, 0, 0, 0.22)", 
-                  padding: "20px 20px 20px", 
+                  boxShadow: "0 12px 40px rgba(0, 0, 0, 0.18)", 
+                  padding: "16px 20px 20px", 
                   display: "flex", 
                   flexDirection: "column", 
                   gap: 12,
