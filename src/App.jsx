@@ -482,7 +482,6 @@ export default function App() {
   const modalProfRama = String(modalProf?.rama || "manos").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
 
   const filteredServices = services
-    .filter(s => String(s.rama || "manos").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") === modalProfRama)
     .filter(s => (filterCat === "all" || s.category === filterCat) && s.name.toLowerCase().includes(searchTerm.toLowerCase()))
     .sort((a, b) => (serviceCounts[b.id] || 0) - (serviceCounts[a.id] || 0))
   const modalSubtotal = chosenServices.reduce((s, sv) => s + sv.price, 0)
