@@ -400,7 +400,7 @@ export default function ContabilidadView({
       Object.values(safeDayData).forEach(appt => {
         if (!appt?.paid) return
         const t = apptPaidTotal(appt)
-        const comi = apptComisionTotal(appt, comisionPct, safeServices, config?.dateExceptions || {}, dk)
+        const comi = apptComisionTotal(appt, comisionPct, safeServices, config?.dateExceptions || {}, dk, professionals)
         total += t
         turns += 1
         byProf[appt.profId] = (byProf[appt.profId] || 0) + t
@@ -570,7 +570,7 @@ export default function ContabilidadView({
             const apptTotalPaid = apptPaidTotal(appt)
             profMap[profId].total += apptTotalPaid
             profMap[profId].comisionable += apptComisionableTotal(appt)
-            profMap[profId].comision += apptComisionTotal(appt, comisionPct, safeServices, config?.dateExceptions || {}, dk)
+            profMap[profId].comision += apptComisionTotal(appt, comisionPct, safeServices, config?.dateExceptions || {}, dk, professionals)
             
             if (appt.paymentSplits?.length) {
               appt.paymentSplits.forEach(s => {
@@ -779,7 +779,7 @@ export default function ContabilidadView({
       let dayComisionTotal = 0
       Object.values(dayData || {}).forEach(appt => {
         if (appt?.paid) {
-          dayComisionTotal += apptComisionTotal(appt, comisionPct, safeServices, config?.dateExceptions || {}, dk)
+          dayComisionTotal += apptComisionTotal(appt, comisionPct, safeServices, config?.dateExceptions || {}, dk, professionals)
         }
       })
 
@@ -908,7 +908,7 @@ export default function ContabilidadView({
       Object.values(safeDayData).forEach(appt => {
         if (appt?.paid && appt.profId === profId) {
           dayFacturado += apptPaidTotal(appt)
-          dayComision += apptComisionTotal(appt, comisionPct, safeServices, config?.dateExceptions || {}, dk)
+          dayComision += apptComisionTotal(appt, comisionPct, safeServices, config?.dateExceptions || {}, dk, professionals)
           dayPropinas  += appt.tip || 0
           dayTurnos++
           
@@ -919,7 +919,7 @@ export default function ContabilidadView({
             hour: appt.hour || "--:--",
             services: appt.services || [],
             amount: apptPaidTotal(appt),
-            comision: apptComisionTotal(appt, comisionPct, safeServices, config?.dateExceptions || {}, dk)
+            comision: apptComisionTotal(appt, comisionPct, safeServices, config?.dateExceptions || {}, dk, professionals)
           })
         }
       })
@@ -955,7 +955,7 @@ export default function ContabilidadView({
       Object.values(safeDayData).forEach(appt => {
         if (appt?.paid && appt.profId === profId) {
           facturado += apptPaidTotal(appt)
-          comision += apptComisionTotal(appt, comisionPct, safeServices, config?.dateExceptions || {}, dk)
+          comision += apptComisionTotal(appt, comisionPct, safeServices, config?.dateExceptions || {}, dk, professionals)
           propinas  += appt.tip || 0
           turnos++
           diasSet.add(dk)

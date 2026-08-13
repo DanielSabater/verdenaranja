@@ -24,6 +24,7 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
   const [selectedExcDate, setSelectedExcDate] = useState(null)
   const [selectedExcPct,  setSelectedExcPct]  = useState("")
   const [calOpen,         setCalOpen]         = useState(false)
+  const [savedProfField,  setSavedProfField]  = useState(null)
 
   // Safety guard
   const profs    = config?.professionals || []
@@ -58,8 +59,14 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
   const updateConfig  = (field, value) => setConfig(p => ({ ...p, [field]: value }));
 
   // ── Professionals ────────────────────────────────────────────────────────
-  const updateProf = (id, field, value) =>
-    setConfig(p => ({ ...p, professionals: p.professionals.map(pr => pr.id===id ? {...pr,[field]:value} : pr) }));
+  const updateProf = (id, field, value) => {
+    setConfig(p => ({ ...p, professionals: p.professionals.map(pr => pr.id===id ? {...pr,[field]:value} : pr) }))
+    const fieldKey = `${id}-${field}`
+    setSavedProfField(fieldKey)
+    setTimeout(() => {
+      setSavedProfField(prev => prev === fieldKey ? null : prev)
+    }, 1800)
+  }
 
   const addProf = () => {
     const newId = Date.now();
@@ -279,10 +286,10 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
         <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
           {profs.filter(p => !p.deletedAt).map((prof, idx) => (
             <SectionCard key={prof.id}>
-              <div style={{ display:"flex", alignItems:"center", gap:14, flexWrap:"wrap" }}>
+              <div style={{ display:"flex", alignItems:"flex-end", gap:12, flexWrap:"wrap" }}>
                 <div style={{ textAlign:"center", flexShrink:0 }}>
                   <div onClick={()=>setEmojiPicker(emojiPicker===prof.id?null:prof.id)} style={{
-                    width:52,height:52,borderRadius:"50%",cursor:"pointer",
+                    width:48,height:48,borderRadius:"50%",cursor:"pointer",
                     background:`linear-gradient(135deg,${C.greenPale},${C.greenMint})`,
                     border:`2px solid ${emojiPicker===prof.id?C.green:C.border}`,
                     display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,
@@ -291,18 +298,53 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
                   <div style={{ fontSize:7,color:C.textSoft,marginTop:3,letterSpacing:"1px" }}>ÍCONO</div>
                 </div>
 
-                <div style={{ flex:2, minWidth:160 }}>
-                  <label style={cfgLabel}>Nombre</label>
-                  <input value={prof.name} onChange={e=>updateProf(prof.id,"name",e.target.value)}
-                    style={cfgInput} placeholder="Nombre de la profesional" />
+                <div style={{ flex: "2 1 180px", minWidth: 160 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
+                    <label style={{ ...cfgLabel, marginBottom: 0 }}>Nombre</label>
+                    {savedProfField === `${prof.id}-name` && (
+                      <span style={{ fontSize: 9, color: C.green, fontWeight: "bold", background: "#dcfce7", padding: "1px 6px", borderRadius: 4, letterSpacing: "0.5px", animation: "fadeIn .2s" }}>
+                        ✓ Guardado
+                      </span>
+                    )}
+                  </div>
+                  <input
+                    value={prof.name}
+                    onChange={e=>updateProf(prof.id,"name",e.target.value)}
+                    style={{
+                      ...cfgInput,
+                      borderColor: savedProfField === `${prof.id}-name` ? C.green : C.border,
+                      transition: "all .2s"
+                    }}
+                    placeholder="Nombre de la profesional"
+                  />
                 </div>
 
-                <div style={{ flex:1, minWidth:140 }}>
-                  <label style={cfgLabel}>Rama / Especialidad</label>
+                <div style={{ flex: "1.2 1 140px", minWidth: 135 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
+                    <label style={{ ...cfgLabel, marginBottom: 0 }}>Rama / Especialidad</label>
+                    {savedProfField === `${prof.id}-rama` && (
+                      <span style={{ fontSize: 9, color: C.green, fontWeight: "bold", background: "#dcfce7", padding: "1px 6px", borderRadius: 4, letterSpacing: "0.5px" }}>
+                        ✓ Guardado
+                      </span>
+                    )}
+                  </div>
                   <select
                     value={prof.rama || "manos"}
                     onChange={e => updateProf(prof.id, "rama", e.target.value)}
-                    style={{ ...cfgInput, cursor: "pointer" }}
+                    style={{
+                      ...cfgInput,
+                      cursor: "pointer",
+                      borderRadius: 10,
+                      borderColor: savedProfField === `${prof.id}-rama` ? C.green : C.border,
+                      appearance: "none",
+                      WebkitAppearance: "none",
+                      MozAppearance: "none",
+                      backgroundImage: `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="%23718096" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>')`,
+                      backgroundRepeat: "no-repeat",
+                      backgroundPosition: "right 10px center",
+                      paddingRight: "28px",
+                      transition: "all .2s"
+                    }}
                   >
                     {uniqueRamas.map(r => (
                       <option key={r} value={r}>{getDatalistLabel(r)}</option>
@@ -310,13 +352,70 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
                   </select>
                 </div>
 
+                <div style={{ width: 125, flex: "0 0 125px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
+                    <label style={{ ...cfgLabel, marginBottom: 0 }}>% Comisión</label>
+                    {savedProfField === `${prof.id}-comisionPct` && (
+                      <span style={{ fontSize: 9, color: C.green, fontWeight: "bold", background: "#dcfce7", padding: "1px 6px", borderRadius: 4, letterSpacing: "0.5px" }}>
+                        ✓ Guardado
+                      </span>
+                    )}
+                  </div>
+                  {(() => {
+                    const hasCustom = prof.comisionPct !== undefined && prof.comisionPct !== null && prof.comisionPct !== ""
+                    const isSaved = savedProfField === `${prof.id}-comisionPct`
+                    return (
+                      <div style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        border: `1.5px solid ${isSaved ? C.green : (hasCustom ? C.greenMint : C.border)}`,
+                        borderRadius: 10,
+                        background: hasCustom ? C.greenPale : C.cream,
+                        height: 36,
+                        padding: "0 8px",
+                        boxSizing: "border-box",
+                        transition: "all .2s ease",
+                        boxShadow: isSaved ? `0 0 0 3px ${C.greenPale}` : "none"
+                      }}>
+                        <input
+                          type="number"
+                          min={0}
+                          max={100}
+                          style={{
+                            ...cfgInput,
+                            border: "none",
+                            background: "transparent",
+                            padding: 0,
+                            height: "100%",
+                            width: "55px",
+                            textAlign: "center",
+                            fontWeight: hasCustom ? "bold" : "normal",
+                            color: hasCustom ? C.green : C.text,
+                            fontSize: 12
+                          }}
+                          placeholder={`${config.comisionPct}`}
+                          value={hasCustom ? prof.comisionPct : ""}
+                          onChange={e => {
+                            const val = parseFloat(e.target.value)
+                            updateProf(prof.id, "comisionPct", isNaN(val) ? null : val)
+                          }}
+                        />
+                        <span style={{ fontSize: 11, color: hasCustom ? C.green : C.textSoft, fontWeight: "bold" }}>%</span>
+                      </div>
+                    )
+                  })()}
+                </div>
+
                 <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                  <div style={{ background:C.greenPale, border:`1px solid ${C.greenMint}`, borderRadius:8, padding:"4px 10px", fontSize:11, color:C.textSoft }}>
+                  <div style={{ height: 36, display: "flex", alignItems: "center", justifyContent: "center", background: C.greenPale, border: `1px solid ${C.greenMint}`, borderRadius: 9, padding: "0 12px", fontSize: 11, fontWeight: "bold", color: C.green, boxSizing: "border-box" }}>
                     #{idx+1}
                   </div>
                   <button onClick={()=>removeProf(prof.id)} title="Dar de baja o eliminar profesional" style={{
-                    width:32,height:32,borderRadius:"50%",border:"none",
+                    width:36,height:36,borderRadius:9,border:"none",
                     background:"#fde8e8",color:"#c04040",fontSize:14,cursor:"pointer",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    transition: "all .15s"
                   }}>✕</button>
                 </div>
               </div>
@@ -1778,20 +1877,20 @@ function CfgField({ label, children }) {
 
 const cfgLabel = { fontSize:8, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase", display:"block", marginBottom:5 };
 const cfgInput = {
-  width:"100%", padding:"8px 11px",
-  border:`1.5px solid ${C.border}`, borderRadius:9,
+  width:"100%", height: 36, padding:"0 11px",
+  border:`1.5px solid ${C.border}`, borderRadius:10,
   fontSize:12, color:C.text, background:C.cream,
   outline:"none", fontFamily:"Georgia,serif",
-  transition:"border-color .2s",
+  transition:"border-color .2s", boxSizing: "border-box"
 };
 
 const rowInputStyle = {
   width: "100%",
-  height: 34,
+  height: 36,
   padding: "0 10px",
   border: `1.5px solid ${C.border}`,
-  borderRadius: 9,
-  fontSize: 11,
+  borderRadius: 10,
+  fontSize: 12,
   color: C.text,
   background: C.cream,
   outline: "none",

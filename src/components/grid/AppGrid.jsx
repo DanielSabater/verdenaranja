@@ -1327,7 +1327,8 @@ export function AppGrid({
                 {sortedAppts.length > 0 && (() => {
                   const totalWorked = sortedAppts.reduce((sumVal, a) => sumVal + apptPaidTotal(a), 0)
                   const totalComisionable = sortedAppts.reduce((sumVal, a) => sumVal + apptComisionableTotal(a), 0)
-                  const totalEarned = sortedAppts.reduce((sumVal, a) => sumVal + apptComisionTotal(a, comisionPct, services), 0)
+                  const effComisionPct = (prof?.comisionPct !== undefined && prof?.comisionPct !== null && prof?.comisionPct !== "") ? parseFloat(prof.comisionPct) : comisionPct
+                  const totalEarned = sortedAppts.reduce((sumVal, a) => sumVal + apptComisionTotal(a, comisionPct, services, config?.dateExceptions || {}, currentDate, [prof]), 0)
                   return (
                     <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 16 }}>
                       <div style={{ 
@@ -1357,7 +1358,7 @@ export function AppGrid({
                         alignItems: "center"
                       }}>
                         <span style={{ fontSize: 11, fontWeight: "bold", color: C.green, letterSpacing: "1px" }}>
-                          COMISIÓN ({comisionPct}%):
+                          COMISIÓN ({effComisionPct}%):
                         </span>
                         <span style={{ fontSize: 16, fontWeight: "bold", color: C.green }}>
                           {fmt(totalEarned)}

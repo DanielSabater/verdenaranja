@@ -443,7 +443,7 @@ export default function App() {
   )
   const totalByProf = useCallback((pId) => paidAppts.filter(a => a.profId === pId).reduce((s, a) => s + apptPaidTotal(a), 0), [paidAppts])
   const comisionableByProf = useCallback((pId) => paidAppts.filter(a => a.profId === pId).reduce((s, a) => s + apptComisionableTotal(a), 0), [paidAppts])
-  const earningsByProf = useCallback((pId) => paidAppts.filter(a => a.profId === pId).reduce((s, a) => s + apptComisionTotal(a, comisionPct, services, config.dateExceptions || {}, currentDate), 0), [paidAppts, comisionPct, services, config.dateExceptions, currentDate])
+  const earningsByProf = useCallback((pId) => paidAppts.filter(a => a.profId === pId).reduce((s, a) => s + apptComisionTotal(a, comisionPct, services, config.dateExceptions || {}, currentDate, config.professionals), 0), [paidAppts, comisionPct, services, config.dateExceptions, currentDate, config.professionals])
   const totalByMethod = useCallback((mid) => {
     const base = paidAppts.reduce((s, a) => {
       if (a.paymentSplits?.length) {

@@ -39,7 +39,7 @@ export const apptComisionableTotal = (a) => {
   return Math.round(comiSvc * ratio)
 }
 
-export const apptComisionTotal = (a, globalComisionPct, activeServices = [], dateExceptions = {}, apptDate = null) => {
+export const apptComisionTotal = (a, globalComisionPct, activeServices = [], dateExceptions = {}, apptDate = null, professionals = []) => {
   if (a?.isBlocked) return 0
   const services = Array.isArray(a?.services) ? a.services : []
   const totalSvc = services.reduce((s, sv) => s + (sv?.price || 0), 0)
@@ -48,8 +48,20 @@ export const apptComisionTotal = (a, globalComisionPct, activeServices = [], dat
   const paidTotal = apptPaidTotal(a)
   const ratio = paidTotal / totalSvc
 
+  // Professional specific commission percentage override if defined
+  let basePct = globalComisionPct
+  if (Array.isArray(professionals) && a?.profId) {
+    const prof = professionals.find(p => String(p.id) === String(a.profId))
+    if (prof && prof.comisionPct !== undefined && prof.comisionPct !== null && prof.comisionPct !== "") {
+      const parsed = parseFloat(prof.comisionPct)
+      if (!isNaN(parsed)) {
+        basePct = parsed
+      }
+    }
+  }
+
   // Check if there is a commission exception for this date
-  let comisionPctToUse = globalComisionPct
+  let comisionPctToUse = basePct
   if (apptDate && dateExceptions && typeof dateExceptions === "object" && dateExceptions[apptDate] !== undefined) {
     comisionPctToUse = parseFloat(dateExceptions[apptDate])
   }
