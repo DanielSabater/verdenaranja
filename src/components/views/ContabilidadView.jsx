@@ -94,6 +94,7 @@ export default function ContabilidadView({
 
   const [gastoSortBy, setGastoSortBy] = useState("fecha-desc")
   const [gastoCategoryFilter, setGastoCategoryFilter] = useState("todas")
+  const [gastoStatusFilter, setGastoStatusFilter] = useState("todos")
   const [gastoSearchQuery, setGastoSearchQuery] = useState("")
 
   const [isDesktop, setIsDesktop] = useState(typeof window !== "undefined" ? window.innerWidth > 768 : true)
@@ -189,13 +190,22 @@ export default function ContabilidadView({
 
       if (!originalInstance) return
 
+      const totalCuotas = originalInstance.totalCuotas ? Number(originalInstance.totalCuotas) : null
       const [startYear, startMonth] = originalInstance.fecha.split("-").map(Number)
       const skippedMonths = originalInstance.skippedMonths || []
 
       let tempYear = startYear
       let tempMonth = startMonth - 1 // 0-indexed
+      let monthIndex = 0
 
       while (tempYear < currentYear || (tempYear === currentYear && tempMonth <= currentMonth)) {
+        monthIndex++
+
+        // Si se especificó una cantidad total de cuotas, detener la generación al cumplirse
+        if (totalCuotas && monthIndex > totalCuotas) {
+          break
+        }
+
         const monthKey = `${tempYear}-${String(tempMonth + 1).padStart(2, "0")}`
         const isSkipped = skippedMonths.includes(monthKey)
         const exists = newGastos.some(g => g.fixedGroupId == groupId && g.fecha.startsWith(monthKey))
@@ -211,6 +221,7 @@ export default function ContabilidadView({
             categoria: baseInstance.categoria,
             fecha: newFecha,
             isFixed: true,
+            totalCuotas: totalCuotas || undefined,
             fixedGroupId: Number(groupId),
             skippedMonths: []
           })
@@ -438,27 +449,50 @@ export default function ContabilidadView({
   const realNetResult = totalIncome - totalGastos - totalComisiones
   const maxProf      = Math.max(...safeProfessionals.map(p => incomeByProf[p.id]||0), 1)
 
-  const fixedGastosSummary = useMemo(() => {
-    const fixed = gastosRange.filter(g => g.isFixed)
+  const expenseCapsulesSummary = useMemo(() => {
     const grouped = {}
-    fixed.forEach(g => {
-      const desc = g.descripcion.trim() || "Gasto Fijo"
-      if (!grouped[desc]) {
-        grouped[desc] = {
+    gastosRange.forEach(g => {
+      const desc = (g.descripcion || "").trim() || "Gasto"
+      const key = (g.isFixed ? "fixed_" : "var_") + desc + "_" + g.categoria
+      if (!grouped[key]) {
+        grouped[key] = {
+          key,
           descripcion: desc,
           monto: 0,
           categoria: g.categoria,
+          isFixed: !!g.isFixed,
           count: 0,
-          rawInstance: g
+          rawInstance: g,
+          allInstances: []
         }
       }
-      grouped[desc].monto += (parseFloat(g.monto) || 0)
-      grouped[desc].count += 1
-      if (g.fecha > grouped[desc].rawInstance.fecha) {
-        grouped[desc].rawInstance = g
+      grouped[key].monto += (parseFloat(g.monto) || 0)
+      grouped[key].count += 1
+      grouped[key].allInstances.push(g)
+      if (g.fecha > grouped[key].rawInstance.fecha) {
+        grouped[key].rawInstance = g
       }
     })
-    return Object.values(grouped)
+
+    return Object.values(grouped).map(item => ({
+      ...item,
+      saldado: item.allInstances.length > 0 && item.allInstances.every(g => !!g.saldado)
+    }))
+  }, [gastosRange])
+
+  const pendingCapsules = useMemo(() => expenseCapsulesSummary.filter(c => !c.saldado), [expenseCapsulesSummary])
+  const saldadoCapsules = useMemo(() => expenseCapsulesSummary.filter(c => c.saldado), [expenseCapsulesSummary])
+
+  const fixedGastosSummary = useMemo(() => {
+    return expenseCapsulesSummary.filter(c => c.isFixed)
+  }, [expenseCapsulesSummary])
+
+  const totalGastosSaldados = useMemo(() => {
+    return gastosRange.filter(g => !!g.saldado).reduce((s, g) => s + (parseFloat(g.monto) || 0), 0)
+  }, [gastosRange])
+
+  const totalGastosPendientes = useMemo(() => {
+    return gastosRange.filter(g => !g.saldado).reduce((s, g) => s + (parseFloat(g.monto) || 0), 0)
   }, [gastosRange])
 
   const processedGastos = useMemo(() => {
@@ -466,6 +500,12 @@ export default function ContabilidadView({
 
     if (gastoCategoryFilter !== "todas") {
       result = result.filter(g => g.categoria === gastoCategoryFilter)
+    }
+
+    if (gastoStatusFilter === "pendientes") {
+      result = result.filter(g => !g.saldado)
+    } else if (gastoStatusFilter === "saldados") {
+      result = result.filter(g => !!g.saldado)
     }
 
     if (gastoSearchQuery.trim()) {
@@ -503,7 +543,7 @@ export default function ContabilidadView({
     })
 
     return result
-  }, [gastosRange, gastoCategoryFilter, gastoSearchQuery, gastoSortBy])
+  }, [gastosRange, gastoCategoryFilter, gastoStatusFilter, gastoSearchQuery, gastoSortBy])
 
 
   // ── daily summary logic ──────────────────────────────────────────────────
@@ -974,24 +1014,78 @@ export default function ContabilidadView({
   // ── gasto handlers ─────────────────────────────────────────────────────────
   const saveGasto = () => {
     if (!gastoForm.descripcion.trim() || gastoForm.monto === "") return
-    const isFixed = !!gastoForm.isFixed
+    const isCuotas = !!(gastoForm.isCuotas && Number(gastoForm.totalCuotas) > 0)
+    const isFixed = !!gastoForm.isFixed || isCuotas
+    const totalCuotas = isCuotas ? Number(gastoForm.totalCuotas) : undefined
     const fixedGroupId = isFixed ? (gastoForm.fixedGroupId || Date.now()) : undefined
-    const gastoToSave = { ...gastoForm, isFixed, fixedGroupId }
+    const gastoToSave = { 
+      ...gastoForm, 
+      isFixed, 
+      fixedGroupId, 
+      totalCuotas,
+      saldado: !!gastoForm.saldado 
+    }
 
     if (editGastoId) {
-      setGastos(p => p.map(g => g.id===editGastoId ? {...g, ...gastoToSave} : g))
+      setGastos(p => p.map(g => {
+        if (g.id === editGastoId) return { ...g, ...gastoToSave }
+        if (fixedGroupId && g.fixedGroupId === fixedGroupId) {
+          return { ...g, totalCuotas, isFixed, descripcion: gastoToSave.descripcion, categoria: gastoToSave.categoria }
+        }
+        return g
+      }))
       setEditGastoId(null)
     } else {
-      setGastos(p => [...p, { id:Date.now(), ...gastoToSave }])
+      setGastos(p => [...p, { id: Date.now(), ...gastoToSave }])
     }
-    setGastoForm({ descripcion:"", monto:"", categoria:"insumos", fecha:todayKey(), isFixed: false, fixedGroupId: undefined })
+    setGastoForm({ 
+      descripcion: "", 
+      monto: "", 
+      categoria: "insumos", 
+      fecha: todayKey(), 
+      isFixed: false, 
+      fixedGroupId: undefined, 
+      isCuotas: false,
+      totalCuotas: "",
+      saldado: false 
+    })
     setGastoModal(false)
   }
-  const editGasto   = (g) => { setGastoForm({ descripcion:g.descripcion, monto:g.monto, categoria:g.categoria, fecha:g.fecha, isFixed: !!g.isFixed, fixedGroupId: g.fixedGroupId }); setEditGastoId(g.id); setGastoModal(true) }
+
+  const editGasto = (g) => { 
+    setGastoForm({ 
+      descripcion: g.descripcion, 
+      monto: g.monto, 
+      categoria: g.categoria, 
+      fecha: g.fecha, 
+      isFixed: !!g.isFixed, 
+      fixedGroupId: g.fixedGroupId,
+      isCuotas: !!(g.totalCuotas && Number(g.totalCuotas) > 0),
+      totalCuotas: g.totalCuotas || "",
+      saldado: !!g.saldado 
+    })
+    setEditGastoId(g.id)
+    setGastoModal(true) 
+  }
+
   const deleteGasto = (id) => {
     if (window.confirm("¿Estás seguro de que deseas eliminar este gasto?")) {
       setGastos(p => p.filter(g => g.id !== id))
     }
+  }
+
+  const toggleGastoSaldado = (id, e) => {
+    if (e) e.stopPropagation()
+    playClickSound()
+    setGastos(p => p.map(g => g.id === id ? { ...g, saldado: !g.saldado } : g))
+  }
+
+  const toggleCapsuleSaldado = (item, e) => {
+    if (e) e.stopPropagation()
+    playClickSound()
+    const newStatus = !item.saldado
+    const instanceIds = new Set(item.allInstances.map(g => g.id))
+    setGastos(p => p.map(g => instanceIds.has(g.id) ? { ...g, saldado: newStatus } : g))
   }
 
   const pagarSueldo    = (profId) => setSueldos(p => ({ ...p, [sueldoKey(profId)]: { pagado:true, monto:profSueldo(profId).monto, fecha:todayKey() } }))
@@ -1981,61 +2075,118 @@ export default function ContabilidadView({
       {/* ── GASTOS ── */}
       {seccion==="gastos" && (
         <div>
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16, flexWrap: "wrap", gap: 12 }}>
             <div>
-              <div style={{ fontSize:22, color:C.text, fontWeight:"bold" }}>{fmt(totalGastos)}</div>
-              <div style={{ fontSize:10, color:C.textSoft }}>{gastosRange.length} gastos en el período</div>
+              <div style={{ fontSize:22, color:C.text, fontWeight:"bold", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                {fmt(totalGastos)}
+                <span style={{ fontSize: 11, background: "#fff5ed", color: C.orange, padding: "3px 10px", borderRadius: 12, border: `1px solid ${C.orangeLight}` }}>
+                  ⏳ Pendiente: {fmt(totalGastosPendientes)}
+                </span>
+                <span style={{ fontSize: 11, background: "#eaf7ed", color: C.green, padding: "3px 10px", borderRadius: 12, border: `1px solid ${C.greenLight}` }}>
+                  ✅ Saldado: {fmt(totalGastosSaldados)}
+                </span>
+              </div>
+              <div style={{ fontSize:10, color:C.textSoft, marginTop: 4 }}>
+                {gastosRange.length} gastos registrados en el período
+              </div>
             </div>
-            <button onClick={()=>{ setGastoForm({ descripcion:"", monto:"", categoria:"insumos", fecha:todayKey() }); setEditGastoId(null); setGastoModal(true) }} style={{ padding:"9px 18px", borderRadius:12, border:"none", background:`linear-gradient(135deg,${C.orange},${C.orangeLight})`, color:"#fff", fontSize:11, cursor:"pointer", fontFamily:"Georgia,serif" }}>+ Registrar gasto</button>
+            <button onClick={()=>{ setGastoForm({ descripcion:"", monto:"", categoria:"insumos", fecha:todayKey(), isFixed: false, fixedGroupId: undefined, saldado: false }); setEditGastoId(null); setGastoModal(true) }} style={{ padding:"9px 18px", borderRadius:12, border:"none", background:`linear-gradient(135deg,${C.orange},${C.orangeLight})`, color:"#fff", fontSize:11, cursor:"pointer", fontFamily:"Georgia,serif" }}>+ Registrar gasto</button>
           </div>
 
-          {/* Capsules for fixed expenses */}
-          {fixedGastosSummary.length > 0 && (
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(min(100%, 160px), 1fr))", gap:14, marginBottom:20 }}>
-              {fixedGastosSummary.map((item, idx) => {
-                const catInfo = GASTO_CATS.find(c => c.id === item.categoria)
-                const emoji = catInfo?.icon || "📌"
-                const gradients = [
-                  `linear-gradient(135deg, ${C.orange}, ${C.orangeLight})`,
-                  "linear-gradient(135deg, #7c3aed, #a78bfa)",
-                  "linear-gradient(135deg, #1d4ed8, #3b82f6)",
-                  `linear-gradient(135deg, ${C.gold}, ${C.goldLight})`,
-                  "linear-gradient(135deg, #b91c1c, #f87171)",
-                  "linear-gradient(135deg, #059669, #34d399)",
-                ]
-                const bg = gradients[idx % gradients.length]
-                return (
-                  <div 
-                    key={item.descripcion} 
-                    onClick={() => editGasto(item.rawInstance)}
-                    style={{ 
-                      background:bg, 
-                      borderRadius:16, 
-                      padding:"18px 20px", 
-                      color:"#fff", 
-                      boxShadow:"0 8px 24px rgba(0,0,0,.12)",
-                      cursor:"pointer",
-                      transition:"transform 0.2s ease, box-shadow 0.2s ease",
-                      position:"relative"
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = "translateY(-3px)"
-                      e.currentTarget.style.boxShadow = "0 12px 30px rgba(0,0,0,0.18)"
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = "translateY(0)"
-                      e.currentTarget.style.boxShadow = "0 8px 24px rgba(0,0,0,.12)"
-                    }}
-                  >
-                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:4 }}>
-                      <span style={{ fontSize:8, letterSpacing:"1.5px", textTransform:"uppercase", opacity:.8 }}>{emoji} {item.descripcion}</span>
-                      <span style={{ fontSize:10, opacity:0.8 }} title="Editar gasto">✏️</span>
+          {/* ⏳ Capsules para Gastos Pendientes de Pago */}
+          {pendingCapsules.length > 0 && (
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 11, fontWeight: "bold", color: C.orange, letterSpacing: "1px", textTransform: "uppercase", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+                <span>⏳ Gastos Pendientes</span>
+                <span style={{ fontSize: 10, background: "#fff5ed", color: C.orange, padding: "2px 8px", borderRadius: 10, fontWeight: "normal" }}>
+                  {pendingCapsules.length} pendientes ({fmt(pendingCapsules.reduce((s, c) => s + c.monto, 0))})
+                </span>
+              </div>
+
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(min(100%, 170px), 1fr))", gap:14 }}>
+                {pendingCapsules.map((item, idx) => {
+                  const catInfo = GASTO_CATS.find(c => c.id === item.categoria)
+                  const emoji = catInfo?.icon || (item.isFixed ? "📌" : "💸")
+                  const gradients = [
+                    `linear-gradient(135deg, ${C.orange}, ${C.orangeLight})`,
+                    "linear-gradient(135deg, #7c3aed, #a78bfa)",
+                    "linear-gradient(135deg, #1d4ed8, #3b82f6)",
+                    `linear-gradient(135deg, ${C.gold}, ${C.goldLight})`,
+                    "linear-gradient(135deg, #b91c1c, #f87171)",
+                  ]
+                  const bg = gradients[idx % gradients.length]
+
+                  return (
+                    <div 
+                      key={item.key || item.descripcion} 
+                      onClick={() => editGasto(item.rawInstance)}
+                      style={{ 
+                        background: bg, 
+                        borderRadius: 16, 
+                        padding: "16px 18px", 
+                        color: "#fff", 
+                        boxShadow: "0 8px 24px rgba(0,0,0,.12)",
+                        cursor: "pointer",
+                        transition: "transform 0.2s ease, box-shadow 0.2s ease",
+                        position: "relative"
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = "translateY(-3px)"
+                        e.currentTarget.style.boxShadow = "0 12px 30px rgba(0,0,0,0.18)"
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = "translateY(0)"
+                        e.currentTarget.style.boxShadow = "0 8px 24px rgba(0,0,0,.12)"
+                      }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                        <span style={{ fontSize: 9, letterSpacing: "1px", textTransform: "uppercase", opacity: .9, fontWeight: "bold", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "80%" }}>
+                          {emoji} {item.descripcion}
+                        </span>
+                        
+                        <button 
+                          onClick={(e) => toggleCapsuleSaldado(item, e)}
+                          title="Marcar como Saldado (Pagado)"
+                          style={{
+                            width: 26,
+                            height: 26,
+                            borderRadius: "50%",
+                            border: "2px solid rgba(255,255,255,0.8)",
+                            background: "rgba(255,255,255,0.25)",
+                            color: "#fff",
+                            fontSize: 14,
+                            fontWeight: "bold",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            cursor: "pointer",
+                            transition: "all 0.2s ease",
+                            boxShadow: "0 2px 6px rgba(0,0,0,0.2)"
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = "#10b981"
+                            e.currentTarget.style.borderColor = "#10b981"
+                            e.currentTarget.style.transform = "scale(1.15)"
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = "rgba(255,255,255,0.25)"
+                            e.currentTarget.style.borderColor = "rgba(255,255,255,0.8)"
+                            e.currentTarget.style.transform = "scale(1)"
+                          }}
+                        >
+                          ✓
+                        </button>
+                      </div>
+
+                      <div style={{ fontSize: 22, fontWeight: "bold", letterSpacing: "-0.5px" }}>{fmt(item.monto)}</div>
+                      <div style={{ fontSize: 9, opacity: .9, marginTop: 4, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span>{item.isFixed ? (item.rawInstance.totalCuotas ? `💳 En ${item.rawInstance.totalCuotas} cuotas` : "Gasto Fijo") : "Gasto Eventual"}</span>
+                        <span style={{ fontSize: 9, background: "rgba(0,0,0,0.2)", padding: "1px 6px", borderRadius: 6 }}>⏳ Pendiente</span>
+                      </div>
                     </div>
-                    <div style={{ fontSize:24, fontWeight:"bold", letterSpacing:"-1px" }}>{fmt(item.monto)}</div>
-                    <div style={{ fontSize:9, opacity:.7, marginTop:4 }}>Gasto fijo · {item.count} {item.count === 1 ? "registro" : "registros"}</div>
-                  </div>
-                )
-              })}
+                  )
+                })}
+              </div>
             </div>
           )}
 
@@ -2249,6 +2400,92 @@ export default function ContabilidadView({
             </div>
           )}
 
+          {/* ✅ Capsules para Gastos Saldados (Pagados) */}
+          {saldadoCapsules.length > 0 && (
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 11, fontWeight: "bold", color: C.green, letterSpacing: "1px", textTransform: "uppercase", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+                <span>✅ Gastos Saldados</span>
+                <span style={{ fontSize: 10, background: "#eaf7ed", color: C.green, padding: "2px 8px", borderRadius: 10, fontWeight: "normal" }}>
+                  {saldadoCapsules.length} saldados ({fmt(saldadoCapsules.reduce((s, c) => s + c.monto, 0))})
+                </span>
+              </div>
+
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(min(100%, 170px), 1fr))", gap:14 }}>
+                {saldadoCapsules.map((item, idx) => {
+                  const catInfo = GASTO_CATS.find(c => c.id === item.categoria)
+                  const emoji = catInfo?.icon || (item.isFixed ? "📌" : "💸")
+                  const bg = "linear-gradient(135deg, #059669, #34d399)"
+
+                  return (
+                    <div 
+                      key={item.key || item.descripcion} 
+                      onClick={() => editGasto(item.rawInstance)}
+                      style={{ 
+                        background: bg, 
+                        borderRadius: 16, 
+                        padding: "16px 18px", 
+                        color: "#fff", 
+                        boxShadow: "0 8px 24px rgba(5, 150, 105, 0.2)",
+                        cursor: "pointer",
+                        transition: "transform 0.2s ease, box-shadow 0.2s ease",
+                        position: "relative"
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = "translateY(-3px)"
+                        e.currentTarget.style.boxShadow = "0 12px 30px rgba(5, 150, 105, 0.3)"
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = "translateY(0)"
+                        e.currentTarget.style.boxShadow = "0 8px 24px rgba(5, 150, 105, 0.2)"
+                      }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                        <span style={{ fontSize: 9, letterSpacing: "1px", textTransform: "uppercase", opacity: .9, fontWeight: "bold", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "80%" }}>
+                          {emoji} {item.descripcion}
+                        </span>
+                        
+                        <button 
+                          onClick={(e) => toggleCapsuleSaldado(item, e)}
+                          title="Desmarcar (Volver a Pendiente)"
+                          style={{
+                            width: 26,
+                            height: 26,
+                            borderRadius: "50%",
+                            border: "none",
+                            background: "#ffffff",
+                            color: "#059669",
+                            fontSize: 14,
+                            fontWeight: "bold",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            cursor: "pointer",
+                            transition: "all 0.2s ease",
+                            boxShadow: "0 2px 8px rgba(0,0,0,0.25)"
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.transform = "scale(1.15)"
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.transform = "scale(1)"
+                          }}
+                        >
+                          ✓
+                        </button>
+                      </div>
+
+                      <div style={{ fontSize: 22, fontWeight: "bold", letterSpacing: "-0.5px" }}>{fmt(item.monto)}</div>
+                      <div style={{ fontSize: 9, opacity: .9, marginTop: 4, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span>{item.isFixed ? (item.rawInstance.totalCuotas ? `💳 En ${item.rawInstance.totalCuotas} cuotas` : "Gasto Fijo") : "Gasto Eventual"}</span>
+                        <span style={{ fontSize: 9, background: "rgba(255,255,255,0.25)", padding: "1px 6px", borderRadius: 6, fontWeight: "bold" }}>✓ SALDADO</span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Barra de Filtros y Ordenamiento */}
           {gastosRange.length > 0 && (
             <div style={{ background: C.white, borderRadius: 14, padding: "12px 16px", border: `1px solid ${C.border}`, marginBottom: 16, display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center", justifyContent: "space-between" }}>
@@ -2274,6 +2511,17 @@ export default function ContabilidadView({
                   {GASTO_CATS.map(cat => (
                     <option key={cat.id} value={cat.id}>{cat.icon} {cat.label}</option>
                   ))}
+                </select>
+
+                {/* Filtro por Estado */}
+                <select 
+                  value={gastoStatusFilter} 
+                  onChange={e => setGastoStatusFilter(e.target.value)} 
+                  style={{ ...inputStyle, padding: "8px 12px", fontSize: 12, borderRadius: 10, cursor: "pointer", width: "auto" }}
+                >
+                  <option value="todos">📋 Todos los estados</option>
+                  <option value="pendientes">⏳ Solo Pendientes</option>
+                  <option value="saldados">✅ Solo Saldados</option>
                 </select>
               </div>
 
@@ -2325,23 +2573,48 @@ export default function ContabilidadView({
               ? <div style={{ textAlign:"center", color:C.textSoft, fontSize:13, padding:40, background:C.white, borderRadius:14, border:`1px solid ${C.border}` }}>
                   No se encontraron gastos que coincidan con la búsqueda o filtro aplicados.
                   <div style={{ marginTop:10 }}>
-                    <button onClick={() => { setGastoSearchQuery(""); setGastoCategoryFilter("todas"); }} style={{ padding:"6px 14px", borderRadius:8, border:`1px solid ${C.border}`, background:C.white, fontSize:11, cursor:"pointer" }}>Restablecer filtros</button>
+                    <button onClick={() => { setGastoSearchQuery(""); setGastoCategoryFilter("todas"); setGastoStatusFilter("todos"); }} style={{ padding:"6px 14px", borderRadius:8, border:`1px solid ${C.border}`, background:C.white, fontSize:11, cursor:"pointer" }}>Restablecer filtros</button>
                   </div>
                 </div>
               : <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
                   {processedGastos.map(g => {
                     const cat = GASTO_CATS.find(c=>c.id===g.categoria)
                     return (
-                      <div key={g.id} style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:12, padding:"10px 14px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                      <div key={g.id} style={{ background:C.white, border:`1px solid ${g.saldado ? C.greenLight : C.border}`, borderRadius:12, padding:"10px 14px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                         <div>
-                          <div style={{ fontSize:13, color:C.text, display: "flex", alignItems: "center", gap: 6 }}>
+                          <div style={{ fontSize:13, color:C.text, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                             {g.descripcion}
                             {g.isFixed && <span title="Gasto Fijo Mensual" style={{ fontSize: 11 }}>📌</span>}
+                            {g.totalCuotas && <span style={{ fontSize: 9, color: "#7c3aed", background: "#f3e8ff", padding: "2px 6px", borderRadius: 6, fontWeight: "bold" }}>💳 {g.totalCuotas} cuotas</span>}
+                            {g.saldado ? (
+                              <span style={{ fontSize: 9, color: C.green, background: "#eaf7ed", padding: "2px 6px", borderRadius: 6, fontWeight: "bold" }}>✓ Saldado</span>
+                            ) : (
+                              <span style={{ fontSize: 9, color: C.orange, background: "#fff5ed", padding: "2px 6px", borderRadius: 6 }}>⏳ Pendiente</span>
+                            )}
                           </div>
                           <div style={{ fontSize:10, color:C.textSoft, marginTop:2 }}>{g.fecha} · {cat?.icon} {cat?.label}</div>
                         </div>
                         <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-                          <div style={{ fontSize:15, fontWeight:"bold", color:C.orange }}>{fmt(g.monto)}</div>
+                          <div style={{ fontSize:15, fontWeight:"bold", color: g.saldado ? C.green : C.orange }}>{fmt(g.monto)}</div>
+                          <button 
+                            onClick={(e) => toggleGastoSaldado(g.id, e)} 
+                            title={g.saldado ? "Desmarcar como saldado" : "Marcar como saldado"}
+                            style={{ 
+                              padding: "4px 10px", 
+                              borderRadius: 8, 
+                              border: g.saldado ? `1px solid ${C.green}` : `1px solid ${C.border}`, 
+                              background: g.saldado ? "#eaf7ed" : C.white, 
+                              color: g.saldado ? C.green : C.textSoft, 
+                              fontSize: 11, 
+                              cursor: "pointer", 
+                              fontWeight: "bold",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 4
+                            }}
+                          >
+                            {g.saldado ? "✓ Saldado" : "○ Saldar"}
+                          </button>
                           <button onClick={()=>editGasto(g)} style={{ padding:"3px 8px", borderRadius:7, border:`1px solid ${C.border}`, background:C.white, fontSize:10, cursor:"pointer" }}>✏️</button>
                           <button onClick={()=>deleteGasto(g.id)} style={{ padding:"3px 8px", borderRadius:7, border:"none", background:"#fde8e8", color:"#c04040", fontSize:10, cursor:"pointer" }}>🗑️</button>
                         </div>
@@ -2680,10 +2953,77 @@ export default function ContabilidadView({
               <input 
                 type="checkbox" 
                 checked={!!gastoForm.isFixed} 
-                onChange={e => setGastoForm(p => ({ ...p, isFixed: e.target.checked }))} 
+                onChange={e => {
+                  const checked = e.target.checked
+                  setGastoForm(p => ({ 
+                    ...p, 
+                    isFixed: checked,
+                    isCuotas: checked ? p.isCuotas : false,
+                    totalCuotas: checked ? p.totalCuotas : ""
+                  }))
+                }} 
                 style={{ cursor: "pointer" }}
               />
-              📌 Gasto Fijo (se registra solo todos los meses)
+              📌 Gasto Fijo / Recurrente (se repite todos los meses)
+            </label>
+
+            {gastoForm.isFixed && (
+              <div style={{ background: "#fcf8f2", border: `1px solid ${C.border}`, borderRadius: 10, padding: 12, margin: "8px 0" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: C.text, cursor: "pointer", fontFamily: "Georgia, serif", fontWeight: "bold" }}>
+                  <input 
+                    type="checkbox" 
+                    checked={!!gastoForm.isCuotas} 
+                    onChange={e => setGastoForm(p => ({ ...p, isCuotas: e.target.checked, totalCuotas: e.target.checked ? (p.totalCuotas || 3) : "" }))} 
+                    style={{ cursor: "pointer" }}
+                  />
+                  💳 ¿Es un gasto en cuotas fijas?
+                </label>
+
+                {gastoForm.isCuotas && (
+                  <div style={{ marginTop: 10 }}>
+                    <div style={{ fontSize: 11, color: C.textSoft, marginBottom: 6 }}>Cantidad total de cuotas:</div>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+                      {[3, 6, 12, 18, 24].map(num => (
+                        <button
+                          key={num}
+                          type="button"
+                          onClick={() => setGastoForm(p => ({ ...p, totalCuotas: num }))}
+                          style={{
+                            padding: "4px 10px",
+                            borderRadius: 8,
+                            border: `1.5px solid ${Number(gastoForm.totalCuotas) === num ? C.orange : C.border}`,
+                            background: Number(gastoForm.totalCuotas) === num ? "#fdf0e8" : C.white,
+                            color: Number(gastoForm.totalCuotas) === num ? C.orange : C.text,
+                            fontSize: 11,
+                            fontWeight: "bold",
+                            cursor: "pointer"
+                          }}
+                        >
+                          {num} cuotas
+                        </button>
+                      ))}
+                    </div>
+                    <input 
+                      type="number" 
+                      min="1" 
+                      max="120"
+                      value={gastoForm.totalCuotas} 
+                      onChange={e => setGastoForm(p => ({ ...p, totalCuotas: e.target.value }))} 
+                      placeholder="O ingresa cantidad de cuotas (ej: 4, 8...)" 
+                      style={{ ...inputStyle, padding: "6px 10px", fontSize: 12 }}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+            <label style={{ display: "flex", alignItems: "center", gap: 8, margin: "6px 0 8px", fontSize: 13, color: C.green, fontWeight: "bold", cursor: "pointer", fontFamily: "Georgia, serif" }}>
+              <input 
+                type="checkbox" 
+                checked={!!gastoForm.saldado} 
+                onChange={e => setGastoForm(p => ({ ...p, saldado: e.target.checked }))} 
+                style={{ cursor: "pointer" }}
+              />
+              ✅ Gasto Saldado (Pagado)
             </label>
             <div style={{ display:"flex", gap:8, marginTop:12 }}>
               <GhostBtn onClick={()=>{ setGastoModal(false); setEditGastoId(null) }}>Cancelar</GhostBtn>
