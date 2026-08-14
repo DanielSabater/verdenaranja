@@ -2139,17 +2139,32 @@ export default function ContabilidadView({
                         e.currentTarget.style.boxShadow = "0 8px 24px rgba(0,0,0,.12)"
                       }}
                     >
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                        <span style={{ fontSize: 9, letterSpacing: "1px", textTransform: "uppercase", opacity: .9, fontWeight: "bold", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "80%" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8, gap: 8 }}>
+                        <span style={{ fontSize: 10, letterSpacing: "0.5px", textTransform: "uppercase", opacity: .95, fontWeight: "bold", whiteSpace: "normal", wordBreak: "break-word", overflowWrap: "break-word", lineHeight: 1.25, flex: 1, minWidth: 0 }}>
                           {emoji} {item.descripcion}
                         </span>
                         
-                        <button 
-                          onClick={(e) => toggleCapsuleSaldado(item, e)}
+                        <div 
+                          role="button"
+                          tabIndex={0}
+                          className="gasto-capsule-btn"
+                          onClick={(e) => { e.stopPropagation(); toggleCapsuleSaldado(item, e) }}
+                          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); toggleCapsuleSaldado(item, e) } }}
                           title="Marcar como Saldado (Pagado)"
                           style={{
                             width: 26,
                             height: 26,
+                            minWidth: 26,
+                            minHeight: 26,
+                            maxWidth: 26,
+                            maxHeight: 26,
+                            flex: "0 0 26px",
+                            flexShrink: 0,
+                            flexGrow: 0,
+                            aspectRatio: "1 / 1",
+                            padding: 0,
+                            boxSizing: "border-box",
+                            lineHeight: 1,
                             borderRadius: "50%",
                             border: "2px solid rgba(255,255,255,0.8)",
                             background: "rgba(255,255,255,0.25)",
@@ -2161,7 +2176,8 @@ export default function ContabilidadView({
                             justifyContent: "center",
                             cursor: "pointer",
                             transition: "all 0.2s ease",
-                            boxShadow: "0 2px 6px rgba(0,0,0,0.2)"
+                            boxShadow: "0 2px 6px rgba(0,0,0,0.2)",
+                            userSelect: "none"
                           }}
                           onMouseEnter={(e) => {
                             e.currentTarget.style.background = "#10b981"
@@ -2175,7 +2191,7 @@ export default function ContabilidadView({
                           }}
                         >
                           ✓
-                        </button>
+                        </div>
                       </div>
 
                       <div style={{ fontSize: 22, fontWeight: "bold", letterSpacing: "-0.5px" }}>{fmt(item.monto)}</div>
@@ -2439,17 +2455,32 @@ export default function ContabilidadView({
                         e.currentTarget.style.boxShadow = "0 8px 24px rgba(5, 150, 105, 0.2)"
                       }}
                     >
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                        <span style={{ fontSize: 9, letterSpacing: "1px", textTransform: "uppercase", opacity: .9, fontWeight: "bold", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "80%" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8, gap: 8 }}>
+                        <span style={{ fontSize: 10, letterSpacing: "0.5px", textTransform: "uppercase", opacity: .95, fontWeight: "bold", whiteSpace: "normal", wordBreak: "break-word", overflowWrap: "break-word", lineHeight: 1.25, flex: 1, minWidth: 0 }}>
                           {emoji} {item.descripcion}
                         </span>
                         
-                        <button 
-                          onClick={(e) => toggleCapsuleSaldado(item, e)}
+                        <div 
+                          role="button"
+                          tabIndex={0}
+                          className="gasto-capsule-btn"
+                          onClick={(e) => { e.stopPropagation(); toggleCapsuleSaldado(item, e) }}
+                          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); toggleCapsuleSaldado(item, e) } }}
                           title="Desmarcar (Volver a Pendiente)"
                           style={{
                             width: 26,
                             height: 26,
+                            minWidth: 26,
+                            minHeight: 26,
+                            maxWidth: 26,
+                            maxHeight: 26,
+                            flex: "0 0 26px",
+                            flexShrink: 0,
+                            flexGrow: 0,
+                            aspectRatio: "1 / 1",
+                            padding: 0,
+                            boxSizing: "border-box",
+                            lineHeight: 1,
                             borderRadius: "50%",
                             border: "none",
                             background: "#ffffff",
@@ -2461,7 +2492,8 @@ export default function ContabilidadView({
                             justifyContent: "center",
                             cursor: "pointer",
                             transition: "all 0.2s ease",
-                            boxShadow: "0 2px 8px rgba(0,0,0,0.25)"
+                            boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
+                            userSelect: "none"
                           }}
                           onMouseEnter={(e) => {
                             e.currentTarget.style.transform = "scale(1.15)"
@@ -2471,7 +2503,7 @@ export default function ContabilidadView({
                           }}
                         >
                           ✓
-                        </button>
+                        </div>
                       </div>
 
                       <div style={{ fontSize: 22, fontWeight: "bold", letterSpacing: "-0.5px" }}>{fmt(item.monto)}</div>

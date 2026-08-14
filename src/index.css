@@ -277,9 +277,28 @@ select {
 
 /* ── Touch targets ── */
 @media (max-width: 1100px) {
-  button {
+  button:not(.gasto-capsule-btn):not(.btn-circle):not(.btn-icon):not([data-no-touch-target]) {
     min-height: 40px;
   }
+}
+
+.gasto-capsule-btn {
+  width: 26px !important;
+  height: 26px !important;
+  min-width: 26px !important;
+  min-height: 26px !important;
+  max-width: 26px !important;
+  max-height: 26px !important;
+  border-radius: 50% !important;
+  flex: 0 0 26px !important;
+  flex-shrink: 0 !important;
+  flex-grow: 0 !important;
+  aspect-ratio: 1 / 1 !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
 @keyframes fadeIn {
@@ -624,12 +643,15 @@ select {
   0% {
     opacity: 0;
   }
+
   5% {
     opacity: 1;
   }
+
   15% {
     opacity: 1;
   }
+
   100% {
     opacity: 0;
   }
@@ -657,6 +679,7 @@ select {
     opacity: 0;
     transform: translateY(12px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -668,6 +691,7 @@ select {
   from {
     stroke-dashoffset: 1800;
   }
+
   to {
     stroke-dashoffset: 0;
   }
@@ -678,6 +702,7 @@ select {
     transform: scaleY(0);
     opacity: 0;
   }
+
   to {
     transform: scaleY(1);
     opacity: 0.75;
@@ -694,4 +719,4 @@ select {
   transform-box: fill-box;
   transform-origin: bottom;
   animation: riseChartBar 3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
+}
