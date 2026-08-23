@@ -328,6 +328,16 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [currentDate, setCurrentDate, activeRama, setActiveRama, ramas])
 
+  // Actualiza dinámicamente el color de la barra de título de Windows (Verde en Hoy, Naranja en otra fecha)
+  useEffect(() => {
+    const isToday = currentDate === todayKey()
+    const targetColor = isToday ? C.green : (C.orange || "#e8793a")
+    const metaTheme = document.querySelector('meta[name="theme-color"]')
+    if (metaTheme) {
+      metaTheme.setAttribute("content", targetColor)
+    }
+  }, [currentDate])
+
 
 
   useEffect(() => {
