@@ -254,6 +254,7 @@ export function AppModals({
                         onChange={e => { setSearchTerm(e.target.value); setServiceHighlightIdx(0); }}
                         onKeyDown={e => {
                           const list = filteredServices;
+                          if (list.length === 0) return;
                           if (e.key === "Enter") {
                             e.preventDefault();
                             if (list[serviceHighlightIdx]) {
@@ -263,10 +264,14 @@ export function AppModals({
                             }
                           } else if (e.key === "ArrowDown" || (e.key === "Tab" && !e.shiftKey)) {
                             e.preventDefault();
-                            setServiceHighlightIdx(prev => (prev + 1) % list.length);
+                            const nextIdx = (serviceHighlightIdx + 1) % list.length;
+                            setServiceHighlightIdx(nextIdx);
+                            document.getElementById(`service-item-${nextIdx}`)?.scrollIntoView({ block: 'nearest' });
                           } else if (e.key === "ArrowUp" || (e.key === "Tab" && e.shiftKey)) {
                             e.preventDefault();
-                            setServiceHighlightIdx(prev => (prev - 1 + list.length) % list.length);
+                            const prevIdx = (serviceHighlightIdx - 1 + list.length) % list.length;
+                            setServiceHighlightIdx(prevIdx);
+                            document.getElementById(`service-item-${prevIdx}`)?.scrollIntoView({ block: 'nearest' });
                           }
                         }}
                         style={{ ...inputStyle, marginBottom: 8 }}
@@ -289,18 +294,38 @@ export function AppModals({
                         {filteredServices.map((s, idx) => {
                           const isChosen = chosenServices.some(x => x.id === s.id)
                           const isFirstMatch = idx === serviceHighlightIdx
+                          const borderColor = isFirstMatch 
+                            ? "#4a90e2" 
+                            : (isChosen ? C.green : C.border)
+                          const bgColor = isChosen 
+                            ? (isFirstMatch ? "rgba(58, 125, 68, 0.16)" : C.greenPale)
+                            : (isFirstMatch ? "#eef6ff" : C.white)
+
                           return (
-                            <div key={s.id} onClick={() => { toggleService(s); setSearchTerm(""); document.getElementById("search-services-input")?.focus(); }} style={{
-                              width: "100%",
-                              display: "flex", justifyContent: "space-between", alignItems: "center",
-                              padding: "8px 11px", borderRadius: 10, cursor: "pointer",
-                              border: `1.5px solid ${isFirstMatch ? "#4a90e2" : (isChosen ? C.green : C.border)}`,
-                              background: isFirstMatch ? "#eef6ff" : (isChosen ? C.greenPale : C.white), transition: "all .15s",
-                            }}>
+                            <div 
+                              key={s.id} 
+                              id={`service-item-${idx}`}
+                              onMouseEnter={() => setServiceHighlightIdx(idx)}
+                              onClick={() => { 
+                                toggleService(s); 
+                                setSearchTerm(""); 
+                                setServiceHighlightIdx(idx);
+                                document.getElementById("search-services-input")?.focus(); 
+                              }} 
+                              style={{
+                                width: "100%",
+                                display: "flex", justifyContent: "space-between", alignItems: "center",
+                                padding: "8px 11px", borderRadius: 10, cursor: "pointer",
+                                border: `1.5px solid ${borderColor}`,
+                                background: bgColor,
+                                boxShadow: isFirstMatch ? "0 0 0 1px #4a90e2" : "none",
+                                transition: "all .15s",
+                              }}
+                            >
                               <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
                                 <span style={{ fontSize: 15 }}>{isChosen ? "✅" : "⬜"}</span>
                                 <div>
-                                  <span style={{ fontSize: 12, color: C.text }}>{s.icon} {s.name}</span>
+                                  <span style={{ fontSize: 12, color: C.text, fontWeight: isChosen ? "bold" : "normal" }}>{s.icon} {s.name}</span>
                                   <span style={{ fontSize: 9, color: C.textSoft, marginLeft: 6 }}>{s.duration} min</span>
                                 </div>
                               </div>
