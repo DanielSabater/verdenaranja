@@ -79,12 +79,32 @@ export function DateNav({ currentDate, setCurrentDate, calendarOpen, setCalendar
           <button style={btnStyle} onClick={() => setCurrentDate(d => nextWorkDay(d, +1))}>›</button>
 
           {currentDate !== tKey && (
-            <button onClick={() => setCurrentDate(todayKey())} style={{
-              padding: "5px 10px", borderRadius: 14,
-              border: `1px solid ${C.greenMint}`, background: C.greenPale,
-              color: C.green, fontSize: 9, cursor: "pointer",
-              fontFamily: "Georgia,serif", letterSpacing: "1px", textTransform: "uppercase", flexShrink: 0,
-            }}>Hoy</button>
+            <button
+              className="today-alert-btn"
+              onClick={() => setCurrentDate(todayKey())}
+              title="Haz clic para volver a la fecha de hoy"
+              style={{
+                padding: "6px 12px",
+                borderRadius: 16,
+                border: "none",
+                background: `linear-gradient(135deg, ${C.orange}, ${C.amber || "#e07b20"})`,
+                color: "#ffffff",
+                fontSize: 10,
+                fontWeight: "bold",
+                cursor: "pointer",
+                fontFamily: "Georgia,serif",
+                letterSpacing: "0.5px",
+                textTransform: "uppercase",
+                flexShrink: 0,
+                display: "flex",
+                alignItems: "center",
+                gap: 5,
+                boxShadow: "0 2px 8px rgba(232, 121, 58, 0.35)",
+              }}
+            >
+              <span style={{ fontSize: 11 }}>📍</span>
+              <span>Ir a Hoy</span>
+            </button>
           )}
 
           <button onClick={() => setCalendarOpen(v => !v)} style={{

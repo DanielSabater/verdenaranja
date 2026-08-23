@@ -879,17 +879,22 @@ export const AppHeader = memo(function AppHeader({
               flexShrink: 0
             }}>
               <button
+                className={currentDate !== tKey ? "today-alert-btn" : ""}
                 onClick={handleHoyClick}
+                title={currentDate !== tKey ? "Haz clic para volver a la fecha de hoy" : "Hoy"}
                 style={{
                   width: 46, height: 46, borderRadius: 18,
                   border: `none`,
-                  background: currentDate === tKey ? C.greenPale : C.cream,
+                  background: currentDate !== tKey
+                    ? `linear-gradient(135deg, ${C.orange}, ${C.amber || "#e07b20"})`
+                    : C.greenPale,
                   fontSize: 10, fontWeight: "bold",
-                  color: C.green,
-                  opacity: currentDate === tKey ? 0.75 : 1,
+                  color: currentDate !== tKey ? "#ffffff" : C.green,
+                  opacity: 1,
                   cursor: "pointer",
                   fontFamily: "Georgia,serif", letterSpacing: "1px", display: "flex", alignItems: "center", justifyContent: "center",
-                  transition: "transform .15s cubic-bezier(0.175, 0.885, 0.32, 1.275), background .2s, opacity .2s",
+                  boxShadow: currentDate !== tKey ? `0 4px 14px rgba(232, 121, 58, 0.45)` : "none",
+                  transition: "transform .15s cubic-bezier(0.175, 0.885, 0.32, 1.275), background .2s, opacity .2s, box-shadow .2s",
                   transform: hoyBounce ? "scale(0.85)" : "scale(1)"
                 }}
               >HOY</button>
