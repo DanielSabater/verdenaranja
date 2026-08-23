@@ -328,21 +328,6 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [currentDate, setCurrentDate, activeRama, setActiveRama, ramas])
 
-  useEffect(() => {
-    const handleWakeUp = () => {
-      const tKey = todayKey()
-      if (currentDate !== tKey) {
-        setCurrentDate(tKey)
-      }
-    }
-    window.addEventListener("focus", handleWakeUp)
-    document.addEventListener("visibilitychange", handleWakeUp)
-    return () => {
-      window.removeEventListener("focus", handleWakeUp)
-      document.removeEventListener("visibilitychange", handleWakeUp)
-    }
-  }, [currentDate, setCurrentDate])
-
 
 
   useEffect(() => {
