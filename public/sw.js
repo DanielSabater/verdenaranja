@@ -1,50 +1,27 @@
-// Service Worker para instalación PWA permanente en Windows/Chrome/Edge
-const CACHE_NAME = 'perla-verde-v3';
-const STATIC_ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/manifest.webmanifest',
-  '/favicon.ico',
-  '/icon-16.png',
-  '/icon-32.png',
-  '/icon-48.png',
-  '/icon-96.png',
-  '/icon-144.png',
-  '/icon-180.png',
-  '/icon-192.png',
-  '/icon-512.png',
-  '/icon-maskable-192.png',
-  '/icon-maskable-512.png',
-  '/logo.png'
-];
+// Service Worker ultra liviano para instalación PWA sin interferir con la red ni con Supabase
+const CACHE_NAME = 'perla-verde-v4';
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(STATIC_ASSETS).catch((err) => {
-        console.warn('Cache prefetch warn:', err);
-      });
-    })
-  );
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
+  // Limpiar todas las cachés anteriores para evitar bloqueos tras nuevos deploys
   event.waitUntil(
     caches.keys().then((keys) => {
-      return Promise.all(
-        keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))
-      );
+      return Promise.all(keys.map((k) => caches.delete(k)));
     }).then(() => self.clients.claim())
   );
 });
 
 self.addEventListener('fetch', (event) => {
+  // Solo manejar peticiones GET del mismo origen (no tocar Supabase ni APIs externas)
+  if (event.request.method !== 'GET') return;
+  const url = new URL(event.request.url);
+  if (url.origin !== self.location.origin) return;
+
+  // Estrategia Network-First: Siempre pedir a la red primero
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request);
-    }).catch(() => fetch(event.request))
+    fetch(event.request).catch(() => caches.match(event.request))
   );
 });
