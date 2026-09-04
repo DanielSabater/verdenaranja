@@ -19,7 +19,7 @@ export const AppHeader = memo(function AppHeader({
   config, activeView, setActiveView, saveStatus, connStatus, totalByMethod, grandTotal, grandEarnings, onLogout,
   currentDate, setCurrentDate, calendarOpen, setCalendarOpen, calViewDate, setCalViewDate, allData, onQuickGasto,
   professionals, activeRama, setActiveRama, ramas, privacyMode, gastos,
-  notebookOpen, onOpenNotebook, todoTasks
+  notebookOpen, onOpenNotebook, todoTasks, onOpenSearchTurnos
 }) {
   const isMobileNav = typeof window !== "undefined" && window.innerWidth <= 1100
   const tKey = todayKey()
@@ -898,6 +898,17 @@ export const AppHeader = memo(function AppHeader({
                   transform: hoyBounce ? "scale(0.85)" : "scale(1)"
                 }}
               >HOY</button>
+              <button 
+                onClick={onOpenSearchTurnos} 
+                style={{
+                  width: 46, height: 46, borderRadius: 18, border: `none`,
+                  background: C.greenPale,
+                  fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                  transition: "all .18s",
+                  boxShadow: "none"
+                }}
+                title="Buscar turnos por clienta o teléfono [Tecla B]"
+              >🔍</button>
               <button 
                 onClick={onQuickGasto} 
                 style={{ width: 46, height: 46, borderRadius: 18, border: `none`, background: C.cream, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all .18s" }}

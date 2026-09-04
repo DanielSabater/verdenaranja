@@ -367,24 +367,25 @@ export function AppGrid({
   }, [])
 
   useEffect(() => {
-    const handleScrollEvent = () => {
-      const now = new Date()
-      const hrs = now.getHours()
-      const mins = now.getMinutes()
+    const scrollToSpecificHour = (hour) => {
+      let targetHour = hour
+      if (!targetHour) {
+        const now = new Date()
+        const hrs = now.getHours()
+        const mins = now.getMinutes()
+        let minDiff = Infinity
+        targetHour = "09:00"
+        HOURS.forEach(h => {
+          const [hStr, mStr] = h.split(":").map(Number)
+          const diff = Math.abs((hrs * 60 + mins) - (hStr * 60 + mStr))
+          if (diff < minDiff) {
+            minDiff = diff
+            targetHour = h
+          }
+        })
+      }
       
-      let closestHour = "09:00"
-      let minDiff = Infinity
-      
-      HOURS.forEach(h => {
-        const [hStr, mStr] = h.split(":").map(Number)
-        const diff = Math.abs((hrs * 60 + mins) - (hStr * 60 + mStr))
-        if (diff < minDiff) {
-          minDiff = diff
-          closestHour = h
-        }
-      })
-      
-      const targetRow = document.querySelector(`[data-hour="${closestHour}"]`)
+      const targetRow = document.querySelector(`[data-hour="${targetHour}"]`)
       const scrollContainer = document.querySelector(".grid-scroll")
       
       if (targetRow && scrollContainer) {
@@ -406,24 +407,33 @@ export function AppGrid({
         }
         setHighlightedHour(null)
         setTimeout(() => {
-          setHighlightedHour(closestHour)
+          setHighlightedHour(targetHour)
           highlightTimeoutRef.current = setTimeout(() => {
             setHighlightedHour(null)
-          }, 2500)
+          }, 3000)
         }, 30)
       }
     }
 
-    window.addEventListener("scroll-to-today-hour", handleScrollEvent)
+    const handleScrollToday = () => scrollToSpecificHour()
+    const handleScrollSpecific = (e) => {
+      if (e.detail?.hour) {
+        scrollToSpecificHour(e.detail.hour)
+      }
+    }
+
+    window.addEventListener("scroll-to-today-hour", handleScrollToday)
+    window.addEventListener("scroll-to-hour", handleScrollSpecific)
     
     // Auto-scroll on initial render if the active date is today
     const tKey = todayKey()
     if (currentDate === tKey || (!currentDate && new Date().getDay() !== 0)) {
-      setTimeout(handleScrollEvent, 350)
+      setTimeout(handleScrollToday, 350)
     }
 
     return () => {
-      window.removeEventListener("scroll-to-today-hour", handleScrollEvent)
+      window.removeEventListener("scroll-to-today-hour", handleScrollToday)
+      window.removeEventListener("scroll-to-hour", handleScrollSpecific)
       if (highlightTimeoutRef.current) {
         clearTimeout(highlightTimeoutRef.current)
       }

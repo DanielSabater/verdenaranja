@@ -11,6 +11,7 @@ import { AppGrid } from "./components/grid/AppGrid.jsx"
 import { AppModals } from "./components/modals/AppModals.jsx"
 import { ArqueoModal } from "./components/modals/ArqueoModal.jsx"
 import { NotebookModal } from "./components/modals/NotebookModal.jsx"
+import { SearchTurnosModal } from "./components/modals/SearchTurnosModal.jsx"
 import ContabilidadView from "./components/views/ContabilidadView.jsx"
 import ConfigView from "./components/views/ConfigView.jsx"
 import ClientesView from "./components/views/ClientesView.jsx"
@@ -135,6 +136,7 @@ export default function App() {
   }
 
   const [notebookOpen, setNotebookOpen] = useState(false)
+  const [searchTurnosOpen, setSearchTurnosOpen] = useState(false)
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -158,6 +160,9 @@ export default function App() {
       } else if (key === "c") {
         e.preventDefault()
         setCalendarOpen(prev => !prev)
+      } else if (key === "b") {
+        e.preventDefault()
+        setSearchTurnosOpen(prev => !prev)
       }
     }
 
@@ -191,6 +196,24 @@ export default function App() {
       setActiveRama(ramas[0] || "manos")
     }
   }, [ramas, activeRama])
+
+  const handleNavigateToTurno = useCallback(({ date, hour, profId, rama }) => {
+    setActiveView("turnos")
+    setCalendarOpen(false)
+    if (rama) {
+      const normalizedTargetRama = String(rama).trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      const foundRama = (ramas || []).find(r => String(r).trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") === normalizedTargetRama)
+      if (foundRama) {
+        setActiveRama(foundRama)
+      }
+    }
+    if (date) {
+      setCurrentDate(date)
+    }
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent("scroll-to-hour", { detail: { hour, profId } }))
+    }, date !== currentDate ? 300 : 80)
+  }, [ramas, currentDate])
 
   const [calendarOpen, setCalendarOpen] = useState(false)
   const [calViewDate, setCalViewDate] = useState(() => {
@@ -868,6 +891,7 @@ export default function App() {
         notebookOpen={notebookOpen}
         onOpenNotebook={() => { playPageSound(); setNotebookOpen(v => !v); }}
         todoTasks={todoTasks}
+        onOpenSearchTurnos={() => setSearchTurnosOpen(true)}
       />
       <div className="main-content" style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
 
@@ -1093,6 +1117,15 @@ export default function App() {
           onClose={() => { playPageSound(); setNotebookOpen(false); }}
           todoTasks={todoTasks}
           setTodoTasks={setTodoTasks}
+        />
+
+        <SearchTurnosModal
+          isOpen={searchTurnosOpen}
+          onClose={() => setSearchTurnosOpen(false)}
+          allData={allData}
+          clientes={clientes}
+          config={config}
+          onNavigateToTurno={handleNavigateToTurno}
         />
 
       </div>{/* end main-content */}
