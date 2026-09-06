@@ -2,6 +2,18 @@ import { useState, useEffect } from "react"
 import { C } from '../../constants/colors.js'
 
 export function Overlay({ children, onClose }) {
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        e.preventDefault()
+        e.stopPropagation()
+        onClose?.()
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [onClose])
+
   return (
     <div
       onClick={e => e.target === e.currentTarget && onClose()}
