@@ -221,6 +221,10 @@ export function AppGrid({
   quickBlock,
   onToggleTipsRelease,
   activeRama,
+  selectedMultiPayKeys = [],
+  onToggleSelectMultiPay,
+  onClearMultiPaySelection,
+  onConfirmMultiPaySelection,
 }) {
   const [profPopup, setProfPopup] = useState(null)
   const [copiedAgenda, setCopiedAgenda] = useState(false)
@@ -797,6 +801,8 @@ export function AppGrid({
                     {appt ? (() => {
                       const isResizing = resizePreview?.key === k
                       const isCurrentTurn = currentTurnKeys.has(k)
+                      const isSelectedForMultiPay = selectedMultiPayKeys?.includes(k)
+                      const selectedIndex = isSelectedForMultiPay ? selectedMultiPayKeys.indexOf(k) + 1 : null
                       const liveSlots = isResizing ? resizePreview.slots : (span || 1)
                       const liveHourIdx = isResizing ? resizePreview.hourIdx : HOURS.indexOf(appt.hour)
                       const liveEndIdx = liveHourIdx + liveSlots
@@ -805,14 +811,29 @@ export function AppGrid({
                       const liveDurMins = liveSlots * 30
                       return (
                         <div
-                          draggable={!resizePreview}
-                          onDragStart={e => { if (resizePreview) { e.preventDefault(); return; } onDragStart(e, k) }}
+                          draggable={!resizePreview && !isSelectedForMultiPay}
+                          onDragStart={e => {
+                            if (resizePreview || e.ctrlKey || e.metaKey || (selectedMultiPayKeys && selectedMultiPayKeys.length > 0)) {
+                              e.preventDefault()
+                              return
+                            }
+                            onDragStart(e, k)
+                          }}
                           onDragEnd={onDragEnd}
-                          onDoubleClick={e => { if (!resizePreview) { e.stopPropagation(); onEdit(k, appointments[k]); } }}
-                          className={`appt-card${appt.isBlocked ? " blocked" : (appt.isNote ? " note" : (appt.paid ? " paid" : " unpaid"))}${isCurrentTurn && !isDragging && !isResizeStart ? " current" : ""}${hoveredClientName && appt.client === hoveredClientName ? " force-hover" : ""}`}
+                          onClick={e => {
+                            if (e.ctrlKey || e.metaKey || (selectedMultiPayKeys && selectedMultiPayKeys.length > 0)) {
+                              e.stopPropagation()
+                              e.preventDefault()
+                              if (onToggleSelectMultiPay) onToggleSelectMultiPay(k)
+                            }
+                          }}
+                          onDoubleClick={e => { if (!resizePreview && !isSelectedForMultiPay) { e.stopPropagation(); onEdit(k, appointments[k]); } }}
+                          className={`appt-card${appt.isBlocked ? " blocked" : (appt.isNote ? " note" : (appt.paid ? " paid" : " unpaid"))}${isCurrentTurn && !isDragging && !isResizeStart ? " current" : ""}${hoveredClientName && appt.client === hoveredClientName ? " force-hover" : ""}${isSelectedForMultiPay ? " selected-multipay" : ""}`}
                           style={{
                             height: "100%", borderRadius: 9,
-                            background: appt.isBlocked
+                            background: isSelectedForMultiPay
+                              ? `linear-gradient(135deg, #dcfce7, #bbf7d0)`
+                              : (appt.isBlocked
                               ? `repeating-linear-gradient(
                                   45deg,
                                   rgba(${rgbString}, ${alphas.a1}),
@@ -824,8 +845,10 @@ export function AppGrid({
                                 ? "linear-gradient(135deg, #fffbeb, #fff3bf)"
                                 : appt.paid
                                   ? `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Ctext x='50%25' y='50%25' font-size='18' fill='%233a7d44' opacity='0.1' text-anchor='middle' dominant-baseline='middle' transform='rotate(-25 30 30)'%3E$ %3C/text%3E%3C/svg%3E"), linear-gradient(135deg,${C.greenPale},#d8f0dc)`
-                                  : `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Ctext x='50%25' y='50%25' font-size='14' fill='%23e8793a' opacity='0.08' text-anchor='middle' dominant-baseline='middle' transform='rotate(-20 30 30)'%3E🕒%3C/text%3E%3C/svg%3E"), linear-gradient(135deg,${C.orangePale},#fde8d4)`,
-                            border: appt.isBlocked
+                                  : `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Ctext x='50%25' y='50%25' font-size='14' fill='%23e8793a' opacity='0.08' text-anchor='middle' dominant-baseline='middle' transform='rotate(-20 30 30)'%3E🕒%3C/text%3E%3C/svg%3E"), linear-gradient(135deg,${C.orangePale},#fde8d4)`),
+                            border: isSelectedForMultiPay
+                              ? `2px solid #16a34a`
+                              : (appt.isBlocked
                               ? (config.gridStyle === "classic" ? `1px dashed rgba(${rgbString}, ${alphas.border})` : `1.5px dashed rgba(${rgbString}, ${alphas.border})`)
                               : appt.isNote
                                 ? "1.5px solid #ffe066"
@@ -833,22 +856,25 @@ export function AppGrid({
                                   ? `1.5px solid ${C.greenLight}`
                                   : isCurrentTurn && !isDragging
                                     ? `1.5px solid #4a90e2`
-                                    : `1.5px solid ${appt.paid ? C.greenLight : C.orangeLight}`,
+                                    : `1.5px solid ${appt.paid ? C.greenLight : C.orangeLight}`),
                             padding: "6px 7px 6px",
                             display: "flex", flexDirection: "column",
                             boxShadow: isDragging
                               ? `0 10px 30px rgba(58,125,68,.30)`
-                              : appt.isBlocked
+                              : (isSelectedForMultiPay
+                                ? `0 0 0 3px rgba(22, 163, 74, 0.35), 0 8px 20px rgba(0,0,0,0.14)`
+                                : (appt.isBlocked
                                 ? "none"
                                 : appt.isNote
                                   ? "0 2px 8px rgba(133, 100, 4, 0.08)"
-                                  : `0 2px 8px ${appt.paid ? "rgba(58,125,68,0.1)" : "rgba(232,121,58,0.1)"}`,
+                                  : `0 2px 8px ${appt.paid ? "rgba(58,125,68,0.1)" : "rgba(232,121,58,0.1)"}`)),
                             opacity: isDragging ? 0.45 : 1,
-                            transform: isDragging ? "scale(0.97)" : "scale(1)",
+                            transform: isDragging ? "scale(0.97)" : (isSelectedForMultiPay ? "scale(1.02)" : "scale(1)"),
                             transition: isResizing ? "none" : "opacity .15s, box-shadow .15s, transform .15s",
-                            cursor: "grab",
+                            cursor: (selectedMultiPayKeys && selectedMultiPayKeys.length > 0) ? "pointer" : "grab",
                             position: "relative",
                             overflow: "hidden",
+                            zIndex: isSelectedForMultiPay ? 15 : 1,
                           }}
                         >
                           <div onMouseDown={e => { e.stopPropagation(); onResizeStart(e, k, "top") }}
@@ -878,7 +904,21 @@ export function AppGrid({
                             <div style={{ position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)", background: C.green, color: "#fff", borderRadius: 8, padding: "2px 8px", fontSize: 9, fontWeight: "bold", letterSpacing: "1px", whiteSpace: "nowrap", zIndex: 20, pointerEvents: "none", boxShadow: "0 2px 8px rgba(58,125,68,.35)" }}>{liveHour} – {liveEndHour} · {liveDurMins} min</div>
                           )}
 
-                          <div style={{ position: "absolute", top: 4, right: 5, fontSize: 9, color: "rgba(100,130,100,.4)", pointerEvents: "none" }}>⠿</div>
+                          {isSelectedForMultiPay ? (
+                            <div style={{
+                              position: "absolute", top: 4, right: 6,
+                              background: "#16a34a", color: "#fff",
+                              borderRadius: 12, padding: "2px 7px",
+                              fontSize: 9, fontWeight: "bold",
+                              boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
+                              zIndex: 25, display: "flex", alignItems: "center", gap: 3,
+                              letterSpacing: "0.5px"
+                            }}>
+                              <span>✓ #{selectedIndex}</span>
+                            </div>
+                          ) : (
+                            <div style={{ position: "absolute", top: 4, right: 5, fontSize: 9, color: "rgba(100,130,100,.4)", pointerEvents: "none" }}>⠿</div>
+                          )}
 
                           <div style={{ overflow: "hidden", marginTop: 2 }}>
                              {appt.isNote ? (
@@ -1415,6 +1455,89 @@ export function AppGrid({
           </div>
         </div>
       )}
+
+      {/* Barra flotante de cobro múltiple con Ctrl / Cmd */}
+      {selectedMultiPayKeys && selectedMultiPayKeys.length > 0 && (() => {
+        const count = selectedMultiPayKeys.length
+        const total = selectedMultiPayKeys.reduce((s, key) => s + (appointments[key] ? apptTotal(appointments[key]) : 0), 0)
+        return (
+          <div
+            style={{
+              position: "fixed",
+              bottom: isMobile ? "calc(140px + env(safe-area-inset-bottom))" : 86,
+              left: "50%",
+              transform: "translateX(-50%)",
+              background: "linear-gradient(135deg, #15803d, #166534)",
+              color: "#ffffff",
+              borderRadius: 36,
+              padding: "8px 14px 8px 20px",
+              fontSize: 13,
+              zIndex: 9999,
+              boxShadow: "0 10px 35px rgba(0,0,0,0.38), 0 0 0 1.5px rgba(255,255,255,0.25)",
+              display: "flex",
+              alignItems: "center",
+              gap: 14,
+              backdropFilter: "blur(12px)",
+              animation: "popIn .18s ease-out",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 16 }}>💰</span>
+              <span>
+                <strong>{count} turno{count !== 1 ? "s" : ""}</strong> marcado{count !== 1 ? "s" : ""}
+                {" · "}
+                <span style={{ color: "#fde047", fontWeight: "bold" }}>{fmt(total)}</span>
+              </span>
+            </div>
+            <div style={{ fontSize: 11, opacity: 0.9, borderLeft: "1px solid rgba(255,255,255,0.25)", paddingLeft: 12 }}>
+              Soltá <strong>Ctrl / ⌘</strong> para cobrar
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <button
+                onClick={e => {
+                  e.stopPropagation()
+                  if (onConfirmMultiPaySelection) onConfirmMultiPaySelection()
+                }}
+                style={{
+                  background: "#fde047",
+                  color: "#14532d",
+                  border: "none",
+                  borderRadius: 20,
+                  padding: "6px 14px",
+                  fontSize: 12,
+                  fontWeight: "bold",
+                  cursor: "pointer",
+                  boxShadow: "0 2px 6px rgba(0,0,0,0.2)",
+                  transition: "transform .1s",
+                }}
+                onMouseDown={e => e.currentTarget.style.transform = "scale(0.96)"}
+                onMouseUp={e => e.currentTarget.style.transform = "scale(1)"}
+              >
+                Cobrar ahora
+              </button>
+              <button
+                onClick={e => {
+                  e.stopPropagation()
+                  if (onClearMultiPaySelection) onClearMultiPaySelection()
+                }}
+                style={{
+                  background: "rgba(255,255,255,0.18)",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 20,
+                  padding: "6px 10px",
+                  fontSize: 12,
+                  cursor: "pointer",
+                  transition: "background .15s",
+                }}
+                title="Cancelar selección (Esc)"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )
+      })()}
     </div>
   )
 }

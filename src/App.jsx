@@ -302,6 +302,10 @@ export default function App() {
   const [paymentSplits, setPaymentSplits] = useState([])
   const [searchTerm, setSearchTerm] = useState("")
   const [multiPayKeys, setMultiPayKeys] = useState([])
+  const [selectedMultiPayKeys, setSelectedMultiPayKeys] = useState([])
+  const selectedMultiPayKeysRef = useRef([])
+  selectedMultiPayKeysRef.current = selectedMultiPayKeys
+  const multiPayPreloadRef = useRef(null)
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -364,6 +368,10 @@ export default function App() {
 
 
   useEffect(() => {
+    if (multiPayPreloadRef.current) {
+      multiPayPreloadRef.current = null
+      return
+    }
     if (payModal) {
       const appt = appointments[payModal]
       if (appt?.paid && appt.payGroupId) {
@@ -504,6 +512,63 @@ export default function App() {
     .sort((a, b) => (serviceCounts[b.id] || 0) - (serviceCounts[a.id] || 0))
   const modalSubtotal = chosenServices.reduce((s, sv) => s + sv.price, 0)
   const modalDuration = chosenServices.reduce((s, sv) => s + sv.duration, 0)
+
+  const openMultiPay = useCallback((keys) => {
+    if (!keys || !keys.length) return
+    const validKeys = keys.filter(k => appointments[k] && !appointments[k].isBlocked && !appointments[k].isNote)
+    if (!validKeys.length) return
+
+    multiPayPreloadRef.current = validKeys
+    const total = validKeys.reduce((s, k) => s + (appointments[k] ? apptTotal(appointments[k]) : 0), 0)
+    setPaymentSplits([{ methodId: "efectivo", amount: total.toString() }])
+    const tipsMap = {}
+    validKeys.forEach(k => { tipsMap[k] = "" })
+    setApptTip(tipsMap)
+    setApptDiscount("")
+    setMultiPayKeys(validKeys)
+    setPayModal(validKeys[0])
+  }, [appointments])
+
+  const handleToggleSelectMultiPay = useCallback((key) => {
+    const appt = appointments[key]
+    if (!appt || appt.isBlocked || appt.isNote || appt.paid) return
+
+    setSelectedMultiPayKeys(prev => {
+      if (prev.includes(key)) {
+        return prev.filter(k => k !== key)
+      } else {
+        return [...prev, key]
+      }
+    })
+  }, [appointments])
+
+  // Detectar cuando se suelta Ctrl o Cmd para abrir el cobro unificado, o Escape para cancelar
+  useEffect(() => {
+    const handleKeyUp = (e) => {
+      if (e.key === "Control" || e.key === "Meta") {
+        const keys = selectedMultiPayKeysRef.current
+        if (keys && keys.length > 0) {
+          openMultiPay(keys)
+          setSelectedMultiPayKeys([])
+        }
+      }
+    }
+
+    const handleKeyDownGlobal = (e) => {
+      if (e.key === "Escape") {
+        if (selectedMultiPayKeysRef.current.length > 0) {
+          setSelectedMultiPayKeys([])
+        }
+      }
+    }
+
+    window.addEventListener("keyup", handleKeyUp)
+    window.addEventListener("keydown", handleKeyDownGlobal)
+    return () => {
+      window.removeEventListener("keyup", handleKeyUp)
+      window.removeEventListener("keydown", handleKeyDownGlobal)
+    }
+  }, [openMultiPay])
 
   const isOccupied = useCallback((profId, hour, ignoreKey = null) => {
     if (appointments[cellKey(profId, hour)] && cellKey(profId, hour) !== ignoreKey) return true
@@ -899,7 +964,7 @@ export default function App() {
           <div key="v-turnos" className="pv-view pv-bg" style={{ display: "flex", flexDirection: "column", flex: 1, overflow: "hidden", paddingBottom: 0 }}>
             <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
               {(draggingKey || resizePreview) && (
-                <div style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", background: resizePreview ? "rgba(58,125,68,.92)" : dropTarget ? (dropValid ? "rgba(58,125,68,.92)" : "rgba(200,60,60,.88)") : "rgba(40,40,40,.82)", color: "#fff", borderRadius: 30, padding: "8px 22px", fontSize: 12, letterSpacing: "1px", zIndex: 300, boxShadow: "0 4px 20px rgba(0,0,0,.25)", pointerEvents: "none" }}>
+                <div style={{ position: "fixed", bottom: isMobile ? "calc(140px + env(safe-area-inset-bottom))" : 86, left: "50%", transform: "translateX(-50%)", background: resizePreview ? "rgba(58,125,68,.92)" : dropTarget ? (dropValid ? "rgba(58,125,68,.92)" : "rgba(200,60,60,.88)") : "rgba(40,40,40,.82)", color: "#fff", borderRadius: 30, padding: "8px 22px", fontSize: 12, letterSpacing: "1px", zIndex: 300, boxShadow: "0 4px 20px rgba(0,0,0,.25)", pointerEvents: "none" }}>
                   {resizePreview ? "↕ Soltá para confirmar" : dropTarget ? (dropValid ? "✅ Soltar para mover aquí" : "🚫 Horario ocupado") : "☝️ Arrastrá a un nuevo horario"}
                 </div>
               )}
@@ -922,6 +987,13 @@ export default function App() {
                 onToggleTipsRelease={onToggleTipsRelease}
                 CELL_H={CELL_H}
                 activeRama={activeRama}
+                selectedMultiPayKeys={selectedMultiPayKeys}
+                onToggleSelectMultiPay={handleToggleSelectMultiPay}
+                onClearMultiPaySelection={() => setSelectedMultiPayKeys([])}
+                onConfirmMultiPaySelection={() => {
+                  openMultiPay(selectedMultiPayKeys)
+                  setSelectedMultiPayKeys([])
+                }}
               />
             </div>
           </div>

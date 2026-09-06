@@ -388,11 +388,16 @@ export function AppModals({
         // eslint-disable-next-line no-unused-vars
         const usedMids = paymentSplits.map(r => r.methodId)
         const canAdd = PAYMENT_METHODS.some(m => !usedMids.includes(m.id))
+        const uniqueClients = Array.from(new Set(multiPayKeys.map(k => appointments[k]?.client).filter(Boolean)))
+        const clientHeaderTitle = uniqueClients.length > 1
+          ? `${uniqueClients.length} clientas (${uniqueClients.join(", ")})`
+          : (appt.client || "Turno")
+
         return (
           <Overlay onClose={() => setPayModal(null)}>
             <div className="modal-sheet" style={{ ...modalBox, maxWidth: 500, width: "calc(100vw - 32px)" }}>
               <ModalHeader emoji="💰" sub={appt.paid ? "Editar pago" : "Registrar pago"}>
-                {appt.client} · <span style={{ color: C.orange }}>{fmt(totalWithTip)}</span>
+                {clientHeaderTitle} · <span style={{ color: C.orange }}>{fmt(totalWithTip)}</span>
               </ModalHeader>
 
               <div style={{ background: C.cream, borderRadius: 10, padding: "10px 13px", marginBottom: 16, border: `1px solid ${C.border}` }}>
@@ -403,7 +408,12 @@ export function AppModals({
                   return (
                     <div key={k} style={{ marginBottom: multiPayKeys.length > 1 ? 12 : 0, paddingBottom: multiPayKeys.length > 1 ? 8 : 0, borderBottom: multiPayKeys.length > 1 ? `1px dashed ${C.border}` : "none" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                        <span style={{ fontSize: 10, fontWeight: "bold", color: C.green }}>{prof?.name || "Profesional"}</span>
+                        <span style={{ fontSize: 10, fontWeight: "bold", color: C.green }}>
+                          {prof?.name || "Profesional"}
+                          {uniqueClients.length > 1 && a.client && (
+                            <span style={{ color: C.textSoft, fontWeight: "normal", marginLeft: 6 }}>· {a.client}</span>
+                          )}
+                        </span>
                         {multiPayKeys.length > 1 && k !== payModal && (
                           <button onClick={() => {
                             const nextKeys = multiPayKeys.filter(x => x !== k)
