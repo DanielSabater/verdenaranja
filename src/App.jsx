@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useMemo, useEffect } from "react"
 import { C } from "./constants/colors.js"
 import { PAYMENT_METHODS, HOURS } from "./constants/data.js"
 import { cellKey, apptTotal, apptDur, apptPaidTotal, apptComisionableTotal, apptComisionTotal } from "./utils/appointments.js"
-import { toDateKey, todayKey, isWorkDay, nextWorkDay, addMonths } from "./utils/dates.js"
+import { toDateKey, todayKey, isWorkDay, nextWorkDay, addMonths, DIAS_ES, MESES_ES } from "./utils/dates.js"
 import { useIsMobile } from "./hooks/useIsMobile.js"
 import { usePersistentState } from "./hooks/usePersistentState.js"
 import { AppHeader } from "./components/header/AppHeader.jsx"
@@ -307,6 +307,130 @@ export default function App() {
   selectedMultiPayKeysRef.current = selectedMultiPayKeys
   const multiPayPreloadRef = useRef(null)
 
+  // ── Salto rápido de fecha con teclado numérico ─────────────────────────────
+  const [dateQuickJump, setDateQuickJump] = useState(null)
+  const dateNumberBufferRef = useRef("")
+  const dateNumberTimerRef = useRef(null)
+  const dateQuickJumpToastTimerRef = useRef(null)
+  const currentDateRef = useRef(currentDate)
+  currentDateRef.current = currentDate
+  const activeViewRef = useRef(activeView)
+  activeViewRef.current = activeView
+  const isAnyModalOpenRef = useRef(false)
+  isAnyModalOpenRef.current = Boolean(
+    modal || payModal || deleteKey || gastoModal || quickGastoModal || arqueoModal || notebookOpen || searchTurnosOpen || calendarOpen
+  )
+
+  const executeDateJump = useCallback((dayToJump) => {
+    dateNumberBufferRef.current = ""
+    if (dateNumberTimerRef.current) {
+      clearTimeout(dateNumberTimerRef.current)
+      dateNumberTimerRef.current = null
+    }
+
+    const curDate = currentDateRef.current
+    const [yearStr, monthStr] = curDate.split("-")
+    const year = parseInt(yearStr, 10)
+    const month = parseInt(monthStr, 10)
+    const daysInMonth = new Date(year, month, 0).getDate()
+    const monthName = MESES_ES[month - 1]
+
+    if (isNaN(dayToJump) || dayToJump < 1 || dayToJump > daysInMonth) {
+      setDateQuickJump({
+        title: `Día ${dayToJump} no válido`,
+        sub: `${monthName.charAt(0).toUpperCase() + monthName.slice(1)} tiene hasta ${daysInMonth} días`,
+        error: true,
+        isTyping: false
+      })
+      if (dateQuickJumpToastTimerRef.current) clearTimeout(dateQuickJumpToastTimerRef.current)
+      dateQuickJumpToastTimerRef.current = setTimeout(() => setDateQuickJump(null), 1800)
+      return
+    }
+
+    const d = new Date(year, month - 1, dayToJump, 12, 0, 0)
+    let finalDateKey = toDateKey(d)
+    const isSunday = !isWorkDay(d)
+    if (isSunday) {
+      d.setDate(d.getDate() + 1)
+      finalDateKey = toDateKey(d)
+    }
+
+    const dayName = DIAS_ES[new Date(finalDateKey + "T12:00:00").getDay()]
+    const finalDayNum = new Date(finalDateKey + "T12:00:00").getDate()
+    const isToday = finalDateKey === todayKey()
+
+    setDateQuickJump({
+      title: isSunday
+        ? `Domingo ${dayToJump} cerrado ➜ Lunes ${finalDayNum}`
+        : `${dayName} ${dayToJump} de ${monthName}`,
+      sub: isToday ? "Hoy" : `Fecha seleccionada: ${finalDayNum}/${month}`,
+      badge: isToday ? "HOY" : isSunday ? "LUNES" : null,
+      badgeBg: isToday ? C.greenPale : C.orangePale,
+      badgeColor: isToday ? C.green : C.orange,
+      error: false,
+      isTyping: false
+    })
+
+    if (dateQuickJumpToastTimerRef.current) clearTimeout(dateQuickJumpToastTimerRef.current)
+    dateQuickJumpToastTimerRef.current = setTimeout(() => setDateQuickJump(null), 1600)
+
+    setCurrentDate(finalDateKey)
+    playClickSound()
+
+    if (isToday) {
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent("scroll-to-today-hour"))
+      }, 100)
+    }
+  }, [setCurrentDate])
+
+  const handleNumericDateInput = useCallback((digitChar) => {
+    if (dateNumberTimerRef.current) {
+      clearTimeout(dateNumberTimerRef.current)
+      dateNumberTimerRef.current = null
+    }
+
+    let nextBuffer = dateNumberBufferRef.current + digitChar
+    if (nextBuffer.length > 2) {
+      nextBuffer = digitChar
+    }
+    dateNumberBufferRef.current = nextBuffer
+
+    const numVal = parseInt(nextBuffer, 10)
+    const curDate = currentDateRef.current
+    const [yearStr, monthStr] = curDate.split("-")
+    const year = parseInt(yearStr, 10)
+    const month = parseInt(monthStr, 10)
+    const daysInMonth = new Date(year, month, 0).getDate()
+    const monthName = MESES_ES[month - 1]
+
+    if (nextBuffer.length === 2) {
+      setDateQuickJump({
+        title: `Día ${numVal}`,
+        sub: `Cambiando al día ${numVal} de ${monthName}...`,
+        error: false,
+        isTyping: true
+      })
+      dateNumberTimerRef.current = setTimeout(() => {
+        executeDateJump(numVal)
+      }, 150)
+    } else if (nextBuffer.length === 1) {
+      const isHighDigit = numVal >= 4
+      const waitTime = isHighDigit ? 420 : 620
+
+      setDateQuickJump({
+        title: `Día ${numVal}...`,
+        sub: numVal <= 3 ? `Podés escribir otro número (ej: ${numVal}5) o esperar...` : `Cambiando al día ${numVal} de ${monthName}...`,
+        error: false,
+        isTyping: true
+      })
+
+      dateNumberTimerRef.current = setTimeout(() => {
+        executeDateJump(numVal)
+      }, waitTime)
+    }
+  }, [executeDateJump])
+
   useEffect(() => {
     const handleKeyDown = (e) => {
       const activeTag = document.activeElement?.tagName?.toLowerCase()
@@ -314,26 +438,52 @@ export default function App() {
         return
       }
 
+      // Teclado numérico para saltar de fecha en la planilla de turnos (0-9)
+      const isDigit = e.key >= '0' && e.key <= '9'
+      const isEnter = e.key === 'Enter'
+      const isCancel = e.key === 'Escape' || e.key === 'Backspace'
+
+      if (isDigit || isEnter || isCancel) {
+        if (!isAnyModalOpenRef.current && activeViewRef.current === "turnos" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+          if (isDigit) {
+            e.preventDefault()
+            handleNumericDateInput(e.key)
+            return
+          } else if (isEnter && dateNumberBufferRef.current) {
+            e.preventDefault()
+            if (dateNumberTimerRef.current) {
+              clearTimeout(dateNumberTimerRef.current)
+              dateNumberTimerRef.current = null
+            }
+            executeDateJump(parseInt(dateNumberBufferRef.current, 10))
+            return
+          } else if (isCancel && dateNumberBufferRef.current) {
+            e.preventDefault()
+            dateNumberBufferRef.current = ""
+            if (dateNumberTimerRef.current) clearTimeout(dateNumberTimerRef.current)
+            if (dateQuickJumpToastTimerRef.current) clearTimeout(dateQuickJumpToastTimerRef.current)
+            setDateQuickJump(null)
+            return
+          }
+        }
+      }
+
       if (e.key?.toLowerCase() === 'h') {
         e.preventDefault()
-        const isCmdOrCtrl = e.ctrlKey || e.metaKey
         const tKey = todayKey()
+        const isAlreadyToday = currentDate === tKey
         
-        if (isCmdOrCtrl) {
-          if (ramas && ramas.length > 1) {
-            const currIdx = ramas.findIndex(r => String(r).trim().toLowerCase() === String(activeRama).trim().toLowerCase())
-            const nextIdx = (currIdx + 1) % ramas.length
-            setActiveRama(ramas[nextIdx])
-          }
+        if (isAlreadyToday && ramas && ramas.length > 1) {
+          const currIdx = ramas.findIndex(r => String(r).trim().toLowerCase() === String(activeRama).trim().toLowerCase())
+          const nextIdx = (currIdx + 1) % ramas.length
+          setActiveRama(ramas[nextIdx])
         } else {
-          const isAlreadyToday = currentDate === tKey
-          if (!isAlreadyToday) {
-            setCurrentDate(tKey)
-          }
-          setTimeout(() => {
-            window.dispatchEvent(new CustomEvent("scroll-to-today-hour"))
-          }, isAlreadyToday ? 50 : 250)
+          setCurrentDate(tKey)
         }
+
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent("scroll-to-today-hour"))
+        }, isAlreadyToday ? 50 : 250)
         
         playClickSound()
       } else if (e.key?.toLowerCase() === 'v') {
@@ -353,7 +503,7 @@ export default function App() {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [currentDate, setCurrentDate, activeRama, setActiveRama, ramas])
+  }, [currentDate, setCurrentDate, activeRama, setActiveRama, ramas, handleNumericDateInput, executeDateJump])
 
   // Actualiza dinámicamente el color de la barra de título de Windows (Verde en Hoy, Naranja en otra fecha)
   useEffect(() => {
@@ -936,6 +1086,77 @@ export default function App() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: C.cream, fontFamily: "'Georgia','Times New Roman',serif", color: C.text, userSelect: draggingKey ? "none" : "auto" }}>
+      {/* Toast flotante de salto rápido de fecha con teclado numérico */}
+      {dateQuickJump && (
+        <div style={{
+          position: "fixed",
+          top: isMobile ? 65 : 78,
+          left: "50%",
+          transform: "translateX(-50%)",
+          zIndex: 9999,
+          background: dateQuickJump.error 
+            ? "rgba(254, 242, 242, 0.96)" 
+            : (config?.liquidGlass ?? true) 
+              ? "rgba(255, 255, 255, 0.88)" 
+              : "rgba(255, 255, 255, 0.98)",
+          backdropFilter: "blur(20px) saturate(180%)",
+          WebkitBackdropFilter: "blur(20px) saturate(180%)",
+          border: `1.5px solid ${dateQuickJump.error ? "#f87171" : dateQuickJump.isTyping ? C.orange : C.green}`,
+          boxShadow: dateQuickJump.error
+            ? "0 12px 36px rgba(220, 38, 38, 0.2)"
+            : "0 14px 40px rgba(58, 125, 68, 0.18), 0 0 0 1px rgba(255,255,255,0.6) inset",
+          borderRadius: 20,
+          padding: "10px 22px",
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          animation: "scaleUp .16s cubic-bezier(0.16, 1, 0.3, 1)",
+          pointerEvents: "none",
+          maxWidth: "90vw"
+        }}>
+          <div style={{
+            fontSize: 22,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            animation: dateQuickJump.isTyping ? "pulse 1s infinite alternate" : "none"
+          }}>
+            {dateQuickJump.error ? "⚠️" : dateQuickJump.isTyping ? "⌨️" : "📅"}
+          </div>
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            <div style={{
+              fontSize: 14,
+              fontWeight: 800,
+              color: dateQuickJump.error ? "#dc2626" : dateQuickJump.isTyping ? C.orange : C.green,
+              fontFamily: "Georgia, serif",
+              letterSpacing: "0.3px",
+              display: "flex",
+              alignItems: "center",
+              gap: 8
+            }}>
+              <span>{dateQuickJump.title}</span>
+              {dateQuickJump.badge && (
+                <span style={{
+                  fontSize: 9,
+                  fontWeight: 800,
+                  padding: "2px 7px",
+                  borderRadius: 8,
+                  background: dateQuickJump.badgeBg || C.greenPale,
+                  color: dateQuickJump.badgeColor || C.green
+                }}>
+                  {dateQuickJump.badge}
+                </span>
+              )}
+            </div>
+            {dateQuickJump.sub && (
+              <div style={{ fontSize: 11, color: C.textSoft, marginTop: 1 }}>
+                {dateQuickJump.sub}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <AppHeader
         config={config} activeView={activeView}
         onLogout={handleLogout}
