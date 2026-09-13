@@ -333,7 +333,10 @@ export const AppHeader = memo(function AppHeader({
 
   return (
     <>
-      <header style={{ background: isLiquid ? "rgba(255, 255, 255, 0.45)" : C.white, backdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none", WebkitBackdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none", borderBottom: isLiquid ? "none" : `1px solid ${C.border}`, padding: "0 14px", display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: isLiquid ? "0 4px 30px rgba(0, 0, 0, 0.03)" : `0 2px 10px ${C.shadow}`, position: "fixed", top: 0, left: 0, right: 0, zIndex: 100, minHeight: 56, gap: 8 }}>
+      <header
+        className={`app-header-main${activeView === "turnos" ? " header-turnos-active" : ""}`}
+        style={{ background: isLiquid ? "rgba(255, 255, 255, 0.45)" : C.white, backdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none", WebkitBackdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none", borderBottom: isLiquid ? "none" : `1px solid ${C.border}`, padding: "0 14px", display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: isLiquid ? "0 4px 30px rgba(0, 0, 0, 0.03)" : `0 2px 10px ${C.shadow}`, position: "fixed", top: 0, left: 0, right: 0, zIndex: 100, minHeight: 56, gap: 8 }}
+      >
 
         {/* Left Container (Logo + Switcher) */}
         <div className="header-left-container">
@@ -342,7 +345,7 @@ export const AppHeader = memo(function AppHeader({
             <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#fff", border: `1px solid ${C.greenMint}`, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0, boxShadow: `0 2px 8px ${C.shadow}` }}>
               <img src="/logo.png" alt="Logo" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
             </div>
-            <div>
+            <div className="header-brand-text">
               <div style={{ fontSize: 7, letterSpacing: "3px", color: C.orange, textTransform: "uppercase" }}>{config.empresaSubtitulo}</div>
               <div style={{ fontSize: 15, color: C.green, letterSpacing: "1px" }}>{config.empresaNombre}</div>
             </div>

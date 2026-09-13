@@ -154,6 +154,20 @@ select {
     justify-content: center;
   }
 
+  /* Solo en vista de turnos en mobile: ocultar texto/eslogan del negocio y centrar perfectamente las planillas */
+  .header-turnos-active .header-brand-text {
+    display: none !important;
+  }
+
+  .header-turnos-active .branch-switcher-container {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    margin: 0;
+    max-width: calc(100vw - 120px);
+    z-index: 5;
+  }
+
   .desktop-nav-container {
     display: none !important;
   }

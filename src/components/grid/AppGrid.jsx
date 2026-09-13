@@ -437,15 +437,15 @@ export function AppGrid({
         
         if (Math.abs(diff) > threshold) {
           if (diff > 0) {
-            // Pinch apart (zoom in): show more columns (adds a professional)
-            if (lastColsRef.current < orderedProfessionals.length) {
-              updateColsToShow(lastColsRef.current + 1)
+            // Pinch apart (separar dedos / agrandar vista): mostrar menos columnas (más anchas)
+            if (lastColsRef.current > 1) {
+              updateColsToShow(lastColsRef.current - 1)
               touchStartDistRef.current = dist
             }
           } else {
-            // Pinch together (zoom out): show fewer columns (removes a professional)
-            if (lastColsRef.current > 1) {
-              updateColsToShow(lastColsRef.current - 1)
+            // Pinch together (juntar dedos / alejar vista): mostrar más columnas (más profesionales a la vez)
+            if (lastColsRef.current < orderedProfessionals.length) {
+              updateColsToShow(lastColsRef.current + 1)
               touchStartDistRef.current = dist
             }
           }
