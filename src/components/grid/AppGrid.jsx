@@ -20,6 +20,50 @@ const smallBtn = (color, isMobile) => ({
   whiteSpace: "nowrap",
 })
 
+const getOverdueInfo = (appt, isToday) => {
+  if (!isToday || !appt?.hour || appt.isBlocked || appt.isNote || appt.paid || appt.arrived) return null
+  const parts = appt.hour.split(":")
+  if (parts.length !== 2) return null
+  const h = parseInt(parts[0], 10)
+  const m = parseInt(parts[1], 10)
+  if (isNaN(h) || isNaN(m)) return null
+
+  const now = new Date()
+  const targetMins = h * 60 + m
+  const currentMins = now.getHours() * 60 + now.getMinutes()
+  const diff = targetMins - currentMins
+
+  let cd = null
+  if (diff > 0 && diff <= 15) {
+    cd = { type: "upcoming", label: `⏳ en ${diff}m`, mins: diff }
+  } else if (diff <= 0 && diff >= -180) {
+    const overdue = Math.abs(diff)
+    cd = { type: "overdue", label: `⏰ +${overdue}m`, mins: overdue }
+  }
+
+  if (diff >= 0) {
+    return { cd, overdueStyle: null, ratio: 0, overdue: 0 }
+  }
+
+  const overdue = Math.abs(diff)
+  const ratio = Math.min(1, overdue / 10) // De 0 a 1 en 10 minutos (rojo a partir de 10+ min)
+  const hue = Math.round(26 - ratio * 26) // 26 (naranja) -> 0 (rojo puro)
+  const sat1 = Math.round(95 + ratio * 3)
+  const light1 = Math.round(96 - ratio * 3)
+  const sat2 = Math.round(85 + ratio * 8)
+  const light2 = Math.round(91 - ratio * 6)
+  const borderSat = Math.round(80 + ratio * 15)
+  const borderLight = Math.round(75 - ratio * 20)
+
+  const overdueStyle = {
+    background: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Ctext x='50%25' y='50%25' font-size='14' fill='%23ea580c' opacity='0.08' text-anchor='middle' dominant-baseline='middle' transform='rotate(-20 30 30)'%3E🕒%3C/text%3E%3C/svg%3E"), linear-gradient(135deg, hsl(${hue}, ${sat1}%, ${light1}%), hsl(${hue}, ${sat2}%, ${light2}%))`,
+    border: `1.5px solid hsl(${hue}, ${borderSat}%, ${borderLight}%)`,
+    boxShadow: `0 2px 8px hsla(${hue}, 90%, 50%, ${0.08 + ratio * 0.22})`
+  }
+
+  return { cd, overdueStyle, ratio, overdue, hue }
+}
+
 const getTurnCountdown = (hourStr, isToday) => {
   if (!isToday || !hourStr) return null
   const parts = hourStr.split(":")
@@ -72,6 +116,10 @@ function ApptCard({
   const liveDurMins = liveSlots * 30
 
   const showPaid = appt.paid && !animating
+  const isToday = currentDate === todayKey()
+  const overdueInfo = getOverdueInfo(appt, isToday)
+  const cd = overdueInfo?.cd
+  const overdueStyle = overdueInfo?.overdueStyle
 
   return (
     <div
@@ -94,7 +142,9 @@ function ApptCard({
             ? "linear-gradient(135deg, #fffbeb, #fff3bf)"
             : showPaid
               ? `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Ctext x='50%25' y='50%25' font-size='18' fill='%233a7d44' opacity='0.1' text-anchor='middle' dominant-baseline='middle' transform='rotate(-25 30 30)'%3E$ %3C/text%3E%3C/svg%3E"), linear-gradient(135deg,${C.greenPale},#d8f0dc)`
-              : `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Ctext x='50%25' y='50%25' font-size='14' fill='%23e8793a' opacity='0.08' text-anchor='middle' dominant-baseline='middle' transform='rotate(-20 30 30)'%3E🕒%3C/text%3E%3C/svg%3E"), linear-gradient(135deg,${C.orangePale},#fde8d4)`,
+              : overdueStyle
+                ? overdueStyle.background
+                : `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Ctext x='50%25' y='50%25' font-size='14' fill='%23e8793a' opacity='0.08' text-anchor='middle' dominant-baseline='middle' transform='rotate(-20 30 30)'%3E🕒%3C/text%3E%3C/svg%3E"), linear-gradient(135deg,${C.orangePale},#fde8d4)`,
         border: appt.isBlocked
           ? (config.gridStyle === "classic" ? `1px dashed rgba(${rgbString}, ${alphas.border})` : `1.5px dashed rgba(${rgbString}, ${alphas.border})`)
           : appt.isNote
@@ -103,7 +153,9 @@ function ApptCard({
               ? `1.5px solid ${C.greenLight}`
               : appt.arrived && !showPaid
                 ? `1.5px solid #4a90e2`
-                : `1.5px solid ${showPaid ? C.greenLight : C.orangeLight}`,
+                : overdueStyle
+                  ? overdueStyle.border
+                  : `1.5px solid ${showPaid ? C.greenLight : C.orangeLight}`,
         padding: "6px 7px 6px",
         display: "flex", flexDirection: "column",
         boxShadow: isDragging
@@ -112,7 +164,9 @@ function ApptCard({
             ? "none"
             : appt.isNote
               ? "0 2px 8px rgba(133, 100, 4, 0.08)"
-              : `0 2px 8px ${showPaid ? "rgba(58,125,68,0.1)" : "rgba(232,121,58,0.1)"}`,
+              : overdueStyle
+                ? overdueStyle.boxShadow
+                : `0 2px 8px ${showPaid ? "rgba(58,125,68,0.1)" : "rgba(232,121,58,0.1)"}`,
         opacity: isDragging ? 0.45 : 1,
         transform: isDragging ? "scale(0.97)" : "scale(1)",
         transition: isResizing ? "none" : "opacity .15s, box-shadow .15s, transform .15s",
@@ -157,7 +211,39 @@ function ApptCard({
         <div style={{ position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)", background: C.green, color: "#fff", borderRadius: 8, padding: "2px 8px", fontSize: 9, fontWeight: "bold", letterSpacing: "1px", whiteSpace: "nowrap", zIndex: 20, pointerEvents: "none", boxShadow: "0 2px 8px rgba(58,125,68,.35)" }}>{liveHour} – {liveEndHour} · {liveDurMins} min</div>
       )}
 
-      <div style={{ position: "absolute", top: 4, right: 5, fontSize: 9, color: "rgba(100,130,100,.4)", pointerEvents: "none", zIndex: 3 }}>⠿</div>
+      {cd ? (
+        <div
+          title={cd.type === "overdue" ? `Clienta demorada ${overdueInfo?.overdue}m` : `Próximo turno en ${cd.mins}m`}
+          style={{
+            position: "absolute",
+            top: 4,
+            right: 5,
+            fontSize: isMobile ? 8 : 8.5,
+            fontWeight: "700",
+            padding: "1px 5px",
+            borderRadius: 5,
+            background: cd.type === "overdue"
+              ? `hsla(${Math.max(0, 26 - (overdueInfo?.ratio || 0) * 26)}, 90%, 50%, 0.14)`
+              : "rgba(120, 113, 108, 0.12)",
+            color: cd.type === "overdue"
+              ? `hsl(${Math.max(0, 26 - (overdueInfo?.ratio || 0) * 26)}, 90%, 38%)`
+              : "#666",
+            border: `1px solid ${cd.type === "overdue"
+              ? `hsla(${Math.max(0, 26 - (overdueInfo?.ratio || 0) * 26)}, 90%, 50%, 0.35)`
+              : "rgba(120, 113, 108, 0.2)"}`,
+            pointerEvents: "none",
+            zIndex: 11,
+            lineHeight: 1.2,
+            letterSpacing: "0.2px",
+            display: "flex", alignItems: "center", gap: 2,
+            boxShadow: cd.type === "overdue" ? `0 1px 4px hsla(${Math.max(0, 26 - (overdueInfo?.ratio || 0) * 26)}, 90%, 50%, 0.2)` : "none"
+          }}
+        >
+          {cd.label}
+        </div>
+      ) : (
+        <div style={{ position: "absolute", top: 4, right: 5, fontSize: 9, color: "rgba(100,130,100,.4)", pointerEvents: "none", zIndex: 3 }}>⠿</div>
+      )}
 
       <div style={{ overflow: "hidden", marginTop: 2, position: "relative", zIndex: 2 }}>
          {appt.isNote ? (
@@ -176,7 +262,7 @@ function ApptCard({
             </div>
          ) : (
            <>
-             <div style={{ fontSize: 11, fontWeight: "bold", color: appt.isBlocked ? C.red : C.text, marginBottom: 1, paddingRight: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+             <div style={{ fontSize: 11, fontWeight: "bold", color: appt.isBlocked ? C.red : C.text, marginBottom: 1, paddingRight: cd ? (isMobile ? 50 : 58) : 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                {appt.isBlocked ? "" : appt.client}
              </div>
              {!appt.isBlocked && (appt.services || []).map((sv, i) => (
@@ -228,24 +314,6 @@ function ApptCard({
       {!appt.isBlocked && (
         <div style={{ position: "absolute", bottom: isMobile ? 4 : 6, right: isMobile ? 4 : 6, display: "flex", alignItems: "center", gap: isMobile ? 3 : 4, zIndex: 12 }}>
           <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); onDelete(k) }} style={{ width: 22, height: 22, borderRadius: 6, border: `1px solid ${C.border}`, background: "rgba(255,255,255,.9)", color: "#c0a0a0", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>✕</button>
-          {!appt.isNote && !appt.paid && !appt.arrived && (() => {
-            const cd = getTurnCountdown(appt.hour, currentDate === todayKey())
-            if (!cd) return null
-            return (
-              <span style={{
-                fontSize: isMobile ? 8 : 8.5,
-                fontWeight: "600",
-                color: cd.type === "upcoming" ? "#78716c" : "#ea580c",
-                opacity: 0.85,
-                whiteSpace: "nowrap",
-                userSelect: "none",
-                pointerEvents: "none",
-                marginRight: 2,
-              }}>
-                {cd.label}
-              </span>
-            )
-          })()}
           {appt.isNote ? (
             <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); onEdit(k, appointments[k]) }} style={smallBtn(C.green, isMobile)}>{isMobile ? "✏️" : "✏️ Editar"}</button>
           ) : (
@@ -876,6 +944,11 @@ export function AppGrid({
                       const liveHour = HOURS[liveHourIdx] || appt.hour
                       const liveEndHour = liveEndIdx < HOURS.length ? HOURS[liveEndIdx] : "20:00"
                       const liveDurMins = liveSlots * 30
+
+                      const isToday = currentDate === todayKey()
+                      const overdueInfo = getOverdueInfo(appt, isToday)
+                      const cd = overdueInfo?.cd
+                      const overdueStyle = overdueInfo?.overdueStyle
                       return (
                         <div
                           draggable={!resizePreview && !isSelectedForMultiPay}
@@ -912,7 +985,9 @@ export function AppGrid({
                                 ? "linear-gradient(135deg, #fffbeb, #fff3bf)"
                                 : appt.paid
                                   ? `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Ctext x='50%25' y='50%25' font-size='18' fill='%233a7d44' opacity='0.1' text-anchor='middle' dominant-baseline='middle' transform='rotate(-25 30 30)'%3E$ %3C/text%3E%3C/svg%3E"), linear-gradient(135deg,${C.greenPale},#d8f0dc)`
-                                  : `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Ctext x='50%25' y='50%25' font-size='14' fill='%23e8793a' opacity='0.08' text-anchor='middle' dominant-baseline='middle' transform='rotate(-20 30 30)'%3E🕒%3C/text%3E%3C/svg%3E"), linear-gradient(135deg,${C.orangePale},#fde8d4)`),
+                                  : overdueStyle
+                                    ? overdueStyle.background
+                                    : `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Ctext x='50%25' y='50%25' font-size='14' fill='%23e8793a' opacity='0.08' text-anchor='middle' dominant-baseline='middle' transform='rotate(-20 30 30)'%3E🕒%3C/text%3E%3C/svg%3E"), linear-gradient(135deg,${C.orangePale},#fde8d4)`),
                             border: isSelectedForMultiPay
                               ? `2px solid #16a34a`
                               : (appt.isBlocked
@@ -923,7 +998,9 @@ export function AppGrid({
                                   ? `1.5px solid ${C.greenLight}`
                                   : appt.arrived && !appt.paid
                                     ? `1.5px solid #4a90e2`
-                                    : `1.5px solid ${appt.paid ? C.greenLight : C.orangeLight}`),
+                                    : overdueStyle
+                                      ? overdueStyle.border
+                                      : `1.5px solid ${appt.paid ? C.greenLight : C.orangeLight}`),
                             padding: "6px 7px 6px",
                             display: "flex", flexDirection: "column",
                             boxShadow: isDragging
@@ -934,7 +1011,9 @@ export function AppGrid({
                                 ? "none"
                                 : appt.isNote
                                   ? "0 2px 8px rgba(133, 100, 4, 0.08)"
-                                  : `0 2px 8px ${appt.paid ? "rgba(58,125,68,0.1)" : "rgba(232,121,58,0.1)"}`)),
+                                  : overdueStyle
+                                    ? overdueStyle.boxShadow
+                                    : `0 2px 8px ${appt.paid ? "rgba(58,125,68,0.1)" : "rgba(232,121,58,0.1)"}`)),
                             opacity: isDragging ? 0.45 : 1,
                             transform: isDragging ? "scale(0.97)" : (isSelectedForMultiPay ? "scale(1.02)" : "scale(1)"),
                             transition: isResizing ? "none" : "opacity .15s, box-shadow .15s, transform .15s",
@@ -983,6 +1062,36 @@ export function AppGrid({
                             }}>
                               <span>✓ #{selectedIndex}</span>
                             </div>
+                          ) : cd ? (
+                            <div
+                              title={cd.type === "overdue" ? `Clienta demorada ${overdueInfo?.overdue}m` : `Próximo turno en ${cd.mins}m`}
+                              style={{
+                                position: "absolute",
+                                top: 4,
+                                right: 5,
+                                fontSize: isMobile ? 8 : 8.5,
+                                fontWeight: "700",
+                                padding: "1px 5px",
+                                borderRadius: 5,
+                                background: cd.type === "overdue"
+                                  ? `hsla(${Math.max(0, 26 - (overdueInfo?.ratio || 0) * 26)}, 90%, 50%, 0.14)`
+                                  : "rgba(120, 113, 108, 0.12)",
+                                color: cd.type === "overdue"
+                                  ? `hsl(${Math.max(0, 26 - (overdueInfo?.ratio || 0) * 26)}, 90%, 38%)`
+                                  : "#666",
+                                border: `1px solid ${cd.type === "overdue"
+                                  ? `hsla(${Math.max(0, 26 - (overdueInfo?.ratio || 0) * 26)}, 90%, 50%, 0.35)`
+                                  : "rgba(120, 113, 108, 0.2)"}`,
+                                pointerEvents: "none",
+                                zIndex: 11,
+                                lineHeight: 1.2,
+                                letterSpacing: "0.2px",
+                                display: "flex", alignItems: "center", gap: 2,
+                                boxShadow: cd.type === "overdue" ? `0 1px 4px hsla(${Math.max(0, 26 - (overdueInfo?.ratio || 0) * 26)}, 90%, 50%, 0.2)` : "none"
+                              }}
+                            >
+                              {cd.label}
+                            </div>
                           ) : (
                             <div style={{ position: "absolute", top: 4, right: 5, fontSize: 9, color: "rgba(100,130,100,.4)", pointerEvents: "none" }}>⠿</div>
                           )}
@@ -1004,7 +1113,7 @@ export function AppGrid({
                                 </div>
                              ) : (
                                <>
-                                 <div style={{ fontSize: 11, fontWeight: "bold", color: appt.isBlocked ? C.red : C.text, marginBottom: 1, paddingRight: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                 <div style={{ fontSize: 11, fontWeight: "bold", color: appt.isBlocked ? C.red : C.text, marginBottom: 1, paddingRight: cd ? (isMobile ? 50 : 58) : 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                                    {appt.isBlocked ? "" : appt.client}
                                  </div>
                                  {!appt.isBlocked && (appt.services || []).map((sv, i) => (
@@ -1056,24 +1165,6 @@ export function AppGrid({
                           {!appt.isBlocked && (
                             <div style={{ position: "absolute", bottom: isMobile ? 4 : 6, right: isMobile ? 4 : 6, display: "flex", alignItems: "center", gap: isMobile ? 3 : 4, zIndex: 5 }}>
                               <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); onDelete(k) }} style={{ width: 22, height: 22, borderRadius: 6, border: `1px solid ${C.border}`, background: "rgba(255,255,255,.9)", color: "#c0a0a0", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>✕</button>
-                              {!appt.isNote && !appt.paid && !appt.arrived && (() => {
-                                const cd = getTurnCountdown(appt.hour, currentDate === todayKey())
-                                if (!cd) return null
-                                return (
-                                  <span style={{
-                                    fontSize: isMobile ? 8 : 8.5,
-                                    fontWeight: "600",
-                                    color: cd.type === "upcoming" ? "#78716c" : "#ea580c",
-                                    opacity: 0.85,
-                                    whiteSpace: "nowrap",
-                                    userSelect: "none",
-                                    pointerEvents: "none",
-                                    marginRight: 2,
-                                  }}>
-                                    {cd.label}
-                                  </span>
-                                )
-                              })()}
                               {appt.isNote ? (
                                 <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); onEdit(k, appointments[k]) }} style={smallBtn(C.green, isMobile)}>{isMobile ? "✏️" : "✏️ Editar"}</button>
                               ) : (
