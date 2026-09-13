@@ -291,7 +291,7 @@ export default function ContabilidadView({
       } else if (e.key === "ArrowRight") {
         e.preventDefault()
         setContOffset(p => p + 1)
-      } else if (e.key.toLowerCase() === "h") {
+      } else if (e.key.toLowerCase() === "h" || e.key === " " || e.code === "Space") {
         e.preventDefault()
         if (contOffset !== 0) {
           setContOffset(0)

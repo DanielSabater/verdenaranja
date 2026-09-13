@@ -32,23 +32,47 @@ export default function ClientesView({ clientes, setClientes, allData }) {
     setShowSug(false)
   }
 
+  const clientStatsMap = useMemo(() => {
+    const map = new Map()
+    Object.entries(safeD).forEach(([fecha, day]) => {
+      Object.values(day || {}).forEach(a => {
+        const clientName = (a.client || "").trim().toLowerCase()
+        if (!clientName) return
+        let st = map.get(clientName)
+        if (!st) {
+          st = { visits: 0, totalSpent: 0, lastVisit: null, svcs: new Set(), rawAppts: [] }
+          map.set(clientName, st)
+        }
+        st.visits++
+        if (a.paid) {
+          const apptSpent = (a.services || []).reduce((s, x) => s + (Number(x.price) || 0), 0)
+          st.totalSpent += apptSpent
+        }
+        if (!st.lastVisit || fecha > st.lastVisit) {
+          st.lastVisit = fecha
+        }
+        ;(a.services || []).forEach(s => {
+          if (s?.name) st.svcs.add(s.name)
+        })
+        st.rawAppts.push({ fecha, a })
+      })
+    })
+    return map
+  }, [safeD])
+
   const enriched = useMemo(() => {
     return safe.map(c => {
-      let visits = 0, totalSpent = 0, lastVisit = null
-      const svcs = new Set()
-      Object.entries(safeD).forEach(([fecha, day]) => {
-        Object.values(day).forEach(a => {
-          if ((a.client||"").toLowerCase() === c.name.toLowerCase()) {
-            visits++
-            if (a.paid) totalSpent += (a.services||[]).reduce((s,x) => s + (x.price||0), 0)
-            if (!lastVisit || fecha > lastVisit) lastVisit = fecha
-            ;(a.services||[]).forEach(s => svcs.add(s.name))
-          }
-        })
-      })
-      return { ...c, visits, totalSpent, lastVisit, servicesTaken: Array.from(svcs) }
+      const key = (c.name || "").trim().toLowerCase()
+      const st = clientStatsMap.get(key)
+      return {
+        ...c,
+        visits: st ? st.visits : 0,
+        totalSpent: st ? st.totalSpent : 0,
+        lastVisit: st ? st.lastVisit : null,
+        servicesTaken: st ? Array.from(st.svcs) : []
+      }
     })
-  }, [safe, safeD])
+  }, [safe, clientStatsMap])
 
   const allServices = useMemo(() => {
     const s = new Set(); enriched.forEach(c => c.servicesTaken.forEach(x => s.add(x))); return Array.from(s).sort()
@@ -69,30 +93,27 @@ export default function ClientesView({ clientes, setClientes, allData }) {
   }, [enriched, search, filterSvc, sortBy])
 
   const visitCount = (name) => {
-    let n = 0
-    Object.values(safeD).forEach(day => Object.values(day).forEach(a => {
-      if ((a.client||"").toLowerCase() === name.toLowerCase()) n++
-    }))
-    return n
+    if (!name) return 0
+    const key = name.trim().toLowerCase()
+    const st = clientStatsMap.get(key)
+    return st ? st.visits : 0
   }
 
   const getHistorial = (name) => {
-    const rows = []
-    Object.entries(safeD).forEach(([fecha, day]) => {
-      Object.values(day).forEach(a => {
-        if ((a.client||"").toLowerCase() === name.toLowerCase()) {
-          rows.push({
-            fecha: formatDate(fecha),
-            hora: a.hour || "--:--",
-            servicios: (a.services||[]).map(s => s.name).join(", ") || "—",
-            total: a.paid ? (a.services||[]).reduce((s,x) => s + (x.price||0), 0) : null,
-            pago: formatPayment(a),
-            paid: a.paid,
-          })
-        }
-      })
-    })
-    return rows.sort((a,b) => b.fecha.localeCompare(a.fecha) || a.hora.localeCompare(b.hora)).slice(0,15)
+    if (!name) return []
+    const key = name.trim().toLowerCase()
+    const st = clientStatsMap.get(key)
+    if (!st || !st.rawAppts.length) return []
+    const rows = st.rawAppts.map(({ fecha, a }) => ({
+      fecha: formatDate(fecha),
+      hora: a.hour || "--:--",
+      servicios: (a.services||[]).map(s => s.name).join(", ") || "—",
+      total: a.paid ? (a.services||[]).reduce((s,x) => s + (x.price||0), 0) : null,
+      pago: formatPayment(a),
+      paid: a.paid,
+      rawFecha: fecha,
+    }))
+    return rows.sort((a,b) => b.rawFecha.localeCompare(a.rawFecha) || b.hora.localeCompare(a.hora)).slice(0,15)
   }
 
   const fmt = (n) => n != null ? `$${Number(n).toLocaleString("es-AR")}` : "—"
@@ -176,7 +197,7 @@ export default function ClientesView({ clientes, setClientes, allData }) {
           </div>
 
           <div style={{ display:"flex", gap:10, marginBottom:14, flexWrap:"wrap" }}>
-            {[["👥","Clientas",safe.length,C.greenPale,C.green,C.greenMint],["📅","Con turnos",safe.filter(c=>visitCount(c.name)>0).length,"#fdf0e8",C.orange,"#f0c8a0"]].map(([icon,lbl,val,bg,col,brd])=>(
+            {[["👥","Clientas",safe.length,C.greenPale,C.green,C.greenMint],["📅","Con turnos",enriched.filter(c=>c.visits>0).length,"#fdf0e8",C.orange,"#f0c8a0"]].map(([icon,lbl,val,bg,col,brd])=>(
               <div key={lbl} style={{ background:bg, border:`1px solid ${brd}`, borderRadius:10, padding:"7px 14px", textAlign:"center" }}>
                 <div style={{ fontSize:9, color:col, textTransform:"uppercase", letterSpacing:"1px" }}>{icon} {lbl}</div>
                 <div style={{ fontSize:20, color:col, fontWeight:"bold" }}>{val}</div>

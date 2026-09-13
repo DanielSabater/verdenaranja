@@ -7,21 +7,47 @@ import { todayKey, fmtDate } from "../../utils/dates.js"
 import html2canvas from "html2canvas"
 
 const smallBtn = (color, isMobile) => ({
-  padding: isMobile ? "4px 8px" : "6px 12px", borderRadius: 8, border: "none",
+  padding: isMobile ? "4px 8px" : "5px 8px", borderRadius: 8, border: "none",
   background: color, color: "#fff", fontSize: isMobile ? 12 : 10,
-  letterSpacing: "1px", cursor: "pointer",
+  letterSpacing: "0.5px", cursor: "pointer",
   fontFamily: "Georgia,serif", opacity: 0.92,
-  transition: "opacity .15s",
+  transition: "all .15s",
   fontWeight: "bold",
   display: "flex", alignItems: "center", justifyContent: "center",
+  minWidth: isMobile ? 26 : 80,
+  height: isMobile ? 22 : 24,
+  boxSizing: "border-box",
+  whiteSpace: "nowrap",
 })
+
+const getTurnCountdown = (hourStr, isToday) => {
+  if (!isToday || !hourStr) return null
+  const parts = hourStr.split(":")
+  if (parts.length !== 2) return null
+  const h = parseInt(parts[0], 10)
+  const m = parseInt(parts[1], 10)
+  if (isNaN(h) || isNaN(m)) return null
+
+  const now = new Date()
+  const targetMins = h * 60 + m
+  const currentMins = now.getHours() * 60 + now.getMinutes()
+  const diff = targetMins - currentMins
+
+  if (diff > 0 && diff <= 15) {
+    return { type: "upcoming", label: `⏳ en ${diff}m` }
+  } else if (diff <= 0 && diff >= -180) {
+    const overdue = Math.abs(diff)
+    return { type: "overdue", label: `⏰ +${overdue}m` }
+  }
+  return null
+}
 
 function ApptCard({
   k, appt, resizePreview, onDragStart, onDragEnd, onEdit, onPay, onDelete,
   appointments, isDragging, isResizeStart, currentTurnKeys, hoveredClientName,
   setHoveredClientName, rgbString, alphas, config, C, HOURS, apptDur,
   apptTotal, apptPaidTotal, isMobile, smallBtn, PAYMENT_METHODS, fmt,
-  onResizeStart, span,
+  onResizeStart, span, onToggleArrived, currentDate,
 }) {
   const [animating, setAnimating] = useState(false)
   const wasPaid = useRef(appt.paid)
@@ -29,14 +55,12 @@ function ApptCard({
   useEffect(() => {
     const prevPaid = wasPaid.current
     wasPaid.current = appt.paid
-    if (appt.paid && !prevPaid && !appt.isBlocked && !appt.isNote) {
+    if (!prevPaid && appt.paid) {
       setAnimating(true)
-      const timer = setTimeout(() => {
-        setAnimating(false)
-      }, 1500)
-      return () => clearTimeout(timer)
+      const t = setTimeout(() => setAnimating(false), 2400)
+      return () => clearTimeout(t)
     }
-  }, [appt.paid, appt.isBlocked, appt.isNote])
+  }, [appt.paid])
 
   const isResizing = resizePreview?.key === k
   const isCurrentTurn = currentTurnKeys.has(k)
@@ -55,7 +79,7 @@ function ApptCard({
       onDragStart={e => { if (resizePreview) { e.preventDefault(); return; } onDragStart(e, k) }}
       onDragEnd={onDragEnd}
       onDoubleClick={e => { if (!resizePreview) { e.stopPropagation(); onEdit(k, appointments[k]); } }}
-      className={`appt-card${appt.isBlocked ? " blocked" : (appt.isNote ? " note" : (showPaid ? " paid" : " unpaid"))}${isCurrentTurn && !isDragging && !isResizeStart ? " current" : ""}${hoveredClientName && appt.client === hoveredClientName ? " force-hover" : ""}${animating ? " just-paid-glowing" : ""}`}
+      className={`appt-card${appt.isBlocked ? " blocked" : (appt.isNote ? " note" : (showPaid ? " paid" : " unpaid"))}${appt.arrived && !showPaid && !isDragging && !isResizeStart ? " current" : ""}${hoveredClientName && appt.client === hoveredClientName ? " force-hover" : ""}${animating ? " just-paid-glowing" : ""}`}
       style={{
         height: "100%", borderRadius: 9,
         background: appt.isBlocked
@@ -77,7 +101,7 @@ function ApptCard({
             ? "1.5px solid #ffe066"
             : isResizeStart
               ? `1.5px solid ${C.greenLight}`
-              : isCurrentTurn && !isDragging
+              : appt.arrived && !showPaid
                 ? `1.5px solid #4a90e2`
                 : `1.5px solid ${showPaid ? C.greenLight : C.orangeLight}`,
         padding: "6px 7px 6px",
@@ -169,6 +193,22 @@ function ApptCard({
              </div>
            </>
          )}
+        {!appt.isBlocked && !showPaid && appt.arrived && (
+          <div
+            onMouseDown={e => e.stopPropagation()}
+            onClick={e => { e.stopPropagation(); onToggleArrived && onToggleArrived(k) }}
+            title="En el salón. Clic para desmarcar si fue un error"
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 3,
+              background: "#e0f2fe", color: "#0369a1", border: "1px solid #bae6fd",
+              borderRadius: 6, padding: "1px 5px", fontSize: 8, fontWeight: "bold",
+              marginTop: 2, cursor: "pointer", width: "fit-content"
+            }}
+          >
+            <span>📍 En salón</span>
+            <span style={{ fontSize: 7, opacity: 0.6 }}>✕</span>
+          </div>
+        )}
         {appt.createdAt && (
           <div style={{ fontSize: 8, color: C.textSoft, marginTop: 1, opacity: .7 }}>🕐 Tomado a las {appt.createdAt}</div>
         )}
@@ -188,6 +228,24 @@ function ApptCard({
       {!appt.isBlocked && (
         <div style={{ position: "absolute", bottom: isMobile ? 4 : 6, right: isMobile ? 4 : 6, display: "flex", alignItems: "center", gap: isMobile ? 3 : 4, zIndex: 12 }}>
           <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); onDelete(k) }} style={{ width: 22, height: 22, borderRadius: 6, border: `1px solid ${C.border}`, background: "rgba(255,255,255,.9)", color: "#c0a0a0", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>✕</button>
+          {!appt.isNote && !appt.paid && !appt.arrived && (() => {
+            const cd = getTurnCountdown(appt.hour, currentDate === todayKey())
+            if (!cd) return null
+            return (
+              <span style={{
+                fontSize: isMobile ? 8 : 8.5,
+                fontWeight: "600",
+                color: cd.type === "upcoming" ? "#78716c" : "#ea580c",
+                opacity: 0.85,
+                whiteSpace: "nowrap",
+                userSelect: "none",
+                pointerEvents: "none",
+                marginRight: 2,
+              }}>
+                {cd.label}
+              </span>
+            )
+          })()}
           {appt.isNote ? (
             <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); onEdit(k, appointments[k]) }} style={smallBtn(C.green, isMobile)}>{isMobile ? "✏️" : "✏️ Editar"}</button>
           ) : (
@@ -196,7 +254,9 @@ function ApptCard({
                 const pmColor = PAYMENT_METHODS.find(m => m.id === appt.payMethod)?.color || "#7a9e7a"
                 return <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); onPay(k) }} style={smallBtn(pmColor, isMobile)}>{isMobile ? "✏️" : "✏️ Pago"}</button>
               })()
-              : <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); onPay(k) }} style={smallBtn(C.orange, isMobile)}>{isMobile ? "💰" : "💰 Abonar"}</button>
+              : !appt.arrived
+                ? <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); onToggleArrived && onToggleArrived(k) }} style={{ ...smallBtn("transparent", isMobile), background: "rgba(232, 121, 58, 0.12)", border: "1px solid rgba(232, 121, 58, 0.4)", color: C.orange }} title="Tocar cuando la clienta llegue al local">{isMobile ? "📍" : "📍 Llegó"}</button>
+                : <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); onPay(k) }} style={smallBtn(C.orange, isMobile)}>{isMobile ? "💰" : "💰 Abonar"}</button>
           )}
         </div>
       )}
@@ -225,6 +285,7 @@ export function AppGrid({
   onToggleSelectMultiPay,
   onClearMultiPaySelection,
   onConfirmMultiPaySelection,
+  onToggleArrived,
 }) {
   const [profPopup, setProfPopup] = useState(null)
   const [copiedAgenda, setCopiedAgenda] = useState(false)
@@ -232,6 +293,12 @@ export function AppGrid({
   const [colOrder, setColOrder] = useState(() => { try { const v = localStorage.getItem("pv:colOrder"); return v ? JSON.parse(v) : null } catch { return null } })
   const [highlightedHour, setHighlightedHour] = useState(null)
   const highlightTimeoutRef = useRef(null)
+
+  const [, setNowTick] = useState(0)
+  useEffect(() => {
+    const timer = setInterval(() => setNowTick(t => t + 1), 30000)
+    return () => clearInterval(timer)
+  }, [])
 
   const orderedProfessionals = (() => {
     if (!colOrder) return professionals
@@ -828,7 +895,7 @@ export function AppGrid({
                             }
                           }}
                           onDoubleClick={e => { if (!resizePreview && !isSelectedForMultiPay) { e.stopPropagation(); onEdit(k, appointments[k]); } }}
-                          className={`appt-card${appt.isBlocked ? " blocked" : (appt.isNote ? " note" : (appt.paid ? " paid" : " unpaid"))}${isCurrentTurn && !isDragging && !isResizeStart ? " current" : ""}${hoveredClientName && appt.client === hoveredClientName ? " force-hover" : ""}${isSelectedForMultiPay ? " selected-multipay" : ""}`}
+                          className={`appt-card${appt.isBlocked ? " blocked" : (appt.isNote ? " note" : (appt.paid ? " paid" : " unpaid"))}${appt.arrived && !appt.paid && !isDragging && !isResizeStart ? " current" : ""}${hoveredClientName && appt.client === hoveredClientName ? " force-hover" : ""}${isSelectedForMultiPay ? " selected-multipay" : ""}`}
                           style={{
                             height: "100%", borderRadius: 9,
                             background: isSelectedForMultiPay
@@ -854,7 +921,7 @@ export function AppGrid({
                                 ? "1.5px solid #ffe066"
                                 : isResizeStart
                                   ? `1.5px solid ${C.greenLight}`
-                                  : isCurrentTurn && !isDragging
+                                  : appt.arrived && !appt.paid
                                     ? `1.5px solid #4a90e2`
                                     : `1.5px solid ${appt.paid ? C.greenLight : C.orangeLight}`),
                             padding: "6px 7px 6px",
@@ -954,6 +1021,22 @@ export function AppGrid({
                                  </div>
                                </>
                              )}
+                            {!appt.isBlocked && !appt.paid && appt.arrived && (
+                              <div
+                                onMouseDown={e => e.stopPropagation()}
+                                onClick={e => { e.stopPropagation(); onToggleArrived && onToggleArrived(k) }}
+                                title="En el salón. Clic para desmarcar si fue un error"
+                                style={{
+                                  display: "inline-flex", alignItems: "center", gap: 3,
+                                  background: "#e0f2fe", color: "#0369a1", border: "1px solid #bae6fd",
+                                  borderRadius: 6, padding: "1px 5px", fontSize: 8, fontWeight: "bold",
+                                  marginTop: 2, cursor: "pointer", width: "fit-content"
+                                }}
+                              >
+                                <span>📍 En salón</span>
+                                <span style={{ fontSize: 7, opacity: 0.6 }}>✕</span>
+                              </div>
+                            )}
                             {appt.createdAt && (
                               <div style={{ fontSize: 8, color: C.textSoft, marginTop: 1, opacity: .7 }}>🕐 Tomado a las {appt.createdAt}</div>
                             )}
@@ -973,6 +1056,24 @@ export function AppGrid({
                           {!appt.isBlocked && (
                             <div style={{ position: "absolute", bottom: isMobile ? 4 : 6, right: isMobile ? 4 : 6, display: "flex", alignItems: "center", gap: isMobile ? 3 : 4, zIndex: 5 }}>
                               <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); onDelete(k) }} style={{ width: 22, height: 22, borderRadius: 6, border: `1px solid ${C.border}`, background: "rgba(255,255,255,.9)", color: "#c0a0a0", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>✕</button>
+                              {!appt.isNote && !appt.paid && !appt.arrived && (() => {
+                                const cd = getTurnCountdown(appt.hour, currentDate === todayKey())
+                                if (!cd) return null
+                                return (
+                                  <span style={{
+                                    fontSize: isMobile ? 8 : 8.5,
+                                    fontWeight: "600",
+                                    color: cd.type === "upcoming" ? "#78716c" : "#ea580c",
+                                    opacity: 0.85,
+                                    whiteSpace: "nowrap",
+                                    userSelect: "none",
+                                    pointerEvents: "none",
+                                    marginRight: 2,
+                                  }}>
+                                    {cd.label}
+                                  </span>
+                                )
+                              })()}
                               {appt.isNote ? (
                                 <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); onEdit(k, appointments[k]) }} style={smallBtn(C.green, isMobile)}>{isMobile ? "✏️" : "✏️ Editar"}</button>
                               ) : (
@@ -981,7 +1082,9 @@ export function AppGrid({
                                     const pmColor = PAYMENT_METHODS.find(m => m.id === appt.payMethod)?.color || "#7a9e7a"
                                     return <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); onPay(k) }} style={smallBtn(pmColor, isMobile)}>{isMobile ? "✏️" : "✏️ Pago"}</button>
                                   })()
-                                  : <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); onPay(k) }} style={smallBtn(C.orange, isMobile)}>{isMobile ? "💰" : "💰 Abonar"}</button>
+                                  : !appt.arrived
+                                    ? <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); onToggleArrived && onToggleArrived(k) }} style={{ ...smallBtn("transparent", isMobile), background: "rgba(232, 121, 58, 0.12)", border: "1px solid rgba(232, 121, 58, 0.4)", color: C.orange }} title="Tocar cuando la clienta llegue al local">{isMobile ? "📍" : "📍 Llegó"}</button>
+                                    : <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); onPay(k) }} style={smallBtn(C.orange, isMobile)}>{isMobile ? "💰" : "💰 Abonar"}</button>
                               )}
                             </div>
                           )}

@@ -468,7 +468,7 @@ export default function App() {
         }
       }
 
-      if (e.key?.toLowerCase() === 'h') {
+      if (e.key?.toLowerCase() === 'h' || e.key === ' ' || e.code === 'Space') {
         e.preventDefault()
         const tKey = todayKey()
         const isAlreadyToday = currentDate === tKey
@@ -1017,6 +1017,20 @@ export default function App() {
     })
   }, [])
 
+  const handleToggleArrived = useCallback((key) => {
+    setAppointments(prev => {
+      const current = prev[key]
+      if (!current) return prev
+      return {
+        ...prev,
+        [key]: {
+          ...current,
+          arrived: !current.arrived
+        }
+      }
+    })
+  }, [setAppointments])
+
   // Show loading only on very first load, not on session changes
   if (!loaded) {
     const isPremium = config?.premiumLoading ?? true
@@ -1206,6 +1220,7 @@ export default function App() {
                 onPay={(key) => { const a = appointments[key]; if (a?.paymentSplits?.length) setPaymentSplits(a.paymentSplits.map(s => ({ ...s }))); else setPaymentSplits([{ methodId: "efectivo", amount: Math.max(0, apptTotal(a) + (a.tip || 0) - (a.discount || 0)) }]); setApptTip({ [key]: a.tip ? a.tip.toString() : "" }); setApptDiscount(a.discount || ""); setPayModal(key) }}
                 onDelete={(key) => setDeleteKey(key)}
                 onToggleTipsRelease={onToggleTipsRelease}
+                onToggleArrived={handleToggleArrived}
                 CELL_H={CELL_H}
                 activeRama={activeRama}
                 selectedMultiPayKeys={selectedMultiPayKeys}
