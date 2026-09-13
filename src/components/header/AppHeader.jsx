@@ -50,6 +50,33 @@ export const AppHeader = memo(function AppHeader({
   const allProfsMap = useMemo(() => new Set((config?.professionals || []).map(p => p.id)), [config?.professionals])
   const paidAppts = useMemo(() => Object.values(appointments).filter(a => a.paid && allProfsMap.has(a.profId)), [appointments, allProfsMap])
 
+  const pendingByRama = useMemo(() => {
+    const counts = {}
+    if (!ramas || !ramas.length || !config?.professionals) return counts
+
+    const profRamaMap = new Map()
+    ;(config.professionals || []).forEach(p => {
+      const r = String(p.rama || "manos").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      profRamaMap.set(p.id, r)
+    })
+
+    ramas.forEach(r => {
+      const norm = String(r).trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      counts[norm] = 0
+    })
+
+    Object.entries(appointments).forEach(([k, appt]) => {
+      if (!appt || appt.isBlocked || appt.isNote || appt.paid) return
+      const profId = appt.profId || k.split("||")[0]
+      const ramaOfProf = profRamaMap.get(profId)
+      if (ramaOfProf && counts[ramaOfProf] !== undefined) {
+        counts[ramaOfProf] += 1
+      }
+    })
+
+    return counts
+  }, [ramas, config?.professionals, appointments])
+
   const grossIncomeToday = useMemo(() => {
     return paidAppts.reduce((s, a) => {
       if (a.paymentSplits?.length) {
@@ -338,9 +365,12 @@ export const AppHeader = memo(function AppHeader({
               alignItems: "center"
             }}>
               {ramas.map(rama => {
-                const isActive = String(activeRama).trim().toLowerCase() === String(rama).trim().toLowerCase()
+                const normRama = String(rama).trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+                const isActive = String(activeRama).trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") === normRama
                 const emoji = getRamaEmoji(rama)
                 const displayName = rama.charAt(0).toUpperCase() + rama.slice(1)
+                const pendingCount = pendingByRama[normRama] || 0
+                const hasPending = pendingCount > 0 && !isActive
                 return (
                   <button
                     key={rama}
@@ -363,13 +393,42 @@ export const AppHeader = memo(function AppHeader({
                       alignItems: "center",
                       gap: 5,
                       boxShadow: isActive ? `0 2px 6px ${C.green}22` : "none",
-                      outline: "none"
+                      outline: "none",
+                      position: "relative"
                     }}
                     onMouseEnter={(e) => { if (!isActive) { e.currentTarget.style.background = C.greenPale } }}
                     onMouseLeave={(e) => { if (!isActive) { e.currentTarget.style.background = "transparent" } }}
+                    title={hasPending ? `${displayName} · ${pendingCount} turno${pendingCount > 1 ? "s" : ""} pendiente${pendingCount > 1 ? "s" : ""} de cobro` : displayName}
                   >
                     <span style={{ fontSize: 12 }}>{emoji}</span>
                     <span className="branch-label-text">{displayName}</span>
+                    {hasPending && (
+                      <span
+                        className="branch-pending-badge"
+                        style={{
+                          position: "absolute",
+                          top: -4,
+                          right: -4,
+                          background: "linear-gradient(135deg, #ef4444, #dc2626)",
+                          color: "#ffffff",
+                          fontSize: 8,
+                          fontWeight: "800",
+                          minWidth: 16,
+                          height: 16,
+                          padding: "0 4px",
+                          borderRadius: 99,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          boxShadow: "0 2px 6px rgba(220, 38, 38, 0.45), 0 0 0 1.5px #fff",
+                          lineHeight: 1,
+                          zIndex: 10,
+                          pointerEvents: "none"
+                        }}
+                      >
+                        {pendingCount}
+                      </span>
+                    )}
                   </button>
                 )
               })}

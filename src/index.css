@@ -492,6 +492,26 @@ select {
   }
 }
 
+/* ── Badge de turnos pendientes en planillas inactivas ── */
+.branch-pending-badge {
+  animation: pendingBadgePulse 2.2s infinite ease-in-out;
+}
+
+@keyframes pendingBadgePulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 2px 6px rgba(220, 38, 38, 0.45), 0 0 0 1.5px #fff;
+  }
+  50% {
+    transform: scale(1.14);
+    box-shadow: 0 2px 10px rgba(220, 38, 38, 0.75), 0 0 0 2px #fff;
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 2px 6px rgba(220, 38, 38, 0.45), 0 0 0 1.5px #fff;
+  }
+}
+
 /* ── Privacy Mode Blurring ── */
 .privacy-blur {
   filter: blur(6px) !important;
