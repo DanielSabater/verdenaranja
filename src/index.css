@@ -397,27 +397,53 @@ select {
   transform: none !important;
 }
 
-@keyframes currentTurnPulse {
-  0% {
-    box-shadow: 0 0 0 2px #4a90e2, 0 4px 12px rgba(74, 144, 226, 0.3);
-  }
+@property --conic-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
 
-  50% {
-    box-shadow: 0 0 0 2px #4a90e2, 0 4px 20px rgba(74, 144, 226, 0.6), 0 0 16px rgba(74, 144, 226, 0.4);
-  }
-
-  100% {
-    box-shadow: 0 0 0 2px #4a90e2, 0 4px 12px rgba(74, 144, 226, 0.3);
+@keyframes conicBorderRotate {
+  to {
+    --conic-angle: 360deg;
   }
 }
 
-.appt-card.current:not(.blocked):not(:hover) {
-  animation: currentTurnPulse 2.5s infinite ease-in-out;
+.appt-card.current:not(.blocked) {
+  border-color: transparent !important;
+  box-shadow: 0 0 12px rgba(14, 165, 233, 0.28), 0 2px 8px rgba(2, 132, 199, 0.15) !important;
+}
+
+.appt-card.current:not(.blocked)::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 2px;
+  background: conic-gradient(
+    from var(--conic-angle),
+    #38bdf8 0%,
+    #0284c7 25%,
+    #6366f1 50%,
+    #0ea5e9 75%,
+    #38bdf8 100%
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 6;
+  animation: conicBorderRotate 3s linear infinite;
 }
 
 .appt-card.current:hover,
 .appt-card.current.force-hover {
-  box-shadow: 0 0 0 2px #4a90e2, 0 6px 24px rgba(74, 144, 226, 0.6), 0 0 24px rgba(74, 144, 226, 0.4) !important;
+  box-shadow: 0 0 20px rgba(14, 165, 233, 0.55), 0 4px 16px rgba(99, 102, 241, 0.35) !important;
 }
 
 /* Hide date carousel on mobile navigation and elevate actions island */
