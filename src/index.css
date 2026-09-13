@@ -411,7 +411,18 @@ select {
 
 .appt-card.current:not(.blocked) {
   border-color: transparent !important;
-  box-shadow: 0 0 12px rgba(14, 165, 233, 0.28), 0 2px 8px rgba(2, 132, 199, 0.15) !important;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.86) 15%, rgba(255, 255, 255, 0.62) 100%),
+    conic-gradient(
+      from var(--conic-angle),
+      rgba(56, 189, 248, 0.32) 0%,
+      rgba(2, 132, 199, 0.24) 25%,
+      rgba(99, 102, 241, 0.28) 50%,
+      rgba(14, 165, 233, 0.32) 75%,
+      rgba(56, 189, 248, 0.32) 100%
+    ) !important;
+  box-shadow: 0 0 14px rgba(14, 165, 233, 0.28), 0 2px 8px rgba(2, 132, 199, 0.15) !important;
+  backdrop-filter: blur(4px);
 }
 
 .appt-card.current:not(.blocked)::before {
