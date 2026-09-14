@@ -21,6 +21,23 @@ const smallBtn = (color, isMobile) => ({
   whiteSpace: "nowrap",
 })
 
+function WhatsAppIcon({ size = 15, color = "currentColor", style = {} }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 175.216 175.552"
+      width={size}
+      height={size}
+      style={{ display: "block", flexShrink: 0, ...style }}
+    >
+      <path
+        fill={color}
+        d="M87.184 0C39.043 0 .001 39.043.001 87.184c0 15.385 4.024 30.407 11.666 43.642L.001 175.552l45.864-12.029c12.724 6.937 27.055 10.601 41.319 10.601h.036c48.136 0 87.18-39.043 87.18-87.184C174.4 39.043 135.32 0 87.184 0zm0 159.544h-.03c-13.018 0-25.782-3.499-36.906-10.106l-2.646-1.571-27.424 7.194 7.319-26.732-1.724-2.744c-7.258-11.554-11.086-24.908-11.086-38.641 0-40.038 32.576-72.614 72.642-72.614 19.398 0 37.632 7.554 51.348 21.275 13.717 13.722 21.27 31.956 21.27 51.359 0 40.043-32.582 72.62-72.663 72.62zm39.851-54.437c-2.186-1.096-12.934-6.384-14.938-7.114-2.003-.73-3.46-1.096-4.918 1.096-1.458 2.191-5.649 7.114-6.924 8.572-1.276 1.458-2.551 1.641-4.737.545-2.186-1.096-9.231-3.403-17.585-10.852-6.502-5.795-10.893-12.956-12.169-15.147-1.276-2.191-.136-3.376.958-4.466 1.002-.998 2.186-2.551 3.28-3.827 1.095-1.276 1.458-2.191 2.186-3.649.73-1.458.365-2.734-.182-3.83-.547-1.096-4.918-11.854-6.739-16.23-1.774-4.267-3.578-3.687-4.918-3.754-1.275-.064-2.733-.064-4.19-.064-1.458 0-3.828.547-5.832 2.738-2.004 2.191-7.653 7.48-7.653 18.239s7.835 21.157 8.928 22.615c1.095 1.458 15.422 23.551 37.359 33.029 5.218 2.254 9.288 3.6 12.464 4.608 5.239 1.662 10.007 1.428 13.774.865 4.199-.628 12.934-5.289 14.755-10.395 1.822-5.107 1.822-9.484 1.276-10.396-.547-.912-2.004-1.459-4.19-2.555z"
+      />
+    </svg>
+  )
+}
+
 const getOverdueInfo = (appt, isToday) => {
   if (!isToday || !appt?.hour || appt.isBlocked || appt.isNote || appt.paid || appt.arrived) return null
   const parts = appt.hour.split(":")
@@ -1236,6 +1253,45 @@ export function AppGrid({
 
                           {!appt.isBlocked && (
                             <div style={{ position: "absolute", bottom: isMobile ? 4 : 6, right: isMobile ? 4 : 6, display: "flex", alignItems: "center", gap: isMobile ? 3 : 4, zIndex: 5 }}>
+                              {!appt.isNote && !appt.paid && (
+                                <button
+                                  type="button"
+                                  onMouseDown={e => e.stopPropagation()}
+                                  onClick={e => {
+                                    e.stopPropagation()
+                                    handleSendWaReminder(k, appt, prof)
+                                  }}
+                                  style={{
+                                    background: "transparent",
+                                    border: "none",
+                                    padding: "2px 2px",
+                                    width: isMobile ? 18 : 20,
+                                    height: isMobile ? 18 : 20,
+                                    cursor: "pointer",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    color: "#9ca3af",
+                                    opacity: appt.waSent ? 0.45 : 0.75,
+                                    transition: "all .15s ease",
+                                    outline: "none",
+                                  }}
+                                  onMouseEnter={e => {
+                                    e.currentTarget.style.color = "#4b5563"
+                                    e.currentTarget.style.opacity = "1"
+                                    e.currentTarget.style.transform = "scale(1.15)"
+                                  }}
+                                  onMouseLeave={e => {
+                                    e.currentTarget.style.color = "#9ca3af"
+                                    e.currentTarget.style.opacity = appt.waSent ? "0.45" : "0.75"
+                                    e.currentTarget.style.transform = "scale(1)"
+                                  }}
+                                  title={appt.waSent ? `Recordatorio enviado a las ${appt.waSentAt || ""}. Clic para reenviar por WhatsApp.` : "Enviar recordatorio por WhatsApp a la clienta"}
+                                >
+                                  <WhatsAppIcon size={isMobile ? 14 : 15} color="currentColor" />
+                                  {appt.waSent && <span style={{ fontSize: 7, marginLeft: 1, fontWeight: "bold", color: "#6b7280" }}>✓</span>}
+                                </button>
+                              )}
                               <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); onDelete(k) }} style={{ width: 22, height: 22, borderRadius: 6, border: `1px solid ${C.border}`, background: "rgba(255,255,255,.9)", color: "#c0a0a0", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>✕</button>
 
                               {appt.isNote ? (
