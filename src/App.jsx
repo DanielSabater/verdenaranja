@@ -505,14 +505,19 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [currentDate, setCurrentDate, activeRama, setActiveRama, ramas, handleNumericDateInput, executeDateJump])
 
-  // Actualiza dinámicamente el color de la barra de título de Windows (Verde en Hoy, Naranja en otra fecha)
+  // Actualiza dinámicamente el color de la barra (Windows y celular: Verde en Hoy, Naranja en otra fecha)
   useEffect(() => {
     const isToday = currentDate === todayKey()
     const targetColor = isToday ? C.green : (C.orange || "#e8793a")
-    const metaTheme = document.querySelector('meta[name="theme-color"]')
-    if (metaTheme) {
-      metaTheme.setAttribute("content", targetColor)
-    }
+    
+    // Eliminar nodos previos y crear uno nuevo para forzar a WebAPK / Android y Windows a redibujar la barra
+    const existing = document.querySelectorAll('meta[name="theme-color"]')
+    existing.forEach(el => el.remove())
+
+    const meta = document.createElement("meta")
+    meta.setAttribute("name", "theme-color")
+    meta.setAttribute("content", targetColor)
+    document.head.appendChild(meta)
   }, [currentDate])
 
   // Mantener el título de la ventana sincronizado con el nombre de la empresa y la versión actual
