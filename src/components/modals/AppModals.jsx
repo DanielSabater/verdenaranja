@@ -342,9 +342,10 @@ export function AppModals({
 
               </div>
             </div>
-            <div style={{ display: "flex", gap: 8, flexShrink: 0, paddingTop: 8, background: C.white }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0, paddingTop: 10, background: C.white, borderTop: `1px solid ${C.borderLight}` }}>
               {modal.editKey && !isNoteMode && (
-                <SolidBtn
+                <button
+                  type="button"
                   onClick={() => {
                     const currentAppt = appointments[modal.editKey] || { client: clientName, hour: modal.hour, services: chosenServices }
                     const prof = (allProfessionals || professionals)?.find(p => p.id === modal.profId)
@@ -379,21 +380,27 @@ export function AppModals({
                     })
                     openWhatsAppLink(formatted, msg, config?.waOpenMode || "app")
                   }}
-                  color="#25D366"
+                  title="Enviar recordatorio por WhatsApp"
                   style={{
-                    flex: 1,
+                    width: 38,
+                    height: 38,
+                    borderRadius: "50%",
+                    border: "none",
+                    background: "transparent",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    gap: 6,
-                    background: "linear-gradient(135deg, #25D366, #1ebd5a)",
-                    boxShadow: "0 4px 14px rgba(37, 211, 102, 0.35)",
+                    cursor: "pointer",
+                    padding: 0,
+                    opacity: 0.85,
+                    transition: "transform .15s ease, opacity .15s ease",
+                    flexShrink: 0,
                   }}
-                  title="Enviar recordatorio de turno por WhatsApp"
+                  onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.15)"; e.currentTarget.style.opacity = "1" }}
+                  onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.opacity = "0.85" }}
                 >
-                  <span style={{ fontSize: 12 }}>💬</span>
-                  <span>WhatsApp</span>
-                </SolidBtn>
+                  <img src="/whatsapp.png" alt="WhatsApp" style={{ width: 30, height: 30, objectFit: "contain", pointerEvents: "none" }} />
+                </button>
               )}
               <GhostBtn onClick={() => setModal(null)} style={{ flex: 1 }}>
                 Cancelar
@@ -417,7 +424,7 @@ export function AppModals({
                 }} 
                 disabled={!clientName.trim()} 
                 color={C.green}
-                style={{ flex: (modal.editKey && !isNoteMode) ? 1.4 : 2 }}
+                style={{ flex: 1.8 }}
               >
                 {isNoteMode 
                   ? (modal.editKey ? "📝 Guardar anotación" : "📌 Crear anotación") 

@@ -840,6 +840,25 @@ select {
   }
 }
 
+.wa-card-icon {
+  opacity: 0.78;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.wa-card-icon:hover {
+  opacity: 1 !important;
+  transform: scale(1.18);
+}
+
+.wa-card-icon.sent {
+  opacity: 0.35;
+}
+
+.wa-card-icon.sent:hover {
+  opacity: 0.85 !important;
+  transform: scale(1.15);
+}
+
 .wa-urgent-btn {
   background: #25D366 !important;
   color: #ffffff !important;

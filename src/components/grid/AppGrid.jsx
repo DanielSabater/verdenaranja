@@ -1233,72 +1233,10 @@ export function AppGrid({
                             )}
                           </div>
 
+
                           {!appt.isBlocked && (
                             <div style={{ position: "absolute", bottom: isMobile ? 4 : 6, right: isMobile ? 4 : 6, display: "flex", alignItems: "center", gap: isMobile ? 3 : 4, zIndex: 5 }}>
                               <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); onDelete(k) }} style={{ width: 22, height: 22, borderRadius: 6, border: `1px solid ${C.border}`, background: "rgba(255,255,255,.9)", color: "#c0a0a0", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>✕</button>
-                              
-                              {/* Botón de Recordatorio por WhatsApp */}
-                              {(() => {
-                                if (appt.isNote || appt.paid || appt.arrived) return null
-                                const isTodayAppt = currentDate === todayKey()
-                                const [hStr, mStr] = (appt.hour || hour || "").split(":").map(Number)
-                                const apptMins = (!isNaN(hStr) && !isNaN(mStr)) ? hStr * 60 + mStr : null
-                                const nowObj = new Date()
-                                const nowMins = nowObj.getHours() * 60 + nowObj.getMinutes()
-                                const diffStart = apptMins !== null ? apptMins - nowMins : null
-                                const waTargetMins = config?.waReminderMins ?? 15
-
-                                // Alerta de proximidad según configuración (por defecto 15 min, con margen de +5 min)
-                                const isUrgentAlert = isTodayAppt && diffStart !== null && diffStart > 0 && diffStart <= (waTargetMins + 5)
-
-                                if (isUrgentAlert) {
-                                  return (
-                                    <button
-                                      onMouseDown={e => e.stopPropagation()}
-                                      onClick={e => { e.stopPropagation(); handleSendWaReminder(k, appt, prof) }}
-                                      className={appt.waSent ? "wa-sent-btn" : "wa-urgent-btn"}
-                                      style={{
-                                        height: isMobile ? 22 : 24,
-                                        borderRadius: 8,
-                                        padding: isMobile ? "0 5px" : "0 8px",
-                                        fontSize: isMobile ? 9 : 10.5,
-                                        cursor: "pointer",
-                                        display: "flex", alignItems: "center", gap: 3,
-                                        fontWeight: "bold",
-                                        whiteSpace: "nowrap",
-                                      }}
-                                      title={appt.waSent ? `Recordatorio ya enviado a las ${appt.waSentAt || ""}. Clic para reenviar.` : `¡El turno inicia en ${diffStart} min! Clic para enviar recordatorio por WhatsApp.`}
-                                    >
-                                      <span>💬</span>
-                                      <span>{appt.waSent ? (isMobile ? "✓" : "Avisada") : (isMobile ? `${diffStart}m` : `Avisar ${diffStart}m`)}</span>
-                                    </button>
-                                  )
-                                }
-
-                                if (isTodayAppt) {
-                                  return (
-                                    <button
-                                      onMouseDown={e => e.stopPropagation()}
-                                      onClick={e => { e.stopPropagation(); handleSendWaReminder(k, appt, prof) }}
-                                      className={appt.waSent ? "wa-sent-btn" : "wa-subtle-btn"}
-                                      style={{
-                                        width: isMobile ? 22 : 24,
-                                        height: isMobile ? 22 : 24,
-                                        borderRadius: 8,
-                                        fontSize: 10,
-                                        cursor: "pointer",
-                                        display: "flex", alignItems: "center", justifyContent: "center",
-                                        padding: 0,
-                                      }}
-                                      title={appt.waSent ? `Recordatorio enviado a las ${appt.waSentAt || ""}. Clic para reenviar.` : "Enviar recordatorio por WhatsApp a la clienta"}
-                                    >
-                                      {appt.waSent ? "💬✓" : "💬"}
-                                    </button>
-                                  )
-                                }
-
-                                return null
-                              })()}
 
                               {appt.isNote ? (
                                 <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); onEdit(k, appointments[k]) }} style={smallBtn(C.green, isMobile)}>{isMobile ? "✏️" : "✏️ Editar"}</button>
