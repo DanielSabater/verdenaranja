@@ -166,6 +166,8 @@ export function usePersistentState(currentDate) {
       .on("postgres_changes", { event: "*", schema: "public", table: TABLE }, payload => {
         const row = payload.new || payload.old
         if (!row) return
+        // Si tenemos cambios locales pendientes de guardar para este registro, ignoramos la actualización entrante para no provocar retrocesos/rebotes
+        if (dirtyKeys.current.has(row.id)) return
         const str = JSON.stringify(row.data)
         if (lastSaved.current[row.id] !== str) {
           lastSaved.current[row.id] = str
@@ -275,11 +277,11 @@ export function usePersistentState(currentDate) {
           supabase.from(TABLE).select("data").eq("id", arqueoId).maybeSingle()
         ])
 
-        if (dayRes.data) {
+        if (dayRes.data && !dirtyKeys.current.has(id)) {
           lastSaved.current[id] = JSON.stringify(dayRes.data.data)
           setAllData(prev => ({ ...prev, [dateToFetch]: dayRes.data.data }))
         }
-        if (arqueoRes.data) {
+        if (arqueoRes.data && !dirtyKeys.current.has(arqueoId)) {
           lastSaved.current[arqueoId] = JSON.stringify(arqueoRes.data.data)
           setAllArqueos(prev => ({ ...prev, [dateToFetch]: arqueoRes.data.data }))
         }
