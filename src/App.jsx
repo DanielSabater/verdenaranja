@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from "react"
 import { C } from "./constants/colors.js"
-import { PAYMENT_METHODS, HOURS } from "./constants/data.js"
+import { PAYMENT_METHODS, HOURS, APP_VERSION } from "./constants/data.js"
 import { cellKey, apptTotal, apptDur, apptPaidTotal, apptComisionableTotal, apptComisionTotal } from "./utils/appointments.js"
 import { toDateKey, todayKey, isWorkDay, nextWorkDay, addMonths, DIAS_ES, MESES_ES } from "./utils/dates.js"
 import { useIsMobile } from "./hooks/useIsMobile.js"
@@ -514,6 +514,11 @@ export default function App() {
       metaTheme.setAttribute("content", targetColor)
     }
   }, [currentDate])
+
+  // Mantener el título de la ventana sincronizado con el nombre de la empresa y la versión actual
+  useEffect(() => {
+    document.title = `${config?.empresaNombre || "Perla Verde"} · Turnos · ${APP_VERSION}`
+  }, [config?.empresaNombre])
 
 
 

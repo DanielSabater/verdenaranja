@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { C } from "../../constants/colors.js"
-import { CAT_OPTIONS as CAT_OPTIONS_DEFAULT, EMOJI_SUGGESTIONS, BLOCKED_COLORS } from "../../constants/data.js"
+import { CAT_OPTIONS as CAT_OPTIONS_DEFAULT, EMOJI_SUGGESTIONS, BLOCKED_COLORS, APP_VERSION } from "../../constants/data.js"
 import { GhostBtn, SolidBtn } from "../ui/index.jsx"
 import { MESES_ES, todayKey } from "../../utils/dates.js"
 
@@ -1822,6 +1822,34 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
           </CfgField>
         </SectionCard>
       )}
+
+      {/* Pie de página con versión para verificación rápida */}
+      <div style={{
+        marginTop: 32,
+        marginBottom: 16,
+        textAlign: "center",
+        fontSize: 11,
+        color: C.textSoft,
+        letterSpacing: "0.5px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 8,
+        userSelect: "none"
+      }}>
+        <span>{config?.empresaNombre || "Perla Verde"}</span>
+        <span style={{ opacity: 0.4 }}>•</span>
+        <span style={{ 
+          fontWeight: "bold", 
+          color: C.green, 
+          background: C.greenPale, 
+          padding: "2px 8px", 
+          borderRadius: 8,
+          border: `1px solid ${C.greenMint}`
+        }}>
+          {APP_VERSION}
+        </span>
+      </div>
     </div>
   );
 }

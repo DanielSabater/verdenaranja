@@ -1,5 +1,7 @@
 import { C } from './colors.js'
 
+export const APP_VERSION = "v1.2.0"
+
 export const PROFESSIONALS_DEFAULT = [
   { id: 1, name: "Valentina", emoji: "🌿", rama: "manos" },
   { id: 2, name: "Sofía",     emoji: "🌸", rama: "manos" },
