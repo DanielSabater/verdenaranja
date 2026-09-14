@@ -817,3 +817,9 @@ select {
   filter: brightness(1.1);
   transform: scale(1.05) !important;
 }
+
+@media (min-width: 1025px) {
+  .app-header-main {
+    border-top: none !important;
+  }
+}

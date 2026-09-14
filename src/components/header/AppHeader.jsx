@@ -4,6 +4,7 @@ import { PAYMENT_METHODS } from "../../constants/data.js"
 import { fmt, apptTotal, apptPaidTotal, apptComisionTotal } from "../../utils/appointments.js"
 import { AnimatedNumber } from "../ui/index.jsx"
 import { MESES_ES, todayKey, fmtDate, nextWorkDay } from "../../utils/dates.js"
+import { useIsMobile } from "../../hooks/useIsMobile.js"
 
 function getRamaEmoji(rama) {
   const r = String(rama).toLowerCase().trim()
@@ -331,6 +332,7 @@ export const AppHeader = memo(function AppHeader({
 
   const btnNav = { width: 30, height: 30, borderRadius: "50%", border: `1px solid ${C.border}`, background: C.white, color: C.green, fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }
 
+  const isMobile = useIsMobile(1024)
   const isToday = currentDate === tKey
   const headerAccentColor = isToday ? C.green : (C.orange || "#e8793a")
 
@@ -342,13 +344,13 @@ export const AppHeader = memo(function AppHeader({
           background: isLiquid ? "rgba(255, 255, 255, 0.45)" : C.white,
           backdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none",
           WebkitBackdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none",
-          borderTop: `4px solid ${headerAccentColor}`,
+          borderTop: isMobile ? `4px solid ${headerAccentColor}` : "none",
           borderBottom: isLiquid ? "none" : `1px solid ${C.border}`,
           padding: "0 14px",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          boxShadow: isLiquid ? `0 4px 30px rgba(0, 0, 0, 0.03), 0 2px 8px ${headerAccentColor}33` : `0 2px 10px ${C.shadow}`,
+          boxShadow: isLiquid ? "0 4px 30px rgba(0, 0, 0, 0.03)" : `0 2px 10px ${C.shadow}`,
           position: "fixed",
           top: 0,
           left: 0,
@@ -356,7 +358,7 @@ export const AppHeader = memo(function AppHeader({
           zIndex: 100,
           minHeight: 56,
           gap: 8,
-          transition: "border-color .25s ease, box-shadow .25s ease"
+          transition: isMobile ? "border-color .25s ease" : "none"
         }}
       >
 
