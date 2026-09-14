@@ -3,6 +3,7 @@ import { C } from "../../constants/colors.js"
 import { PAYMENT_METHODS } from "../../constants/data.js"
 import { fmt, apptTotal } from "../../utils/appointments.js"
 import { Overlay, ModalHeader, Field, GhostBtn, SolidBtn, inputStyle, modalBox } from "../ui/index.jsx"
+import { getApptClientPhone, formatWaNumber, generateReminderMessage, openWhatsAppLink } from "../../utils/whatsapp.js"
 
 // ── Sonido de caja registradora ──────────────────────────────────────────────
 // Probá estas URLs — usá la que funcione en tu navegador:
@@ -54,6 +55,7 @@ export function AppModals({
   clientes, setClientes,
   allData,
   multiPayKeys, setMultiPayKeys,
+  config,
 }) {
   const [showSug, setShowSug] = useState(false)
   const [serviceHighlightIdx, setServiceHighlightIdx] = useState(0)
@@ -341,7 +343,61 @@ export function AppModals({
               </div>
             </div>
             <div style={{ display: "flex", gap: 8, flexShrink: 0, paddingTop: 8, background: C.white }}>
-              <GhostBtn onClick={() => setModal(null)}>Cancelar</GhostBtn>
+              {modal.editKey && !isNoteMode && (
+                <SolidBtn
+                  onClick={() => {
+                    const currentAppt = appointments[modal.editKey] || { client: clientName, hour: modal.hour, services: chosenServices }
+                    const prof = (allProfessionals || professionals)?.find(p => p.id === modal.profId)
+                    const { phone, cleanName } = getApptClientPhone(currentAppt, clientes)
+
+                    let targetPhone = phone
+                    if (!targetPhone) {
+                      const input = window.prompt(`Ingresá el celular de ${cleanName || clientName}:`)
+                      if (!input || !input.trim()) return
+                      targetPhone = input.trim()
+                      if (setClientes && (cleanName || clientName)) {
+                        const cName = (cleanName || clientName).trim()
+                        setClientes(prev => {
+                          const list = Array.isArray(prev) ? [...prev] : []
+                          const norm = cName.toLowerCase().trim()
+                          const idx = list.findIndex(c => c && c.name && c.name.toLowerCase().trim() === norm)
+                          if (idx >= 0) list[idx] = { ...list[idx], phone: targetPhone }
+                          else list.push({ id: Date.now(), name: cName, phone: targetPhone, notes: "" })
+                          return list
+                        })
+                      }
+                    }
+
+                    const formatted = formatWaNumber(targetPhone)
+                    const msg = generateReminderMessage({
+                      clientName: cleanName || clientName,
+                      hour: modal.hour,
+                      services: chosenServices,
+                      profName: prof?.name,
+                      empresaNombre: config?.empresaNombre || "Verde Naranja",
+                      template: config?.waReminderTemplate,
+                    })
+                    openWhatsAppLink(formatted, msg, config?.waOpenMode || "app")
+                  }}
+                  color="#25D366"
+                  style={{
+                    flex: 1,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6,
+                    background: "linear-gradient(135deg, #25D366, #1ebd5a)",
+                    boxShadow: "0 4px 14px rgba(37, 211, 102, 0.35)",
+                  }}
+                  title="Enviar recordatorio de turno por WhatsApp"
+                >
+                  <span style={{ fontSize: 12 }}>💬</span>
+                  <span>WhatsApp</span>
+                </SolidBtn>
+              )}
+              <GhostBtn onClick={() => setModal(null)} style={{ flex: 1 }}>
+                Cancelar
+              </GhostBtn>
               <SolidBtn 
                 onClick={() => {
                   if (isNoteMode) {
@@ -361,12 +417,14 @@ export function AppModals({
                 }} 
                 disabled={!clientName.trim()} 
                 color={C.green}
+                style={{ flex: (modal.editKey && !isNoteMode) ? 1.4 : 2 }}
               >
                 {isNoteMode 
                   ? (modal.editKey ? "📝 Guardar anotación" : "📌 Crear anotación") 
                   : (modal.editKey ? "🌿 Confirmar turno" : "🌿 Confirmar turno")}
               </SolidBtn>
             </div>
+
           </div>
         </Overlay>
       )}

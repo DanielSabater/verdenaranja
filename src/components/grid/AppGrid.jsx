@@ -5,6 +5,7 @@ import { fmt, cellKey, apptTotal, apptDur, apptPaidTotal, apptComisionableTotal,
 import { Overlay, ModalHeader, GhostBtn, SolidBtn, modalBox } from "../ui/index.jsx"
 import { todayKey, fmtDate } from "../../utils/dates.js"
 import html2canvas from "html2canvas"
+import { getApptClientPhone, formatWaNumber, generateReminderMessage, openWhatsAppLink } from "../../utils/whatsapp.js"
 
 const smallBtn = (color, isMobile) => ({
   padding: isMobile ? "4px 8px" : "5px 8px", borderRadius: 8, border: "none",
@@ -354,6 +355,9 @@ export function AppGrid({
   onClearMultiPaySelection,
   onConfirmMultiPaySelection,
   onToggleArrived,
+  clientes = [],
+  setClientes,
+  onMarkWaSent,
 }) {
   const [profPopup, setProfPopup] = useState(null)
   const [copiedAgenda, setCopiedAgenda] = useState(false)
@@ -361,12 +365,79 @@ export function AppGrid({
   const [colOrder, setColOrder] = useState(() => { try { const v = localStorage.getItem("pv:colOrder"); return v ? JSON.parse(v) : null } catch { return null } })
   const [highlightedHour, setHighlightedHour] = useState(null)
   const highlightTimeoutRef = useRef(null)
+  const [waPromptModal, setWaPromptModal] = useState(null)
 
   const [, setNowTick] = useState(0)
   useEffect(() => {
     const timer = setInterval(() => setNowTick(t => t + 1), 30000)
     return () => clearInterval(timer)
   }, [])
+
+  const handleSendWaReminder = (k, appt, prof) => {
+    if (!appt || appt.isBlocked || appt.isNote) return
+    const { phone, cleanName } = getApptClientPhone(appt, clientes)
+
+    if (!phone) {
+      setWaPromptModal({
+        key: k,
+        appt,
+        prof,
+        cleanName: cleanName || appt.client || "Clienta",
+        phoneInput: ""
+      })
+      return
+    }
+
+    const formatted = formatWaNumber(phone)
+    const msg = generateReminderMessage({
+      clientName: cleanName || appt.client,
+      hour: appt.hour,
+      services: appt.services,
+      profName: prof?.name,
+      empresaNombre: config?.empresaNombre || "Verde Naranja",
+      template: config?.waReminderTemplate,
+    })
+
+    const opened = openWhatsAppLink(formatted, msg, config?.waOpenMode || "app")
+    if (opened && onMarkWaSent) {
+      onMarkWaSent(k)
+    }
+  }
+
+  const handleConfirmWaPrompt = (phoneEntered) => {
+    if (!waPromptModal || !phoneEntered?.trim()) return
+    const { key: k, appt, prof, cleanName } = waPromptModal
+    const rawPhone = phoneEntered.trim()
+    const formatted = formatWaNumber(rawPhone)
+
+    if (setClientes && cleanName) {
+      setClientes(prev => {
+        const list = Array.isArray(prev) ? [...prev] : []
+        const norm = cleanName.toLowerCase().trim()
+        const idx = list.findIndex(c => c && c.name && c.name.toLowerCase().trim() === norm)
+        if (idx >= 0) {
+          list[idx] = { ...list[idx], phone: rawPhone }
+        } else {
+          list.push({ id: Date.now(), name: cleanName, phone: rawPhone, notes: "" })
+        }
+        return list
+      })
+    }
+
+    const msg = generateReminderMessage({
+      clientName: cleanName,
+      hour: appt.hour,
+      services: appt.services,
+      profName: prof?.name,
+      empresaNombre: config?.empresaNombre || "Verde Naranja",
+      template: config?.waReminderTemplate,
+    })
+
+    openWhatsAppLink(formatted, msg, config?.waOpenMode || "app")
+    if (onMarkWaSent) onMarkWaSent(k)
+    setWaPromptModal(null)
+  }
+
 
   const orderedProfessionals = (() => {
     if (!colOrder) return professionals
@@ -1165,6 +1236,70 @@ export function AppGrid({
                           {!appt.isBlocked && (
                             <div style={{ position: "absolute", bottom: isMobile ? 4 : 6, right: isMobile ? 4 : 6, display: "flex", alignItems: "center", gap: isMobile ? 3 : 4, zIndex: 5 }}>
                               <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); onDelete(k) }} style={{ width: 22, height: 22, borderRadius: 6, border: `1px solid ${C.border}`, background: "rgba(255,255,255,.9)", color: "#c0a0a0", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>✕</button>
+                              
+                              {/* Botón de Recordatorio por WhatsApp */}
+                              {(() => {
+                                if (appt.isNote || appt.paid || appt.arrived) return null
+                                const isTodayAppt = currentDate === todayKey()
+                                const [hStr, mStr] = (appt.hour || hour || "").split(":").map(Number)
+                                const apptMins = (!isNaN(hStr) && !isNaN(mStr)) ? hStr * 60 + mStr : null
+                                const nowObj = new Date()
+                                const nowMins = nowObj.getHours() * 60 + nowObj.getMinutes()
+                                const diffStart = apptMins !== null ? apptMins - nowMins : null
+                                const waTargetMins = config?.waReminderMins ?? 15
+
+                                // Alerta de proximidad según configuración (por defecto 15 min, con margen de +5 min)
+                                const isUrgentAlert = isTodayAppt && diffStart !== null && diffStart > 0 && diffStart <= (waTargetMins + 5)
+
+                                if (isUrgentAlert) {
+                                  return (
+                                    <button
+                                      onMouseDown={e => e.stopPropagation()}
+                                      onClick={e => { e.stopPropagation(); handleSendWaReminder(k, appt, prof) }}
+                                      className={appt.waSent ? "wa-sent-btn" : "wa-urgent-btn"}
+                                      style={{
+                                        height: isMobile ? 22 : 24,
+                                        borderRadius: 8,
+                                        padding: isMobile ? "0 5px" : "0 8px",
+                                        fontSize: isMobile ? 9 : 10.5,
+                                        cursor: "pointer",
+                                        display: "flex", alignItems: "center", gap: 3,
+                                        fontWeight: "bold",
+                                        whiteSpace: "nowrap",
+                                      }}
+                                      title={appt.waSent ? `Recordatorio ya enviado a las ${appt.waSentAt || ""}. Clic para reenviar.` : `¡El turno inicia en ${diffStart} min! Clic para enviar recordatorio por WhatsApp.`}
+                                    >
+                                      <span>💬</span>
+                                      <span>{appt.waSent ? (isMobile ? "✓" : "Avisada") : (isMobile ? `${diffStart}m` : `Avisar ${diffStart}m`)}</span>
+                                    </button>
+                                  )
+                                }
+
+                                if (isTodayAppt) {
+                                  return (
+                                    <button
+                                      onMouseDown={e => e.stopPropagation()}
+                                      onClick={e => { e.stopPropagation(); handleSendWaReminder(k, appt, prof) }}
+                                      className={appt.waSent ? "wa-sent-btn" : "wa-subtle-btn"}
+                                      style={{
+                                        width: isMobile ? 22 : 24,
+                                        height: isMobile ? 22 : 24,
+                                        borderRadius: 8,
+                                        fontSize: 10,
+                                        cursor: "pointer",
+                                        display: "flex", alignItems: "center", justifyContent: "center",
+                                        padding: 0,
+                                      }}
+                                      title={appt.waSent ? `Recordatorio enviado a las ${appt.waSentAt || ""}. Clic para reenviar.` : "Enviar recordatorio por WhatsApp a la clienta"}
+                                    >
+                                      {appt.waSent ? "💬✓" : "💬"}
+                                    </button>
+                                  )
+                                }
+
+                                return null
+                              })()}
+
                               {appt.isNote ? (
                                 <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); onEdit(k, appointments[k]) }} style={smallBtn(C.green, isMobile)}>{isMobile ? "✏️" : "✏️ Editar"}</button>
                               ) : (
@@ -1179,6 +1314,7 @@ export function AppGrid({
                               )}
                             </div>
                           )}
+
 
                           <div onMouseDown={e => { e.stopPropagation(); onResizeStart(e, k, "bottom") }}
                             style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 10, cursor: "s-resize", zIndex: 10, borderRadius: "0 0 9px 9px" }} />
@@ -1732,6 +1868,72 @@ export function AppGrid({
           </div>
         )
       })()}
+
+      {/* ── Modal para ingresar WhatsApp si no tiene número ── */}
+      {waPromptModal && (
+        <Overlay onClose={() => setWaPromptModal(null)}>
+          <div className="modal-sheet" style={{ ...modalBox, maxWidth: 380, padding: 22, borderRadius: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+              <div style={{
+                width: 38, height: 38, borderRadius: "50%",
+                background: "#25D366", color: "#fff",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 20, boxShadow: "0 4px 12px rgba(37, 211, 102, 0.35)"
+              }}>
+                💬
+              </div>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: "bold", color: "#128c7e", fontFamily: "Georgia, serif" }}>
+                  Recordatorio por WhatsApp
+                </div>
+                <div style={{ fontSize: 11, color: C.textSoft }}>
+                  {waPromptModal.cleanName} · {waPromptModal.appt.hour} hs
+                </div>
+              </div>
+            </div>
+
+            <div style={{ fontSize: 12, color: C.text, marginBottom: 14, lineHeight: 1.5 }}>
+              Ingresá el WhatsApp de <strong>{waPromptModal.cleanName}</strong> para enviarle el recordatorio y guardarlo en su ficha:
+            </div>
+
+            <input
+              type="tel"
+              autoFocus
+              placeholder="Ej: 11 4523 8890"
+              value={waPromptModal.phoneInput}
+              onChange={e => setWaPromptModal(p => ({ ...p, phoneInput: e.target.value }))}
+              onKeyDown={e => {
+                if (e.key === "Enter" && waPromptModal.phoneInput.trim()) {
+                  handleConfirmWaPrompt(waPromptModal.phoneInput)
+                }
+              }}
+              style={{
+                width: "100%",
+                padding: "10px 14px",
+                borderRadius: 10,
+                border: `1.5px solid #25D366`,
+                fontSize: 14,
+                marginBottom: 16,
+                outline: "none",
+                boxSizing: "border-box",
+                background: "#f0fdf4"
+              }}
+            />
+
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <GhostBtn onClick={() => setWaPromptModal(null)}>Cancelar</GhostBtn>
+              <SolidBtn
+                color="#25D366"
+                disabled={!waPromptModal.phoneInput.trim()}
+                onClick={() => handleConfirmWaPrompt(waPromptModal.phoneInput)}
+              >
+                📲 Abrir WhatsApp
+              </SolidBtn>
+            </div>
+          </div>
+        </Overlay>
+      )}
     </div>
   )
 }
+

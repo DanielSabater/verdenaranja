@@ -1036,6 +1036,21 @@ export default function App() {
     })
   }, [setAppointments])
 
+  const handleMarkWaSent = useCallback((key) => {
+    setAppointments(prev => {
+      const current = prev[key]
+      if (!current) return prev
+      return {
+        ...prev,
+        [key]: {
+          ...current,
+          waSent: true,
+          waSentAt: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+        }
+      }
+    })
+  }, [setAppointments])
+
   // Show loading only on very first load, not on session changes
   if (!loaded) {
     const isPremium = config?.premiumLoading ?? true
@@ -1235,6 +1250,9 @@ export default function App() {
                   openMultiPay(selectedMultiPayKeys)
                   setSelectedMultiPayKeys([])
                 }}
+                clientes={clientes}
+                setClientes={setClientes}
+                onMarkWaSent={handleMarkWaSent}
               />
             </div>
           </div>
@@ -1412,6 +1430,7 @@ export default function App() {
           appointments={appointments}
           allData={allData}
           multiPayKeys={multiPayKeys} setMultiPayKeys={setMultiPayKeys}
+          config={config}
         />
 
         <ArqueoModal

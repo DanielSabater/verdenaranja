@@ -77,7 +77,11 @@ export const CONFIG_DEFAULT = {
   blockedOpacity:   3,
   gridStyle:        "cards",
   premiumLoading:   true,
+  waReminderMins:   15,
+  waOpenMode:       "app",
+  waReminderTemplate: "¡Hola {cliente}! 🌿 Te recordamos tu turno en {empresa} para hoy a las {hora} hs con {profesional} ({servicios}).\n¡Te esperamos! 💅✨",
 }
+
 
 export const BLOCKED_COLORS = [
   { id: "rojo", name: "Rojo (Original)", rgb: "192, 64, 64", hex: "#c04040" },

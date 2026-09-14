@@ -1708,6 +1708,189 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
             </div>
           </CfgField>
 
+          <CfgField label="💬 WhatsApp y Recordatorios de Turnos">
+            {/* 1. Anticipación del recordatorio */}
+            <div style={{ background: C.cream, padding: "14px 16px", borderRadius: 12, border: `1.5px solid ${C.border}`, marginBottom: 12 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: "bold", color: C.text }}>Tiempo de anticipación de la alerta</div>
+                  <div style={{ fontSize: 10, color: C.textSoft }}>Con cuántos minutos de anticipación al inicio del turno se activa la alerta de recordatorio</div>
+                </div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {[10, 15, 20, 30, 45, 60].map(mins => {
+                    const isSel = (config.waReminderMins ?? 15) === mins
+                    return (
+                      <button
+                        key={mins}
+                        type="button"
+                        onClick={() => updateConfig("waReminderMins", mins)}
+                        style={{
+                          padding: "6px 12px",
+                          borderRadius: 8,
+                          border: `1.5px solid ${isSel ? "#25D366" : C.border}`,
+                          background: isSel ? "linear-gradient(135deg, #25D366, #1ebd5a)" : C.white,
+                          color: isSel ? "#fff" : C.textSoft,
+                          fontSize: 10,
+                          fontWeight: "bold",
+                          cursor: "pointer",
+                          fontFamily: "Georgia, serif",
+                          boxShadow: isSel ? "0 2px 8px rgba(37, 211, 102, 0.3)" : "none",
+                          transition: "all 0.15s ease"
+                        }}
+                      >
+                        {mins} min {mins === 15 ? "⭐" : ""}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* 2. Método de apertura */}
+            <div style={{ background: C.cream, padding: "14px 16px", borderRadius: 12, border: `1.5px solid ${C.border}`, marginBottom: 12 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: "bold", color: C.text }}>Método de apertura de WhatsApp</div>
+                  <div style={{ fontSize: 10, color: C.textSoft }}>Elegí si preferís abrir directamente la app nativa instalada o la versión web en el navegador</div>
+                </div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button
+                    type="button"
+                    onClick={() => updateConfig("waOpenMode", "app")}
+                    style={{
+                      padding: "6px 14px",
+                      borderRadius: 8,
+                      border: `1.5px solid ${(config.waOpenMode || "app") === "app" ? "#25D366" : C.border}`,
+                      background: (config.waOpenMode || "app") === "app" ? "linear-gradient(135deg, #25D366, #1ebd5a)" : C.white,
+                      color: (config.waOpenMode || "app") === "app" ? "#fff" : C.textSoft,
+                      fontSize: 10,
+                      fontWeight: "bold",
+                      cursor: "pointer",
+                      fontFamily: "Georgia, serif",
+                      boxShadow: (config.waOpenMode || "app") === "app" ? "0 2px 8px rgba(37, 211, 102, 0.3)" : "none",
+                      transition: "all 0.15s ease"
+                    }}
+                    title="Abre la app de Windows o móvil directamente sin pestañas en blanco en el navegador"
+                  >
+                    📱 App nativa (sin pestañas)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => updateConfig("waOpenMode", "web")}
+                    style={{
+                      padding: "6px 14px",
+                      borderRadius: 8,
+                      border: `1.5px solid ${config.waOpenMode === "web" ? "#25D366" : C.border}`,
+                      background: config.waOpenMode === "web" ? "linear-gradient(135deg, #25D366, #1ebd5a)" : C.white,
+                      color: config.waOpenMode === "web" ? "#fff" : C.textSoft,
+                      fontSize: 10,
+                      fontWeight: "bold",
+                      cursor: "pointer",
+                      fontFamily: "Georgia, serif",
+                      boxShadow: config.waOpenMode === "web" ? "0 2px 8px rgba(37, 211, 102, 0.3)" : "none",
+                      transition: "all 0.15s ease"
+                    }}
+                    title="Abre una nueva pestaña con WhatsApp Web"
+                  >
+                    🌐 WhatsApp Web
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* 3. Plantilla de mensaje editable */}
+            <div style={{ background: C.cream, padding: "14px 16px", borderRadius: 12, border: `1.5px solid ${C.border}` }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, flexWrap: "wrap", gap: 6 }}>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: "bold", color: C.text }}>Plantilla del mensaje de recordatorio</div>
+                  <div style={{ fontSize: 10, color: C.textSoft }}>Personalizá el saludo y cuerpo del mensaje a enviar a las clientas</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => updateConfig("waReminderTemplate", "¡Hola {cliente}! 🌿 Te recordamos tu turno en {empresa} para hoy a las {hora} hs con {profesional} ({servicios}).\\n¡Te esperamos! 💅✨")}
+                  style={{
+                    padding: "4px 10px",
+                    borderRadius: 6,
+                    border: `1px solid ${C.border}`,
+                    background: C.white,
+                    color: C.textSoft,
+                    fontSize: 9,
+                    cursor: "pointer",
+                    fontFamily: "Georgia, serif"
+                  }}
+                  title="Restablecer el mensaje por defecto"
+                >
+                  ↺ Restablecer original
+                </button>
+              </div>
+
+              {/* Variable tags helper */}
+              <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 8, alignItems: "center" }}>
+                <span style={{ fontSize: 9, color: C.textSoft, letterSpacing: "0.5px" }}>Variables (clic para insertar):</span>
+                {[
+                  { tag: "{cliente}", label: "Nombre clienta" },
+                  { tag: "{hora}", label: "Horario" },
+                  { tag: "{servicios}", label: "Servicios" },
+                  { tag: "{profesional}", label: "Profesional" },
+                  { tag: "{empresa}", label: "Negocio" },
+                ].map(v => (
+                  <button
+                    key={v.tag}
+                    type="button"
+                    onClick={() => {
+                      const current = config.waReminderTemplate ?? "¡Hola {cliente}! 🌿 Te recordamos tu turno en {empresa} para hoy a las {hora} hs con {profesional} ({servicios}).\\n¡Te esperamos! 💅✨"
+                      updateConfig("waReminderTemplate", current + " " + v.tag)
+                    }}
+                    style={{
+                      background: "rgba(37, 211, 102, 0.12)",
+                      color: "#128c7e",
+                      border: "1px solid rgba(37, 211, 102, 0.3)",
+                      borderRadius: 12,
+                      padding: "2px 8px",
+                      fontSize: 9,
+                      fontWeight: "bold",
+                      cursor: "pointer"
+                    }}
+                    title={`Insertar ${v.tag} en el mensaje`}
+                  >
+                    {v.tag}
+                  </button>
+                ))}
+              </div>
+
+              <textarea
+                value={config.waReminderTemplate ?? "¡Hola {cliente}! 🌿 Te recordamos tu turno en {empresa} para hoy a las {hora} hs con {profesional} ({servicios}).\\n¡Te esperamos! 💅✨"}
+                onChange={e => updateConfig("waReminderTemplate", e.target.value)}
+                rows={3}
+                style={{
+                  ...cfgInput,
+                  height: "auto",
+                  padding: "10px",
+                  width: "100%",
+                  boxSizing: "border-box",
+                  lineHeight: 1.4,
+                  fontSize: 12,
+                  resize: "vertical"
+                }}
+              />
+
+              {/* Live Preview */}
+              <div style={{ marginTop: 10, background: "#f0fdf4", border: "1px dashed #86efac", borderRadius: 8, padding: "8px 12px" }}>
+                <div style={{ fontSize: 8.5, fontWeight: "bold", color: "#166534", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 3 }}>
+                  👁️ Vista previa del mensaje:
+                </div>
+                <div style={{ fontSize: 11, color: "#14532d", whiteSpace: "pre-line", fontStyle: "italic" }}>
+                  {(config.waReminderTemplate ?? "¡Hola {cliente}! 🌿 Te recordamos tu turno en {empresa} para hoy a las {hora} hs con {profesional} ({servicios}).\\n¡Te esperamos! 💅✨")
+                    .replace(/{cliente}/gi, "Lucía")
+                    .replace(/{hora}/gi, "17:00")
+                    .replace(/{servicios}/gi, "Manicura semi + Nail art")
+                    .replace(/{profesional}/gi, "Valentina")
+                    .replace(/{empresa}/gi, config.empresaNombre || "Verde Naranja")}
+                </div>
+              </div>
+            </div>
+          </CfgField>
+
           <CfgField label="🎨 Estética y personalización de Bloqueos">
             {/* Color Selection */}
             <div style={{ marginBottom: 16 }}>
