@@ -509,9 +509,14 @@ export default function App() {
   useEffect(() => {
     const isToday = currentDate === todayKey()
     const targetColor = isToday ? C.green : (C.orange || "#e8793a")
-    const metaTheme = document.querySelector('meta[name="theme-color"]')
-    if (metaTheme) {
-      metaTheme.setAttribute("content", targetColor)
+    const metaThemes = document.querySelectorAll('meta[name="theme-color"]')
+    if (metaThemes.length > 0) {
+      metaThemes.forEach(m => m.setAttribute("content", targetColor))
+    } else {
+      const meta = document.createElement("meta")
+      meta.name = "theme-color"
+      meta.content = targetColor
+      document.head.appendChild(meta)
     }
   }, [currentDate])
 
