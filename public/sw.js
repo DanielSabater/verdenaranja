@@ -1,5 +1,5 @@
 // Service Worker ultra liviano para instalación PWA sin interferir con la red ni con Supabase
-const CACHE_NAME = 'perla-verde-v4';
+const CACHE_NAME = 'perla-verde-v5';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
