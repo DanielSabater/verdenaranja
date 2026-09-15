@@ -38,8 +38,22 @@ function WhatsAppIcon({ size = 15, color = "currentColor", style = {} }) {
   )
 }
 
-const getOverdueInfo = (appt, isToday) => {
-  if (!isToday || !appt?.hour || appt.isBlocked || appt.isNote || appt.paid || appt.arrived) return null
+const checkHasPrevPaidOrArrived = (profId, hour, appointments, HOURS) => {
+  if (!profId || !hour || !appointments || !HOURS) return false
+  const hourIdx = HOURS.indexOf(hour)
+  if (hourIdx <= 0) return false
+  for (let i = hourIdx - 1; i >= 0; i--) {
+    const prevKey = cellKey(profId, HOURS[i])
+    const prev = appointments[prevKey]
+    if (prev && !prev.isBlocked && !prev.isNote) {
+      return !!(prev.paid || prev.arrived)
+    }
+  }
+  return false
+}
+
+const getOverdueInfo = (appt, isToday, hasPrevTrigger = false) => {
+  if (!isToday || !appt?.hour || appt.isBlocked || appt.isNote || appt.paid) return null
   const parts = appt.hour.split(":")
   if (parts.length !== 2) return null
   const h = parseInt(parts[0], 10)
@@ -52,15 +66,21 @@ const getOverdueInfo = (appt, isToday) => {
   const diff = targetMins - currentMins
 
   let cd = null
-  if (diff > 0 && diff <= 30) {
-    cd = { type: "upcoming", label: `⏳ en ${diff}m`, mins: diff }
-  } else if (diff <= 0 && diff >= -180) {
-    const overdue = Math.abs(diff)
-    cd = { type: "overdue", label: `⏰ +${overdue}m`, mins: overdue }
+  if (diff > 0) {
+    if (hasPrevTrigger || appt.arrived || diff <= 30) {
+      cd = { type: "upcoming", label: `⏳ en ${diff}m`, mins: diff }
+    }
+    return { cd, overdueStyle: null, ratio: 0, overdue: 0, isOverdueAlert: false }
   }
 
-  if (diff >= 0) {
-    return { cd, overdueStyle: null, ratio: 0, overdue: 0, isOverdueAlert: false }
+  // Si ya llegó al salón y pasó la hora, no está demorada
+  if (appt.arrived) {
+    return { cd: null, overdueStyle: null, ratio: 0, overdue: 0, isOverdueAlert: false }
+  }
+
+  if (diff <= 0 && diff >= -180) {
+    const overdue = Math.abs(diff)
+    cd = { type: "overdue", label: `⏰ +${overdue}m`, mins: overdue }
   }
 
   const overdue = Math.abs(diff)
@@ -137,7 +157,9 @@ function ApptCard({
 
   const showPaid = appt.paid && !animating
   const isToday = currentDate === todayKey()
-  const overdueInfo = getOverdueInfo(appt, isToday)
+  const profId = k ? k.split("||")[0] : null
+  const hasPrevPaidOrArrived = checkHasPrevPaidOrArrived(profId, appt.hour, appointments, HOURS)
+  const overdueInfo = getOverdueInfo(appt, isToday, hasPrevPaidOrArrived)
   const cd = overdueInfo?.cd
   const overdueStyle = overdueInfo?.overdueStyle
   const isOverdueAlert = overdueInfo?.isOverdueAlert && !isDragging && !isResizeStart
@@ -1040,7 +1062,8 @@ export function AppGrid({
                       const liveDurMins = liveSlots * 30
 
                       const isToday = currentDate === todayKey()
-                      const overdueInfo = getOverdueInfo(appt, isToday)
+                      const hasPrevPaidOrArrived = checkHasPrevPaidOrArrived(prof.id, appt.hour, appointments, HOURS)
+                      const overdueInfo = getOverdueInfo(appt, isToday, hasPrevPaidOrArrived)
                       const cd = overdueInfo?.cd
                       const overdueStyle = overdueInfo?.overdueStyle
                       const isOverdueAlert = overdueInfo?.isOverdueAlert && !isDragging && !isResizeStart && !isSelectedForMultiPay
