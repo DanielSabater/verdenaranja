@@ -176,18 +176,34 @@ export function generateReminderMessage({
   return `¡Hola ${nameDisplay}! 🌿 Te recordamos tu turno en ${empresaNombre} para hoy a las ${hour} hs${profPart} (${servicesList}).\n¡Te esperamos! 💅✨`
 }
 
+let waWebWindow = null
+
+function openWaWeb(url) {
+  try {
+    waWebWindow = window.open(url, "whatsapp_web_vn")
+    if (waWebWindow) {
+      try {
+        waWebWindow.focus()
+      } catch (_) {}
+    }
+  } catch (_) {
+    window.open(url, "_blank", "noopener,noreferrer")
+  }
+  return true
+}
+
 /**
  * Abre WhatsApp directamente.
  * - Modo "app": usa whatsapp://send?phone=...&text=... para abrir la App de Windows directamente SIN pestañas adicionales en el navegador.
- * - Modo "web": abre en una pestaña de WhatsApp Web.
+ * - Modo "web": abre en una pestaña reutilizable de WhatsApp Web.
  */
 export function openWhatsAppLink(formattedPhone, message, openMode = "app") {
   if (!formattedPhone) return false
   const encodedText = encodeURIComponent(message)
+  const webUrl = `https://web.whatsapp.com/send?phone=${formattedPhone}&text=${encodedText}`
 
   if (openMode === "web") {
-    window.open(`https://web.whatsapp.com/send?phone=${formattedPhone}&text=${encodedText}`, "_blank", "noopener,noreferrer")
-    return true
+    return openWaWeb(webUrl)
   }
 
   // ── Modo "app": protocolo nativo de escritorio/móvil ──
@@ -208,12 +224,11 @@ export function openWhatsAppLink(formattedPhone, message, openMode = "app") {
   a.click()
   document.body.removeChild(a)
 
-  // Si después de 1.8 segundos la ventana no perdió el foco (la app no se abrió), fallback a WhatsApp Web
+  // Si después de 1.8 segundos la ventana no perdió el foco (la app no se abrió), fallback a WhatsApp Web reutilizable
   setTimeout(() => {
     window.removeEventListener("blur", handleBlur)
     if (!appTriggered && document.hasFocus && document.hasFocus()) {
-      // Fallback a web si el protocolo no abrió ninguna aplicación
-      window.open(`https://web.whatsapp.com/send?phone=${formattedPhone}&text=${encodedText}`, "_blank", "noopener,noreferrer")
+      openWaWeb(webUrl)
     }
   }, 1800)
 

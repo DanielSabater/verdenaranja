@@ -3,6 +3,7 @@ import { C } from "./constants/colors.js"
 import { PAYMENT_METHODS, HOURS, APP_VERSION } from "./constants/data.js"
 import { cellKey, apptTotal, apptDur, apptPaidTotal, apptComisionableTotal, apptComisionTotal } from "./utils/appointments.js"
 import { toDateKey, todayKey, isWorkDay, nextWorkDay, addMonths, DIAS_ES, MESES_ES } from "./utils/dates.js"
+import { cleanClientName, normalizeStr } from "./utils/whatsapp.js"
 import { useIsMobile } from "./hooks/useIsMobile.js"
 import { usePersistentState } from "./hooks/usePersistentState.js"
 import { AppHeader } from "./components/header/AppHeader.jsx"
@@ -1026,13 +1027,33 @@ export default function App() {
     setAppointments(prev => {
       const current = prev[key]
       if (!current) return prev
-      return {
-        ...prev,
-        [key]: {
-          ...current,
-          arrived: !current.arrived
+      const newArrived = !current.arrived
+      const rawTarget = current.client || ""
+      const targetNorm = normalizeStr(cleanClientName(rawTarget))
+
+      if (!targetNorm) {
+        return {
+          ...prev,
+          [key]: {
+            ...current,
+            arrived: newArrived
+          }
         }
       }
+
+      const next = { ...prev }
+      Object.keys(prev).forEach(k => {
+        const appt = prev[k]
+        if (!appt || appt.isBlocked || appt.isNote) return
+        const apptNorm = normalizeStr(cleanClientName(appt.client || ""))
+        if (apptNorm === targetNorm) {
+          next[k] = {
+            ...appt,
+            arrived: newArrived
+          }
+        }
+      })
+      return next
     })
   }, [setAppointments])
 
