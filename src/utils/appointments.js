@@ -31,10 +31,14 @@ export const apptComisionableTotal = (a) => {
   if (a?.isBlocked) return 0
   const services = Array.isArray(a?.services) ? a.services : []
   const totalSvc = services.reduce((s, sv) => s + (sv?.price || 0), 0)
-  const comiSvc = services.filter(sv => !sv?.excluidoComision).reduce((s, sv) => s + (sv?.price || 0), 0)
-  if (totalSvc === 0) return 0
-  
   const paidTotal = apptPaidTotal(a)
+
+  // Si no hay servicios asignados pero se registró un pago/monto (ej. servicio no registrado acordado en el momento)
+  if (totalSvc === 0) {
+    return paidTotal > 0 ? Math.round(paidTotal) : 0
+  }
+  
+  const comiSvc = services.filter(sv => !sv?.excluidoComision).reduce((s, sv) => s + (sv?.price || 0), 0)
   const ratio = paidTotal / totalSvc
   return Math.round(comiSvc * ratio)
 }
@@ -43,10 +47,6 @@ export const apptComisionTotal = (a, globalComisionPct, activeServices = [], dat
   if (a?.isBlocked) return 0
   const services = Array.isArray(a?.services) ? a.services : []
   const totalSvc = services.reduce((s, sv) => s + (sv?.price || 0), 0)
-  if (totalSvc === 0) return 0
-
-  const paidTotal = apptPaidTotal(a)
-  const ratio = paidTotal / totalSvc
 
   // Professional specific commission percentage override if defined
   let basePct = globalComisionPct
@@ -65,6 +65,19 @@ export const apptComisionTotal = (a, globalComisionPct, activeServices = [], dat
   if (apptDate && dateExceptions && typeof dateExceptions === "object" && dateExceptions[apptDate] !== undefined) {
     comisionPctToUse = parseFloat(dateExceptions[apptDate])
   }
+
+  const paidTotal = apptPaidTotal(a)
+
+  // Si no hay servicios asignados o totalSvc es 0, pero hay un monto pagado/cobrado,
+  // se comisiona directamente sobre ese monto con el porcentaje correspondiente
+  if (totalSvc === 0) {
+    if (paidTotal > 0 && typeof comisionPctToUse === "number" && !isNaN(comisionPctToUse)) {
+      return paidTotal * (comisionPctToUse / 100)
+    }
+    return 0
+  }
+
+  const ratio = paidTotal / totalSvc
 
   return services.reduce((sum, sv) => {
     const liveSvc = Array.isArray(activeServices) ? activeServices.find(s => s.id === sv.id) : null

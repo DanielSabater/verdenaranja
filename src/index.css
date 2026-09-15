@@ -426,16 +426,16 @@ select {
 .appt-card.current:not(.blocked) {
   border-color: transparent !important;
   background:
-    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.86) 15%, rgba(255, 255, 255, 0.62) 100%),
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.68) 10%, rgba(255, 255, 255, 0.35) 100%),
     conic-gradient(
       from var(--conic-angle),
-      rgba(56, 189, 248, 0.32) 0%,
-      rgba(2, 132, 199, 0.24) 25%,
-      rgba(99, 102, 241, 0.28) 50%,
-      rgba(14, 165, 233, 0.32) 75%,
-      rgba(56, 189, 248, 0.32) 100%
+      rgba(56, 189, 248, 0.48) 0%,
+      rgba(2, 132, 199, 0.44) 25%,
+      rgba(99, 102, 241, 0.46) 50%,
+      rgba(14, 165, 233, 0.48) 75%,
+      rgba(56, 189, 248, 0.48) 100%
     ) !important;
-  box-shadow: 0 0 14px rgba(14, 165, 233, 0.28), 0 2px 8px rgba(2, 132, 199, 0.15) !important;
+  box-shadow: 0 0 16px rgba(14, 165, 233, 0.38), 0 2px 10px rgba(2, 132, 199, 0.22) !important;
   backdrop-filter: blur(4px);
 }
 
@@ -444,7 +444,7 @@ select {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  padding: 2px;
+  padding: 2.5px;
   background: conic-gradient(
     from var(--conic-angle),
     #38bdf8 0%,
@@ -468,7 +468,7 @@ select {
 
 .appt-card.current:hover,
 .appt-card.current.force-hover {
-  box-shadow: 0 0 20px rgba(14, 165, 233, 0.55), 0 4px 16px rgba(99, 102, 241, 0.35) !important;
+  box-shadow: 0 0 22px rgba(14, 165, 233, 0.65), 0 4px 18px rgba(99, 102, 241, 0.45) !important;
 }
 
 /* Hide date carousel on mobile navigation and elevate actions island */
