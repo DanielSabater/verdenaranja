@@ -52,7 +52,7 @@ const getOverdueInfo = (appt, isToday) => {
   const diff = targetMins - currentMins
 
   let cd = null
-  if (diff > 0 && diff <= 15) {
+  if (diff > 0 && diff <= 30) {
     cd = { type: "upcoming", label: `⏳ en ${diff}m`, mins: diff }
   } else if (diff <= 0 && diff >= -180) {
     const overdue = Math.abs(diff)
@@ -60,7 +60,7 @@ const getOverdueInfo = (appt, isToday) => {
   }
 
   if (diff >= 0) {
-    return { cd, overdueStyle: null, ratio: 0, overdue: 0 }
+    return { cd, overdueStyle: null, ratio: 0, overdue: 0, isOverdueAlert: false }
   }
 
   const overdue = Math.abs(diff)
@@ -73,13 +73,15 @@ const getOverdueInfo = (appt, isToday) => {
   const borderSat = Math.round(80 + ratio * 15)
   const borderLight = Math.round(75 - ratio * 20)
 
+  const isOverdueAlert = overdue >= 10
+
   const overdueStyle = {
     background: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Ctext x='50%25' y='50%25' font-size='14' fill='%23ea580c' opacity='0.08' text-anchor='middle' dominant-baseline='middle' transform='rotate(-20 30 30)'%3E🕒%3C/text%3E%3C/svg%3E"), linear-gradient(135deg, hsl(${hue}, ${sat1}%, ${light1}%), hsl(${hue}, ${sat2}%, ${light2}%))`,
     border: `1.5px solid hsl(${hue}, ${borderSat}%, ${borderLight}%)`,
     boxShadow: `0 2px 8px hsla(${hue}, 90%, 50%, ${0.08 + ratio * 0.22})`
   }
 
-  return { cd, overdueStyle, ratio, overdue, hue }
+  return { cd, overdueStyle, ratio, overdue, hue, isOverdueAlert }
 }
 
 const getTurnCountdown = (hourStr, isToday) => {
@@ -95,7 +97,7 @@ const getTurnCountdown = (hourStr, isToday) => {
   const currentMins = now.getHours() * 60 + now.getMinutes()
   const diff = targetMins - currentMins
 
-  if (diff > 0 && diff <= 15) {
+  if (diff > 0 && diff <= 30) {
     return { type: "upcoming", label: `⏳ en ${diff}m` }
   } else if (diff <= 0 && diff >= -180) {
     const overdue = Math.abs(diff)
@@ -138,6 +140,7 @@ function ApptCard({
   const overdueInfo = getOverdueInfo(appt, isToday)
   const cd = overdueInfo?.cd
   const overdueStyle = overdueInfo?.overdueStyle
+  const isOverdueAlert = overdueInfo?.isOverdueAlert && !isDragging && !isResizeStart
 
   return (
     <div
@@ -145,7 +148,7 @@ function ApptCard({
       onDragStart={e => { if (resizePreview) { e.preventDefault(); return; } onDragStart(e, k) }}
       onDragEnd={onDragEnd}
       onDoubleClick={e => { if (!resizePreview) { e.stopPropagation(); onEdit(k, appointments[k]); } }}
-      className={`appt-card${appt.isBlocked ? " blocked" : (appt.isNote ? " note" : (showPaid ? " paid" : " unpaid"))}${appt.arrived && !showPaid && !isDragging && !isResizeStart ? " current" : ""}${hoveredClientName && appt.client === hoveredClientName ? " force-hover" : ""}${animating ? " just-paid-glowing" : ""}`}
+      className={`appt-card${appt.isBlocked ? " blocked" : (appt.isNote ? " note" : (showPaid ? " paid" : " unpaid"))}${appt.arrived && !showPaid && !isDragging && !isResizeStart ? " current" : ""}${hoveredClientName && appt.client === hoveredClientName ? " force-hover" : ""}${animating ? " just-paid-glowing" : ""}${isOverdueAlert ? " overdue-alert-card" : ""}`}
       style={{
         height: "100%", borderRadius: 9,
         background: appt.isBlocked
@@ -182,15 +185,18 @@ function ApptCard({
             ? "none"
             : appt.isNote
               ? "0 2px 8px rgba(133, 100, 4, 0.08)"
-              : overdueStyle
-                ? overdueStyle.boxShadow
-                : `0 2px 8px ${showPaid ? "rgba(58,125,68,0.1)" : "rgba(232,121,58,0.1)"}`,
+              : isOverdueAlert
+                ? undefined
+                : overdueStyle
+                  ? overdueStyle.boxShadow
+                  : `0 2px 8px ${showPaid ? "rgba(58,125,68,0.1)" : "rgba(232,121,58,0.1)"}`,
         opacity: isDragging ? 0.45 : 1,
         transform: isDragging ? "scale(0.97)" : "scale(1)",
         transition: isResizing ? "none" : "opacity .15s, box-shadow .15s, transform .15s",
         cursor: "grab",
         position: "relative",
         overflow: "hidden",
+        zIndex: isOverdueAlert ? 6 : 1,
       }}
     >
       {animating && (
@@ -1037,6 +1043,7 @@ export function AppGrid({
                       const overdueInfo = getOverdueInfo(appt, isToday)
                       const cd = overdueInfo?.cd
                       const overdueStyle = overdueInfo?.overdueStyle
+                      const isOverdueAlert = overdueInfo?.isOverdueAlert && !isDragging && !isResizeStart && !isSelectedForMultiPay
                       return (
                         <div
                           draggable={!resizePreview && !isSelectedForMultiPay}
@@ -1056,7 +1063,7 @@ export function AppGrid({
                             }
                           }}
                           onDoubleClick={e => { if (!resizePreview && !isSelectedForMultiPay) { e.stopPropagation(); onEdit(k, appointments[k]); } }}
-                          className={`appt-card${appt.isBlocked ? " blocked" : (appt.isNote ? " note" : (appt.paid ? " paid" : " unpaid"))}${appt.arrived && !appt.paid && !isDragging && !isResizeStart ? " current" : ""}${hoveredClientName && appt.client === hoveredClientName ? " force-hover" : ""}${isSelectedForMultiPay ? " selected-multipay" : ""}`}
+                          className={`appt-card${appt.isBlocked ? " blocked" : (appt.isNote ? " note" : (appt.paid ? " paid" : " unpaid"))}${appt.arrived && !appt.paid && !isDragging && !isResizeStart ? " current" : ""}${hoveredClientName && appt.client === hoveredClientName ? " force-hover" : ""}${isSelectedForMultiPay ? " selected-multipay" : ""}${isOverdueAlert ? " overdue-alert-card" : ""}`}
                           style={{
                             height: "100%", borderRadius: 9,
                             background: isSelectedForMultiPay
@@ -1099,16 +1106,18 @@ export function AppGrid({
                                 ? "none"
                                 : appt.isNote
                                   ? "0 2px 8px rgba(133, 100, 4, 0.08)"
-                                  : overdueStyle
-                                    ? overdueStyle.boxShadow
-                                    : `0 2px 8px ${appt.paid ? "rgba(58,125,68,0.1)" : "rgba(232,121,58,0.1)"}`)),
+                                  : isOverdueAlert
+                                    ? undefined
+                                    : overdueStyle
+                                      ? overdueStyle.boxShadow
+                                      : `0 2px 8px ${appt.paid ? "rgba(58,125,68,0.1)" : "rgba(232,121,58,0.1)"}`)),
                             opacity: isDragging ? 0.45 : 1,
                             transform: isDragging ? "scale(0.97)" : (isSelectedForMultiPay ? "scale(1.02)" : "scale(1)"),
                             transition: isResizing ? "none" : "opacity .15s, box-shadow .15s, transform .15s",
                             cursor: (selectedMultiPayKeys && selectedMultiPayKeys.length > 0) ? "pointer" : "grab",
                             position: "relative",
                             overflow: "hidden",
-                            zIndex: isSelectedForMultiPay ? 15 : 1,
+                            zIndex: isSelectedForMultiPay ? 15 : (isOverdueAlert ? 6 : 1),
                           }}
                         >
                           <div onMouseDown={e => { e.stopPropagation(); onResizeStart(e, k, "top") }}

@@ -818,6 +818,32 @@ select {
   transform: scale(1.05) !important;
 }
 
+/* ── Alerta con ondas para turnos demorados (+10 min) ── */
+@keyframes pulse-red-glow {
+  0% {
+    box-shadow: 0 2px 8px rgba(220, 38, 38, 0.25), 0 0 0 0 rgba(239, 68, 68, 0.7);
+  }
+
+  50% {
+    box-shadow: 0 2px 8px rgba(220, 38, 38, 0.25), 0 0 0 8px rgba(239, 68, 68, 0);
+  }
+
+  100% {
+    box-shadow: 0 2px 8px rgba(220, 38, 38, 0.25), 0 0 0 0 rgba(239, 68, 68, 0);
+  }
+}
+
+.overdue-alert-card {
+  animation: pulse-red-glow 1.8s infinite ease-in-out;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.appt-card.overdue-alert-card:hover,
+.appt-card.overdue-alert-card.force-hover {
+  box-shadow: 0 0 0 2px #dc2626, 0 4px 20px rgba(220, 38, 38, .35), 0 0 24px rgba(220, 38, 38, .20) !important;
+  transform: scale(1.005) !important;
+}
+
 @media (min-width: 1025px) {
   .app-header-main {
     border-top: none !important;
