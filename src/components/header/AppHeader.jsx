@@ -492,162 +492,164 @@ export const AppHeader = memo(function AppHeader({
             flexShrink: 0
           }} title={connStatus === "online" ? "Sincronización Activa" : "Reconectando..."} />
 
-          {/* Desktop totals */}
-          <div className="desktop-totals" style={{ alignItems: "center", gap: 5 }}>
-            {PAYMENT_METHODS.map(pm => {
-              const t = totalByMethod(pm.id); const isActive = activeMethod === pm.id; return (
-                <div key={pm.id} style={{ position: "relative", flexShrink: 0 }} onMouseEnter={() => setActiveMethod(pm.id)} onMouseLeave={() => setActiveMethod(null)}>
-                  <div
-                    style={{ background: t > 0 ? (pm.id === "mercadopago" ? C.mpPale : pm.id === "debito" ? C.amberPale : C.greenPale) : "#f7f7f7", border: `1.5px solid ${isActive ? pm.color : (t > 0 ? (pm.id === "mercadopago" ? C.mpMid : pm.id === "debito" ? C.amberMid : C.greenMint) : "#e8e8e8")}`, borderRadius: 9, padding: "5px 9px", textAlign: "center", minWidth: 110, cursor: t > 0 ? "pointer" : "default", transition: "all .15s", boxShadow: isActive ? `0 4px 12px ${pm.color}33` : "none" }}>
-                    <div style={{ fontSize: 8, color: t > 0 ? pm.color : "#bbb", textTransform: "uppercase", whiteSpace: "nowrap" }}>{pm.icon} {pm.label}</div>
-                    <div className={privacyMode ? "privacy-blur" : ""} style={{ fontSize: 12, fontWeight: "bold", color: t > 0 ? pm.color : "#ccc", fontVariantNumeric: "tabular-nums" }}><AnimatedNumber value={t} formatFn={fmt} />{t > 0 && <span style={{ fontSize: 8, marginLeft: 3 }}>{isActive ? "▲" : "▼"}</span>}</div>
-                  </div>
-
-                  {/* Dropdown */}
-                  {isActive && t > 0 && (() => {
-                    const appts = getApptsByMethod(pm.id)
-                    return (
-                      <>
-                        <div style={{ position: "absolute", top: "calc(100% + 8px)", left: "50%", transform: "translateX(-50%)", zIndex: 150, background: C.white, borderRadius: 14, border: `1.5px solid ${pm.color}44`, boxShadow: `0 8px 32px ${pm.color}22`, minWidth: 260, maxWidth: 340, padding: "12px 14px" }}>
-                          <div style={{ fontSize: 8, letterSpacing: "2px", color: pm.color, textTransform: "uppercase", marginBottom: 8 }}>{pm.icon} {pm.label} — {currentDate}</div>
-                          {appts.length === 0
-                            ? <div style={{ fontSize: 11, color: C.textSoft, textAlign: "center", padding: "8px 0" }}>Sin pagos</div>
-                            : <>
-                              {appts.map((a, i) => (
-                                <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: `1px solid ${C.greenPale}` }}>
-                                  <div>
-                                    <div style={{ fontSize: 11, color: C.text, fontWeight: "bold" }}>{a.client}</div>
-                                    <div style={{ fontSize: 9, color: C.textSoft }}>{a.hour} · {(a.services || []).map(s => s.name).join(", ")}</div>
-                                  </div>
-                                  <div style={{ fontSize: 13, fontWeight: "bold", color: pm.color }}>{fmt(a.methodAmount)}</div>
-                                </div>
-                              ))}
-                              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, paddingTop: 6, borderTop: `2px solid ${pm.color}33` }}>
-                                <div style={{ fontSize: 9, color: C.textSoft }}>{appts.length} pago{appts.length !== 1 ? "s" : ""}</div>
-                                <div style={{ fontSize: 13, fontWeight: "bold", color: pm.color }}>{fmt(t)}</div>
-                              </div>
-                            </>
-                          }
-                        </div>
-                      </>
-                    )
-                  })()}
-                </div>
-              )
-            })}
-            <div style={{ background: grandTotal > 0 ? `linear-gradient(135deg,${C.green},${C.greenLight})` : "#f0f0f0", borderRadius: 10, padding: "6px 12px", textAlign: "center", minWidth: 120, flexShrink: 0 }}>
-              <div style={{ fontSize: 7, color: grandTotal > 0 ? "rgba(255,255,255,.7)" : "#bbb", textTransform: "uppercase" }}>Total</div>
-              <div className={privacyMode ? "privacy-blur" : ""} style={{ fontSize: 15, fontWeight: "bold", color: grandTotal > 0 ? C.white : "#ccc", fontVariantNumeric: "tabular-nums" }}><AnimatedNumber value={grandTotal} formatFn={fmt} /></div>
-            </div>
-            <div style={{ position: "relative", flexShrink: 0 }}>
-              <div 
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setMetricMenuOpen(p => !p)
-                }}
-                title={
-                  activeMetric.id === "meta_mes_anterior"
-                    ? `Recaudado este mes: ${fmt(currentMonthRevenue)} / Meta (${prevMonthNameCapitalized}): ${fmt(prevMonthRevenue)}`
-                    : activeMetric.label
-                }
-                style={{ 
-                  background: metricBg, 
-                  borderRadius: 9, 
-                  padding: "5px 9px", 
-                  textAlign: "center", 
-                  width: 120,
-                  height: "38px",
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "center",
-                  boxSizing: "border-box",
-                  flexShrink: 0,
-                  cursor: "pointer",
-                  userSelect: "none",
-                  boxShadow: metricMenuOpen ? `0 0 0 1.5px ${C.gold}, 0 4px 12px rgba(0,0,0,0.15)` : "none",
-                  transition: "all 0.15s ease",
-                  border: "1.5px solid transparent"
-                }}
-              >
-                <div style={{ fontSize: 8, color: metricLabelColor, textTransform: "uppercase", whiteSpace: "nowrap" }}>
-                  {activeMetric.icon} {activeMetric.tag} <span style={{ fontSize: 6, marginLeft: 2 }}>▼</span>
-                </div>
-                <div className={privacyMode ? "privacy-blur" : ""} style={{ fontSize: 12, fontWeight: "bold", color: metricColor, fontVariantNumeric: "tabular-nums" }}>
-                  <AnimatedNumber value={activeMetric.val} formatFn={formatFn} />
-                </div>
-              </div>
-
-              {metricMenuOpen && (
-                <>
-                  <div 
-                    onClick={() => setMetricMenuOpen(false)} 
-                    style={{ position: "fixed", inset: 0, zIndex: 140 }} 
-                  />
-                  <div 
-                    style={{ 
-                      position: "absolute", 
-                      top: "calc(100% + 8px)", 
-                      right: 0, 
-                      zIndex: 150, 
-                      background: C.white, 
-                      borderRadius: 14, 
-                      border: `1.5px solid ${C.border}`, 
-                      boxShadow: `0 8px 32px rgba(0,0,0,0.12)`, 
-                      minWidth: 200, 
-                      padding: "8px",
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 4
-                    }}
-                  >
-                    <div style={{ fontSize: 8, letterSpacing: "1px", color: C.textSoft, textTransform: "uppercase", padding: "4px 8px 6px", borderBottom: `1px solid ${C.border}`, fontFamily: "Georgia, serif" }}>
-                      Seleccionar Métrica
+          {/* Desktop totals (solo visibles en la vista Turnos) */}
+          {activeView === "turnos" && (
+            <div className="desktop-totals" style={{ alignItems: "center", gap: 5 }}>
+              {PAYMENT_METHODS.map(pm => {
+                const t = totalByMethod(pm.id); const isActive = activeMethod === pm.id; return (
+                  <div key={pm.id} style={{ position: "relative", flexShrink: 0 }} onMouseEnter={() => setActiveMethod(pm.id)} onMouseLeave={() => setActiveMethod(null)}>
+                    <div
+                      style={{ background: t > 0 ? (pm.id === "mercadopago" ? C.mpPale : pm.id === "debito" ? C.amberPale : C.greenPale) : "#f7f7f7", border: `1.5px solid ${isActive ? pm.color : (t > 0 ? (pm.id === "mercadopago" ? C.mpMid : pm.id === "debito" ? C.amberMid : C.greenMint) : "#e8e8e8")}`, borderRadius: 9, padding: "5px 9px", textAlign: "center", minWidth: 110, cursor: t > 0 ? "pointer" : "default", transition: "all .15s", boxShadow: isActive ? `0 4px 12px ${pm.color}33` : "none" }}>
+                      <div style={{ fontSize: 8, color: t > 0 ? pm.color : "#bbb", textTransform: "uppercase", whiteSpace: "nowrap" }}>{pm.icon} {pm.label}</div>
+                      <div className={privacyMode ? "privacy-blur" : ""} style={{ fontSize: 12, fontWeight: "bold", color: t > 0 ? pm.color : "#ccc", fontVariantNumeric: "tabular-nums" }}><AnimatedNumber value={t} formatFn={fmt} />{t > 0 && <span style={{ fontSize: 8, marginLeft: 3 }}>{isActive ? "▲" : "▼"}</span>}</div>
                     </div>
-                    {Object.values(METRICS).map((m) => {
-                      const isSelected = m.id === selectedMetric
+
+                    {/* Dropdown */}
+                    {isActive && t > 0 && (() => {
+                      const appts = getApptsByMethod(pm.id)
                       return (
-                        <button
-                          key={m.id}
-                          onClick={() => {
-                            handleSelectMetric(m.id)
-                            setMetricMenuOpen(false)
-                          }}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            padding: "8px 10px",
-                            borderRadius: 8,
-                            border: "none",
-                            background: isSelected ? C.greenPale : "transparent",
-                            cursor: "pointer",
-                            width: "100%",
-                            textAlign: "left",
-                            transition: "background 0.15s ease",
-                            outline: "none",
-                            fontFamily: "Georgia, serif"
-                          }}
-                        >
-                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                            <span style={{ fontSize: 14 }}>{m.icon}</span>
-                            <div>
-                              <div style={{ fontSize: 11, color: C.text, fontWeight: isSelected ? "bold" : "normal" }}>{m.label}</div>
-                              <div style={{ fontSize: 8, color: C.textSoft }}>{m.tag}</div>
-                            </div>
+                        <>
+                          <div style={{ position: "absolute", top: "calc(100% + 8px)", left: "50%", transform: "translateX(-50%)", zIndex: 150, background: C.white, borderRadius: 14, border: `1.5px solid ${pm.color}44`, boxShadow: `0 8px 32px ${pm.color}22`, minWidth: 260, maxWidth: 340, padding: "12px 14px" }}>
+                            <div style={{ fontSize: 8, letterSpacing: "2px", color: pm.color, textTransform: "uppercase", marginBottom: 8 }}>{pm.icon} {pm.label} — {currentDate}</div>
+                            {appts.length === 0
+                              ? <div style={{ fontSize: 11, color: C.textSoft, textAlign: "center", padding: "8px 0" }}>Sin pagos</div>
+                              : <>
+                                {appts.map((a, i) => (
+                                  <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: `1px solid ${C.greenPale}` }}>
+                                    <div>
+                                      <div style={{ fontSize: 11, color: C.text, fontWeight: "bold" }}>{a.client}</div>
+                                      <div style={{ fontSize: 9, color: C.textSoft }}>{a.hour} · {(a.services || []).map(s => s.name).join(", ")}</div>
+                                    </div>
+                                    <div style={{ fontSize: 13, fontWeight: "bold", color: pm.color }}>{fmt(a.methodAmount)}</div>
+                                  </div>
+                                ))}
+                                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, paddingTop: 6, borderTop: `2px solid ${pm.color}33` }}>
+                                  <div style={{ fontSize: 9, color: C.textSoft }}>{appts.length} pago{appts.length !== 1 ? "s" : ""}</div>
+                                  <div style={{ fontSize: 13, fontWeight: "bold", color: pm.color }}>{fmt(t)}</div>
+                                </div>
+                              </>
+                            }
                           </div>
-                          <div style={{ fontSize: 11, fontWeight: "bold", color: isSelected ? C.green : C.textSoft, fontVariantNumeric: "tabular-nums" }}>
-                            {m.isPercent
-                              ? `${m.val.toFixed(1)}%`
-                              : (m.isUSD ? fmtUSD(m.val) : fmt(m.val))}
-                          </div>
-                        </button>
+                        </>
                       )
-                    })}
+                    })()}
                   </div>
-                </>
-              )}
+                )
+              })}
+              <div style={{ background: grandTotal > 0 ? `linear-gradient(135deg,${C.green},${C.greenLight})` : "#f0f0f0", borderRadius: 10, padding: "6px 12px", textAlign: "center", minWidth: 120, flexShrink: 0 }}>
+                <div style={{ fontSize: 7, color: grandTotal > 0 ? "rgba(255,255,255,.7)" : "#bbb", textTransform: "uppercase" }}>Total</div>
+                <div className={privacyMode ? "privacy-blur" : ""} style={{ fontSize: 15, fontWeight: "bold", color: grandTotal > 0 ? C.white : "#ccc", fontVariantNumeric: "tabular-nums" }}><AnimatedNumber value={grandTotal} formatFn={fmt} /></div>
+              </div>
+              <div style={{ position: "relative", flexShrink: 0 }}>
+                <div 
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setMetricMenuOpen(p => !p)
+                  }}
+                  title={
+                    activeMetric.id === "meta_mes_anterior"
+                      ? `Recaudado este mes: ${fmt(currentMonthRevenue)} / Meta (${prevMonthNameCapitalized}): ${fmt(prevMonthRevenue)}`
+                      : activeMetric.label
+                  }
+                  style={{ 
+                    background: metricBg, 
+                    borderRadius: 9, 
+                    padding: "5px 9px", 
+                    textAlign: "center", 
+                    width: 120,
+                    height: "38px",
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "center",
+                    boxSizing: "border-box",
+                    flexShrink: 0,
+                    cursor: "pointer",
+                    userSelect: "none",
+                    boxShadow: metricMenuOpen ? `0 0 0 1.5px ${C.gold}, 0 4px 12px rgba(0,0,0,0.15)` : "none",
+                    transition: "all 0.15s ease",
+                    border: "1.5px solid transparent"
+                  }}
+                >
+                  <div style={{ fontSize: 8, color: metricLabelColor, textTransform: "uppercase", whiteSpace: "nowrap" }}>
+                    {activeMetric.icon} {activeMetric.tag} <span style={{ fontSize: 6, marginLeft: 2 }}>▼</span>
+                  </div>
+                  <div className={privacyMode ? "privacy-blur" : ""} style={{ fontSize: 12, fontWeight: "bold", color: metricColor, fontVariantNumeric: "tabular-nums" }}>
+                    <AnimatedNumber value={activeMetric.val} formatFn={formatFn} />
+                  </div>
+                </div>
+
+                {metricMenuOpen && (
+                  <>
+                    <div 
+                      onClick={() => setMetricMenuOpen(false)} 
+                      style={{ position: "fixed", inset: 0, zIndex: 140 }} 
+                    />
+                    <div 
+                      style={{ 
+                        position: "absolute", 
+                        top: "calc(100% + 8px)", 
+                        right: 0, 
+                        zIndex: 150, 
+                        background: C.white, 
+                        borderRadius: 14, 
+                        border: `1.5px solid ${C.border}`, 
+                        boxShadow: `0 8px 32px rgba(0,0,0,0.12)`, 
+                        minWidth: 200, 
+                        padding: "8px",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 4
+                      }}
+                    >
+                      <div style={{ fontSize: 8, letterSpacing: "1px", color: C.textSoft, textTransform: "uppercase", padding: "4px 8px 6px", borderBottom: `1px solid ${C.border}`, fontFamily: "Georgia, serif" }}>
+                        Seleccionar Métrica
+                      </div>
+                      {Object.values(METRICS).map((m) => {
+                        const isSelected = m.id === selectedMetric
+                        return (
+                          <button
+                            key={m.id}
+                            onClick={() => {
+                              handleSelectMetric(m.id)
+                              setMetricMenuOpen(false)
+                            }}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              padding: "8px 10px",
+                              borderRadius: 8,
+                              border: "none",
+                              background: isSelected ? C.greenPale : "transparent",
+                              cursor: "pointer",
+                              width: "100%",
+                              textAlign: "left",
+                              transition: "background 0.15s ease",
+                              outline: "none",
+                              fontFamily: "Georgia, serif"
+                            }}
+                          >
+                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              <span style={{ fontSize: 14 }}>{m.icon}</span>
+                              <div>
+                                <div style={{ fontSize: 11, color: C.text, fontWeight: isSelected ? "bold" : "normal" }}>{m.label}</div>
+                                <div style={{ fontSize: 8, color: C.textSoft }}>{m.tag}</div>
+                              </div>
+                            </div>
+                            <div style={{ fontSize: 11, fontWeight: "bold", color: isSelected ? C.green : C.textSoft, fontVariantNumeric: "tabular-nums" }}>
+                              {m.isPercent
+                                ? `${m.val.toFixed(1)}%`
+                                : (m.isUSD ? fmtUSD(m.val) : fmt(m.val))}
+                            </div>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </header>
 
