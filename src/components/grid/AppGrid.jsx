@@ -52,6 +52,14 @@ const checkHasPrevPaidOrArrived = (profId, hour, appointments, HOURS) => {
   return false
 }
 
+const formatMinsToHours = (totalMins) => {
+  if (totalMins == null || isNaN(totalMins)) return ""
+  if (totalMins < 60) return `${totalMins}m`
+  const hours = Math.floor(totalMins / 60)
+  const mins = totalMins % 60
+  return `${hours}:${String(mins).padStart(2, "0")}m`
+}
+
 const getOverdueInfo = (appt, isToday, hasPrevTrigger = false) => {
   if (!isToday || !appt?.hour || appt.isBlocked || appt.isNote || appt.paid) return null
   const parts = appt.hour.split(":")
@@ -68,7 +76,7 @@ const getOverdueInfo = (appt, isToday, hasPrevTrigger = false) => {
   let cd = null
   if (diff > 0) {
     if (hasPrevTrigger || appt.arrived || diff <= 30) {
-      cd = { type: "upcoming", label: `⏳ en ${diff}m`, mins: diff }
+      cd = { type: "upcoming", label: `⏳ en ${formatMinsToHours(diff)}`, mins: diff }
     }
     return { cd, overdueStyle: null, ratio: 0, overdue: 0, isOverdueAlert: false }
   }
@@ -80,7 +88,7 @@ const getOverdueInfo = (appt, isToday, hasPrevTrigger = false) => {
 
   if (diff <= 0 && diff >= -180) {
     const overdue = Math.abs(diff)
-    cd = { type: "overdue", label: `⏰ +${overdue}m`, mins: overdue }
+    cd = { type: "overdue", label: `⏰ +${formatMinsToHours(overdue)}`, mins: overdue }
   }
 
   const overdue = Math.abs(diff)
@@ -118,10 +126,10 @@ const getTurnCountdown = (hourStr, isToday) => {
   const diff = targetMins - currentMins
 
   if (diff > 0 && diff <= 30) {
-    return { type: "upcoming", label: `⏳ en ${diff}m` }
+    return { type: "upcoming", label: `⏳ en ${formatMinsToHours(diff)}` }
   } else if (diff <= 0 && diff >= -180) {
     const overdue = Math.abs(diff)
-    return { type: "overdue", label: `⏰ +${overdue}m` }
+    return { type: "overdue", label: `⏰ +${formatMinsToHours(overdue)}` }
   }
   return null
 }
@@ -259,7 +267,7 @@ function ApptCard({
 
       {cd ? (
         <div
-          title={cd.type === "overdue" ? `Clienta demorada ${overdueInfo?.overdue}m` : `Próximo turno en ${cd.mins}m`}
+          title={cd.type === "overdue" ? `Clienta demorada ${formatMinsToHours(overdueInfo?.overdue)}` : `Próximo turno en ${formatMinsToHours(cd.mins)}`}
           style={{
             position: "absolute",
             top: 4,
@@ -1184,7 +1192,7 @@ export function AppGrid({
                             </div>
                           ) : cd ? (
                             <div
-                              title={cd.type === "overdue" ? `Clienta demorada ${overdueInfo?.overdue}m` : `Próximo turno en ${cd.mins}m`}
+                              title={cd.type === "overdue" ? `Clienta demorada ${formatMinsToHours(overdueInfo?.overdue)}` : `Próximo turno en ${formatMinsToHours(cd.mins)}`}
                               style={{
                                 position: "absolute",
                                 top: 4,
