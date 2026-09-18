@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react"
 import { C } from "../../constants/colors.js"
 import { PAYMENT_METHODS, HOURS, BLOCKED_COLORS, getBlockedAlphas } from "../../constants/data.js"
-import { fmt, cellKey, apptTotal, apptDur, apptPaidTotal, apptComisionableTotal, apptComisionTotal } from "../../utils/appointments.js"
+import { fmt, cellKey, apptTotal, apptDur, apptPaidTotal, apptComisionableTotal, apptComisionTotal, getApptSlots } from "../../utils/appointments.js"
 import { Overlay, ModalHeader, GhostBtn, SolidBtn, modalBox } from "../ui/index.jsx"
 import { todayKey, fmtDate } from "../../utils/dates.js"
 import html2canvas from "html2canvas"
@@ -427,15 +427,7 @@ export function AppGrid({
   }, [])
 
   const draggedAppt = draggingKey ? appointments[draggingKey] : null
-  const dragSlots = draggedAppt
-    ? (() => {
-        const sDur = Array.isArray(draggedAppt.services) && draggedAppt.services.length > 0
-          ? draggedAppt.services.reduce((s, sv) => s + (sv?.duration || 0), 0)
-          : 0
-        const natural = sDur > 0 ? Math.max(1, Math.ceil(sDur / 30)) : null
-        return draggedAppt.originalSlots ?? natural ?? draggedAppt.manualSlots ?? Math.max(1, Math.ceil(apptDur(draggedAppt) / 30))
-      })()
-    : 1
+  const dragSlots = draggedAppt ? getApptSlots(draggedAppt) : 1
 
   const handleSendWaReminder = (k, appt, prof) => {
     if (!appt || appt.isBlocked || appt.isNote) return

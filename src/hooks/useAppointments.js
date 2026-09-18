@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from "react"
 import { HOURS } from "../constants/data.js"
-import { cellKey, apptDur } from "../utils/appointments.js"
+import { cellKey, apptDur, getApptSlots } from "../utils/appointments.js"
 
 const CELL_H = 50 // px per 30-min slot
 
@@ -23,7 +23,7 @@ export function useAppointments(appointments, setAppointments) {
       const [pid, h] = k.split("||")
       if (String(pid) !== String(profId)) continue
       const startIdx = HOURS.indexOf(h)
-      const requestedSlots = a.manualSlots ?? Math.ceil(apptDur(a) / 30)
+      const requestedSlots = getApptSlots(a)
       
       let actualSlots = requestedSlots
       for (let s = 1; s < requestedSlots; s++) {
@@ -52,11 +52,7 @@ export function useAppointments(appointments, setAppointments) {
     if (isOccupied(targetProfId, targetHour, dragKey)) {
       return { canDrop: false }
     }
-    const svcDur = Array.isArray(a.services) && a.services.length > 0
-      ? a.services.reduce((s, sv) => s + (sv?.duration || 0), 0)
-      : 0
-    const naturalSlots = svcDur > 0 ? Math.max(1, Math.ceil(svcDur / 30)) : null
-    const requestedSlots = a.originalSlots ?? naturalSlots ?? a.manualSlots ?? Math.max(1, Math.ceil(apptDur(a) / 30))
+    const requestedSlots = getApptSlots(a)
     let availableSlots = 1
     for (let s = 1; s < requestedSlots; s++) {
       const checkHour = HOURS[idx + s]
@@ -85,11 +81,7 @@ export function useAppointments(appointments, setAppointments) {
     if (!a) return null
     if (resizePreview?.key === k) return resizePreview.slots
     
-    const svcDur = Array.isArray(a.services) && a.services.length > 0
-      ? a.services.reduce((s, sv) => s + (sv?.duration || 0), 0)
-      : 0
-    const naturalSlots = svcDur > 0 ? Math.max(1, Math.ceil(svcDur / 30)) : null
-    const requestedSlots = a.originalSlots ?? naturalSlots ?? a.manualSlots ?? Math.max(1, Math.ceil(apptDur(a) / 30))
+    const requestedSlots = getApptSlots(a)
     const startIdx = HOURS.indexOf(hour)
     let actualSlots = requestedSlots
     

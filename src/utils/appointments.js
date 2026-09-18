@@ -91,4 +91,27 @@ export const apptComisionTotal = (a, globalComisionPct, activeServices = [], dat
   }, 0)
 }
 
-
+/**
+ * Fuente única de verdad para la duración de un turno en bloques (slots) de 30 minutos.
+ * Prioridad:
+ * 1. manualSlots: ajuste manual explícito del usuario (resize, modal o edición).
+ * 2. naturalSlots: suma de la duración de los servicios asignados.
+ * 3. originalSlots: slots previos si el turno fue truncado por un drag.
+ * 4. apptDur(a) / 30 como fallback general.
+ */
+export const getApptSlots = (a) => {
+  if (!a) return 1
+  if (a.manualSlots != null && a.manualSlots > 0) {
+    return a.manualSlots
+  }
+  const svcDur = Array.isArray(a.services) && a.services.length > 0
+    ? a.services.reduce((s, sv) => s + (sv?.duration || 0), 0)
+    : 0
+  if (svcDur > 0) {
+    return Math.max(1, Math.ceil(svcDur / 30))
+  }
+  if (a.originalSlots != null && a.originalSlots > 0) {
+    return a.originalSlots
+  }
+  return Math.max(1, Math.ceil(apptDur(a) / 30))
+}

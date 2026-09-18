@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from "react"
 import { C } from "./constants/colors.js"
 import { PAYMENT_METHODS, HOURS, APP_VERSION } from "./constants/data.js"
-import { cellKey, apptTotal, apptDur, apptPaidTotal, apptComisionableTotal, apptComisionTotal } from "./utils/appointments.js"
+import { cellKey, apptTotal, apptDur, apptPaidTotal, apptComisionableTotal, apptComisionTotal, getApptSlots } from "./utils/appointments.js"
 import { toDateKey, todayKey, isWorkDay, nextWorkDay, addMonths, DIAS_ES, MESES_ES } from "./utils/dates.js"
 import { cleanClientName, normalizeStr } from "./utils/whatsapp.js"
 import { useIsMobile } from "./hooks/useIsMobile.js"
@@ -735,7 +735,7 @@ export default function App() {
       const [pid, h] = k.split("||")
       if (String(pid) !== String(profId)) continue
       const startIdx = HOURS.indexOf(h)
-      const requestedSlots = a.manualSlots ?? Math.ceil(apptDur(a) / 30)
+      const requestedSlots = getApptSlots(a)
 
       let actualSlots = requestedSlots
       for (let s = 1; s < requestedSlots; s++) {
@@ -765,11 +765,7 @@ export default function App() {
     if (isOccupied(targetProfId, targetHour, dragKey)) {
       return { canDrop: false }
     }
-    const svcDur = Array.isArray(a.services) && a.services.length > 0
-      ? a.services.reduce((s, sv) => s + (sv?.duration || 0), 0)
-      : 0
-    const naturalSlots = svcDur > 0 ? Math.max(1, Math.ceil(svcDur / 30)) : null
-    const requestedSlots = a.originalSlots ?? naturalSlots ?? a.manualSlots ?? Math.max(1, Math.ceil(apptDur(a) / 30))
+    const requestedSlots = getApptSlots(a)
     let availableSlots = 1
     for (let s = 1; s < requestedSlots; s++) {
       const checkHour = HOURS[idx + s]
@@ -798,11 +794,7 @@ export default function App() {
     if (!a) return null
     if (resizePreview?.key === k) return resizePreview.slots
 
-    const svcDur = Array.isArray(a.services) && a.services.length > 0
-      ? a.services.reduce((s, sv) => s + (sv?.duration || 0), 0)
-      : 0
-    const naturalSlots = svcDur > 0 ? Math.max(1, Math.ceil(svcDur / 30)) : null
-    const requestedSlots = a.originalSlots ?? naturalSlots ?? a.manualSlots ?? Math.max(1, Math.ceil(apptDur(a) / 30))
+    const requestedSlots = getApptSlots(a)
     const startIdx = HOURS.indexOf(hour)
     let actualSlots = requestedSlots
 
@@ -874,7 +866,7 @@ export default function App() {
     e.preventDefault(); e.stopPropagation()
     const appt = appointments[key]
     const origHourIdx = HOURS.indexOf(appt.hour)
-    const origSlots = Math.max(1, Math.ceil(apptDur(appt) / 30))
+    const origSlots = spanOf(appt.profId, appt.hour) || getApptSlots(appt)
     resizeRef.current = { key, edge, startY: e.clientY, origHourIdx, origSlots, profId: appt.profId, latestHourIdx: origHourIdx, latestSlots: origSlots }
     setResizePreview({ key, hourIdx: origHourIdx, slots: origSlots, deltaY: 0, edge, origSlots, origHourIdx, profId: appt.profId })
     const onMove = (ev) => {
@@ -935,7 +927,15 @@ export default function App() {
           const apptObj = next[r.key]
           if (apptObj) {
             delete next[r.key]
-            next[newKey] = { ...apptObj, hour: newHour, manualSlots: finalSlots, manualDur: finalSlots * 30 }
+            const updated = {
+              ...apptObj,
+              hour: newHour,
+              manualSlots: finalSlots,
+              manualDur: finalSlots * 30
+            }
+            delete updated.originalSlots
+            delete updated.isTruncatedInSlot
+            next[newKey] = updated
           }
           return next
         })
