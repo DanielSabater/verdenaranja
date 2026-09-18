@@ -63,10 +63,13 @@ export function usePersistentState(currentDate) {
   const channelRef  = useRef(null)
   
   const lastSaved   = useRef({})
-  const isInitial   = useRef(true)
   const dirtyKeys   = useRef(new Set())
   const lastFetchTime = useRef(0)
   const fetchedDates = useRef(new Set())
+
+  // Referencia al estado más reciente para validar dirtyKeys tras peticiones asíncronas
+  const latestStateRef = useRef({})
+  latestStateRef.current = { allData, allArqueos, config, clientes, gastos, sueldos, todoTasks }
 
   // ── 1. Initial Load & Realtime Subscription ────────────────────────────────
   useEffect(() => {
@@ -149,7 +152,6 @@ export function usePersistentState(currentDate) {
         
         lastFetchTime.current = Date.now()
         setLoaded(true)
-        setTimeout(() => { isInitial.current = false }, 1000)
       } catch (err) {
         console.error("Unexpected error in loadStatic, retrying in 5s...", err)
         setTimeout(loadStatic, 5000)
@@ -296,7 +298,7 @@ export function usePersistentState(currentDate) {
 
   // ── 3. Auto-Save Engine ─────────────────────────────────────────────────────
   useEffect(() => {
-    if (isInitial.current || !loaded) return
+    if (!loaded) return
     const saveTimer = setTimeout(async () => {
       const tasks = []
       const check = (id, currentVal) => {
@@ -381,17 +383,40 @@ export function usePersistentState(currentDate) {
 
       if (tasks.length > 0) {
         setSaveStatus("saving")
+        // Registramos una copia de lo que enviamos en esta petición exacta
+        const inFlight = new Map(tasks.map(t => [t.id, JSON.stringify(t.data)]))
+
         const { error } = await supabase.from(TABLE).upsert(tasks)
         if (error) {
           setSaveStatus("error")
         } else {
-          // Limpiamos del set de dirtyKeys los IDs que se guardaron correctamente
-          tasks.forEach(t => dirtyKeys.current.delete(t.id))
+          // Limpiamos de dirtyKeys SOLO si el estado local no volvió a cambiar mientras viajaba la petición
+          inFlight.forEach((sentJson, id) => {
+            let currentLocalVal = null
+            const latest = latestStateRef.current
+            if (id === "config") currentLocalVal = latest.config
+            else if (id === "clientes") currentLocalVal = latest.clientes
+            else if (id === "gastos") currentLocalVal = latest.gastos
+            else if (id === "sueldos") currentLocalVal = latest.sueldos
+            else if (id === "todo_tasks") currentLocalVal = latest.todoTasks
+            else if (id.startsWith("day:")) {
+              const d = id.replace("day:", "")
+              currentLocalVal = latest.allData?.[d]
+            } else if (id.startsWith("arqueo:")) {
+              const d = id.replace("arqueo:", "")
+              currentLocalVal = latest.allArqueos?.[d]
+            }
+
+            // Solo desmarcamos si el estado en pantalla sigue siendo idéntico a lo que se guardó
+            if (currentLocalVal && JSON.stringify(currentLocalVal) === sentJson) {
+              dirtyKeys.current.delete(id)
+            }
+          })
           setSaveStatus("saved")
           setTimeout(() => setSaveStatus("idle"), 1500)
         }
       }
-    }, 1000)
+    }, 400)
     return () => clearTimeout(saveTimer)
   }, [allData, allArqueos, config, clientes, gastos, sueldos, todoTasks, loaded])
 
