@@ -426,6 +426,17 @@ export function AppGrid({
     return () => clearInterval(timer)
   }, [])
 
+  const draggedAppt = draggingKey ? appointments[draggingKey] : null
+  const dragSlots = draggedAppt
+    ? (() => {
+        const sDur = Array.isArray(draggedAppt.services) && draggedAppt.services.length > 0
+          ? draggedAppt.services.reduce((s, sv) => s + (sv?.duration || 0), 0)
+          : 0
+        const natural = sDur > 0 ? Math.max(1, Math.ceil(sDur / 30)) : null
+        return draggedAppt.originalSlots ?? natural ?? draggedAppt.manualSlots ?? Math.max(1, Math.ceil(apptDur(draggedAppt) / 30))
+      })()
+    : 1
+
   const handleSendWaReminder = (k, appt, prof) => {
     if (!appt || appt.isBlocked || appt.isNote) return
     const { phone, cleanName } = getApptClientPhone(appt, clientes)
@@ -504,6 +515,9 @@ export function AppGrid({
   const [menuPos, setMenuPos] = useState(null) // { x, y, profId, hour, hasAppt }
   const dragColRef = useRef(null)
   const scrollContainerRef = useRef(null)
+  const theadRef = useRef(null)
+  const scrollSpeedRef = useRef(0)
+  const animFrameRef = useRef(null)
   const isLiquid = config?.liquidGlass ?? true
 
   // ── Pinch to Zoom mobile cols state & handlers ─────────────────────────────
@@ -703,6 +717,98 @@ export function AppGrid({
     }
   }, [HOURS, currentDate])
 
+  // ── Auto-scroll progresivo al arrastrar turnos (Opción 1) ──────────────────────
+  useEffect(() => {
+    if (!draggingKey) {
+      if (animFrameRef.current) {
+        cancelAnimationFrame(animFrameRef.current)
+        animFrameRef.current = null
+      }
+      scrollSpeedRef.current = 0
+      return
+    }
+
+    const startAutoScroll = (speed) => {
+      scrollSpeedRef.current = speed
+      if (!animFrameRef.current) {
+        const step = () => {
+          const el = scrollContainerRef.current
+          if (!el || scrollSpeedRef.current === 0) {
+            animFrameRef.current = null
+            return
+          }
+          el.scrollTop += scrollSpeedRef.current
+          animFrameRef.current = requestAnimationFrame(step)
+        }
+        animFrameRef.current = requestAnimationFrame(step)
+      }
+    }
+
+    const stopAutoScroll = () => {
+      scrollSpeedRef.current = 0
+      if (animFrameRef.current) {
+        cancelAnimationFrame(animFrameRef.current)
+        animFrameRef.current = null
+      }
+    }
+
+    const handleWindowDragOver = (e) => {
+      const container = scrollContainerRef.current
+      if (!container) return
+
+      const clientY = e.clientY
+
+      // 1. Zona Superior: Fila de Profesionales (thead)
+      const theadEl = theadRef.current
+      const theadRect = theadEl ? theadEl.getBoundingClientRect() : null
+      // Margen de detección sobre la fila de profesionales (desde el tope hasta ~25px por debajo de los avatares)
+      const topZoneBottom = theadRect ? theadRect.bottom + 25 : 125
+
+      // 2. Zona Inferior: Carrusel de Fechas (.date-carousel-island o .date-strip)
+      const dateIsland = document.querySelector(".date-carousel-island") || document.querySelector(".date-strip")
+      const islandRect = dateIsland ? dateIsland.getBoundingClientRect() : null
+      const bottomZoneTop = islandRect ? islandRect.top - 20 : (window.innerHeight - 95)
+
+      if (clientY <= topZoneBottom && clientY >= 0) {
+        // En la fila de profesionales o parte superior -> Subir grilla
+        e.preventDefault()
+        const theadTop = theadRect ? theadRect.top : 56
+        const distanceIntoZone = Math.max(0, topZoneBottom - clientY)
+        const maxDist = Math.max(40, topZoneBottom - theadTop)
+        const factor = Math.min(1, Math.max(0.12, distanceIntoZone / maxDist))
+        // Opción 1: Progresiva y suave (desde ~2.8px/frame hasta ~14px/frame)
+        const speed = -(2.8 + factor * 11.2)
+        startAutoScroll(speed)
+      } else if (clientY >= bottomZoneTop && clientY <= window.innerHeight + 50) {
+        // Encima del carrusel de fechas o parte inferior -> Bajar grilla
+        e.preventDefault()
+        const distanceIntoZone = Math.max(0, clientY - bottomZoneTop)
+        const maxDist = Math.max(40, window.innerHeight - bottomZoneTop)
+        const factor = Math.min(1, Math.max(0.12, distanceIntoZone / maxDist))
+        // Opción 1: Progresiva y suave (desde ~2.8px/frame hasta ~14px/frame)
+        const speed = +(2.8 + factor * 11.2)
+        startAutoScroll(speed)
+      } else {
+        stopAutoScroll()
+      }
+    }
+
+    const handleDragStop = () => {
+      stopAutoScroll()
+    }
+
+    window.addEventListener("dragover", handleWindowDragOver)
+    window.addEventListener("dragend", handleDragStop)
+    window.addEventListener("drop", handleDragStop)
+
+    return () => {
+      stopAutoScroll()
+      window.removeEventListener("dragover", handleWindowDragOver)
+      window.removeEventListener("dragend", handleDragStop)
+      window.removeEventListener("drop", handleDragStop)
+    }
+  }, [draggingKey])
+
   const [now, setNow] = useState(new Date())
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 30000)
@@ -887,7 +993,7 @@ export function AppGrid({
       )}
       <div style={{ paddingTop: 56 }}>
         <table style={{ marginTop: 0, borderCollapse: "collapse", tableLayout: "fixed", width: "100%", minWidth: isMobile ? `calc(52px + ${orderedProfessionals.length} * calc((100vw - 70px) / ${colsToShowMobile}))` : `calc(52px + ${orderedProfessionals.length * 140}px)` }}>
-           <thead style={{ position: "sticky", top: 56, zIndex: 100 }}>
+           <thead ref={theadRef} onDragOver={e => e.preventDefault()} style={{ position: "sticky", top: 56, zIndex: 100 }}>
              <tr style={{ background: isLiquid ? "rgba(255, 255, 255, 0.45)" : C.white, backdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none", WebkitBackdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none", borderBottom: isLiquid ? `2px solid rgba(255,255,255,0.4)` : `2px solid ${C.border}` }}>
                <th style={{ padding: "6px 4px", width: 52, minWidth: 52, position: "sticky", top: 56, left: 0, zIndex: 101, background: isLiquid ? "rgba(255,255,255,0.65)" : C.white, backdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none", WebkitBackdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none", borderRight: isLiquid ? `2px solid rgba(255,255,255,0.45)` : `2px solid ${C.border}`, boxShadow: "none" }}>
                  <div style={{ fontSize: 7, letterSpacing: "2px", color: C.textSoft, textTransform: "uppercase", textAlign: "center" }}>Hora</div>
@@ -996,6 +1102,7 @@ export function AppGrid({
                 const isResizeOriginal = resizePreview && resizePreview.key === k
 
                 const appt = isResizeStart ? appointments[resizePreview.key] : appointments[k]
+                const isDragging = draggingKey === k
                 const span = isResizeStart ? resizePreview.slots : spanOf(prof.id, hour)
 
                 const isCoveredByResize = !isResizeStart && resizePreview && resizePreview.profId === prof.id && (() => {
@@ -1009,13 +1116,70 @@ export function AppGrid({
                 const isBlocked = (!appt && isOccupied(prof.id, hour, resizePreview?.key)) || isCoveredByResize || (isResizeOriginal && !isResizeStart) || isEditingRemote
                 if (isBlocked && !isEditingRemote) return null
 
-                const isDragging = draggingKey === k
                 const isTarget = dropTarget?.profId === prof.id && dropTarget?.hour === hour
+                const isTargetSlot = Boolean(
+                  draggingKey &&
+                  dropTarget?.profId === prof.id &&
+                  (() => {
+                    const tStart = HOURS.indexOf(dropTarget.hour)
+                    const curIdx = HOURS.indexOf(hour)
+                    const slotsCount = dropTarget.willTruncate ? (dropTarget.availableSlots || 1) : dragSlots
+                    return tStart >= 0 && curIdx >= tStart && curIdx < tStart + slotsCount
+                  })()
+                )
 
                 const offSchedule = !appt && isOutsideSchedule(prof, hour)
                 let cellBg = offSchedule ? "rgba(220,60,60,.07)" : ""
-                if (!appt && draggingKey) {
-                  cellBg = isTarget ? (dropValid ? C.dragOver : C.dragBad) : (offSchedule ? "rgba(220,60,60,.07)" : "")
+                if (draggingKey) {
+                  if (isTargetSlot && !appt) {
+                    if (!dropValid) {
+                      cellBg = C.dragBad
+                    } else if (dropTarget?.willTruncate) {
+                      cellBg = "rgba(245, 158, 11, 0.22)"
+                    } else {
+                      cellBg = C.dragOver
+                    }
+                  } else if (!appt && offSchedule) {
+                    cellBg = "rgba(220,60,60,.07)"
+                  }
+                }
+
+                const handleApptDragOver = (e) => {
+                  if (!draggingKey || draggingKey !== k) return
+                  e.preventDefault()
+                  e.stopPropagation()
+                  const rect = e.currentTarget.getBoundingClientRect()
+                  const totalSlots = span || 1
+                  if (totalSlots <= 1) {
+                    onDragOver(e, prof.id, hour)
+                    return
+                  }
+                  const relY = Math.max(0, Math.min(e.clientY - rect.top, rect.height - 1))
+                  const slotIdx = Math.min(totalSlots - 1, Math.floor((relY / rect.height) * totalSlots))
+                  const startHourIdx = HOURS.indexOf(appt.hour)
+                  if (startHourIdx < 0) return
+                  const targetHour = HOURS[startHourIdx + slotIdx]
+                  if (!targetHour) return
+                  onDragOver(e, prof.id, targetHour)
+                }
+
+                const handleApptDrop = (e) => {
+                  if (!draggingKey || draggingKey !== k) return
+                  e.preventDefault()
+                  e.stopPropagation()
+                  const rect = e.currentTarget.getBoundingClientRect()
+                  const totalSlots = span || 1
+                  if (totalSlots <= 1) {
+                    onDrop(e, prof.id, hour)
+                    return
+                  }
+                  const relY = Math.max(0, Math.min(e.clientY - rect.top, rect.height - 1))
+                  const slotIdx = Math.min(totalSlots - 1, Math.floor((relY / rect.height) * totalSlots))
+                  const startHourIdx = HOURS.indexOf(appt.hour)
+                  if (startHourIdx < 0) return
+                  const targetHour = HOURS[startHourIdx + slotIdx]
+                  if (!targetHour) return
+                  onDrop(e, prof.id, targetHour)
                 }
 
                 return (
@@ -1029,7 +1193,7 @@ export function AppGrid({
                       transition: "background .12s",
                       cursor: appt ? "grab" : (draggingKey ? "default" : (isEditingRemote ? "not-allowed" : "pointer")),
                       position: "relative",
-                      zIndex: (isResizeStart || draggingKey === k) ? 200 : 1,
+                      zIndex: (isResizeStart || isDragging) ? 200 : 1,
                     }}
                     onClick={() => !appt && !draggingKey && onCellClick(prof.id, hour)}
                     onMouseEnter={e => {
@@ -1041,9 +1205,23 @@ export function AppGrid({
                       if (appt && appt.client) setHoveredClientName(null)
                     }}
                     onContextMenu={e => handleContextMenu(e, prof.id, hour, !!appt)}
-                    onDragOver={e => !appt && onDragOver(e, prof.id, hour)}
-                    onDragLeave={() => !appt && onDragLeave()}
-                    onDrop={e => !appt && onDrop(e, prof.id, hour)}
+                    onDragOver={e => {
+                      if (!appt) {
+                        onDragOver(e, prof.id, hour)
+                      } else if (isDragging) {
+                        handleApptDragOver(e)
+                      }
+                    }}
+                    onDragLeave={() => {
+                      if (!appt) onDragLeave()
+                    }}
+                    onDrop={e => {
+                      if (!appt) {
+                        onDrop(e, prof.id, hour)
+                      } else if (isDragging) {
+                        handleApptDrop(e)
+                      }
+                    }}
                   >
                     {isEditingRemote && (
                       <div style={{
@@ -1094,6 +1272,8 @@ export function AppGrid({
                             }
                           }}
                           onDoubleClick={e => { if (!resizePreview && !isSelectedForMultiPay) { e.stopPropagation(); onEdit(k, appointments[k]); } }}
+                          onDragOver={handleApptDragOver}
+                          onDrop={handleApptDrop}
                           className={`appt-card${appt.isBlocked ? " blocked" : (appt.isNote ? " note" : (appt.paid ? " paid" : " unpaid"))}${appt.arrived && !appt.paid && !isDragging && !isResizeStart ? " current" : ""}${hoveredClientName && appt.client === hoveredClientName ? " force-hover" : ""}${isSelectedForMultiPay ? " selected-multipay" : ""}${isOverdueAlert ? " overdue-alert-card" : ""}`}
                           style={{
                             height: "100%", borderRadius: 9,
@@ -1151,6 +1331,44 @@ export function AppGrid({
                             zIndex: isSelectedForMultiPay ? 15 : (isOverdueAlert ? 6 : 1),
                           }}
                         >
+                          {isDragging && (span || 1) > 1 && (
+                            <div style={{
+                              position: "absolute",
+                              inset: 0,
+                              display: "flex",
+                              flexDirection: "column",
+                              pointerEvents: "none",
+                              zIndex: 25,
+                              background: "rgba(255,255,255,0.88)",
+                              borderRadius: 8,
+                              padding: 4,
+                              gap: 4,
+                            }}>
+                              {Array.from({ length: span || 1 }).map((_, sIdx) => {
+                                const startHourIdx = HOURS.indexOf(appt.hour)
+                                const slotHour = HOURS[startHourIdx + sIdx]
+                                const isThisSlotTarget = dropTarget?.profId === prof.id && dropTarget?.hour === slotHour
+                                return (
+                                  <div key={sIdx} style={{
+                                    flex: 1,
+                                    border: isThisSlotTarget ? (dropValid ? (dropTarget?.willTruncate ? "2px dashed #d97706" : `2px dashed ${C.green}`) : "2px dashed #e06060") : "1.5px dashed rgba(58,125,68,0.35)",
+                                    background: isThisSlotTarget ? (dropValid ? (dropTarget?.willTruncate ? "rgba(245, 158, 11, 0.25)" : "rgba(58,125,68,0.2)") : "rgba(220,60,60,0.2)") : "rgba(255,255,255,0.7)",
+                                    borderRadius: 6,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    fontWeight: "bold",
+                                    fontSize: 11,
+                                    color: isThisSlotTarget ? (dropValid ? (dropTarget?.willTruncate ? "#d97706" : (C.greenDark || "#2d5e34")) : "#c0392b") : C.textSoft,
+                                    transition: "all .1s",
+                                    boxShadow: isThisSlotTarget ? `0 2px 8px ${dropValid ? (dropTarget?.willTruncate ? "rgba(217, 119, 6, 0.3)" : "rgba(58,125,68,0.25)") : "rgba(220,60,60,0.25)"}` : "none",
+                                  }}>
+                                    {isThisSlotTarget ? (dropValid ? (dropTarget?.willTruncate ? `⚠️ Acotar a ${dropTarget.durationMins}m` : `✓ Mover a ${slotHour}`) : `✕ ${slotHour} ocupado`) : slotHour}
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          )}
                           <div onMouseDown={e => { e.stopPropagation(); onResizeStart(e, k, "top") }}
                             style={{ position: "absolute", top: 0, left: 0, right: 0, height: 8, cursor: "n-resize", zIndex: 10, borderRadius: "9px 9px 0 0" }} />
 
@@ -1356,25 +1574,32 @@ export function AppGrid({
                       )
                     })() : (
                       config.gridStyle === "classic" ? (
-                        <div style={{ height: 42, borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center", color: isTarget && dropValid ? C.green : (isTarget ? "#e06060" : C.textSoft), fontSize: isTarget ? 22 : 10, letterSpacing: "0.5px", transition: "all .12s" }}>
-                          {isTarget ? (dropValid ? "✓" : "✕") : (hour.endsWith(":00") || hour.endsWith(":30") ? hour : "")}
+                        <div style={{
+                          height: 42, borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center",
+                          color: isTarget && dropValid ? (dropTarget?.willTruncate ? "#d97706" : C.green) : (isTarget ? "#e06060" : C.textSoft),
+                          fontSize: isTarget ? (dropTarget?.willTruncate ? 12 : 22) : 10,
+                          fontWeight: isTarget && dropTarget?.willTruncate ? "bold" : "normal",
+                          letterSpacing: "0.5px", transition: "all .12s"
+                        }}>
+                          {isTarget ? (dropValid ? (dropTarget?.willTruncate ? `⚠️ ${dropTarget.durationMins}m` : "✓") : "✕") : (hour.endsWith(":00") || hour.endsWith(":30") ? hour : "")}
                         </div>
                       ) : (
                         <div style={{
                           height: "100%",
                           borderRadius: 9,
-                          border: `1.5px dashed rgba(205, 224, 208, 0.75)`,
-                          background: "rgba(255, 255, 255, 0.4)",
+                          border: isTarget && dropValid && dropTarget?.willTruncate ? "2px dashed #d97706" : `1.5px dashed rgba(205, 224, 208, 0.75)`,
+                          background: isTarget && dropValid && dropTarget?.willTruncate ? "rgba(245, 158, 11, 0.12)" : "rgba(255, 255, 255, 0.4)",
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
-                          color: isTarget && dropValid ? C.green : (isTarget ? "#e06060" : C.textSoft),
-                          fontSize: isTarget ? 22 : 10,
+                          color: isTarget && dropValid ? (dropTarget?.willTruncate ? "#d97706" : C.green) : (isTarget ? "#e06060" : C.textSoft),
+                          fontSize: isTarget ? (dropTarget?.willTruncate ? 12 : 22) : 10,
+                          fontWeight: isTarget && dropTarget?.willTruncate ? "bold" : "normal",
                           letterSpacing: "0.5px",
                           transition: "all .15s ease",
                           boxShadow: "inset 0 1px 3px rgba(0,0,0,0.01)"
                         }}>
-                          {isTarget ? (dropValid ? "✓" : "✕") : (hour.endsWith(":00") || hour.endsWith(":30") ? hour : "")}
+                          {isTarget ? (dropValid ? (dropTarget?.willTruncate ? `⚠️ Acotar a ${dropTarget.durationMins} min` : "✓") : "✕") : (hour.endsWith(":00") || hour.endsWith(":30") ? hour : "")}
                         </div>
                       )
                     )}

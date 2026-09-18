@@ -44,13 +44,40 @@ export function useAppointments(appointments, setAppointments) {
     return false
   }, [appointments])
 
-  const canDrop = useCallback((dragKey, targetProfId, targetHour) => {
+  const checkDropStatus = useCallback((dragKey, targetProfId, targetHour) => {
     const a = appointments[dragKey]
-    if (!a) return false
+    if (!a) return { canDrop: false }
     const idx = HOURS.indexOf(targetHour)
-    if (idx < 0) return false
-    return !isOccupied(targetProfId, targetHour, dragKey)
+    if (idx < 0) return { canDrop: false }
+    if (isOccupied(targetProfId, targetHour, dragKey)) {
+      return { canDrop: false }
+    }
+    const svcDur = Array.isArray(a.services) && a.services.length > 0
+      ? a.services.reduce((s, sv) => s + (sv?.duration || 0), 0)
+      : 0
+    const naturalSlots = svcDur > 0 ? Math.max(1, Math.ceil(svcDur / 30)) : null
+    const requestedSlots = a.originalSlots ?? naturalSlots ?? a.manualSlots ?? Math.max(1, Math.ceil(apptDur(a) / 30))
+    let availableSlots = 1
+    for (let s = 1; s < requestedSlots; s++) {
+      const checkHour = HOURS[idx + s]
+      if (!checkHour || isOccupied(targetProfId, checkHour, dragKey)) {
+        break
+      }
+      availableSlots++
+    }
+    const willTruncate = availableSlots < requestedSlots
+    return {
+      canDrop: true,
+      willTruncate,
+      availableSlots,
+      requestedSlots,
+      durationMins: availableSlots * 30,
+    }
   }, [appointments, isOccupied])
+
+  const canDrop = useCallback((dragKey, targetProfId, targetHour) => {
+    return checkDropStatus(dragKey, targetProfId, targetHour).canDrop
+  }, [checkDropStatus])
 
   const spanOf = (profId, hour) => {
     const k = cellKey(profId, hour)
@@ -58,7 +85,11 @@ export function useAppointments(appointments, setAppointments) {
     if (!a) return null
     if (resizePreview?.key === k) return resizePreview.slots
     
-    const requestedSlots = a.manualSlots ?? Math.max(1, Math.ceil(apptDur(a) / 30))
+    const svcDur = Array.isArray(a.services) && a.services.length > 0
+      ? a.services.reduce((s, sv) => s + (sv?.duration || 0), 0)
+      : 0
+    const naturalSlots = svcDur > 0 ? Math.max(1, Math.ceil(svcDur / 30)) : null
+    const requestedSlots = a.originalSlots ?? naturalSlots ?? a.manualSlots ?? Math.max(1, Math.ceil(apptDur(a) / 30))
     const startIdx = HOURS.indexOf(hour)
     let actualSlots = requestedSlots
     

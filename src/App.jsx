@@ -600,6 +600,8 @@ export default function App() {
   const [resizePreview, setResizePreview] = useState(null)
   const dragNode = useRef(null)
   const resizeRef = useRef(null)
+  const [truncateToast, setTruncateToast] = useState(null)
+  const truncateToastTimerRef = useRef(null)
 
 
   const appointments = allData[currentDate] || {}
@@ -754,13 +756,41 @@ export default function App() {
     return false
   }, [appointments])
 
-  const canDrop = useCallback((dragKey, targetProfId, targetHour) => {
+  const checkDropStatus = useCallback((dragKey, targetProfId, targetHour) => {
     const a = appointments[dragKey]
-    if (!a) return false
+    if (!a) return { canDrop: false }
     const idx = HOURS.indexOf(targetHour)
-    if (idx < 0) return false
-    return !isOccupied(targetProfId, targetHour, dragKey)
+    if (idx < 0) return { canDrop: false }
+    // La celda inicial debe estar libre
+    if (isOccupied(targetProfId, targetHour, dragKey)) {
+      return { canDrop: false }
+    }
+    const svcDur = Array.isArray(a.services) && a.services.length > 0
+      ? a.services.reduce((s, sv) => s + (sv?.duration || 0), 0)
+      : 0
+    const naturalSlots = svcDur > 0 ? Math.max(1, Math.ceil(svcDur / 30)) : null
+    const requestedSlots = a.originalSlots ?? naturalSlots ?? a.manualSlots ?? Math.max(1, Math.ceil(apptDur(a) / 30))
+    let availableSlots = 1
+    for (let s = 1; s < requestedSlots; s++) {
+      const checkHour = HOURS[idx + s]
+      if (!checkHour || isOccupied(targetProfId, checkHour, dragKey)) {
+        break
+      }
+      availableSlots++
+    }
+    const willTruncate = availableSlots < requestedSlots
+    return {
+      canDrop: true,
+      willTruncate,
+      availableSlots,
+      requestedSlots,
+      durationMins: availableSlots * 30,
+    }
   }, [appointments, isOccupied])
+
+  const canDrop = useCallback((dragKey, targetProfId, targetHour) => {
+    return checkDropStatus(dragKey, targetProfId, targetHour).canDrop
+  }, [checkDropStatus])
 
   const spanOf = (profId, hour) => {
     const k = cellKey(profId, hour)
@@ -768,7 +798,11 @@ export default function App() {
     if (!a) return null
     if (resizePreview?.key === k) return resizePreview.slots
 
-    const requestedSlots = a.manualSlots ?? Math.max(1, Math.ceil(apptDur(a) / 30))
+    const svcDur = Array.isArray(a.services) && a.services.length > 0
+      ? a.services.reduce((s, sv) => s + (sv?.duration || 0), 0)
+      : 0
+    const naturalSlots = svcDur > 0 ? Math.max(1, Math.ceil(svcDur / 30)) : null
+    const requestedSlots = a.originalSlots ?? naturalSlots ?? a.manualSlots ?? Math.max(1, Math.ceil(apptDur(a) / 30))
     const startIdx = HOURS.indexOf(hour)
     let actualSlots = requestedSlots
 
@@ -790,19 +824,49 @@ export default function App() {
   const onDragOver = (e, profId, hour) => {
     e.preventDefault()
     const key = dragNode.current; if (!key) return
-    const valid = canDrop(key, profId, hour)
-    setDropTarget({ profId, hour }); setDropValid(valid)
-    e.dataTransfer.dropEffect = valid ? "move" : "none"
+    const status = checkDropStatus(key, profId, hour)
+    setDropTarget({ profId, hour, ...status })
+    setDropValid(status.canDrop)
+    e.dataTransfer.dropEffect = status.canDrop ? "move" : "none"
   }
   const onDrop = (e, targetProfId, targetHour) => {
     e.preventDefault()
     const key = dragNode.current
-    if (!key || !canDrop(key, targetProfId, targetHour)) { setDropTarget(null); setDropValid(false); return }
+    if (!key) { setDropTarget(null); setDropValid(false); return }
+    const status = checkDropStatus(key, targetProfId, targetHour)
+    if (!status.canDrop) { setDropTarget(null); setDropValid(false); return }
     setAppointments(prev => {
       const next = { ...prev }; const appt = next[key]; delete next[key]
-      next[cellKey(targetProfId, targetHour)] = { ...appt, profId: targetProfId, hour: targetHour }
+      const svcDur = Array.isArray(appt.services) && appt.services.length > 0
+        ? appt.services.reduce((s, sv) => s + (sv?.duration || 0), 0)
+        : 0
+
+      const updatedAppt = {
+        ...appt,
+        profId: targetProfId,
+        hour: targetHour,
+      }
+
+      if (status.willTruncate) {
+        updatedAppt.originalSlots = status.requestedSlots
+        updatedAppt.isTruncatedInSlot = true
+      } else {
+        delete updatedAppt.originalSlots
+        delete updatedAppt.isTruncatedInSlot
+        if (svcDur > 0) {
+          delete updatedAppt.manualSlots
+          delete updatedAppt.manualDur
+        }
+      }
+
+      next[cellKey(targetProfId, targetHour)] = updatedAppt
       return next
     })
+    if (status.willTruncate) {
+      setTruncateToast(`⚠️ Turno de ${status.requestedSlots * 30} min reubicado: se ajustó a ${status.durationMins} min para entrar en el hueco`)
+      if (truncateToastTimerRef.current) clearTimeout(truncateToastTimerRef.current)
+      truncateToastTimerRef.current = setTimeout(() => setTruncateToast(null), 3800)
+    }
     onDragEnd()
   }
 
@@ -1240,8 +1304,68 @@ export default function App() {
           <div key="v-turnos" className="pv-view pv-bg" style={{ display: "flex", flexDirection: "column", flex: 1, overflow: "hidden", paddingBottom: 0 }}>
             <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
               {(draggingKey || resizePreview) && (
-                <div style={{ position: "fixed", bottom: isMobile ? "calc(140px + env(safe-area-inset-bottom))" : 86, left: "50%", transform: "translateX(-50%)", background: resizePreview ? "rgba(58,125,68,.92)" : dropTarget ? (dropValid ? "rgba(58,125,68,.92)" : "rgba(200,60,60,.88)") : "rgba(40,40,40,.82)", color: "#fff", borderRadius: 30, padding: "8px 22px", fontSize: 12, letterSpacing: "1px", zIndex: 300, boxShadow: "0 4px 20px rgba(0,0,0,.25)", pointerEvents: "none" }}>
-                  {resizePreview ? "↕ Soltá para confirmar" : dropTarget ? (dropValid ? "✅ Soltar para mover aquí" : "🚫 Horario ocupado") : "☝️ Arrastrá a un nuevo horario"}
+                <div style={{
+                  position: "fixed",
+                  bottom: isMobile ? "calc(140px + env(safe-area-inset-bottom))" : 86,
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  background: resizePreview
+                    ? "rgba(58,125,68,.92)"
+                    : dropTarget
+                      ? dropValid
+                        ? dropTarget.willTruncate
+                          ? "rgba(217,119,6,.95)"
+                          : "rgba(58,125,68,.92)"
+                        : "rgba(200,60,60,.88)"
+                      : "rgba(40,40,40,.82)",
+                  color: "#fff",
+                  borderRadius: 30,
+                  padding: "8px 22px",
+                  fontSize: 12,
+                  letterSpacing: "1px",
+                  zIndex: 300,
+                  boxShadow: "0 4px 20px rgba(0,0,0,.25)",
+                  pointerEvents: "none"
+                }}>
+                  {resizePreview
+                    ? "↕ Soltá para confirmar"
+                    : dropTarget
+                      ? dropValid
+                        ? dropTarget.willTruncate
+                          ? `⚠️ Hueco de ${dropTarget.durationMins} min (se acotará) · Soltá para mover`
+                          : "✅ Soltar para mover aquí"
+                        : "🚫 Horario ocupado"
+                      : "☝️ Arrastrá a un nuevo horario"}
+                </div>
+              )}
+
+              {truncateToast && (
+                <div style={{
+                  position: "fixed",
+                  top: isMobile ? 66 : 76,
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  background: "linear-gradient(135deg, #d97706, #b45309)",
+                  color: "#fff",
+                  padding: "10px 22px",
+                  borderRadius: 24,
+                  fontSize: 13,
+                  fontWeight: "600",
+                  boxShadow: "0 8px 26px rgba(0,0,0,.35), 0 2px 8px rgba(217,119,6,.4)",
+                  zIndex: 99999,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  animation: "fadeIn .2s ease-out",
+                  pointerEvents: "auto",
+                }}>
+                  <span>{truncateToast}</span>
+                  <button
+                    onClick={() => setTruncateToast(null)}
+                    style={{ background: "rgba(255,255,255,0.2)", border: "none", color: "#fff", cursor: "pointer", fontSize: 13, lineHeight: 1, padding: "3px 7px", borderRadius: 12 }}
+                  >
+                    ✕
+                  </button>
                 </div>
               )}
 

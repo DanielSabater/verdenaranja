@@ -811,14 +811,18 @@ export const AppHeader = memo(function AppHeader({
         const daysInMonth = new Date(y, m, 0).getDate()
 
         return (
-          <div className="date-strip" style={{
+          <div className="date-strip" 
+            onDragOver={(e) => { e.preventDefault() }}
+            style={{
             position: "fixed", bottom: 8, left: 16, right: 16,
             zIndex: 98,
             display: "flex", alignItems: "center", justifyContent: "center",
             pointerEvents: "none",
           }}>
             {/* Island 1: Carousel & Month */}
-            <div className="date-carousel-island" style={{
+            <div className="date-carousel-island" 
+              onDragOver={(e) => { e.preventDefault() }}
+              style={{
               background: isLiquid ? "rgba(255, 255, 255, 0.45)" : C.white,
               backdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none",
               WebkitBackdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none",
