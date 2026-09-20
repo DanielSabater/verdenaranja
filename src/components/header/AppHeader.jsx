@@ -336,6 +336,72 @@ export const AppHeader = memo(function AppHeader({
   const isToday = currentDate === tKey
   const headerAccentColor = isToday ? C.green : (C.orange || "#e8793a")
 
+  const [isFanOpen, setIsFanOpen] = useState(false)
+
+  useEffect(() => {
+    if (activeView !== "turnos") {
+      setIsFanOpen(false)
+    }
+  }, [activeView])
+
+  const fanItems = useMemo(() => [
+    {
+      id: "notas",
+      label: "Anotador",
+      angle: 162,
+      content: "📝",
+      badge: hasUncheckedTasks,
+      bg: isLiquid ? "rgba(255, 245, 230, 0.95)" : C.orangePale,
+      action: () => onOpenNotebook()
+    },
+    {
+      id: "buscar",
+      label: "Buscar turnos",
+      angle: 126,
+      content: "🔍",
+      bg: isLiquid ? "rgba(235, 250, 240, 0.95)" : C.greenPale,
+      action: () => onOpenSearchTurnos()
+    },
+    {
+      id: "hoy",
+      label: "Ir a Hoy",
+      angle: 90,
+      content: "HOY",
+      fontSize: 10,
+      fontWeight: "bold",
+      fontFamily: "Georgia,serif",
+      letterSpacing: "1px",
+      color: currentDate !== tKey ? "#ffffff" : C.green,
+      bg: currentDate !== tKey
+        ? `linear-gradient(135deg, ${C.orange}, ${C.amber || "#e07b20"})`
+        : (isLiquid ? "rgba(235, 250, 240, 0.95)" : C.greenPale),
+      shadow: currentDate !== tKey
+        ? "0 4px 16px rgba(232, 121, 58, 0.45)"
+        : undefined,
+      border: currentDate !== tKey ? "none" : undefined,
+      action: () => handleHoyClick()
+    },
+    {
+      id: "gasto",
+      label: "Gasto rápido",
+      angle: 54,
+      content: "💸",
+      bg: isLiquid ? "rgba(255, 255, 250, 0.95)" : C.cream,
+      action: () => onQuickGasto()
+    },
+    {
+      id: "calendario",
+      label: "Calendario",
+      angle: 18,
+      content: "📅",
+      bg: calendarOpen
+        ? `linear-gradient(135deg, ${C.green}, ${C.greenLight})`
+        : (isLiquid ? "rgba(255, 255, 250, 0.95)" : C.cream),
+      color: calendarOpen ? "#ffffff" : undefined,
+      action: () => setCalendarOpen(v => !v)
+    }
+  ], [hasUncheckedTasks, isLiquid, currentDate, tKey, calendarOpen, onOpenNotebook, onOpenSearchTurnos, handleHoyClick, onQuickGasto, setCalendarOpen])
+
   return (
     <>
       <header
@@ -861,7 +927,26 @@ export const AppHeader = memo(function AppHeader({
       {calendarOpen && activeView === "turnos" && (
         <>
           <div onClick={() => setCalendarOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 299 }} />
-          <div onClick={e => e.stopPropagation()} style={{ position: "fixed", bottom: 76, right: 12, width: 320, maxWidth: "92vw", zIndex: 300, background: isLiquid ? "rgba(255, 255, 255, 0.45)" : C.white, backdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none", WebkitBackdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none", borderRadius: 16, border: isLiquid ? "1px solid rgba(255, 255, 255, 0.55)" : `1.5px solid ${C.border}`, boxShadow: isLiquid ? "0 8px 32px rgba(31, 38, 135, 0.08), inset 0 1px 1px rgba(255, 255, 255, 0.3)" : `0 8px 24px ${C.shadow}`, padding: "16px 20px 20px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            position: "fixed",
+            bottom: isMobile ? "calc(76px + env(safe-area-inset-bottom))" : 76,
+            right: isMobile ? "auto" : 12,
+            left: isMobile ? "50%" : "auto",
+            transform: isMobile ? "translateX(-50%)" : "none",
+            width: 320,
+            maxWidth: "92vw",
+            zIndex: 300,
+            background: isLiquid ? "rgba(255, 255, 255, 0.45)" : C.white,
+            backdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none",
+            WebkitBackdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none",
+            borderRadius: 16,
+            border: isLiquid ? "1px solid rgba(255, 255, 255, 0.55)" : `1.5px solid ${C.border}`,
+            boxShadow: isLiquid ? "0 8px 32px rgba(31, 38, 135, 0.08), inset 0 1px 1px rgba(255, 255, 255, 0.3)" : `0 8px 24px ${C.shadow}`,
+            padding: "16px 20px 20px",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center"
+          }}>
             <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 14 }}>
               <button onClick={prevMonth} style={{ width: 30, height: 30, borderRadius: "50%", border: `1px solid ${C.border}`, background: C.white, color: C.green, fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>‹</button>
               <div style={{ fontSize: 14, color: C.text, fontWeight: "bold", minWidth: 160, textAlign: "center" }}>{MESES_ES[vm - 1].charAt(0).toUpperCase() + MESES_ES[vm - 1].slice(1)} {vy}</div>
@@ -887,9 +972,260 @@ export const AppHeader = memo(function AppHeader({
         </>
       )}
 
-      {/* Bottom date strip — fixed, all days of month */}
-      {/* Floating date islands */}
+      {/* Bottom date strip & controls */}
       {activeView === "turnos" && currentDate && (() => {
+        if (isMobile) {
+          return (
+            <>
+              {/* Backdrop para cerrar el abanico al tocar fuera */}
+              {isFanOpen && (
+                <div
+                  onClick={() => setIsFanOpen(false)}
+                  style={{
+                    position: "fixed",
+                    inset: 0,
+                    zIndex: 115,
+                    background: "rgba(0,0,0,0.18)",
+                    backdropFilter: "blur(2px)",
+                    WebkitBackdropFilter: "blur(2px)"
+                  }}
+                />
+              )}
+
+              {/* Contenedor móvil: Flecha izquierda, Botón central con abanico, Flecha derecha */}
+              <div
+                className="mobile-bottom-controls"
+                style={{
+                  position: "fixed",
+                  bottom: "calc(74px + env(safe-area-inset-bottom))",
+                  left: 16,
+                  right: 16,
+                  zIndex: 120,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  pointerEvents: "none"
+                }}
+              >
+                {/* Esquina Izquierda: Día anterior */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    playClickSound()
+                    setCurrentDate(d => nextWorkDay(d, -1))
+                  }}
+                  title="Día hábil anterior"
+                  style={{
+                    pointerEvents: "auto",
+                    width: 46,
+                    height: 46,
+                    borderRadius: "50%",
+                    border: isLiquid ? "1px solid rgba(255, 255, 255, 0.6)" : `1.5px solid ${C.border}`,
+                    background: isLiquid ? "rgba(255, 255, 255, 0.75)" : C.white,
+                    backdropFilter: isLiquid ? "blur(25px) saturate(200%)" : "none",
+                    WebkitBackdropFilter: isLiquid ? "blur(25px) saturate(200%)" : "none",
+                    boxShadow: isLiquid ? "0 8px 24px rgba(31, 38, 135, 0.12), inset 0 1px 1px rgba(255, 255, 255, 0.4)" : `0 4px 16px ${C.shadow}`,
+                    color: C.green,
+                    fontSize: 22,
+                    fontWeight: "bold",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                    transition: "transform .15s ease, background .2s ease",
+                    outline: "none"
+                  }}
+                  onTouchStart={(e) => { e.currentTarget.style.transform = "scale(0.92)" }}
+                  onTouchEnd={(e) => { e.currentTarget.style.transform = "scale(1)" }}
+                >
+                  <span style={{ marginTop: -2, marginRight: 1 }}>‹</span>
+                </button>
+
+                {/* Centro: Botón Principal + Abanico Desplegable */}
+                <div
+                  style={{
+                    position: "relative",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    pointerEvents: "none"
+                  }}
+                >
+                  {/* Botones del Abanico */}
+                  {fanItems.map((item, idx) => {
+                    const rad = (item.angle * Math.PI) / 180
+                    const tx = Math.round(84 * Math.cos(rad))
+                    const ty = Math.round(-84 * Math.sin(rad))
+
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          playClickSound()
+                          setIsFanOpen(false)
+                          item.action()
+                        }}
+                        title={item.label}
+                        style={{
+                          position: "absolute",
+                          width: 44,
+                          height: 44,
+                          borderRadius: "50%",
+                          border: item.border || (isLiquid ? "1px solid rgba(255, 255, 255, 0.65)" : `1.5px solid ${C.border}`),
+                          background: item.bg || (isLiquid ? "rgba(255, 255, 255, 0.85)" : C.white),
+                          backdropFilter: isLiquid ? "blur(20px)" : "none",
+                          WebkitBackdropFilter: isLiquid ? "blur(20px)" : "none",
+                          boxShadow: item.shadow || (isLiquid ? "0 8px 24px rgba(0, 0, 0, 0.12)" : `0 4px 16px ${C.shadow}`),
+                          color: item.color || C.text,
+                          fontSize: item.fontSize || 18,
+                          fontWeight: item.fontWeight || "normal",
+                          fontFamily: item.fontFamily || "inherit",
+                          letterSpacing: item.letterSpacing || "normal",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          cursor: "pointer",
+                          pointerEvents: isFanOpen ? "auto" : "none",
+                          opacity: isFanOpen ? 1 : 0,
+                          transform: isFanOpen
+                            ? `translate(${tx}px, ${ty}px) scale(1)`
+                            : `translate(0px, 0px) scale(0.2)`,
+                          transition: isFanOpen
+                            ? `transform .32s cubic-bezier(0.34, 1.56, 0.64, 1) ${idx * 28}ms, opacity .22s ease ${idx * 28}ms`
+                            : `transform .22s cubic-bezier(0.4, 0, 0.2, 1) ${(4 - idx) * 20}ms, opacity .18s ease ${(4 - idx) * 20}ms`,
+                          zIndex: 119
+                        }}
+                      >
+                        {item.content}
+                        {item.badge && (
+                          <div
+                            style={{
+                              position: "absolute",
+                              top: -2,
+                              right: -2,
+                              width: 11,
+                              height: 11,
+                              borderRadius: "50%",
+                              backgroundColor: "#ff4d4f",
+                              border: `1.5px solid ${C.white}`,
+                              boxShadow: "0 2px 5px rgba(0,0,0,0.25)",
+                              pointerEvents: "none"
+                            }}
+                          />
+                        )}
+                      </button>
+                    )
+                  })}
+
+                  {/* Botón Central Trigger */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      playClickSound()
+                      setIsFanOpen(prev => !prev)
+                    }}
+                    title={isFanOpen ? "Cerrar menú" : "Abrir opciones de turnos"}
+                    style={{
+                      pointerEvents: "auto",
+                      width: 52,
+                      height: 52,
+                      borderRadius: "50%",
+                      border: isFanOpen
+                        ? "2px solid rgba(255, 255, 255, 0.85)"
+                        : (isLiquid ? "1.5px solid rgba(255, 255, 255, 0.6)" : "none"),
+                      background: isFanOpen
+                        ? "linear-gradient(135deg, #e8793a, #d97706)"
+                        : `linear-gradient(135deg, ${C.green}, ${C.greenLight})`,
+                      boxShadow: isFanOpen
+                        ? "0 8px 26px rgba(232, 121, 58, 0.5)"
+                        : `0 8px 24px ${C.green}55`,
+                      color: "#ffffff",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: "pointer",
+                      outline: "none",
+                      position: "relative",
+                      transition: "transform .25s cubic-bezier(0.34, 1.56, 0.64, 1), background .25s ease, box-shadow .25s ease",
+                      transform: isFanOpen ? "scale(1.05)" : "scale(1)",
+                      zIndex: 121
+                    }}
+                    onTouchStart={(e) => { e.currentTarget.style.transform = isFanOpen ? "scale(1)" : "scale(0.94)" }}
+                    onTouchEnd={(e) => { e.currentTarget.style.transform = isFanOpen ? "scale(1.05)" : "scale(1)" }}
+                  >
+                    <span
+                      style={{
+                        fontSize: 26,
+                        lineHeight: 1,
+                        display: "inline-block",
+                        transition: "transform .28s cubic-bezier(0.34, 1.56, 0.64, 1)",
+                        transform: isFanOpen ? "rotate(135deg)" : "rotate(0deg)"
+                      }}
+                    >
+                      +
+                    </span>
+                    {!isFanOpen && hasUncheckedTasks && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          top: 2,
+                          right: 2,
+                          width: 12,
+                          height: 12,
+                          borderRadius: "50%",
+                          backgroundColor: "#ff4d4f",
+                          border: "2px solid #ffffff",
+                          boxShadow: "0 2px 6px rgba(0,0,0,0.3)",
+                          pointerEvents: "none"
+                        }}
+                      />
+                    )}
+                  </button>
+                </div>
+
+                {/* Esquina Derecha: Día siguiente */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    playClickSound()
+                    setCurrentDate(d => nextWorkDay(d, 1))
+                  }}
+                  title="Día hábil siguiente"
+                  style={{
+                    pointerEvents: "auto",
+                    width: 46,
+                    height: 46,
+                    borderRadius: "50%",
+                    border: isLiquid ? "1px solid rgba(255, 255, 255, 0.6)" : `1.5px solid ${C.border}`,
+                    background: isLiquid ? "rgba(255, 255, 255, 0.75)" : C.white,
+                    backdropFilter: isLiquid ? "blur(25px) saturate(200%)" : "none",
+                    WebkitBackdropFilter: isLiquid ? "blur(25px) saturate(200%)" : "none",
+                    boxShadow: isLiquid ? "0 8px 24px rgba(31, 38, 135, 0.12), inset 0 1px 1px rgba(255, 255, 255, 0.4)" : `0 4px 16px ${C.shadow}`,
+                    color: C.green,
+                    fontSize: 22,
+                    fontWeight: "bold",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                    transition: "transform .15s ease, background .2s ease",
+                    outline: "none"
+                  }}
+                  onTouchStart={(e) => { e.currentTarget.style.transform = "scale(0.92)" }}
+                  onTouchEnd={(e) => { e.currentTarget.style.transform = "scale(1)" }}
+                >
+                  <span style={{ marginTop: -2, marginLeft: 1 }}>›</span>
+                </button>
+              </div>
+            </>
+          )
+        }
+
         const [y, m] = currentDate.split("-").map(Number)
         const [ty, tm] = tKey.split("-").map(Number)
         const isDiffMonth = y !== ty || m !== tm

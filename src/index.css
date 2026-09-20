@@ -1038,7 +1038,8 @@ select {
     display: none !important;
   }
 
-  .date-strip {
+  .date-strip,
+  .mobile-bottom-controls {
     display: none !important;
   }
 
