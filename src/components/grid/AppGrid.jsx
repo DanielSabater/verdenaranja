@@ -1038,8 +1038,17 @@ export function AppGrid({
                         background: "transparent"
                       }}>
                       <div onClick={() => setProfPopup(profPopup === p.id ? null : p.id)}
-                        style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: (isMobile && isLandscape) ? 0 : 3, cursor: "pointer", width: "100%" }}>
-                      {!(isMobile && isLandscape) && (
+                        style={{
+                          display: "flex",
+                          flexDirection: (isMobile && isLandscape) ? "row" : "column",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: (isMobile && isLandscape) ? 3 : 3,
+                          cursor: "pointer",
+                          width: "100%",
+                          overflow: "hidden"
+                        }}>
+                      {!(isMobile && isLandscape) ? (
                         <div style={{
                           width: 36, height: 36, borderRadius: "50%",
                           background: profPopup === p.id ? "rgba(255, 255, 255, 0.75)" : "rgba(255, 255, 255, 0.4)",
@@ -1081,17 +1090,22 @@ export function AppGrid({
                             );
                           })}
                         </div>
+                      ) : (
+                        <span style={{ fontSize: 11, lineHeight: 1, flexShrink: 0 }}>{p.emoji}</span>
                       )}
                       <span style={{
-                        fontSize: (isMobile && isLandscape) ? 12 : 11,
+                        fontSize: 11,
                         color: profPopup === p.id ? C.green : C.text,
                         fontWeight: (isMobile && isLandscape) ? "700" : (profPopup === p.id ? "bold" : "normal"),
                         whiteSpace: "nowrap",
                         overflow: "hidden",
                         textOverflow: "ellipsis",
-                        maxWidth: "100%",
+                        maxWidth: (isMobile && isLandscape) ? "calc(100% - 30px)" : "100%",
                         padding: (isMobile && isLandscape) ? "2px 0" : 0
                       }}>{p.name}</span>
+                      {(isMobile && isLandscape) && (
+                        <span style={{ fontSize: 11, lineHeight: 1, flexShrink: 0 }}>{p.emoji}</span>
+                      )}
                     </div>
                   </th>
                 )
