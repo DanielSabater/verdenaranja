@@ -66,6 +66,10 @@ select {
   display: none !important;
 }
 
+.mobile-total-bubble {
+  display: none !important;
+}
+
 .date-nav-pills {
   display: flex !important;
 }
@@ -127,6 +131,10 @@ select {
     display: none !important;
   }
 
+  .mobile-total-bubble {
+    display: flex !important;
+  }
+
   .date-nav-pills {
     display: none !important;
   }
@@ -141,6 +149,18 @@ select {
     align-items: center;
     gap: 8px;
     min-width: 0;
+  }
+
+  .header-turnos-active .header-center-group {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex !important;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    max-width: calc(100vw - 110px);
+    z-index: 5;
   }
 
   .branch-switcher-container {
@@ -160,12 +180,12 @@ select {
   }
 
   .header-turnos-active .branch-switcher-container {
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
+    position: static;
+    left: auto;
+    transform: none;
     margin: 0;
-    max-width: calc(100vw - 120px);
-    z-index: 5;
+    max-width: none;
+    z-index: auto;
   }
 
   .desktop-nav-container {
@@ -1007,6 +1027,40 @@ select {
   background: rgba(37, 211, 102, 0.22) !important;
   color: #075e54 !important;
 }
+
+/* ── Modo Mobile Horizontal / Landscape (Pantalla completa apaisada) ── */
+@media (max-height: 550px) and (orientation: landscape) {
+  .app-header-main {
+    display: none !important;
+  }
+
+  .bottom-nav {
+    display: none !important;
+  }
+
+  .date-strip {
+    display: none !important;
+  }
+
+  .grid-scroll {
+    padding-top: 0 !important;
+    padding-bottom: 8px !important;
+    scroll-padding-bottom: 8px !important;
+  }
+
+  .grid-table-container {
+    padding-top: 0 !important;
+  }
+
+  .grid-table-container thead {
+    top: 0 !important;
+  }
+
+  .grid-table-container thead th {
+    top: 0 !important;
+  }
+}
+
 
 .wa-sent-btn {
   background: rgba(42, 114, 52, 0.1) !important;

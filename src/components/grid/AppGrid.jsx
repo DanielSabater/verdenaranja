@@ -527,7 +527,22 @@ export function AppGrid({
   const lastColsRef = useRef(colsToShow)
   lastColsRef.current = colsToShow
 
-  const colsToShowMobile = Math.min(orderedProfessionals.length, colsToShow)
+  const [isLandscape, setIsLandscape] = useState(() => {
+    if (typeof window === "undefined") return false
+    return window.matchMedia("(orientation: landscape) and (max-height: 550px)").matches
+  })
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const mq = window.matchMedia("(orientation: landscape) and (max-height: 550px)")
+    const handler = (e) => setIsLandscape(e.matches)
+    mq.addEventListener("change", handler)
+    return () => mq.removeEventListener("change", handler)
+  }, [])
+
+  const colsToShowMobile = (isMobile && isLandscape)
+    ? orderedProfessionals.length
+    : Math.min(orderedProfessionals.length, colsToShow)
 
   const updateColsToShow = (val) => {
     const nextVal = Math.min(orderedProfessionals.length, Math.max(1, val))
@@ -764,7 +779,7 @@ export function AppGrid({
       if (clientY <= topZoneBottom && clientY >= 0) {
         // En la fila de profesionales o parte superior -> Subir grilla
         e.preventDefault()
-        const theadTop = theadRect ? theadRect.top : 56
+        const theadTop = theadRect ? theadRect.top : ((isMobile && isLandscape) ? 0 : 56)
         const distanceIntoZone = Math.max(0, topZoneBottom - clientY)
         const maxDist = Math.max(40, topZoneBottom - theadTop)
         const factor = Math.min(1, Math.max(0.12, distanceIntoZone / maxDist))
@@ -959,7 +974,7 @@ export function AppGrid({
       className="grid-scroll" 
       style={{ touchAction: isMobile ? "pan-x pan-y" : "auto", overflow: "auto", padding: isMobile ? "0 8px 120px 0" : "0 8px 78px", WebkitOverflowScrolling: "touch", maxHeight: "100%", scrollSnapType: isMobile ? "x mandatory" : "none", scrollPaddingLeft: 60, scrollPaddingBottom: isMobile ? 120 : 78 }}
     >
-      {showToast && isMobile && (
+      {showToast && isMobile && !isLandscape && (
         <div style={{
           position: "fixed",
           top: 130,
@@ -983,11 +998,19 @@ export function AppGrid({
           🔍 {colsToShowMobile} {colsToShowMobile === 1 ? "Profesional" : "Profesionales"}
         </div>
       )}
-      <div style={{ paddingTop: 56 }}>
-        <table style={{ marginTop: 0, borderCollapse: "collapse", tableLayout: "fixed", width: "100%", minWidth: isMobile ? `calc(52px + ${orderedProfessionals.length} * calc((100vw - 70px) / ${colsToShowMobile}))` : `calc(52px + ${orderedProfessionals.length * 140}px)` }}>
-           <thead ref={theadRef} onDragOver={e => e.preventDefault()} style={{ position: "sticky", top: 56, zIndex: 100 }}>
+      <div className="grid-table-container" style={{ paddingTop: (isMobile && isLandscape) ? 0 : 56 }}>
+        <table style={{
+          marginTop: 0,
+          borderCollapse: "collapse",
+          tableLayout: "fixed",
+          width: "100%",
+          minWidth: (isMobile && isLandscape)
+            ? "100%"
+            : (isMobile ? `calc(52px + ${orderedProfessionals.length} * calc((100vw - 70px) / ${colsToShowMobile}))` : `calc(52px + ${orderedProfessionals.length * 140}px)`)
+        }}>
+           <thead ref={theadRef} onDragOver={e => e.preventDefault()} style={{ position: "sticky", top: (isMobile && isLandscape) ? 0 : 56, zIndex: 100 }}>
              <tr style={{ background: isLiquid ? "rgba(255, 255, 255, 0.45)" : C.white, backdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none", WebkitBackdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none", borderBottom: isLiquid ? `2px solid rgba(255,255,255,0.4)` : `2px solid ${C.border}` }}>
-               <th style={{ padding: "6px 4px", width: 52, minWidth: 52, position: "sticky", top: 56, left: 0, zIndex: 101, background: isLiquid ? "rgba(255,255,255,0.65)" : C.white, backdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none", WebkitBackdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none", borderRight: isLiquid ? `2px solid rgba(255,255,255,0.45)` : `2px solid ${C.border}`, boxShadow: "none" }}>
+               <th style={{ padding: "6px 4px", width: 52, minWidth: 52, position: "sticky", top: (isMobile && isLandscape) ? 0 : 56, left: 0, zIndex: 101, background: isLiquid ? "rgba(255,255,255,0.65)" : C.white, backdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none", WebkitBackdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none", borderRight: isLiquid ? `2px solid rgba(255,255,255,0.45)` : `2px solid ${C.border}`, boxShadow: "none" }}>
                  <div style={{ fontSize: 7, letterSpacing: "2px", color: C.textSoft, textTransform: "uppercase", textAlign: "center" }}>Hora</div>
                </th>
                {orderedProfessionals.map((p, idx) => {
@@ -999,7 +1022,21 @@ export function AppGrid({
                      onDragOver={e => onColDragOver(e, p.id)}
                      onDrop={e => onColDrop(e, p.id)}
                      onDragEnd={onColDragEnd}
-                     style={{ padding: isMobile ? "6px 2px" : "10px 5px", width: `${100 / orderedProfessionals.length}%`, minWidth: isMobile ? `calc((100vw - 70px) / ${colsToShowMobile})` : 140, transition: "all .2s", opacity: dragCol === p.id ? 0.4 : 1, borderLeft: dragOver === p.id ? `3px solid ${C.green}` : "none", cursor: "grab", scrollSnapAlign: isMobile ? (idx % 2 === 0 ? "none start" : "none") : "none", scrollSnapStop: isMobile ? "always" : "normal", boxShadow: "none", background: "transparent" }}>
+                     style={{
+                       padding: isMobile ? "6px 2px" : "10px 5px",
+                       width: `${100 / orderedProfessionals.length}%`,
+                       minWidth: (isMobile && isLandscape)
+                         ? `calc((100vw - 60px) / ${orderedProfessionals.length})`
+                         : (isMobile ? `calc((100vw - 70px) / ${colsToShowMobile})` : 140),
+                       transition: "all .2s",
+                       opacity: dragCol === p.id ? 0.4 : 1,
+                       borderLeft: dragOver === p.id ? `3px solid ${C.green}` : "none",
+                       cursor: "grab",
+                       scrollSnapAlign: (isMobile && !isLandscape) ? (idx % 2 === 0 ? "none start" : "none") : "none",
+                       scrollSnapStop: (isMobile && !isLandscape) ? "always" : "normal",
+                       boxShadow: "none",
+                       background: "transparent"
+                     }}>
                      <div onClick={() => setProfPopup(profPopup === p.id ? null : p.id)}
                        style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, cursor: "pointer" }}>
                      <div style={{

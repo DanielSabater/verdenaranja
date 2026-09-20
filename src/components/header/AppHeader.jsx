@@ -332,7 +332,7 @@ export const AppHeader = memo(function AppHeader({
 
   const btnNav = { width: 30, height: 30, borderRadius: "50%", border: `1px solid ${C.border}`, background: C.white, color: C.green, fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }
 
-  const isMobile = useIsMobile(1024)
+  const isMobile = useIsMobile(1100)
   const isToday = currentDate === tKey
   const headerAccentColor = isToday ? C.green : (C.orange || "#e8793a")
 
@@ -378,87 +378,137 @@ export const AppHeader = memo(function AppHeader({
           {/* Spacer before switcher to center it dynamically on desktop */}
           {activeView === "turnos" && ramas && ramas.length > 1 && <div className="desktop-nav-container" style={{ flex: 1 }} />}
 
-          {/* Dynamic Branch Switcher - Ultra clean and responsive */}
+          {/* Dynamic Branch Switcher & Mobile Total Bubble */}
           {activeView === "turnos" && ramas && ramas.length > 1 && (
-            <div className="branch-switcher-container" style={{ 
-              display: "flex", 
-              gap: 4, 
-              background: isLiquid ? "rgba(255, 255, 255, 0.35)" : C.cream, 
-              backdropFilter: isLiquid ? "blur(10px)" : "none",
-              padding: 3, 
-              borderRadius: 20, 
-              border: isLiquid ? "1px solid rgba(255, 255, 255, 0.5)" : `1px solid ${C.border}`, 
-              flexShrink: 0,
-              alignItems: "center"
-            }}>
-              {ramas.map(rama => {
-                const normRama = String(rama).trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-                const isActive = String(activeRama).trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") === normRama
-                const emoji = getRamaEmoji(rama)
-                const displayName = rama.charAt(0).toUpperCase() + rama.slice(1)
-                const pendingCount = pendingByRama[normRama] || 0
-                const hasPending = pendingCount > 0 && !isActive
-                return (
-                  <button
-                    key={rama}
-                    onClick={() => setActiveRama(rama)}
-                    className="branch-tab-btn"
-                    style={{
-                      padding: "5px 11px",
-                      borderRadius: 16,
-                      cursor: "pointer",
-                      border: "none",
-                      background: isActive ? `linear-gradient(135deg,${C.green},${C.greenLight})` : "transparent",
-                      color: isActive ? "#fff" : C.textSoft,
-                      fontSize: 9,
-                      fontFamily: "Georgia, serif",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.5px",
-                      fontWeight: isActive ? "bold" : "normal",
-                      transition: "all .18s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 5,
-                      boxShadow: isActive ? `0 2px 6px ${C.green}22` : "none",
-                      outline: "none",
-                      position: "relative"
-                    }}
-                    onMouseEnter={(e) => { if (!isActive) { e.currentTarget.style.background = C.greenPale } }}
-                    onMouseLeave={(e) => { if (!isActive) { e.currentTarget.style.background = "transparent" } }}
-                    title={hasPending ? `${displayName} · ${pendingCount} turno${pendingCount > 1 ? "s" : ""} pendiente${pendingCount > 1 ? "s" : ""} de cobro` : displayName}
-                  >
-                    <span style={{ fontSize: 12 }}>{emoji}</span>
-                    <span className="branch-label-text">{displayName}</span>
-                    {hasPending && (
-                      <span
-                        className="branch-pending-badge"
-                        style={{
-                          position: "absolute",
-                          top: -4,
-                          right: -4,
-                          background: "linear-gradient(135deg, #ef4444, #dc2626)",
-                          color: "#ffffff",
-                          fontSize: 8,
-                          fontWeight: "800",
-                          minWidth: 16,
-                          height: 16,
-                          padding: "0 4px",
-                          borderRadius: 99,
-                          display: "inline-flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          boxShadow: "0 2px 6px rgba(220, 38, 38, 0.45), 0 0 0 1.5px #fff",
-                          lineHeight: 1,
-                          zIndex: 10,
-                          pointerEvents: "none"
-                        }}
-                      >
-                        {pendingCount}
-                      </span>
-                    )}
-                  </button>
-                )
-              })}
+            <div className="header-center-group">
+              {/* Burbuja 1: Switcher de Planillas */}
+              <div className="branch-switcher-container" style={{ 
+                display: "flex", 
+                gap: 4, 
+                background: isLiquid ? "rgba(255, 255, 255, 0.35)" : C.cream, 
+                backdropFilter: isLiquid ? "blur(10px)" : "none",
+                padding: 3, 
+                borderRadius: 20, 
+                border: isLiquid ? "1px solid rgba(255, 255, 255, 0.5)" : `1px solid ${C.border}`, 
+                flexShrink: 0,
+                alignItems: "center"
+              }}>
+                {ramas.map(rama => {
+                  const normRama = String(rama).trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+                  const isActive = String(activeRama).trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") === normRama
+                  const emoji = getRamaEmoji(rama)
+                  const displayName = rama.charAt(0).toUpperCase() + rama.slice(1)
+                  const pendingCount = pendingByRama[normRama] || 0
+                  const hasPending = pendingCount > 0 && !isActive
+                  return (
+                    <button
+                      key={rama}
+                      onClick={() => setActiveRama(rama)}
+                      className="branch-tab-btn"
+                      style={{
+                        padding: "5px 11px",
+                        borderRadius: 16,
+                        cursor: "pointer",
+                        border: "none",
+                        background: isActive ? `linear-gradient(135deg,${C.green},${C.greenLight})` : "transparent",
+                        color: isActive ? "#fff" : C.textSoft,
+                        fontSize: 9,
+                        fontFamily: "Georgia, serif",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.5px",
+                        fontWeight: isActive ? "bold" : "normal",
+                        transition: "all .18s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 5,
+                        boxShadow: isActive ? `0 2px 6px ${C.green}22` : "none",
+                        outline: "none",
+                        position: "relative"
+                      }}
+                      onMouseEnter={(e) => { if (!isActive) { e.currentTarget.style.background = C.greenPale } }}
+                      onMouseLeave={(e) => { if (!isActive) { e.currentTarget.style.background = "transparent" } }}
+                      title={hasPending ? `${displayName} · ${pendingCount} turno${pendingCount > 1 ? "s" : ""} pendiente${pendingCount > 1 ? "s" : ""} de cobro` : displayName}
+                    >
+                      <span style={{ fontSize: 12 }}>{emoji}</span>
+                      <span className="branch-label-text">{displayName}</span>
+                      {hasPending && (
+                        <span
+                          className="branch-pending-badge"
+                          style={{
+                            position: "absolute",
+                            top: -4,
+                            right: -4,
+                            background: "linear-gradient(135deg, #ef4444, #dc2626)",
+                            color: "#ffffff",
+                            fontSize: 8,
+                            fontWeight: "800",
+                            minWidth: 16,
+                            height: 16,
+                            padding: "0 4px",
+                            borderRadius: 99,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            boxShadow: "0 2px 6px rgba(220, 38, 38, 0.45), 0 0 0 1.5px #fff",
+                            lineHeight: 1,
+                            zIndex: 10,
+                            pointerEvents: "none"
+                          }}
+                        >
+                          {pendingCount}
+                        </span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+
+              {/* Burbuja 2: Total del día en tiempo real (separada con el mismo estilo) */}
+              <div className="mobile-total-bubble" style={{
+                display: "flex",
+                alignItems: "center",
+                background: isLiquid ? "rgba(255, 255, 255, 0.35)" : C.cream,
+                backdropFilter: isLiquid ? "blur(10px)" : "none",
+                WebkitBackdropFilter: isLiquid ? "blur(10px)" : "none",
+                padding: 3,
+                borderRadius: 20,
+                border: isLiquid ? "1px solid rgba(255, 255, 255, 0.5)" : `1px solid ${C.border}`,
+                flexShrink: 0
+              }}>
+                <button
+                  onClick={() => setActiveMethod(activeMethod === "resumen_mobile" ? null : "resumen_mobile")}
+                  className="branch-tab-btn"
+                  style={{
+                    padding: "5px 10px",
+                    borderRadius: 16,
+                    cursor: "pointer",
+                    border: "none",
+                    background: activeMethod === "resumen_mobile"
+                      ? `linear-gradient(135deg,${C.green},${C.greenLight})`
+                      : (grandTotal > 0 ? `linear-gradient(135deg,${C.green},${C.greenLight})` : "transparent"),
+                    color: (activeMethod === "resumen_mobile" || grandTotal > 0) ? "#fff" : C.textSoft,
+                    fontSize: 10,
+                    fontFamily: "Georgia, serif",
+                    letterSpacing: "0.2px",
+                    fontWeight: "bold",
+                    transition: "all .18s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 3,
+                    boxShadow: (activeMethod === "resumen_mobile" || grandTotal > 0) ? `0 2px 6px ${C.green}33` : "none",
+                    outline: "none",
+                    position: "relative",
+                    whiteSpace: "nowrap"
+                  }}
+                  onMouseEnter={(e) => { if (activeMethod !== "resumen_mobile" && grandTotal === 0) { e.currentTarget.style.background = C.greenPale } }}
+                  onMouseLeave={(e) => { if (activeMethod !== "resumen_mobile" && grandTotal === 0) { e.currentTarget.style.background = "transparent" } }}
+                  title="Ver desglose del día (Efectivo, Débito, Mercado Pago)"
+                >
+                  <span className={privacyMode ? "privacy-blur" : ""} style={{ fontVariantNumeric: "tabular-nums" }}>
+                    <AnimatedNumber value={grandTotal} formatFn={fmt} />
+                  </span>
+                </button>
+              </div>
             </div>
           )}
 
@@ -653,123 +703,159 @@ export const AppHeader = memo(function AppHeader({
         </div>
       </header>
 
-      {/* Mobile totals strip */}
-      {activeView === "turnos" && (
-        <div className="mobile-totals-strip" style={{ background: C.white, borderBottom: `1px solid ${C.border}`, padding: "8px 12px", gap: 6, overflowX: "auto", WebkitOverflowScrolling: "touch", flexShrink: 0 }}>
-          {PAYMENT_METHODS.map(pm => {
-            const t = totalByMethod(pm.id); return t > 0 ? (
-              <div key={pm.id} style={{ background: pm.id === "mercadopago" ? C.mpPale : pm.id === "debito" ? C.amberPale : C.greenPale, border: `1px solid ${pm.id === "mercadopago" ? C.mpMid : pm.id === "debito" ? C.amberMid : C.greenMint}`, borderRadius: 9, padding: "5px 10px", textAlign: "center", minWidth: 100, flexShrink: 0 }}>
-                <div style={{ fontSize: 8, color: pm.color, whiteSpace: "nowrap" }}>{pm.icon} {pm.label}</div>
-                <div className={privacyMode ? "privacy-blur" : ""} style={{ fontSize: 12, fontWeight: "bold", color: pm.color, fontVariantNumeric: "tabular-nums" }}><AnimatedNumber value={t} formatFn={fmt} /></div>
-              </div>
-            ) : null
-          })}
-          {grandTotal > 0 && <div style={{ background: `linear-gradient(135deg,${C.green},${C.greenLight})`, borderRadius: 9, padding: "5px 10px", textAlign: "center", minWidth: 110, flexShrink: 0 }}><div style={{ fontSize: 8, color: "rgba(255,255,255,.8)" }}>Total</div><div className={privacyMode ? "privacy-blur" : ""} style={{ fontSize: 12, fontWeight: "bold", color: "#fff", fontVariantNumeric: "tabular-nums" }}><AnimatedNumber value={grandTotal} formatFn={fmt} /></div></div>}
-          {hasValue && (
-            <div style={{ position: "relative", flexShrink: 0 }}>
-              <div 
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setMetricMenuOpen(p => !p)
-                }}
-                title={
-                  activeMetric.id === "meta_mes_anterior"
-                    ? `Recaudado este mes: ${fmt(currentMonthRevenue)} / Meta (${prevMonthNameCapitalized}): ${fmt(prevMonthRevenue)}`
-                    : activeMetric.label
-                }
-                style={{ 
-                  background: metricBg, 
-                  borderRadius: 9, 
-                  padding: "5px 10px", 
-                  textAlign: "center", 
-                  width: 100, 
-                  boxSizing: "border-box",
-                  flexShrink: 0,
-                  cursor: "pointer",
-                  userSelect: "none"
-                }}
-              >
-                <div style={{ fontSize: 8, color: metricLabelColor, whiteSpace: "nowrap" }}>
-                  {activeMetric.icon} {activeMetric.tag} <span style={{ fontSize: 6, marginLeft: 2 }}>▼</span>
-                </div>
-                <div className={privacyMode ? "privacy-blur" : ""} style={{ fontSize: 12, fontWeight: "bold", color: metricColor, fontVariantNumeric: "tabular-nums" }}>
-                  <AnimatedNumber value={activeMetric.val} formatFn={formatFn} />
-                </div>
-              </div>
-
-              {metricMenuOpen && (
-                <>
-                  <div 
-                    onClick={() => setMetricMenuOpen(false)} 
-                    style={{ position: "fixed", inset: 0, zIndex: 140 }} 
-                  />
-                  <div 
-                    style={{ 
-                      position: "absolute", 
-                      bottom: "calc(100% + 8px)", 
-                      right: 0, 
-                      zIndex: 150, 
-                      background: C.white, 
-                      borderRadius: 14, 
-                      border: `1.5px solid ${C.border}`, 
-                      boxShadow: `0 8px 32px rgba(0,0,0,0.12)`, 
-                      minWidth: 200, 
-                      padding: "8px",
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 4
-                    }}
-                  >
-                    <div style={{ fontSize: 8, letterSpacing: "1px", color: C.textSoft, textTransform: "uppercase", padding: "4px 8px 6px", borderBottom: `1px solid ${C.border}`, fontFamily: "Georgia, serif" }}>
-                      Seleccionar Métrica
+      {/* Mobile payment details popup (desplegado desde el botón Total al lado de las ramas) */}
+      {activeView === "turnos" && activeMethod && isMobile && (
+        <>
+          <div
+            onClick={() => setActiveMethod(null)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 149,
+              background: "rgba(0, 0, 0, 0.35)",
+              backdropFilter: "blur(2px)",
+              WebkitBackdropFilter: "blur(2px)",
+              animation: "fadeIn .15s ease-out"
+            }}
+          />
+          <div
+            style={{
+              position: "fixed",
+              top: 66,
+              left: 14,
+              right: 14,
+              maxWidth: 360,
+              margin: "0 auto",
+              zIndex: 150,
+              background: C.white,
+              borderRadius: 18,
+              border: `1.5px solid ${C.border}`,
+              boxShadow: "0 12px 36px rgba(0,0,0,0.18)",
+              padding: "16px",
+              maxHeight: "78vh",
+              display: "flex",
+              flexDirection: "column",
+              animation: "scaleUp .18s cubic-bezier(0.16, 1, 0.3, 1)"
+            }}
+          >
+            {(activeMethod === "resumen_mobile" || activeMethod === "total") ? (
+              <>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, borderBottom: `1px solid ${C.greenPale}`, paddingBottom: 8 }}>
+                  <div>
+                    <div style={{ fontSize: 11, letterSpacing: "1.5px", color: C.green, textTransform: "uppercase", fontWeight: "bold" }}>
+                      💰 Resumen del Día
                     </div>
-                    {Object.values(METRICS).map((m) => {
-                      const isSelected = m.id === selectedMetric
-                      return (
-                        <button
-                          key={m.id}
-                          onClick={() => {
-                            handleSelectMetric(m.id)
-                            setMetricMenuOpen(false)
-                          }}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            padding: "8px 10px",
-                            borderRadius: 8,
-                            border: "none",
-                            background: isSelected ? C.greenPale : "transparent",
-                            cursor: "pointer",
-                            width: "100%",
-                            textAlign: "left",
-                            transition: "background 0.15s ease",
-                            outline: "none",
-                            fontFamily: "Georgia, serif"
-                          }}
-                        >
-                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                            <span style={{ fontSize: 14 }}>{m.icon}</span>
-                            <div>
-                              <div style={{ fontSize: 11, color: C.text, fontWeight: isSelected ? "bold" : "normal" }}>{m.label}</div>
-                              <div style={{ fontSize: 8, color: C.textSoft }}>{m.tag}</div>
+                    <div style={{ fontSize: 9, color: C.textSoft, marginTop: 1 }}>{currentDate}</div>
+                  </div>
+                  <button
+                    onClick={() => setActiveMethod(null)}
+                    style={{ background: C.cream, border: "none", fontSize: 14, cursor: "pointer", color: C.textSoft, width: 26, height: 26, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}
+                  >✕</button>
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 14 }}>
+                  {PAYMENT_METHODS.map(pm => {
+                    const t = totalByMethod(pm.id)
+                    const appts = getApptsByMethod(pm.id)
+                    const count = appts.length
+                    return (
+                      <div
+                        key={pm.id}
+                        onClick={() => { if (count > 0) setActiveMethod(pm.id) }}
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          padding: "10px 12px",
+                          background: pm.id === "mercadopago" ? C.mpPale : pm.id === "debito" ? C.amberPale : C.greenPale,
+                          borderRadius: 12,
+                          border: `1px solid ${pm.id === "mercadopago" ? C.mpMid : pm.id === "debito" ? C.amberMid : C.greenMint}`,
+                          cursor: count > 0 ? "pointer" : "default",
+                          transition: "transform .12s"
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ fontSize: 18 }}>{pm.icon}</span>
+                          <div>
+                            <div style={{ fontSize: 12, fontWeight: "bold", color: pm.color }}>{pm.label}</div>
+                            <div style={{ fontSize: 9, color: C.textSoft }}>
+                              {count} cobro{count !== 1 ? "s" : ""} {count > 0 && <span style={{ color: pm.color }}>· Ver detalle ›</span>}
                             </div>
                           </div>
-                          <div style={{ fontSize: 11, fontWeight: "bold", color: isSelected ? C.green : C.textSoft, fontVariantNumeric: "tabular-nums" }}>
-                            {m.isPercent
-                              ? `${m.val.toFixed(1)}%`
-                              : (m.isUSD ? fmtUSD(m.val) : fmt(m.val))}
+                        </div>
+                        <div style={{ fontSize: 14, fontWeight: "bold", color: pm.color, fontVariantNumeric: "tabular-nums" }} className={privacyMode ? "privacy-blur" : ""}>
+                          {fmt(t)}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 10, borderTop: `2px solid ${C.green}33` }}>
+                  <div style={{ fontSize: 12, fontWeight: "bold", color: C.text }}>Total General</div>
+                  <div style={{ fontSize: 18, fontWeight: "bold", color: C.green, fontVariantNumeric: "tabular-nums" }} className={privacyMode ? "privacy-blur" : ""}>
+                    {fmt(grandTotal)}
+                  </div>
+                </div>
+              </>
+            ) : (() => {
+              const pm = PAYMENT_METHODS.find(p => p.id === activeMethod)
+              if (!pm) return null
+              const t = totalByMethod(pm.id)
+              const appts = getApptsByMethod(pm.id)
+              return (
+                <>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, borderBottom: `1px solid ${pm.color}33`, paddingBottom: 8 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <button
+                        onClick={() => setActiveMethod("resumen_mobile")}
+                        style={{ background: "none", border: "none", color: pm.color, cursor: "pointer", fontSize: 14, padding: "0 4px" }}
+                        title="Volver al resumen general"
+                      >‹</button>
+                      <div>
+                        <div style={{ fontSize: 11, letterSpacing: "1px", color: pm.color, textTransform: "uppercase", fontWeight: "bold" }}>
+                          {pm.icon} {pm.label}
+                        </div>
+                        <div style={{ fontSize: 9, color: C.textSoft }}>{currentDate}</div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setActiveMethod(null)}
+                      style={{ background: C.cream, border: "none", fontSize: 14, cursor: "pointer", color: C.textSoft, width: 26, height: 26, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}
+                    >✕</button>
+                  </div>
+
+                  {appts.length === 0 ? (
+                    <div style={{ fontSize: 12, color: C.textSoft, textAlign: "center", padding: "20px 0" }}>
+                      Sin pagos registrados con {pm.label}
+                    </div>
+                  ) : (
+                    <div style={{ overflowY: "auto", maxHeight: "48vh", display: "flex", flexDirection: "column", gap: 6 }}>
+                      {appts.map((a, i) => (
+                        <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: `1px solid ${C.borderLight}` }}>
+                          <div>
+                            <div style={{ fontSize: 12, color: C.text, fontWeight: "bold" }}>{a.client}</div>
+                            <div style={{ fontSize: 9, color: C.textSoft }}>{a.hour} · {(a.services || []).map(s => s.name).join(", ")}</div>
                           </div>
-                        </button>
-                      )
-                    })}
+                          <div style={{ fontSize: 13, fontWeight: "bold", color: pm.color }} className={privacyMode ? "privacy-blur" : ""}>
+                            {fmt(a.methodAmount)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12, paddingTop: 10, borderTop: `2px solid ${pm.color}33` }}>
+                    <div style={{ fontSize: 10, color: C.textSoft }}>{appts.length} cobro{appts.length !== 1 ? "s" : ""}</div>
+                    <div style={{ fontSize: 15, fontWeight: "bold", color: pm.color }} className={privacyMode ? "privacy-blur" : ""}>{fmt(t)}</div>
                   </div>
                 </>
-              )}
-            </div>
-          )}
-        </div>
+              )
+            })()}
+          </div>
+        </>
       )}
+
 
       {/* Calendar popup */}
       {calendarOpen && activeView === "turnos" && (
