@@ -1022,67 +1022,78 @@ export function AppGrid({
                      onDragOver={e => onColDragOver(e, p.id)}
                      onDrop={e => onColDrop(e, p.id)}
                      onDragEnd={onColDragEnd}
-                     style={{
-                       padding: isMobile ? "6px 2px" : "10px 5px",
-                       width: `${100 / orderedProfessionals.length}%`,
-                       minWidth: (isMobile && isLandscape)
-                         ? `calc((100vw - 60px) / ${orderedProfessionals.length})`
-                         : (isMobile ? `calc((100vw - 70px) / ${colsToShowMobile})` : 140),
-                       transition: "all .2s",
-                       opacity: dragCol === p.id ? 0.4 : 1,
-                       borderLeft: dragOver === p.id ? `3px solid ${C.green}` : "none",
-                       cursor: "grab",
-                       scrollSnapAlign: (isMobile && !isLandscape) ? (idx % 2 === 0 ? "none start" : "none") : "none",
-                       scrollSnapStop: (isMobile && !isLandscape) ? "always" : "normal",
-                       boxShadow: "none",
-                       background: "transparent"
-                     }}>
-                     <div onClick={() => setProfPopup(profPopup === p.id ? null : p.id)}
-                       style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, cursor: "pointer" }}>
-                     <div style={{
-                       width: 36, height: 36, borderRadius: "50%",
-                       background: profPopup === p.id ? "rgba(255, 255, 255, 0.75)" : "rgba(255, 255, 255, 0.4)",
-                       backdropFilter: "blur(10px) saturate(180%)",
-                       border: `1.5px solid ${profPopup === p.id ? C.green : "rgba(255, 255, 255, 0.7)"}`,
-                       display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16,
-                       transition: "all .2s",
-                       boxShadow: "inset 0 1px 3px rgba(255, 255, 255, 0.8), 0 4px 10px rgba(0,0,0,0.03)",
-                       position: "relative"
-                      }}>{p.emoji}
-                        {tipsCount > 0 && Array.from({ length: tipsCount }).map((_, i) => {
-                          const startAngle = -210;
-                          const endAngle = 30;
-                          const angle = tipsCount === 1
-                            ? -90
-                            : startAngle + (i * (endAngle - startAngle)) / (tipsCount - 1);
-                          const rad = (angle * Math.PI) / 180;
-                          const R = 19;
-                          const giftSize = 14;
-                          const left = 18 + R * Math.cos(rad) - giftSize / 2;
-                          const top = 18 + R * Math.sin(rad) - giftSize / 2;
-                          return (
-                            <div key={i} className="prof-badge-tip" style={{
-                              position: "absolute",
-                              top: top,
-                              left: left,
-                              width: giftSize,
-                              height: giftSize,
-                              borderRadius: "50%",
-                              background: C.white,
-                              border: `1px solid ${C.border}`,
-                              boxShadow: "0 2px 5px rgba(0,0,0,0.15)",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              fontSize: 8,
-                              zIndex: 10 + i
-                            }}>🎁</div>
-                          );
-                        })}
-                      </div>
-                     <span style={{ fontSize: 11, color: profPopup === p.id ? C.green : C.text, fontWeight: profPopup === p.id ? "bold" : "normal" }}>{p.name}</span>
-                   </div>
-                 </th>
+                      style={{
+                        padding: (isMobile && isLandscape) ? "5px 2px" : (isMobile ? "6px 2px" : "10px 5px"),
+                        width: `${100 / orderedProfessionals.length}%`,
+                        minWidth: (isMobile && isLandscape)
+                          ? `calc((100vw - 60px) / ${orderedProfessionals.length})`
+                          : (isMobile ? `calc((100vw - 70px) / ${colsToShowMobile})` : 140),
+                        transition: "all .2s",
+                        opacity: dragCol === p.id ? 0.4 : 1,
+                        borderLeft: dragOver === p.id ? `3px solid ${C.green}` : "none",
+                        cursor: "grab",
+                        scrollSnapAlign: (isMobile && !isLandscape) ? (idx % 2 === 0 ? "none start" : "none") : "none",
+                        scrollSnapStop: (isMobile && !isLandscape) ? "always" : "normal",
+                        boxShadow: "none",
+                        background: "transparent"
+                      }}>
+                      <div onClick={() => setProfPopup(profPopup === p.id ? null : p.id)}
+                        style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: (isMobile && isLandscape) ? 0 : 3, cursor: "pointer", width: "100%" }}>
+                      {!(isMobile && isLandscape) && (
+                        <div style={{
+                          width: 36, height: 36, borderRadius: "50%",
+                          background: profPopup === p.id ? "rgba(255, 255, 255, 0.75)" : "rgba(255, 255, 255, 0.4)",
+                          backdropFilter: "blur(10px) saturate(180%)",
+                          border: `1.5px solid ${profPopup === p.id ? C.green : "rgba(255, 255, 255, 0.7)"}`,
+                          display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16,
+                          transition: "all .2s",
+                          boxShadow: "inset 0 1px 3px rgba(255, 255, 255, 0.8), 0 4px 10px rgba(0,0,0,0.03)",
+                          position: "relative"
+                        }}>{p.emoji}
+                          {tipsCount > 0 && Array.from({ length: tipsCount }).map((_, i) => {
+                            const startAngle = -210;
+                            const endAngle = 30;
+                            const angle = tipsCount === 1
+                              ? -90
+                              : startAngle + (i * (endAngle - startAngle)) / (tipsCount - 1);
+                            const rad = (angle * Math.PI) / 180;
+                            const R = 19;
+                            const giftSize = 14;
+                            const left = 18 + R * Math.cos(rad) - giftSize / 2;
+                            const top = 18 + R * Math.sin(rad) - giftSize / 2;
+                            return (
+                              <div key={i} className="prof-badge-tip" style={{
+                                position: "absolute",
+                                top: top,
+                                left: left,
+                                width: giftSize,
+                                height: giftSize,
+                                borderRadius: "50%",
+                                background: C.white,
+                                border: `1px solid ${C.border}`,
+                                boxShadow: "0 2px 5px rgba(0,0,0,0.15)",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                fontSize: 8,
+                                zIndex: 10 + i
+                              }}>🎁</div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      <span style={{
+                        fontSize: (isMobile && isLandscape) ? 12 : 11,
+                        color: profPopup === p.id ? C.green : C.text,
+                        fontWeight: (isMobile && isLandscape) ? "700" : (profPopup === p.id ? "bold" : "normal"),
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        maxWidth: "100%",
+                        padding: (isMobile && isLandscape) ? "2px 0" : 0
+                      }}>{p.name}</span>
+                    </div>
+                  </th>
                 )
              })}
           </tr>
@@ -1792,11 +1803,16 @@ export function AppGrid({
                 className="prof-summary-sheet"
                 style={{
                   position: "fixed",
-                  top: "68px",
-                  bottom: isMobile ? "calc(166px + env(safe-area-inset-bottom))" : "80px",
+                  top: (isMobile && isLandscape) ? "10px" : "68px",
+                  bottom: (isMobile && isLandscape)
+                    ? "10px"
+                    : (isMobile ? "calc(166px + env(safe-area-inset-bottom))" : "80px"),
                   left: "50%",
                   transform: "translateX(-50%)",
-                  width: isMobile ? "calc(100vw - 24px)" : "min(900px, calc(100vw - 32px))",
+                  width: (isMobile && isLandscape)
+                    ? "min(700px, calc(100vw - 20px))"
+                    : (isMobile ? "calc(100vw - 24px)" : "min(900px, calc(100vw - 32px))"),
+                  maxHeight: (isMobile && isLandscape) ? "calc(100vh - 20px)" : "none",
                   display: "flex",
                   flexDirection: "column",
                   background: C.white,
@@ -1808,7 +1824,7 @@ export function AppGrid({
                   zIndex: 201,
                 }}
               >
-                <div style={{ padding: 24, overflowY: "auto", flex: 1 }}>
+                <div style={{ padding: (isMobile && isLandscape) ? "14px 18px" : 24, overflowY: "auto", flex: 1 }}>
                   <ModalHeader emoji={prof.emoji} sub="Resumen de turnos">
                     {prof.name} · {s.appts.length} turno{s.appts.length !== 1 ? "s" : ""}
                   </ModalHeader>
@@ -1921,7 +1937,15 @@ export function AppGrid({
                     <div style={{ fontSize: 11, color: C.textSoft, fontStyle: "italic", textAlign: "center", padding: "22px 0" }}>Sin turnos registrados para esta profesional.</div>
                   )}
                 </div>
-                <div style={{ borderTop: `1px solid ${C.border}`, padding: 14, background: C.cream, display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                <div style={{
+                  borderTop: `1px solid ${C.border}`,
+                  padding: (isMobile && isLandscape) ? "8px 14px" : 14,
+                  background: C.cream,
+                  display: "flex",
+                  flexWrap: (isMobile && isLandscape) ? "wrap" : "nowrap",
+                  gap: 8,
+                  justifyContent: "flex-end"
+                }}>
                   <GhostBtn onClick={() => setProfPopup(null)}>Cerrar</GhostBtn>
                   <SolidBtn onClick={exportDailyAsPng} color={C.orange}>
                     Descargar / Compartir Agenda
