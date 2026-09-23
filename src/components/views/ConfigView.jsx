@@ -6,7 +6,7 @@ import { MESES_ES, todayKey } from "../../utils/dates.js"
 
 // ─── Config View ──────────────────────────────────────────────────────────────
 
-export default function ConfigView({ config, setConfig, allData, gastos, sueldos, clientes, onLogout }) {
+export default function ConfigView({ config, setConfig, allData, gastos, sueldos, clientes, onLogout, restoreBackup }) {
   const [seccion, setSeccion] = useState("empresa");
   const [emojiPicker,  setEmojiPicker]  = useState(null)
   const [svcFilter,    setSvcFilter]    = useState({ cat:"all", search:"" })
@@ -1312,19 +1312,24 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
                   const file = e.target.files[0]
                   if (!file) return
                   const reader = new FileReader()
-                  reader.onload = (ev) => {
+                  reader.onload = async (ev) => {
                     try {
                       const data = JSON.parse(ev.target.result)
-                      if (!data.allData && !data.config) { alert("Archivo de backup inválido"); return }
-                      if (!window.confirm("¿Restaurar backup del " + (data.exportedAt?.slice(0,10) || "?") + "?\nEsto reemplazará todos los datos actuales.")) return
-                      if (data.config)   setConfig(data.config)
-                      if (data.allData)  window.__restoreAllData?.(data.allData)
-                      if (data.gastos)   window.__restoreGastos?.(data.gastos)
-                      if (data.sueldos)  window.__restoreSueldos?.(data.sueldos)
-                      if (data.clientes) window.__restoreClientes?.(data.clientes)
-                      alert("✅ Backup restaurado correctamente. La página se recargará.")
-                      setTimeout(() => window.location.reload(), 1000)
-                    } catch { alert("⚠️ Archivo inválido") }
+                      if (!data || (!data.allData && !data.config)) { alert("Archivo de backup inválido"); return }
+                      const fechaBackup = data.exportedAt?.slice(0, 10) || "desconocida"
+                      if (!window.confirm(`¿Restaurar backup del ${fechaBackup}?\nEsto reemplazará y sincronizará todos los datos en la base de datos.`)) return
+                      
+                      if (typeof restoreBackup === "function") {
+                        await restoreBackup(data)
+                      } else {
+                        if (data.config) setConfig(data.config)
+                      }
+                      alert("✅ Backup restaurado y sincronizado correctamente. La página se recargará.")
+                      window.location.reload()
+                    } catch (err) {
+                      console.error("Error al restaurar backup:", err)
+                      alert("⚠️ Error al restaurar el backup: " + (err.message || "archivo inválido"))
+                    }
                   }
                   reader.readAsText(file)
                 }} />

@@ -2,8 +2,8 @@ import { useState, useEffect, useRef } from "react"
 import { createClient } from "@supabase/supabase-js"
 import { CONFIG_DEFAULT } from "../constants/data.js"
 
-const SUPABASE_URL  = import.meta.env.VITE_SUPABASE_URL
-const SUPABASE_ANON = import.meta.env.VITE_SUPABASE_ANON_KEY
+const SUPABASE_URL  = import.meta.env?.VITE_SUPABASE_URL || ""
+const SUPABASE_ANON = import.meta.env?.VITE_SUPABASE_ANON_KEY || ""
 const TABLE         = "perlaverde_data"
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON)
@@ -28,12 +28,80 @@ function lsWrite(key, data) {
   try { localStorage.setItem(`pv:${key}`, JSON.stringify(data)) } catch {}
 }
 
+export function mergeDayAppointments(localDay = {}, remoteDay = {}) {
+  const merged = { ...remoteDay }
+
+  Object.entries(localDay || {}).forEach(([key, localAppt]) => {
+    if (!localAppt) return
+    const remoteAppt = remoteDay?.[key]
+
+    if (!remoteAppt) {
+      // Turno creado localmente mientras no había conexión: se conserva
+      merged[key] = localAppt
+      return
+    }
+
+    const localClient = (localAppt.client || "").trim().toLowerCase()
+    const remoteClient = (remoteAppt.client || "").trim().toLowerCase()
+    const isSameClient = localClient && remoteClient && localClient === remoteClient
+
+    if (isSameClient || !remoteClient || !localClient) {
+      // Mismo cliente o turno editado: si el local está pago y el remoto no, gana el cobro local
+      if (localAppt.paid && !remoteAppt.paid) {
+        merged[key] = { ...remoteAppt, ...localAppt, paid: true }
+      } else if (!localAppt.paid && remoteAppt.paid) {
+        merged[key] = { ...localAppt, ...remoteAppt, paid: true }
+      } else {
+        merged[key] = { ...remoteAppt, ...localAppt }
+      }
+    } else {
+      // Superposición horaria: clientes distintos asignados en la misma celda
+      if (localAppt.paid && !remoteAppt.paid) {
+        const note = ` [⚠️ Superposición al reconectar: También agendado para ${remoteAppt.client || "Cliente"} (${(remoteAppt.services || []).map(s => s.name).join(", ")})]`
+        merged[key] = {
+          ...localAppt,
+          notes: (localAppt.notes || "") + note
+        }
+      } else if (!localAppt.paid && remoteAppt.paid) {
+        const note = ` [⚠️ Superposición al reconectar: También agendado en local para ${localAppt.client || "Cliente"} (${(localAppt.services || []).map(s => s.name).join(", ")})]`
+        merged[key] = {
+          ...remoteAppt,
+          notes: (remoteAppt.notes || "") + note
+        }
+      } else {
+        const note = ` [⚠️ Superposición al reconectar: También agendado desde otro dispositivo para ${remoteAppt.client || "Cliente"} a las ${remoteAppt.hour || ""}]`
+        merged[key] = {
+          ...localAppt,
+          notes: (localAppt.notes || "") + note
+        }
+      }
+    }
+  })
+
+  return merged
+}
+
 export function usePersistentState(currentDate) {
   const [loaded,     setLoaded]     = useState(false)
   const [saveStatus, setSaveStatus] = useState("idle")
   const [connStatus, setConnStatus] = useState("connecting") // online, offline, connecting
   
-  const [allData,    setAllData]    = useState({})
+  const [allData,    setAllData]    = useState(() => {
+    const initial = {}
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i)
+        if (key && key.startsWith("pv:20")) {
+          const date = key.replace("pv:", "")
+          const val = localStorage.getItem(key)
+          if (val) initial[date] = JSON.parse(val)
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to pre-populate allData from localStorage:", e)
+    }
+    return initial
+  })
   const [allArqueos, setAllArqueos] = useState(() => {
     const initial = {}
     try {
@@ -132,7 +200,10 @@ export function usePersistentState(currentDate) {
           const next = { ...legacy, ...prev }
           Object.keys(updates).forEach(dateKey => {
             const id = `day:${dateKey}`
-            if (!dirtyKeys.current.has(id)) {
+            if (dirtyKeys.current.has(id)) {
+              // Fusión inteligente: combinamos turnos remotos con los cobros/cambios locales sin pisar
+              next[dateKey] = mergeDayAppointments(prev[dateKey] || {}, updates[dateKey] || {})
+            } else {
               next[dateKey] = updates[dateKey]
             }
           })
@@ -168,8 +239,19 @@ export function usePersistentState(currentDate) {
       .on("postgres_changes", { event: "*", schema: "public", table: TABLE }, payload => {
         const row = payload.new || payload.old
         if (!row) return
-        // Si tenemos cambios locales pendientes de guardar para este registro, ignoramos la actualización entrante para no provocar retrocesos/rebotes
-        if (dirtyKeys.current.has(row.id)) return
+        
+        // Si tenemos cambios locales pendientes para un día, fusionamos el cambio entrante en lugar de ignorarlo o pisarlo
+        if (dirtyKeys.current.has(row.id)) {
+          if (row.id.startsWith("day:")) {
+            const dateKey = row.id.replace("day:", "")
+            setAllData(prev => ({
+              ...prev,
+              [dateKey]: mergeDayAppointments(prev[dateKey] || {}, row.data || {})
+            }))
+          }
+          return
+        }
+
         const str = JSON.stringify(row.data)
         if (lastSaved.current[row.id] !== str) {
           lastSaved.current[row.id] = str
@@ -279,9 +361,16 @@ export function usePersistentState(currentDate) {
           supabase.from(TABLE).select("data").eq("id", arqueoId).maybeSingle()
         ])
 
-        if (dayRes.data && !dirtyKeys.current.has(id)) {
-          lastSaved.current[id] = JSON.stringify(dayRes.data.data)
-          setAllData(prev => ({ ...prev, [dateToFetch]: dayRes.data.data }))
+        if (dayRes.data) {
+          if (dirtyKeys.current.has(id)) {
+            setAllData(prev => ({
+              ...prev,
+              [dateToFetch]: mergeDayAppointments(prev[dateToFetch] || {}, dayRes.data.data || {})
+            }))
+          } else {
+            lastSaved.current[id] = JSON.stringify(dayRes.data.data)
+            setAllData(prev => ({ ...prev, [dateToFetch]: dayRes.data.data }))
+          }
         }
         if (arqueoRes.data && !dirtyKeys.current.has(arqueoId)) {
           lastSaved.current[arqueoId] = JSON.stringify(arqueoRes.data.data)
@@ -362,7 +451,6 @@ export function usePersistentState(currentDate) {
         }
 
         if (lastSaved.current[id] !== str) {
-          lastSaved.current[id] = str
           if (id.startsWith("arqueo:")) {
             const date = id.replace("arqueo:", "")
             try { localStorage.setItem(`vn_arqueo_${date}`, str) } catch {}
@@ -390,8 +478,10 @@ export function usePersistentState(currentDate) {
         if (error) {
           setSaveStatus("error")
         } else {
-          // Limpiamos de dirtyKeys SOLO si el estado local no volvió a cambiar mientras viajaba la petición
+          // Confirmamos lastSaved y limpiamos de dirtyKeys SOLO porque Supabase guardó exitosamente
           inFlight.forEach((sentJson, id) => {
+            lastSaved.current[id] = sentJson
+
             let currentLocalVal = null
             const latest = latestStateRef.current
             if (id === "config") currentLocalVal = latest.config
@@ -475,6 +565,76 @@ export function usePersistentState(currentDate) {
     }
   }
 
+  const restoreBackup = async (backupData) => {
+    if (!backupData || typeof backupData !== "object" || (!backupData.allData && !backupData.config)) {
+      throw new Error("Archivo de backup inválido: debe contener datos de turnos o configuración.")
+    }
+
+    setSaveStatus("saving")
+    const tasks = []
+
+    if (backupData.config) {
+      tasks.push({ id: "config", data: backupData.config, updated_at: new Date().toISOString() })
+      setConfig(backupData.config)
+      lsWrite("config", backupData.config)
+    }
+    if (backupData.clientes && Array.isArray(backupData.clientes)) {
+      tasks.push({ id: "clientes", data: backupData.clientes, updated_at: new Date().toISOString() })
+      setClientes(backupData.clientes)
+      lsWrite("clientes", backupData.clientes)
+    }
+    if (backupData.gastos && Array.isArray(backupData.gastos)) {
+      tasks.push({ id: "gastos", data: backupData.gastos, updated_at: new Date().toISOString() })
+      setGastos(backupData.gastos)
+      lsWrite("gastos", backupData.gastos)
+    }
+    if (backupData.sueldos && typeof backupData.sueldos === "object") {
+      tasks.push({ id: "sueldos", data: backupData.sueldos, updated_at: new Date().toISOString() })
+      setSueldos(backupData.sueldos)
+      lsWrite("sueldos", backupData.sueldos)
+    }
+    if (backupData.todoTasks && Array.isArray(backupData.todoTasks)) {
+      tasks.push({ id: "todo_tasks", data: backupData.todoTasks, updated_at: new Date().toISOString() })
+      setTodoTasks(backupData.todoTasks)
+      lsWrite("todo_tasks", backupData.todoTasks)
+    }
+
+    if (backupData.allData && typeof backupData.allData === "object") {
+      setAllData(backupData.allData)
+      Object.entries(backupData.allData).forEach(([dateKey, dayData]) => {
+        tasks.push({ id: `day:${dateKey}`, data: dayData, updated_at: new Date().toISOString() })
+        lsWrite(dateKey, dayData)
+      })
+    }
+
+    if (backupData.allArqueos && typeof backupData.allArqueos === "object") {
+      setAllArqueos(backupData.allArqueos)
+      Object.entries(backupData.allArqueos).forEach(([dateKey, arqData]) => {
+        tasks.push({ id: `arqueo:${dateKey}`, data: arqData, updated_at: new Date().toISOString() })
+        try { localStorage.setItem(`vn_arqueo_${dateKey}`, JSON.stringify(arqData)) } catch {}
+      })
+    }
+
+    // Enviamos a Supabase en bloques de 50 registros para evitar límites de payload
+    const CHUNK_SIZE = 50
+    for (let i = 0; i < tasks.length; i += CHUNK_SIZE) {
+      const chunk = tasks.slice(i, i + CHUNK_SIZE)
+      const { error } = await supabase.from(TABLE).upsert(chunk)
+      if (error) {
+        setSaveStatus("error")
+        throw error
+      }
+    }
+
+    tasks.forEach(t => {
+      lastSaved.current[t.id] = JSON.stringify(t.data)
+      dirtyKeys.current.delete(t.id)
+    })
+
+    setSaveStatus("saved")
+    return true
+  }
+
   return {
     loaded, saveStatus, connStatus,
     allData,   setAppointments,
@@ -484,6 +644,7 @@ export function usePersistentState(currentDate) {
     gastos,    setGastos: setGastosUser,
     sueldos,   setSueldos: setSueldosUser,
     todoTasks, setTodoTasks: setTodoTasksUser,
-    remoteEdits, broadcastEditing
+    remoteEdits, broadcastEditing,
+    restoreBackup
   }
 }
