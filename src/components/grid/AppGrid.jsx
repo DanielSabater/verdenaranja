@@ -1046,7 +1046,7 @@ export function AppGrid({
                           gap: (isMobile && isLandscape) ? 3 : 3,
                           cursor: "pointer",
                           width: "100%",
-                          overflow: "hidden"
+                          overflow: (isMobile && isLandscape) ? "hidden" : "visible"
                         }}>
                       {!(isMobile && isLandscape) ? (
                         <div style={{
