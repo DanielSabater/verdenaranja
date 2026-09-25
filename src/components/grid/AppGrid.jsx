@@ -1059,36 +1059,34 @@ export function AppGrid({
                           boxShadow: "inset 0 1px 3px rgba(255, 255, 255, 0.8), 0 4px 10px rgba(0,0,0,0.03)",
                           position: "relative"
                         }}>{p.emoji}
-                          {tipsCount > 0 && Array.from({ length: tipsCount }).map((_, i) => {
-                            const startAngle = -210;
-                            const endAngle = 30;
-                            const angle = tipsCount === 1
-                              ? -90
-                              : startAngle + (i * (endAngle - startAngle)) / (tipsCount - 1);
-                            const rad = (angle * Math.PI) / 180;
-                            const R = 19;
-                            const giftSize = 14;
-                            const left = 18 + R * Math.cos(rad) - giftSize / 2;
-                            const top = 18 + R * Math.sin(rad) - giftSize / 2;
-                            return (
-                              <div key={i} className="prof-badge-tip" style={{
+                          {tipsCount > 0 && (
+                            <div
+                              className="prof-badge-tip"
+                              title={`${tipsCount} turno${tipsCount > 1 ? "s" : ""} con propina`}
+                              style={{
                                 position: "absolute",
-                                top: top,
-                                left: left,
-                                width: giftSize,
-                                height: giftSize,
-                                borderRadius: "50%",
+                                top: -4,
+                                right: -4,
+                                minWidth: 18,
+                                height: 18,
+                                padding: tipsCount > 1 ? "0 4px" : "0",
+                                borderRadius: 10,
                                 background: C.white,
-                                border: `1px solid ${C.border}`,
-                                boxShadow: "0 2px 5px rgba(0,0,0,0.15)",
+                                border: `1.5px solid ${C.gold}`,
+                                boxShadow: "0 2px 6px rgba(0,0,0,0.18)",
                                 display: "flex",
                                 alignItems: "center",
                                 justifyContent: "center",
-                                fontSize: 8,
-                                zIndex: 10 + i
-                              }}>🎁</div>
-                            );
-                          })}
+                                fontSize: 10,
+                                fontWeight: "bold",
+                                color: C.text,
+                                lineHeight: 1,
+                                zIndex: 10
+                              }}
+                            >
+                              🎁{tipsCount > 1 ? <span style={{ fontSize: 9, marginLeft: 1 }}>{tipsCount}</span> : null}
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <span style={{ fontSize: 11, lineHeight: 1, flexShrink: 0 }}>{p.emoji}</span>
