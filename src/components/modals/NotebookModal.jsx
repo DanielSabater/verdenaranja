@@ -8,12 +8,35 @@ export function NotebookModal({ isOpen, onClose, todoTasks, setTodoTasks }) {
 
   const inputRef = useRef(null)
   const editInputRef = useRef(null)
+  const sheetRef = useRef(null)
+  const [sheetHeight, setSheetHeight] = useState(480)
 
-  // Autofoco al abrir para el input de agregar tarea
+  // Medir la altura real de la libreta para calcular los anillos necesarios
+  useEffect(() => {
+    const el = sheetRef.current
+    if (!el) return
+
+    const updateHeight = () => {
+      if (el.offsetHeight) {
+        setSheetHeight(el.offsetHeight)
+      }
+    }
+
+    updateHeight()
+
+    const ro = new ResizeObserver(() => {
+      updateHeight()
+    })
+
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [isOpen, todoTasks])
+
+  // Autofoco al abrir para el input de agregar tarea (sin desplazar el scroll bruscamente)
   useEffect(() => {
     if (isOpen) {
       const timer = setTimeout(() => {
-        inputRef.current?.focus()
+        inputRef.current?.focus({ preventScroll: true })
       }, 50)
       return () => clearTimeout(timer)
     }
@@ -78,12 +101,22 @@ export function NotebookModal({ isOpen, onClose, todoTasks, setTodoTasks }) {
     setTodoTasks(todoTasks.filter(t => !t.completed))
   }
 
-  // Generar anillos de espiral metálica en el lateral izquierdo
-  const rings = Array.from({ length: 11 }).map((_, i) => (
+  // Calcular líneas de relleno para completar el aspecto visual de la hoja
+  const minLines = 9
+  const taskLinesCount = todoTasks.reduce((acc, t) => acc + (t.text.length > 28 ? 2 : 1), 0)
+  const fillerCount = Math.max(0, minLines - taskLinesCount - 1)
+
+  // Calcular la altura real de la hoja respetando el límite visual de maxHeight (75vh)
+  const maxAllowedHeight = typeof window !== "undefined" ? window.innerHeight * 0.75 : 600
+  const realHeight = Math.min(sheetHeight || 460, maxAllowedHeight)
+
+  // Generar la cantidad exacta de anillos que caben físicamente en el lomo visible de la libreta
+  const ringCount = Math.max(0, Math.floor((realHeight - 57) / 32) + 1)
+  const rings = Array.from({ length: ringCount }).map((_, i) => (
     <div key={i} style={{
       position: "absolute",
       left: 10,
-      top: `${48 + i * 36}px`,
+      top: `${27 + i * 32}px`,
       width: 24,
       height: 10,
       borderRadius: 5,
@@ -94,11 +127,6 @@ export function NotebookModal({ isOpen, onClose, todoTasks, setTodoTasks }) {
       pointerEvents: "none"
     }} />
   ))
-
-  // Calcular líneas de relleno para completar el aspecto visual de la hoja
-  const minLines = 9
-  const taskLinesCount = todoTasks.reduce((acc, t) => acc + (t.text.length > 28 ? 2 : 1), 0)
-  const fillerCount = Math.max(0, minLines - taskLinesCount - 1)
 
   return (
     <>
@@ -119,11 +147,24 @@ export function NotebookModal({ isOpen, onClose, todoTasks, setTodoTasks }) {
         {/* Contenedor relativo para posicionar los anillos de la libreta */}
         <div style={{ position: "relative", width: "100%", paddingLeft: 22, boxSizing: "border-box" }}>
           
-          {/* Anillos del espiral metálico */}
-          {rings}
+          {/* Anillos del espiral metálico contenidos estrictamente dentro de la altura de la libreta */}
+          <div style={{
+            position: "absolute",
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: 44,
+            overflow: "hidden",
+            pointerEvents: "none",
+            zIndex: 10
+          }}>
+            {rings}
+          </div>
 
           {/* Hojas de la libreta */}
-          <div style={{
+          <div 
+            ref={sheetRef}
+            style={{
             background: "#fef6c5", // Tonalidad amarillita de anotador de papel
             backgroundImage: `linear-gradient(90deg, transparent 44px, #f4b0b0 44px, #f4b0b0 46px, transparent 46px)`, // Línea de margen roja vertical
             backgroundSize: "100% 100%",
@@ -150,6 +191,7 @@ export function NotebookModal({ isOpen, onClose, todoTasks, setTodoTasks }) {
                 justifyContent: "space-between",
                 alignItems: "flex-end",
                 height: 32,
+                flexShrink: 0,
                 borderBottom: "1.5px solid rgba(74, 144, 226, 0.15)",
                 paddingLeft: 54,
                 paddingRight: 16,
@@ -183,6 +225,7 @@ export function NotebookModal({ isOpen, onClose, todoTasks, setTodoTasks }) {
                 display: "flex",
                 alignItems: "flex-end",
                 height: 32,
+                flexShrink: 0,
                 borderBottom: "1.5px solid rgba(74, 144, 226, 0.15)",
                 paddingLeft: 54,
                 paddingRight: 16,
@@ -211,6 +254,7 @@ export function NotebookModal({ isOpen, onClose, todoTasks, setTodoTasks }) {
                     display: "flex",
                     alignItems: "flex-start", // Alinear al inicio del renglón para soportar multilínea
                     minHeight: 32, // Altura mínima de un renglón
+                    flexShrink: 0, // Evita que flexbox aplaste filas cuando hay muchas notas
                     backgroundImage: "linear-gradient(rgba(74, 144, 226, 0.15) 1.5px, transparent 1.5px)", // Asegura líneas divisorias internas si la tarea ocupa varios renglones
                     backgroundSize: "100% 32px",
                     backgroundPosition: "0 31px",
@@ -270,6 +314,7 @@ export function NotebookModal({ isOpen, onClose, todoTasks, setTodoTasks }) {
                       }}
                       style={{
                         flex: 1,
+                        minWidth: 0,
                         border: "none",
                         background: "transparent",
                         outline: "none",
@@ -294,16 +339,16 @@ export function NotebookModal({ isOpen, onClose, todoTasks, setTodoTasks }) {
                       }}
                       style={{
                         flex: 1,
+                        minWidth: 0,
                         textDecoration: task.completed ? "line-through" : "none",
                         color: task.completed ? C.textSoft : C.text,
                         opacity: task.completed ? 0.6 : 1,
                         fontStyle: "italic",
                         lineHeight: "32px", // Cada renglón mide exactamente 32px
-                        whiteSpace: "normal", // Permite saltar de línea
+                        whiteSpace: "normal", // Permite saltar de línea limpiamente
                         wordBreak: "break-word",
+                        overflowWrap: "anywhere",
                         transition: "all 0.2s",
-                        paddingTop: 1,
-                        transform: "translateY(-1px)",
                         cursor: "pointer"
                       }}
                       title="Hacé clic para editar"
@@ -312,7 +357,7 @@ export function NotebookModal({ isOpen, onClose, todoTasks, setTodoTasks }) {
                     </span>
                   )}
 
-                  {/* Botón eliminar: Alineado al final del renglón (última línea de la tarea) */}
+                  {/* Botón eliminar: Alineado al primer renglón de la tarea */}
                   <button 
                     onClick={() => handleDeleteTask(task.id)}
                     style={{
@@ -330,7 +375,7 @@ export function NotebookModal({ isOpen, onClose, todoTasks, setTodoTasks }) {
                       opacity: 0.5,
                       transition: "opacity 0.2s",
                       flexShrink: 0,
-                      alignSelf: "flex-end" // Se alinea en el último renglón
+                      alignSelf: "flex-start" // Se alinea en el primer renglón junto al checkbox
                     }}
                     onMouseEnter={e => e.currentTarget.style.opacity = 1}
                     onMouseLeave={e => e.currentTarget.style.opacity = 0.5}
@@ -345,6 +390,7 @@ export function NotebookModal({ isOpen, onClose, todoTasks, setTodoTasks }) {
                 display: "flex", 
                 alignItems: "flex-start", 
                 minHeight: 32, 
+                flexShrink: 0,
                 backgroundImage: "linear-gradient(rgba(74, 144, 226, 0.15) 1.5px, transparent 1.5px)",
                 backgroundSize: "100% 32px",
                 backgroundPosition: "0 31px",
@@ -373,6 +419,7 @@ export function NotebookModal({ isOpen, onClose, todoTasks, setTodoTasks }) {
                   placeholder="Escribir nuevo recordatorio..."
                   style={{
                     flex: 1,
+                    minWidth: 0,
                     border: "none",
                     background: "transparent",
                     outline: "none",
@@ -407,7 +454,8 @@ export function NotebookModal({ isOpen, onClose, todoTasks, setTodoTasks }) {
                       minHeight: "unset", // Anula min-height global de mobile
                       display: "flex",
                       alignItems: "center",
-                      alignSelf: "flex-end"
+                      alignSelf: "flex-start",
+                      flexShrink: 0
                     }}
                   >
                     Listo
@@ -421,6 +469,7 @@ export function NotebookModal({ isOpen, onClose, todoTasks, setTodoTasks }) {
                   key={`filler-${idx}`} 
                   style={{ 
                     height: 32, 
+                    flexShrink: 0,
                     borderBottom: "1.5px solid rgba(74, 144, 226, 0.15)",
                     boxSizing: "border-box"
                   }} 

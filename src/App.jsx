@@ -100,7 +100,8 @@ export default function App() {
     clientes, setClientes,
     todoTasks, setTodoTasks,
     remoteEdits, broadcastEditing,
-    restoreBackup
+    restoreBackup,
+    deleteAppointment
   } = usePersistentState(currentDate)
 
   const playPageSound = () => {
@@ -1360,6 +1361,7 @@ export default function App() {
         todoTasks={todoTasks}
         onOpenSearchTurnos={() => setSearchTurnosOpen(true)}
         onNavigateToTurno={handleNavigateToTurno}
+        onDeleteAppointment={deleteAppointment}
         clientes={clientes}
       />
       <div className="main-content" style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>

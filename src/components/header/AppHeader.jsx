@@ -21,7 +21,7 @@ export const AppHeader = memo(function AppHeader({
   config, activeView, setActiveView, saveStatus, connStatus, totalByMethod, grandTotal, grandEarnings, onLogout,
   currentDate, setCurrentDate, calendarOpen, setCalendarOpen, calViewDate, setCalViewDate, allData, onQuickGasto,
   professionals, activeRama, setActiveRama, ramas, privacyMode, gastos,
-  notebookOpen, onOpenNotebook, todoTasks, onOpenSearchTurnos, onNavigateToTurno, clientes
+  notebookOpen, onOpenNotebook, todoTasks, onOpenSearchTurnos, onNavigateToTurno, onDeleteAppointment, clientes
 }) {
   const isMobileNav = typeof window !== "undefined" && window.innerWidth <= 1100
   const tKey = todayKey()
@@ -120,6 +120,7 @@ export const AppHeader = memo(function AppHeader({
 
         const profId = appt.profId || k.split("||")[0]
         const prof = profsMap.get(profId)
+        const isOrphan = !prof
         const rama = prof?.rama || "manos"
         const total = apptTotal(appt)
 
@@ -133,10 +134,12 @@ export const AppHeader = memo(function AppHeader({
 
         list.push({
           key: `${dateStr}||${k}`,
+          cellKey: k,
           date: dateStr,
           hour: appt.hour,
           profId,
-          profName: prof?.name || "Profesional",
+          profName: prof?.name || "Sin profesional",
+          isOrphan,
           profRama: rama,
           client: appt.client,
           clientPhone: phone,
