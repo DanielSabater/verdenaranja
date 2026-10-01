@@ -53,16 +53,22 @@ export function Field({ label, children, style }) {
   )
 }
 
-export function GhostBtn({ onClick, children, style = {} }) {
+export function GhostBtn({ onClick, children, disabled = false, title, style = {}, type = "button" }) {
   return (
-    <button onClick={onClick} style={{
-      flex: 1, padding: "10px 0", borderRadius: 11,
-      border: `1.5px solid ${C.border}`, background: "transparent",
-      color: C.textSoft, fontSize: 9, letterSpacing: "1.5px",
-      textTransform: "uppercase", cursor: "pointer",
-      fontFamily: "Georgia,serif", transition: "all .15s",
-      ...style
-    }}>
+    <button
+      type={type}
+      onClick={disabled ? undefined : onClick}
+      disabled={disabled}
+      title={title}
+      style={{
+        flex: 1, padding: "10px 0", borderRadius: 11,
+        border: `1.5px solid ${disabled ? "#e0e0e0" : C.border}`, background: "transparent",
+        color: disabled ? "#bbb" : C.textSoft, fontSize: 9, letterSpacing: "1.5px",
+        textTransform: "uppercase", cursor: disabled ? "not-allowed" : "pointer",
+        fontFamily: "Georgia,serif", transition: "all .15s",
+        ...style
+      }}
+    >
       {children}
     </button>
   )

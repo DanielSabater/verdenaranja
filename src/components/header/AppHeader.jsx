@@ -3,7 +3,8 @@ import { C } from "../../constants/colors.js"
 import { PAYMENT_METHODS } from "../../constants/data.js"
 import { fmt, apptTotal, apptPaidTotal, apptComisionTotal } from "../../utils/appointments.js"
 import { AnimatedNumber } from "../ui/index.jsx"
-import { MESES_ES, todayKey, fmtDate, nextWorkDay } from "../../utils/dates.js"
+import { MESES_ES, todayKey, fmtDate, fmtShort, nextWorkDay } from "../../utils/dates.js"
+import { formatWaNumber, openWhatsAppLink, cleanClientName } from "../../utils/whatsapp.js"
 import { useIsMobile } from "../../hooks/useIsMobile.js"
 
 function getRamaEmoji(rama) {
@@ -20,32 +21,13 @@ export const AppHeader = memo(function AppHeader({
   config, activeView, setActiveView, saveStatus, connStatus, totalByMethod, grandTotal, grandEarnings, onLogout,
   currentDate, setCurrentDate, calendarOpen, setCalendarOpen, calViewDate, setCalViewDate, allData, onQuickGasto,
   professionals, activeRama, setActiveRama, ramas, privacyMode, gastos,
-  notebookOpen, onOpenNotebook, todoTasks, onOpenSearchTurnos
+  notebookOpen, onOpenNotebook, todoTasks, onOpenSearchTurnos, onNavigateToTurno, clientes
 }) {
   const isMobileNav = typeof window !== "undefined" && window.innerWidth <= 1100
   const tKey = todayKey()
   const isLiquid = config?.liquidGlass ?? true
 
-  const [metricMenuOpen, setMetricMenuOpen] = useState(false)
-  const [selectedMetric, setSelectedMetric] = useState(() => {
-    try {
-      return localStorage.getItem("pv:selectedHeaderMetric") || "comisiones"
-    } catch {
-      return "comisiones"
-    }
-  })
-
-  const handleSelectMetric = (metricId) => {
-    setSelectedMetric(metricId)
-    try {
-      localStorage.setItem("pv:selectedHeaderMetric", metricId)
-    } catch (e) {
-      console.warn(e)
-    }
-    playClickSound()
-  }
-
-  // Calculate today's values for metrics
+  // Appointments and scheduled turnos
   const appointments = allData[currentDate] || {}
   const hasUncheckedTasks = todoTasks && todoTasks.some(t => !t.completed)
   const allProfsMap = useMemo(() => new Set((config?.professionals || []).map(p => p.id)), [config?.professionals])
@@ -87,161 +69,95 @@ export const AppHeader = memo(function AppHeader({
     }, 0)
   }, [paidAppts])
 
-  const dailyExpensesTotal = useMemo(() => {
-    return (gastos || [])
-      .filter(g => g.fecha === currentDate)
-      .reduce((sum, g) => sum + (parseFloat(g.monto) || 0), 0)
-  }, [gastos, currentDate])
-
-  const dailyRealNet = useMemo(() => {
-    return grossIncomeToday - grandEarnings - dailyExpensesTotal
-  }, [grossIncomeToday, grandEarnings, dailyExpensesTotal])
-
-  const [currentMonthRevenue, prevMonthRevenue, progressPercent, prevMonthVal] = useMemo(() => {
-    if (!currentDate) return [0, 0, 0, 1]
-    const parts = currentDate.split("-")
-    if (parts.length < 2) return [0, 0, 0, 1]
-    const year = parseInt(parts[0], 10)
-    const month = parseInt(parts[1], 10)
-    if (isNaN(year) || isNaN(month)) return [0, 0, 0, 1]
-
-    const currentMonthStr = `${year}-${String(month).padStart(2, "0")}`
-    
-    let prevMonthVal = month - 1
-    let prevYearVal = year
-    if (prevMonthVal < 1) {
-      prevMonthVal = 12
-      prevYearVal = year - 1
-    }
-    const prevMonthStr = `${prevYearVal}-${String(prevMonthVal).padStart(2, "0")}`
-
-    let currentTotal = 0
-    let prevTotal = 0
-
-    Object.keys(allData || {}).forEach(dateStr => {
-      const dayAppts = allData[dateStr] || {}
-      const isCurrentMonth = dateStr.startsWith(currentMonthStr)
-      const isPrevMonth = dateStr.startsWith(prevMonthStr)
-
-      if (isCurrentMonth || isPrevMonth) {
-        Object.values(dayAppts).forEach(a => {
-          if (a.paid && allProfsMap.has(a.profId)) {
-            let apptAmt = 0
-            if (a.paymentSplits?.length) {
-              apptAmt = a.paymentSplits.reduce((acc, r) => acc + (parseFloat(r.amount) || 0), 0)
-            } else {
-              apptAmt = apptPaidTotal(a)
-            }
-            if (isCurrentMonth) currentTotal += apptAmt
-            else prevTotal += apptAmt
-          }
-        })
-      }
+  const scheduledStats = useMemo(() => {
+    const dayAppts = (allData || {})[currentDate] || {}
+    const list = Object.values(dayAppts).filter(a => {
+      if (!a || a.isBlocked || a.isNote) return false
+      if (!a.client) return false
+      if (allProfsMap.size > 0 && a.profId && !allProfsMap.has(a.profId)) return false
+      return true
     })
 
-    const progress = prevTotal > 0
-      ? (currentTotal / prevTotal) * 100
-      : 0
+    const totalCount = list.length
+    const paidCount = list.filter(a => !!a.paid).length
+    const pctCount = totalCount > 0 ? Math.round((paidCount / totalCount) * 100) : 0
 
-    return [currentTotal, prevTotal, progress, prevMonthVal]
+    const totalMoney = list.reduce((sum, a) => sum + (apptTotal(a) || 0), 0)
+    const paidMoney = list.reduce((sum, a) => {
+      if (!a.paid) return sum
+      if (a.paymentSplits?.length) {
+        return sum + a.paymentSplits.reduce((acc, r) => acc + (parseFloat(r.amount) || 0), 0)
+      }
+      return sum + apptPaidTotal(a)
+    }, 0)
+    const pctMoney = totalMoney > 0 ? Math.round((paidMoney / totalMoney) * 100) : 0
+
+    return {
+      totalCount,
+      paidCount,
+      pctCount,
+      totalMoney,
+      paidMoney,
+      pctMoney,
+      isFullyPaid: totalCount > 0 && paidCount === totalCount
+    }
   }, [allData, currentDate, allProfsMap])
 
-  const prevMonthNameCapitalized = useMemo(() => {
-    const prevMonthName = MESES_ES[prevMonthVal - 1] || "Mes Ant."
-    return prevMonthName.charAt(0).toUpperCase() + prevMonthName.slice(1)
-  }, [prevMonthVal])
+  // Turnos pasados (días previos a hoy) que quedaron sin cobrar
+  const pastUnpaidAppts = useMemo(() => {
+    const today = todayKey()
+    const profsMap = new Map((config?.professionals || []).map(p => [p.id, p]))
+    const list = []
 
-  const [dollarRate, setDollarRate] = useState(940)
-  useEffect(() => {
-    fetch("https://dolarapi.com/v1/dolares/oficial")
-      .then(res => res.json())
-      .then(data => {
-        if (data && data.venta) {
-          setDollarRate(data.venta)
+    Object.entries(allData || {}).forEach(([dateStr, dayData]) => {
+      // Solo días previos al actual
+      if (dateStr >= today) return
+      if (!dayData || typeof dayData !== "object") return
+
+      Object.entries(dayData).forEach(([k, appt]) => {
+        if (!appt || appt.isBlocked || appt.isNote || appt.paid) return
+        if (!appt.client || !appt.client.trim()) return
+
+        const profId = appt.profId || k.split("||")[0]
+        const prof = profsMap.get(profId)
+        const rama = prof?.rama || "manos"
+        const total = apptTotal(appt)
+
+        // Buscar teléfono si no está directo en el turno
+        let phone = appt.clientPhone || appt.phone || ""
+        if (!phone && Array.isArray(clientes) && clientes.length > 0) {
+          const normCName = (appt.client || "").toLowerCase().trim()
+          const matchedCli = clientes.find(c => c?.name && c.name.toLowerCase().trim() === normCName)
+          if (matchedCli?.phone) phone = matchedCli.phone
         }
+
+        list.push({
+          key: `${dateStr}||${k}`,
+          date: dateStr,
+          hour: appt.hour,
+          profId,
+          profName: prof?.name || "Profesional",
+          profRama: rama,
+          client: appt.client,
+          clientPhone: phone,
+          services: appt.services || [],
+          totalAmount: total,
+          appt
+        })
       })
-      .catch(err => console.warn("Error fetching official dollar rate:", err))
-  }, [])
+    })
 
-  const fmtUSD = (v) => "US$ " + Math.round(v).toLocaleString("es-AR")
+    // Ordenar de más reciente a más antiguo
+    return list.sort((a, b) => {
+      if (a.date !== b.date) return b.date.localeCompare(a.date)
+      return a.hour.localeCompare(b.hour)
+    })
+  }, [allData, config?.professionals, clientes])
 
-  const METRICS = {
-    comisiones: {
-      id: "comisiones",
-      label: "Suma de Sueldos",
-      val: grandEarnings,
-      bg: `linear-gradient(135deg,${C.gold},${C.goldLight})`,
-      tag: `${config?.comisionPct ?? 40}% Chicas`,
-      icon: "👩",
-      textColor: C.white,
-    },
-    ingresos: {
-      id: "ingresos",
-      label: "Ingresos",
-      val: grossIncomeToday,
-      bg: `linear-gradient(135deg,${C.green},${C.greenLight})`,
-      tag: "Bruto",
-      icon: "💰",
-      textColor: C.white,
-    },
-    ingresos_usd: {
-      id: "ingresos_usd",
-      label: "Ingresos USD",
-      val: grossIncomeToday / dollarRate,
-      bg: "linear-gradient(135deg,#1d4ed8,#3b82f6)",
-      tag: "Bruto USD",
-      icon: "💵",
-      textColor: C.white,
-      isUSD: true
-    },
-    gastos: {
-      id: "gastos",
-      label: "Gastos",
-      val: dailyExpensesTotal,
-      bg: `linear-gradient(135deg,${C.orange},${C.orangeLight})`,
-      tag: "Gastos",
-      icon: "💸",
-      textColor: C.white,
-    },
-    ganancia: {
-      id: "ganancia",
-      label: "Ganancia Real",
-      val: dailyRealNet,
-      bg: dailyRealNet >= 0 ? `linear-gradient(135deg,#2d6a36,${C.green})` : `linear-gradient(135deg,#a03030,#c04040)`,
-      tag: "Neto ARS",
-      icon: "📈",
-      textColor: C.white,
-    },
-    ganancia_usd: {
-      id: "ganancia_usd",
-      label: "Ganancia Real USD",
-      val: dailyRealNet / dollarRate,
-      bg: dailyRealNet >= 0 ? "linear-gradient(135deg,#1e3a8a,#3b82f6)" : "linear-gradient(135deg,#a03030,#c04040)",
-      tag: "Neto USD",
-      icon: "💵",
-      textColor: C.white,
-      isUSD: true
-    },
-    meta_mes_anterior: {
-      id: "meta_mes_anterior",
-      label: "Progreso vs Mes Anterior",
-      val: progressPercent,
-      bg: progressPercent >= 100 ? `linear-gradient(135deg,#2d6a36,${C.green})` : `linear-gradient(135deg,${C.gold},${C.goldLight})`,
-      tag: `Progreso vs ${prevMonthNameCapitalized.slice(0, 3)}.`,
-      icon: "🎯",
-      textColor: C.white,
-      isPercent: true
-    }
-  }
+  const pastUnpaidTotalMoney = useMemo(() => {
+    return pastUnpaidAppts.reduce((sum, a) => sum + (a.totalAmount || 0), 0)
+  }, [pastUnpaidAppts])
 
-  const activeMetric = METRICS[selectedMetric] || METRICS.comisiones
-  const hasValue = activeMetric.val !== 0 || activeMetric.id.startsWith("ganancia") || activeMetric.isPercent
-  const formatFn = activeMetric.isPercent
-    ? (v) => `${v.toFixed(1)}%`
-    : (activeMetric.isUSD ? fmtUSD : fmt)
-  const metricBg = hasValue ? activeMetric.bg : "#f0f0f0"
-  const metricColor = hasValue ? activeMetric.textColor : "#ccc"
-  const metricLabelColor = hasValue ? "rgba(255,255,255,.75)" : "#bbb"
   const VIEWS = [
     { id: "turnos", icon: "📅", label: "Turnos" },
     { id: "contabilidad", icon: "📊", label: "Contabilidad" },
@@ -331,6 +247,57 @@ export const AppHeader = memo(function AppHeader({
   }
 
   const btnNav = { width: 30, height: 30, borderRadius: "50%", border: `1px solid ${C.border}`, background: C.white, color: C.green, fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }
+
+  // Abanico desplegable de totales hacia la izquierda en desktop
+  const [isTotalsFanExpanded, setIsTotalsFanExpanded] = useState(false)
+  const totalsFanTimerRef = useRef(null)
+
+  const handleTotalsFanMouseEnter = () => {
+    if (totalsFanTimerRef.current) {
+      clearTimeout(totalsFanTimerRef.current)
+      totalsFanTimerRef.current = null
+    }
+    setIsTotalsFanExpanded(true)
+  }
+
+  const handleTotalsFanMouseLeave = () => {
+    if (totalsFanTimerRef.current) {
+      clearTimeout(totalsFanTimerRef.current)
+    }
+    totalsFanTimerRef.current = setTimeout(() => {
+      // Si un popup de método de pago está abierto, no cerramos
+      if (!activeMethod) {
+        setIsTotalsFanExpanded(false)
+      }
+    }, 3000)
+  }
+
+  useEffect(() => {
+    if (activeView !== "turnos") {
+      setIsTotalsFanExpanded(false)
+      if (totalsFanTimerRef.current) {
+        clearTimeout(totalsFanTimerRef.current)
+        totalsFanTimerRef.current = null
+      }
+    }
+  }, [activeView])
+
+  useEffect(() => {
+    return () => {
+      if (totalsFanTimerRef.current) {
+        clearTimeout(totalsFanTimerRef.current)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!activeMethod && isTotalsFanExpanded) {
+      if (totalsFanTimerRef.current) clearTimeout(totalsFanTimerRef.current)
+      totalsFanTimerRef.current = setTimeout(() => {
+        setIsTotalsFanExpanded(false)
+      }, 3000)
+    }
+  }, [activeMethod, isTotalsFanExpanded])
 
   const isMobile = useIsMobile(1100)
   const isToday = currentDate === tKey
@@ -608,162 +575,375 @@ export const AppHeader = memo(function AppHeader({
             flexShrink: 0
           }} title={connStatus === "online" ? "Sincronización Activa" : "Reconectando..."} />
 
-          {/* Desktop totals (solo visibles en la vista Turnos) */}
+          {/* Desktop totals con Abanico desplegable hacia la izquierda (solo visibles en la vista Turnos) */}
           {activeView === "turnos" && (
-            <div className="desktop-totals" style={{ alignItems: "center", gap: 5 }}>
-              {PAYMENT_METHODS.map(pm => {
-                const t = totalByMethod(pm.id); const isActive = activeMethod === pm.id; return (
-                  <div key={pm.id} style={{ position: "relative", flexShrink: 0 }} onMouseEnter={() => setActiveMethod(pm.id)} onMouseLeave={() => setActiveMethod(null)}>
-                    <div
-                      style={{ background: t > 0 ? (pm.id === "mercadopago" ? C.mpPale : pm.id === "debito" ? C.amberPale : C.greenPale) : "#f7f7f7", border: `1.5px solid ${isActive ? pm.color : (t > 0 ? (pm.id === "mercadopago" ? C.mpMid : pm.id === "debito" ? C.amberMid : C.greenMint) : "#e8e8e8")}`, borderRadius: 9, padding: "5px 9px", textAlign: "center", minWidth: 110, cursor: t > 0 ? "pointer" : "default", transition: "all .15s", boxShadow: isActive ? `0 4px 12px ${pm.color}33` : "none" }}>
-                      <div style={{ fontSize: 8, color: t > 0 ? pm.color : "#bbb", textTransform: "uppercase", whiteSpace: "nowrap" }}>{pm.icon} {pm.label}</div>
-                      <div className={privacyMode ? "privacy-blur" : ""} style={{ fontSize: 12, fontWeight: "bold", color: t > 0 ? pm.color : "#ccc", fontVariantNumeric: "tabular-nums" }}><AnimatedNumber value={t} formatFn={fmt} />{t > 0 && <span style={{ fontSize: 8, marginLeft: 3 }}>{isActive ? "▲" : "▼"}</span>}</div>
-                    </div>
+            <div
+              className="desktop-totals fan-totals-wrapper"
+              onMouseEnter={handleTotalsFanMouseEnter}
+              onMouseLeave={handleTotalsFanMouseLeave}
+            >
+              {/* Abanico de botones en el flujo del header */}
+              <div
+                className={`fan-items-container ${isTotalsFanExpanded || activeMethod ? "fan-open" : "fan-closed"}`}
+                onMouseEnter={handleTotalsFanMouseEnter}
+                onMouseLeave={handleTotalsFanMouseLeave}
+              >
+                {PAYMENT_METHODS.map(pm => {
+                  const t = totalByMethod(pm.id); const isActive = activeMethod === pm.id; return (
+                    <div key={pm.id} style={{ position: "relative", flexShrink: 0 }} onMouseEnter={() => setActiveMethod(pm.id)} onMouseLeave={() => setActiveMethod(null)}>
+                      <div
+                        style={{ background: t > 0 ? (pm.id === "mercadopago" ? C.mpPale : pm.id === "debito" ? C.amberPale : C.greenPale) : "#f7f7f7", border: `1.5px solid ${isActive ? pm.color : (t > 0 ? (pm.id === "mercadopago" ? C.mpMid : pm.id === "debito" ? C.amberMid : C.greenMint) : "#e8e8e8")}`, borderRadius: 9, padding: "5px 9px", textAlign: "center", minWidth: 110, cursor: t > 0 ? "pointer" : "default", transition: "all .15s", boxShadow: isActive ? `0 4px 12px ${pm.color}33` : "none" }}>
+                        <div style={{ fontSize: 8, color: t > 0 ? pm.color : "#bbb", textTransform: "uppercase", whiteSpace: "nowrap" }}>{pm.icon} {pm.label}</div>
+                        <div className={privacyMode ? "privacy-blur" : ""} style={{ fontSize: 12, fontWeight: "bold", color: t > 0 ? pm.color : "#ccc", fontVariantNumeric: "tabular-nums" }}><AnimatedNumber value={t} formatFn={fmt} />{t > 0 && <span style={{ fontSize: 8, marginLeft: 3 }}>{isActive ? "▲" : "▼"}</span>}</div>
+                      </div>
 
-                    {/* Dropdown */}
-                    {isActive && t > 0 && (() => {
-                      const appts = getApptsByMethod(pm.id)
-                      return (
-                        <>
-                          <div style={{ position: "absolute", top: "calc(100% + 8px)", left: "50%", transform: "translateX(-50%)", zIndex: 150, background: C.white, borderRadius: 14, border: `1.5px solid ${pm.color}44`, boxShadow: `0 8px 32px ${pm.color}22`, minWidth: 260, maxWidth: 340, padding: "12px 14px" }}>
-                            <div style={{ fontSize: 8, letterSpacing: "2px", color: pm.color, textTransform: "uppercase", marginBottom: 8 }}>{pm.icon} {pm.label} — {currentDate}</div>
-                            {appts.length === 0
-                              ? <div style={{ fontSize: 11, color: C.textSoft, textAlign: "center", padding: "8px 0" }}>Sin pagos</div>
-                              : <>
-                                {appts.map((a, i) => (
-                                  <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: `1px solid ${C.greenPale}` }}>
-                                    <div>
-                                      <div style={{ fontSize: 11, color: C.text, fontWeight: "bold" }}>{a.client}</div>
-                                      <div style={{ fontSize: 9, color: C.textSoft }}>{a.hour} · {(a.services || []).map(s => s.name).join(", ")}</div>
+                      {/* Dropdown */}
+                      {isActive && t > 0 && (() => {
+                        const appts = getApptsByMethod(pm.id)
+                        return (
+                          <>
+                            <div style={{ position: "absolute", top: "calc(100% + 8px)", left: "50%", transform: "translateX(-50%)", zIndex: 150, background: C.white, borderRadius: 14, border: `1.5px solid ${pm.color}44`, boxShadow: `0 8px 32px ${pm.color}22`, minWidth: 260, maxWidth: 340, padding: "12px 14px" }}>
+                              <div style={{ fontSize: 8, letterSpacing: "2px", color: pm.color, textTransform: "uppercase", marginBottom: 8 }}>{pm.icon} {pm.label} — {currentDate}</div>
+                              {appts.length === 0
+                                ? <div style={{ fontSize: 11, color: C.textSoft, textAlign: "center", padding: "8px 0" }}>Sin pagos</div>
+                                : <>
+                                  {appts.map((a, i) => (
+                                    <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: `1px solid ${C.greenPale}` }}>
+                                      <div>
+                                        <div style={{ fontSize: 11, color: C.text, fontWeight: "bold" }}>{a.client}</div>
+                                        <div style={{ fontSize: 9, color: C.textSoft }}>{a.hour} · {(a.services || []).map(s => s.name).join(", ")}</div>
+                                      </div>
+                                      <div style={{ fontSize: 13, fontWeight: "bold", color: pm.color }}>{fmt(a.methodAmount)}</div>
                                     </div>
-                                    <div style={{ fontSize: 13, fontWeight: "bold", color: pm.color }}>{fmt(a.methodAmount)}</div>
+                                  ))}
+                                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, paddingTop: 6, borderTop: `2px solid ${pm.color}33` }}>
+                                    <div style={{ fontSize: 9, color: C.textSoft }}>{appts.length} pago{appts.length !== 1 ? "s" : ""}</div>
+                                    <div style={{ fontSize: 13, fontWeight: "bold", color: pm.color }}>{fmt(t)}</div>
                                   </div>
-                                ))}
-                                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, paddingTop: 6, borderTop: `2px solid ${pm.color}33` }}>
-                                  <div style={{ fontSize: 9, color: C.textSoft }}>{appts.length} pago{appts.length !== 1 ? "s" : ""}</div>
-                                  <div style={{ fontSize: 13, fontWeight: "bold", color: pm.color }}>{fmt(t)}</div>
-                                </div>
-                              </>
-                            }
-                          </div>
-                        </>
-                      )
-                    })()}
-                  </div>
-                )
-              })}
-              <div style={{ background: grandTotal > 0 ? `linear-gradient(135deg,${C.green},${C.greenLight})` : "#f0f0f0", borderRadius: 10, padding: "6px 12px", textAlign: "center", minWidth: 120, flexShrink: 0 }}>
-                <div style={{ fontSize: 7, color: grandTotal > 0 ? "rgba(255,255,255,.7)" : "#bbb", textTransform: "uppercase" }}>Total</div>
-                <div className={privacyMode ? "privacy-blur" : ""} style={{ fontSize: 15, fontWeight: "bold", color: grandTotal > 0 ? C.white : "#ccc", fontVariantNumeric: "tabular-nums" }}><AnimatedNumber value={grandTotal} formatFn={fmt} /></div>
+                                </>
+                              }
+                            </div>
+                          </>
+                        )
+                      })()}
+                    </div>
+                  )
+                })}
+                <div style={{ background: grandTotal > 0 ? `linear-gradient(135deg,${C.green},${C.greenLight})` : "#f0f0f0", borderRadius: 10, padding: "6px 12px", textAlign: "center", minWidth: 120, flexShrink: 0 }}>
+                  <div style={{ fontSize: 7, color: grandTotal > 0 ? "rgba(255,255,255,.7)" : "#bbb", textTransform: "uppercase" }}>Total</div>
+                  <div className={privacyMode ? "privacy-blur" : ""} style={{ fontSize: 15, fontWeight: "bold", color: grandTotal > 0 ? C.white : "#ccc", fontVariantNumeric: "tabular-nums" }}><AnimatedNumber value={grandTotal} formatFn={fmt} /></div>
+                </div>
               </div>
-              <div style={{ position: "relative", flexShrink: 0 }}>
-                <div 
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setMetricMenuOpen(p => !p)
-                  }}
-                  title={
-                    activeMetric.id === "meta_mes_anterior"
-                      ? `Recaudado este mes: ${fmt(currentMonthRevenue)} / Meta (${prevMonthNameCapitalized}): ${fmt(prevMonthRevenue)}`
-                      : activeMetric.label
-                  }
-                  style={{ 
-                    background: metricBg, 
-                    borderRadius: 9, 
-                    padding: "5px 9px", 
-                    textAlign: "center", 
-                    width: 120,
-                    height: "38px",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "center",
-                    boxSizing: "border-box",
-                    flexShrink: 0,
-                    cursor: "pointer",
-                    userSelect: "none",
-                    boxShadow: metricMenuOpen ? `0 0 0 1.5px ${C.gold}, 0 4px 12px rgba(0,0,0,0.15)` : "none",
-                    transition: "all 0.15s ease",
-                    border: "1.5px solid transparent"
-                  }}
-                >
-                  <div style={{ fontSize: 8, color: metricLabelColor, textTransform: "uppercase", whiteSpace: "nowrap" }}>
-                    {activeMetric.icon} {activeMetric.tag} <span style={{ fontSize: 6, marginLeft: 2 }}>▼</span>
+
+              {/* Botón Principal Unificado (Porcentaje y Conteo de Turnos) */}
+              <button
+                type="button"
+                onClick={() => setIsTotalsFanExpanded(v => !v)}
+                className="fan-trigger-btn"
+                title={`Progreso del día: ${scheduledStats.pctCount}% (${scheduledStats.paidCount} de ${scheduledStats.totalCount} turnos cobrados)\nRecaudado: ${fmt(scheduledStats.paidMoney)} de ${fmt(scheduledStats.totalMoney)} programado\nApoyá el puntero para desplegar los totales`}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  height: 38,
+                  padding: "0 12px",
+                  borderRadius: 12,
+                  border: scheduledStats.isFullyPaid
+                    ? `1.5px solid ${C.green}`
+                    : (scheduledStats.totalCount > 0 ? `1.5px solid ${C.greenMint}` : `1.5px solid ${C.border}`),
+                  background: scheduledStats.isFullyPaid
+                    ? `linear-gradient(135deg, ${C.green}, ${C.greenLight})`
+                    : (isLiquid ? "rgba(255, 255, 255, 0.65)" : C.white),
+                  backdropFilter: isLiquid ? "blur(12px)" : "none",
+                  WebkitBackdropFilter: isLiquid ? "blur(12px)" : "none",
+                  boxShadow: scheduledStats.isFullyPaid
+                    ? `0 4px 14px ${C.green}44`
+                    : (isTotalsFanExpanded ? `0 4px 14px rgba(0,0,0,0.1)` : `0 2px 8px ${C.shadow}`),
+                  cursor: "pointer",
+                  userSelect: "none",
+                  transition: "all .2s cubic-bezier(0.16, 1, 0.3, 1)",
+                  outline: "none",
+                  flexShrink: 0
+                }}
+              >
+                {/* Anillo circular de progreso SVG */}
+                <div style={{ position: "relative", width: 24, height: 24, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <svg width="24" height="24" viewBox="0 0 36 36" style={{ transform: "rotate(-90deg)" }}>
+                    <path
+                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                      fill="none"
+                      stroke={scheduledStats.isFullyPaid ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.07)"}
+                      strokeWidth="3.8"
+                    />
+                    <path
+                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                      fill="none"
+                      stroke={scheduledStats.isFullyPaid ? "#ffffff" : C.green}
+                      strokeWidth="3.8"
+                      strokeDasharray={`${scheduledStats.pctCount}, 100`}
+                      strokeLinecap="round"
+                      style={{ transition: "stroke-dasharray 0.5s ease" }}
+                    />
+                  </svg>
+                  {scheduledStats.isFullyPaid ? (
+                    <span style={{ position: "absolute", fontSize: 10, color: "#fff", fontWeight: "bold" }}>✓</span>
+                  ) : (
+                    <span style={{ position: "absolute", fontSize: 9, fontWeight: "bold", color: scheduledStats.totalCount > 0 ? C.green : C.textSoft }}>
+                      %
+                    </span>
+                  )}
+                </div>
+
+                {/* Porcentaje y Conteo de turnos */}
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", textAlign: "left", lineHeight: 1.15 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <span
+                      className={privacyMode ? "privacy-blur" : ""}
+                      style={{
+                        fontSize: 13,
+                        fontWeight: "800",
+                        fontFamily: "Georgia, serif",
+                        color: scheduledStats.isFullyPaid ? "#ffffff" : (scheduledStats.totalCount > 0 ? C.green : C.textSoft),
+                        fontVariantNumeric: "tabular-nums"
+                      }}
+                    >
+                      {scheduledStats.pctCount}%
+                    </span>
+                    {scheduledStats.isFullyPaid && (
+                      <span style={{ fontSize: 8, color: "#ffffff", fontWeight: "bold", background: "rgba(255,255,255,0.25)", padding: "1px 4px", borderRadius: 4, letterSpacing: "0.5px" }}>
+                        COMPLETO
+                      </span>
+                    )}
+                    {/* Badge de alerta si hay turnos de días previos sin cobrar */}
+                    {pastUnpaidAppts.length > 0 && (
+                      <span
+                        title={`${pastUnpaidAppts.length} turno${pastUnpaidAppts.length !== 1 ? "s" : ""} de días anteriores sin cobrar (${fmt(pastUnpaidTotalMoney)})`}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 2,
+                          background: "linear-gradient(135deg, #ef4444, #dc2626)",
+                          color: "#ffffff",
+                          fontSize: 8,
+                          fontWeight: "bold",
+                          padding: "2px 5px",
+                          borderRadius: 8,
+                          boxShadow: "0 2px 6px rgba(220, 38, 38, 0.4)",
+                          marginLeft: 2,
+                          flexShrink: 0
+                        }}
+                      >
+                        <span>⚠️</span>
+                        <span>{pastUnpaidAppts.length}</span>
+                      </span>
+                    )}
                   </div>
-                  <div className={privacyMode ? "privacy-blur" : ""} style={{ fontSize: 12, fontWeight: "bold", color: metricColor, fontVariantNumeric: "tabular-nums" }}>
-                    <AnimatedNumber value={activeMetric.val} formatFn={formatFn} />
+                  <div style={{ fontSize: 8.5, color: scheduledStats.isFullyPaid ? "rgba(255,255,255,0.85)" : C.textSoft, whiteSpace: "nowrap" }}>
+                    {scheduledStats.totalCount === 0
+                      ? "Sin turnos"
+                      : `${scheduledStats.paidCount}/${scheduledStats.totalCount} cobrados`}
                   </div>
                 </div>
 
-                {metricMenuOpen && (
-                  <>
-                    <div 
-                      onClick={() => setMetricMenuOpen(false)} 
-                      style={{ position: "fixed", inset: 0, zIndex: 140 }} 
-                    />
-                    <div 
-                      style={{ 
-                        position: "absolute", 
-                        top: "calc(100% + 8px)", 
-                        right: 0, 
-                        zIndex: 150, 
-                        background: C.white, 
-                        borderRadius: 14, 
-                        border: `1.5px solid ${C.border}`, 
-                        boxShadow: `0 8px 32px rgba(0,0,0,0.12)`, 
-                        minWidth: 200, 
+                {/* Indicador / Flecha de abanico hacia la izquierda */}
+                <span
+                  style={{
+                    fontSize: 13,
+                    fontWeight: "bold",
+                    color: scheduledStats.isFullyPaid ? "rgba(255,255,255,0.8)" : C.textSoft,
+                    marginLeft: 2,
+                    transition: "transform 0.25s ease",
+                    transform: (isTotalsFanExpanded || activeMethod) ? "rotate(180deg)" : "translateX(-1px)",
+                    display: "inline-block"
+                  }}
+                >
+                  ‹
+                </span>
+              </button>
+
+              {/* Panel vertical desplegable hacia abajo con turnos pasados sin cobrar */}
+              {(isTotalsFanExpanded || activeMethod) && (
+                <div
+                  className="past-unpaid-dropdown"
+                  onMouseEnter={handleTotalsFanMouseEnter}
+                  onMouseLeave={handleTotalsFanMouseLeave}
+                  style={{
+                    position: "absolute",
+                    top: "calc(100% + 8px)",
+                    right: 0,
+                    zIndex: 150,
+                    background: C.white,
+                    borderRadius: 14,
+                    border: `1.5px solid ${pastUnpaidAppts.length > 0 ? "#fca5a5" : C.border}`,
+                    boxShadow: "0 12px 36px rgba(0,0,0,0.16)",
+                    width: 330,
+                    maxHeight: 400,
+                    display: "flex",
+                    flexDirection: "column",
+                    overflow: "hidden",
+                    animation: "scaleUp 0.18s cubic-bezier(0.16, 1, 0.3, 1)"
+                  }}
+                >
+                  {/* Cabecera del panel */}
+                  <div style={{
+                    padding: "10px 14px",
+                    background: pastUnpaidAppts.length > 0 ? "linear-gradient(135deg, #fff1f2, #ffe4e6)" : "linear-gradient(135deg, #f0fdf4, #dcfce7)",
+                    borderBottom: `1px solid ${pastUnpaidAppts.length > 0 ? "#fecdd3" : "#bbf7d0"}`,
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center"
+                  }}>
+                    <div>
+                      <div style={{
+                        fontSize: 11,
+                        fontWeight: "bold",
+                        color: pastUnpaidAppts.length > 0 ? "#b91c1c" : "#15803d",
+                        letterSpacing: "0.5px",
+                        textTransform: "uppercase"
+                      }}>
+                        {pastUnpaidAppts.length > 0
+                          ? `⚠️ ${pastUnpaidAppts.length} Turno${pastUnpaidAppts.length !== 1 ? "s" : ""} Pasado${pastUnpaidAppts.length !== 1 ? "s" : ""} Sin Cobrar`
+                          : "✓ Sin turnos pendientes previos"}
+                      </div>
+                      <div style={{ fontSize: 9, color: pastUnpaidAppts.length > 0 ? "#991b1b" : "#166534", marginTop: 2 }}>
+                        {pastUnpaidAppts.length > 0
+                          ? `Total adeudado: ${fmt(pastUnpaidTotalMoney)}`
+                          : "Todas las clientas de días anteriores están al día"}
+                      </div>
+                    </div>
+                    <span style={{ fontSize: 16 }}>{pastUnpaidAppts.length > 0 ? "⏳" : "🎉"}</span>
+                  </div>
+
+                  {/* Lista de turnos impagos pasados */}
+                  {pastUnpaidAppts.length > 0 ? (
+                    <>
+                      <div style={{
+                        overflowY: "auto",
+                        maxHeight: 300,
                         padding: "8px",
                         display: "flex",
                         flexDirection: "column",
-                        gap: 4
-                      }}
-                    >
-                      <div style={{ fontSize: 8, letterSpacing: "1px", color: C.textSoft, textTransform: "uppercase", padding: "4px 8px 6px", borderBottom: `1px solid ${C.border}`, fontFamily: "Georgia, serif" }}>
-                        Seleccionar Métrica
-                      </div>
-                      {Object.values(METRICS).map((m) => {
-                        const isSelected = m.id === selectedMetric
-                        return (
-                          <button
-                            key={m.id}
-                            onClick={() => {
-                              handleSelectMetric(m.id)
-                              setMetricMenuOpen(false)
-                            }}
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "space-between",
-                              padding: "8px 10px",
-                              borderRadius: 8,
-                              border: "none",
-                              background: isSelected ? C.greenPale : "transparent",
-                              cursor: "pointer",
-                              width: "100%",
-                              textAlign: "left",
-                              transition: "background 0.15s ease",
-                              outline: "none",
-                              fontFamily: "Georgia, serif"
-                            }}
-                          >
-                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                              <span style={{ fontSize: 14 }}>{m.icon}</span>
-                              <div>
-                                <div style={{ fontSize: 11, color: C.text, fontWeight: isSelected ? "bold" : "normal" }}>{m.label}</div>
-                                <div style={{ fontSize: 8, color: C.textSoft }}>{m.tag}</div>
+                        gap: 6
+                      }}>
+                        {pastUnpaidAppts.map((item) => {
+                          const dateDisplay = fmtShort(item.date)
+                          const serviceNames = (item.services || []).map(s => s.name).join(", ") || "Turno"
+
+                          const handleWhatsAppClick = (e) => {
+                            e.stopPropagation()
+                            if (!item.clientPhone) return
+                            const message = `¡Hola ${cleanClientName(item.client)}! 🌿 Te escribimos de Verde Naranja por tu turno del día ${fmtDate(item.date)} (${serviceNames}). Te dejamos este recordatorio porque quedó pendiente el saldo de ${fmt(item.totalAmount)}. ¡Muchas gracias!`
+                            openWhatsAppLink(formatWaNumber(item.clientPhone), message)
+                          }
+
+                          return (
+                            <div
+                              key={item.key}
+                              onClick={() => {
+                                onNavigateToTurno?.({
+                                  date: item.date,
+                                  hour: item.hour,
+                                  profId: item.profId,
+                                  rama: item.profRama,
+                                  openEdit: false
+                                })
+                                setIsTotalsFanExpanded(false)
+                              }}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                padding: "8px 10px",
+                                borderRadius: 10,
+                                background: "#fffaf0",
+                                border: "1px solid #fed7aa",
+                                cursor: "pointer",
+                                transition: "all .15s ease",
+                                gap: 8
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.background = "#fff4e5"
+                                e.currentTarget.style.borderColor = "#fdba74"
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.background = "#fffaf0"
+                                e.currentTarget.style.borderColor = "#fed7aa"
+                              }}
+                              title="Clic para ver el turno en la planilla"
+                            >
+                              {/* Info del turno */}
+                              <div style={{ flex: 1, minWidth: 0, textAlign: "left" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 2 }}>
+                                  <span style={{ fontSize: 9, fontWeight: "bold", color: "#c2410c", background: "#ffedd5", padding: "1px 5px", borderRadius: 4, letterSpacing: "0.3px" }}>
+                                    📅 {dateDisplay} · {item.hour} hs
+                                  </span>
+                                  <span style={{ fontSize: 9, color: C.textSoft }}>
+                                    ({item.profName})
+                                  </span>
+                                </div>
+                                <div style={{ fontSize: 11, fontWeight: "bold", color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                  {item.client}
+                                </div>
+                                <div style={{ fontSize: 9, color: C.textSoft, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                  {serviceNames}
+                                </div>
+                              </div>
+
+                              {/* Monto + Botón WhatsApp */}
+                              <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                                <div style={{ textAlign: "right" }}>
+                                  <div style={{ fontSize: 12, fontWeight: "800", color: "#b91c1c", fontVariantNumeric: "tabular-nums" }}>
+                                    {fmt(item.totalAmount)}
+                                  </div>
+                                  <div style={{ fontSize: 8, color: "#ea580c" }}>
+                                    Sin cobrar
+                                  </div>
+                                </div>
+                                {item.clientPhone ? (
+                                  <button
+                                    type="button"
+                                    onClick={handleWhatsAppClick}
+                                    title={`Enviar recordatorio por WhatsApp a ${item.client}`}
+                                    style={{
+                                      width: 28,
+                                      height: 28,
+                                      borderRadius: "50%",
+                                      background: "#25d366",
+                                      border: "none",
+                                      cursor: "pointer",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      color: "#fff",
+                                      fontSize: 13,
+                                      boxShadow: "0 2px 6px rgba(37, 211, 102, 0.35)",
+                                      transition: "transform .12s ease"
+                                    }}
+                                    onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.12)" }}
+                                    onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)" }}
+                                  >
+                                    💬
+                                  </button>
+                                ) : null}
                               </div>
                             </div>
-                            <div style={{ fontSize: 11, fontWeight: "bold", color: isSelected ? C.green : C.textSoft, fontVariantNumeric: "tabular-nums" }}>
-                              {m.isPercent
-                                ? `${m.val.toFixed(1)}%`
-                                : (m.isUSD ? fmtUSD(m.val) : fmt(m.val))}
-                            </div>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </>
-                )}
-              </div>
+                          )
+                        })}
+                      </div>
+                      <div style={{
+                        padding: "6px 10px",
+                        background: "#f9fafb",
+                        borderTop: `1px solid ${C.border}`,
+                        fontSize: 8.5,
+                        color: C.textSoft,
+                        textAlign: "center"
+                      }}>
+                        👉 Clic en un turno para verlo en la planilla
+                      </div>
+                    </>
+                  ) : null}
+                </div>
+              )}
             </div>
           )}
         </div>

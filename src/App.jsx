@@ -3,7 +3,7 @@ import { C } from "./constants/colors.js"
 import { PAYMENT_METHODS, HOURS, APP_VERSION } from "./constants/data.js"
 import { cellKey, apptTotal, apptDur, apptPaidTotal, apptComisionableTotal, apptComisionTotal, getApptSlots } from "./utils/appointments.js"
 import { toDateKey, todayKey, isWorkDay, nextWorkDay, addMonths, DIAS_ES, MESES_ES } from "./utils/dates.js"
-import { cleanClientName, normalizeStr } from "./utils/whatsapp.js"
+import { cleanClientName, normalizeStr, formatWaNumber, generateRescheduleMessage, openWhatsAppLink } from "./utils/whatsapp.js"
 import { useIsMobile } from "./hooks/useIsMobile.js"
 import { usePersistentState } from "./hooks/usePersistentState.js"
 import { AppHeader } from "./components/header/AppHeader.jsx"
@@ -13,6 +13,7 @@ import { AppModals } from "./components/modals/AppModals.jsx"
 import { ArqueoModal } from "./components/modals/ArqueoModal.jsx"
 import { NotebookModal } from "./components/modals/NotebookModal.jsx"
 import { SearchTurnosModal } from "./components/modals/SearchTurnosModal.jsx"
+import { RescheduleModal } from "./components/modals/RescheduleModal.jsx"
 import ContabilidadView from "./components/views/ContabilidadView.jsx"
 import ConfigView from "./components/views/ConfigView.jsx"
 import ClientesView from "./components/views/ClientesView.jsx"
@@ -91,7 +92,7 @@ export default function App() {
 
   const {
     loaded, saveStatus, connStatus,
-    allData, setAppointments,
+    allData, setAppointments, rescheduleAppointment,
     allArqueos, setArqueo,
     gastos, setGastos,
     sueldos, setSueldos,
@@ -199,7 +200,7 @@ export default function App() {
     }
   }, [ramas, activeRama])
 
-  const handleNavigateToTurno = useCallback(({ date, hour, profId, rama }) => {
+  const handleNavigateToTurno = useCallback(({ date, hour, profId, rama, openEdit }) => {
     setActiveView("turnos")
     setCalendarOpen(false)
     if (rama) {
@@ -214,8 +215,20 @@ export default function App() {
     }
     setTimeout(() => {
       window.dispatchEvent(new CustomEvent("scroll-to-hour", { detail: { hour, profId } }))
+      if (openEdit && date && profId && hour) {
+        const key = cellKey(profId, hour)
+        const appt = (allData[date] || {})[key]
+        if (appt) {
+          setModal({ profId, hour, editKey: key })
+          setChosenServices([...(appt.services || [])])
+          setClientName(appt.client || "")
+          setFilterCat("all")
+          setApptNotes(appt.notes || "")
+          setApptTip({ [key]: appt.tip ? appt.tip.toString() : "" })
+        }
+      }
     }, date !== currentDate ? 300 : 80)
-  }, [ramas, currentDate])
+  }, [ramas, currentDate, allData])
 
   const [calendarOpen, setCalendarOpen] = useState(false)
   const [calViewDate, setCalViewDate] = useState(() => {
@@ -309,6 +322,11 @@ export default function App() {
   selectedMultiPayKeysRef.current = selectedMultiPayKeys
   const multiPayPreloadRef = useRef(null)
 
+  // ── Reprogramación de turnos (Opción 1) ───────────────────────────────────
+  const [rescheduleData, setRescheduleData] = useState(null)
+  const [rescheduleToast, setRescheduleToast] = useState(null)
+  const rescheduleToastTimerRef = useRef(null)
+
   // ── Salto rápido de fecha con teclado numérico ─────────────────────────────
   const [dateQuickJump, setDateQuickJump] = useState(null)
   const dateNumberBufferRef = useRef("")
@@ -320,7 +338,7 @@ export default function App() {
   activeViewRef.current = activeView
   const isAnyModalOpenRef = useRef(false)
   isAnyModalOpenRef.current = Boolean(
-    modal || payModal || deleteKey || gastoModal || quickGastoModal || arqueoModal || notebookOpen || searchTurnosOpen || calendarOpen
+    modal || payModal || deleteKey || gastoModal || quickGastoModal || arqueoModal || notebookOpen || searchTurnosOpen || calendarOpen || rescheduleData
   )
 
   const executeDateJump = useCallback((dayToJump) => {
@@ -975,6 +993,49 @@ export default function App() {
     setModal(null)
   }
 
+  const handleConfirmReschedule = ({
+    fromDate,
+    fromKey,
+    toDate,
+    toProfId,
+    toHour,
+    sendWhatsApp,
+    clientPhone,
+    clientName,
+    services,
+    profName,
+    dateFormatted,
+    turnoRama,
+  }) => {
+    const moved = rescheduleAppointment({ fromDate, fromKey, toDate, toProfId, toHour })
+    if (!moved) return
+
+    if (sendWhatsApp && clientPhone) {
+      const formattedPhone = formatWaNumber(clientPhone)
+      const msg = generateRescheduleMessage({
+        clientName,
+        dateFormatted,
+        hour: toHour,
+        services,
+        profName,
+        empresaNombre: config?.empresaNombre || "Verde Naranja",
+      })
+      openWhatsAppLink(formattedPhone, msg, config?.waOpenMode || "app")
+    }
+
+    setRescheduleToast({
+      clientName,
+      toDate,
+      toHour,
+      profName,
+      dateFormatted,
+      turnoRama,
+      toProfId,
+    })
+    if (rescheduleToastTimerRef.current) clearTimeout(rescheduleToastTimerRef.current)
+    rescheduleToastTimerRef.current = setTimeout(() => setRescheduleToast(null), 8000)
+  }
+
   const quickBlock = (profId, hour, slots = 1, reason = "BLOQUEADO") => {
     const k = cellKey(profId, hour)
     setAppointments(p => ({
@@ -1298,6 +1359,8 @@ export default function App() {
         onOpenNotebook={() => { playPageSound(); setNotebookOpen(v => !v); }}
         todoTasks={todoTasks}
         onOpenSearchTurnos={() => setSearchTurnosOpen(true)}
+        onNavigateToTurno={handleNavigateToTurno}
+        clientes={clientes}
       />
       <div className="main-content" style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
 
@@ -1385,6 +1448,7 @@ export default function App() {
                 onEdit={(key, appt) => { setModal({ profId: appt.profId, hour: appt.hour, editKey: key }); setChosenServices([...(appt.services || [])]); setClientName(appt.client); setFilterCat("all"); setApptNotes(appt.notes || ""); setApptTip({ [key]: appt.tip ? appt.tip.toString() : "" }) }}
                 onPay={(key) => { const a = appointments[key]; if (a?.paymentSplits?.length) setPaymentSplits(a.paymentSplits.map(s => ({ ...s }))); else setPaymentSplits([{ methodId: "efectivo", amount: Math.max(0, apptTotal(a) + (a.tip || 0) - (a.discount || 0)) }]); setApptTip({ [key]: a.tip ? a.tip.toString() : "" }); setApptDiscount(a.discount || ""); setPayModal(key) }}
                 onDelete={(key) => setDeleteKey(key)}
+                onOpenReschedule={(data) => setRescheduleData(data)}
                 onToggleTipsRelease={onToggleTipsRelease}
                 onToggleArrived={handleToggleArrived}
                 CELL_H={CELL_H}
@@ -1577,6 +1641,10 @@ export default function App() {
           allData={allData}
           multiPayKeys={multiPayKeys} setMultiPayKeys={setMultiPayKeys}
           config={config}
+          currentDate={currentDate}
+          onOpenReschedule={(data) => setRescheduleData(data)}
+          activeRama={activeRama}
+          onConfirmReschedule={handleConfirmReschedule}
         />
 
         <ArqueoModal
@@ -1605,6 +1673,88 @@ export default function App() {
           config={config}
           onNavigateToTurno={handleNavigateToTurno}
         />
+
+        <RescheduleModal
+          isOpen={Boolean(rescheduleData)}
+          onClose={() => setRescheduleData(null)}
+          apptData={rescheduleData}
+          allData={allData}
+          allProfessionals={config.professionals}
+          config={config}
+          clientes={clientes}
+          activeRama={activeRama}
+          ramas={ramas}
+          onConfirmReschedule={handleConfirmReschedule}
+        />
+
+        {/* Notificación flotante de turno reprogramado */}
+        {rescheduleToast && (
+          <div style={{
+            position: "fixed",
+            bottom: isMobile ? "calc(140px + env(safe-area-inset-bottom))" : 86,
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "linear-gradient(135deg, #15803d, #166534)",
+            color: "#ffffff",
+            borderRadius: 36,
+            padding: "8px 14px 8px 20px",
+            fontSize: 13,
+            zIndex: 9999,
+            boxShadow: "0 10px 35px rgba(0,0,0,0.38), 0 0 0 1.5px rgba(255,255,255,0.25)",
+            display: "flex",
+            alignItems: "center",
+            gap: 14,
+            backdropFilter: "blur(12px)",
+            animation: "popIn .18s ease-out",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 16 }}>📅</span>
+              <span>
+                Turno de <strong>{rescheduleToast.clientName}</strong> reprogramado al <strong>{rescheduleToast.dateFormatted}</strong> ({rescheduleToast.toHour} hs · {rescheduleToast.profName})
+              </span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <button
+                onClick={() => {
+                  handleNavigateToTurno({
+                    date: rescheduleToast.toDate,
+                    hour: rescheduleToast.toHour,
+                    profId: rescheduleToast.toProfId,
+                    rama: rescheduleToast.turnoRama,
+                  })
+                  setRescheduleToast(null)
+                }}
+                style={{
+                  background: "#fde047",
+                  color: "#14532d",
+                  border: "none",
+                  borderRadius: 20,
+                  padding: "6px 14px",
+                  fontSize: 12,
+                  fontWeight: "bold",
+                  cursor: "pointer",
+                  whiteSpace: "nowrap"
+                }}
+              >
+                👀 Ver en la planilla
+              </button>
+              <button
+                onClick={() => setRescheduleToast(null)}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "#ffffff",
+                  opacity: 0.75,
+                  fontSize: 15,
+                  cursor: "pointer",
+                  padding: "2px 6px"
+                }}
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
 
       </div>{/* end main-content */}
       <nav className="bottom-nav" style={{

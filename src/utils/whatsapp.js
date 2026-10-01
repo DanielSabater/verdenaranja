@@ -187,6 +187,26 @@ export function generateReminderMessage({
   return `¡Hola ${nameDisplay}! 🌿 Te recordamos tu turno en ${empresaNombre} para hoy a las ${hour} hs${profPart} (${servicesList}).\n¡Te esperamos! 💅✨`
 }
 
+/**
+ * Genera el texto para notificar por WhatsApp a una clienta sobre la reprogramación de su turno
+ */
+export function generateRescheduleMessage({
+  clientName,
+  dateFormatted,
+  hour,
+  services = [],
+  profName,
+  empresaNombre = "Verde Naranja",
+}) {
+  const nameDisplay = clientName ? clientName.trim() : "¡Hola!"
+  const servicesList = services.length > 0
+    ? services.map(s => s.name || s).join(" + ")
+    : "tu turno"
+  const profPart = profName ? ` con ${profName}` : ""
+
+  return `¡Hola ${nameDisplay}! 🌿 Te confirmamos que tu turno en ${empresaNombre} fue reprogramado para el *${dateFormatted}* a las *${hour} hs*${profPart} (${servicesList}).\n¡Te esperamos! 💅✨`
+}
+
 let waWebWindow = null
 
 function openWaWeb(url) {

@@ -4,6 +4,7 @@ import { PAYMENT_METHODS } from "../../constants/data.js"
 import { fmt, apptTotal } from "../../utils/appointments.js"
 import { Overlay, ModalHeader, Field, GhostBtn, SolidBtn, inputStyle, modalBox } from "../ui/index.jsx"
 import { getApptClientPhone, formatWaNumber, generateReminderMessage, openWhatsAppLink } from "../../utils/whatsapp.js"
+import { RescheduleContent } from "./RescheduleModal.jsx"
 
 // ── Sonido de caja registradora ──────────────────────────────────────────────
 // Probá estas URLs — usá la que funcione en tu navegador:
@@ -56,17 +57,23 @@ export function AppModals({
   allData,
   multiPayKeys, setMultiPayKeys,
   config,
+  currentDate,
+  onOpenReschedule,
+  activeRama,
+  onConfirmReschedule,
 }) {
   const [showSug, setShowSug] = useState(false)
   const [serviceHighlightIdx, setServiceHighlightIdx] = useState(0)
   const [isNoteMode, setIsNoteMode] = useState(false)
   const [noteDuration, setNoteDuration] = useState(30)
+  const [modalMode, setModalMode] = useState("form") // "form" | "reschedule"
 
   useEffect(() => {
     if (modal) {
       const appt = modal.editKey ? appointments[modal.editKey] : null
       setIsNoteMode(appt?.isNote || false)
       setNoteDuration(appt?.manualDur || 30)
+      setModalMode("form")
     }
   }, [modal, appointments])
 
@@ -89,9 +96,48 @@ export function AppModals({
       {/* ── MODAL NUEVO / EDITAR ── */}
       {modal && (
         <Overlay onClose={() => setModal(null)}>
-          <div className="modal-sheet" style={{ ...modalBox, display: "flex", flexDirection: "column", padding: "24px", overflow: "hidden", height: "auto", maxHeight: 680 }}>
-            <div className="no-scrollbar" style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", justifyContent: "center" }}>
-              <div style={{ width: "100%", maxWidth: 460 }}>
+          <div className="modal-sheet" style={{ ...modalBox, display: "flex", flexDirection: "column", padding: "24px 24px 18px", overflow: "hidden", height: isNoteMode ? "auto" : "min(680px, calc(100vh - 40px))", maxHeight: "92vh" }}>
+            {modalMode === "reschedule" ? (
+              <div className="modal-view-transition" style={{ flex: 1, minHeight: 0, height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+                <RescheduleContent
+                  apptData={{
+                    fromDate: currentDate,
+                    fromKey: modal.editKey,
+                    appt: appointments[modal.editKey] ? {
+                      ...appointments[modal.editKey],
+                      client: clientName || appointments[modal.editKey]?.client,
+                      services: isNoteMode ? [] : chosenServices,
+                      notes: apptNotes,
+                      isNote: isNoteMode,
+                      manualDur: noteDuration,
+                    } : {
+                      client: clientName,
+                      profId: modal.profId,
+                      hour: modal.hour,
+                      services: chosenServices,
+                      notes: apptNotes,
+                      isNote: isNoteMode,
+                      manualDur: noteDuration,
+                    },
+                    activeRama: activeRama,
+                  }}
+                  allData={allData}
+                  allProfessionals={allProfessionals || professionals}
+                  config={config}
+                  clientes={clientes}
+                  activeRama={activeRama}
+                  onBack={() => setModalMode("form")}
+                  onClose={() => setModal(null)}
+                  onConfirmReschedule={(params) => {
+                    onConfirmReschedule?.(params)
+                    setModal(null)
+                  }}
+                />
+              </div>
+            ) : (
+              <div className="modal-view-transition" style={{ flex: 1, minHeight: 0, height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+                <div className="no-scrollbar" style={{ flex: 1, minHeight: 0, overflowY: "auto", overscrollBehavior: "contain", display: "flex", justifyContent: "center" }}>
+                  <div style={{ width: "100%", maxWidth: 460 }}>
                 <ModalHeader
                   emoji={isNoteMode ? "📌" : (modal.editKey ? "✏️" : "🌿")}
                   sub={isNoteMode ? "Anotación / Nota" : (modal.editKey ? "Editar turno" : "Nuevo turno")}
@@ -382,24 +428,83 @@ export function AppModals({
                   }}
                   title="Enviar recordatorio por WhatsApp"
                   style={{
-                    width: 38,
-                    height: 38,
-                    borderRadius: "50%",
+                    width: 36,
+                    height: 36,
                     border: "none",
                     background: "transparent",
+                    color: "#6b7280",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     cursor: "pointer",
                     padding: 0,
-                    opacity: 0.85,
-                    transition: "transform .15s ease, opacity .15s ease",
                     flexShrink: 0,
+                    transition: "transform .15s ease, color .15s ease",
                   }}
-                  onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.15)"; e.currentTarget.style.opacity = "1" }}
-                  onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.opacity = "0.85" }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.transform = "scale(1.15)"
+                    e.currentTarget.style.color = "#374151"
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.transform = "scale(1)"
+                    e.currentTarget.style.color = "#6b7280"
+                  }}
                 >
-                  <img src="/whatsapp.png" alt="WhatsApp" style={{ width: 30, height: 30, objectFit: "contain", pointerEvents: "none" }} />
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 175.216 175.552"
+                    width="22"
+                    height="22"
+                    fill="currentColor"
+                    style={{ display: "block", pointerEvents: "none" }}
+                  >
+                    <path d="M87.184 0C39.043 0 .001 39.043.001 87.184c0 15.385 4.024 30.407 11.666 43.642L.001 175.552l45.864-12.029c12.724 6.937 27.055 10.601 41.319 10.601h.036c48.136 0 87.18-39.043 87.18-87.184C174.4 39.043 135.32 0 87.184 0zm0 159.544h-.03c-13.018 0-25.782-3.499-36.906-10.106l-2.646-1.571-27.424 7.194 7.319-26.732-1.724-2.744c-7.258-11.554-11.086-24.908-11.086-38.641 0-40.038 32.576-72.614 72.642-72.614 19.398 0 37.632 7.554 51.348 21.275 13.717 13.722 21.27 31.956 21.27 51.359 0 40.043-32.582 72.62-72.663 72.62zm39.851-54.437c-2.186-1.096-12.934-6.384-14.938-7.114-2.003-.73-3.46-1.096-4.918 1.096-1.458 2.191-5.649 7.114-6.924 8.572-1.276 1.458-2.551 1.641-4.737.545-2.186-1.096-9.231-3.403-17.585-10.852-6.502-5.795-10.893-12.956-12.169-15.147-1.276-2.191-.136-3.376.958-4.466 1.002-.998 2.186-2.551 3.28-3.827 1.095-1.276 1.458-2.191 2.186-3.649.73-1.458.365-2.734-.182-3.83-.547-1.096-4.918-11.854-6.739-16.23-1.774-4.267-3.578-3.687-4.918-3.754-1.275-.064-2.733-.064-4.19-.064-1.458 0-3.828.547-5.832 2.738-2.004 2.191-7.653 7.48-7.653 18.239s7.835 21.157 8.928 22.615c1.095 1.458 15.422 23.551 37.359 33.029 5.218 2.254 9.288 3.6 12.464 4.608 5.239 1.662 10.007 1.428 13.774.865 4.199-.628 12.934-5.289 14.755-10.395 1.822-5.107 1.822-9.484 1.276-10.396-.547-.912-2.004-1.459-4.19-2.555z" />
+                  </svg>
+                </button>
+              )}
+              {modal.editKey && (
+                <button
+                  type="button"
+                  onClick={() => setModalMode("reschedule")}
+                  title="Reprogramar turno (mover a otra fecha u horario)"
+                  style={{
+                    width: 36,
+                    height: 36,
+                    border: "none",
+                    background: "transparent",
+                    color: "#6b7280",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                    padding: 0,
+                    flexShrink: 0,
+                    transition: "transform .15s ease, color .15s ease",
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.transform = "scale(1.15)"
+                    e.currentTarget.style.color = "#374151"
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.transform = "scale(1)"
+                    e.currentTarget.style.color = "#6b7280"
+                  }}
+                >
+                  <svg
+                    width="22"
+                    height="22"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    style={{ display: "block", pointerEvents: "none" }}
+                  >
+                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                    <path d="M3 3v5h5" />
+                    <polyline points="12 7 12 12 15 14" />
+                  </svg>
                 </button>
               )}
               <GhostBtn onClick={() => setModal(null)} style={{ flex: 1 }}>
@@ -424,17 +529,18 @@ export function AppModals({
                 }} 
                 disabled={!clientName.trim()} 
                 color={C.green}
-                style={{ flex: 1.8 }}
+                style={{ flex: 1.6 }}
               >
                 {isNoteMode 
-                  ? (modal.editKey ? "📝 Guardar anotación" : "📌 Crear anotación") 
-                  : (modal.editKey ? "🌿 Confirmar turno" : "🌿 Confirmar turno")}
+                  ? (modal.editKey ? "📝 Guardar" : "📌 Crear") 
+                  : (modal.editKey ? "🌿 Confirmar" : "🌿 Confirmar turno")}
               </SolidBtn>
             </div>
-
           </div>
-        </Overlay>
-      )}
+        )}
+      </div>
+    </Overlay>
+  )}
 
       {/* ── MODAL PAGO ── */}
       {payModal && appointments[payModal] && (() => {

@@ -1,3 +1,5 @@
+import { HOURS } from "../constants/data.js"
+
 /** "$1.234" format */
 export const fmt = (n) => `$${Math.round(n).toLocaleString("es-AR")}`
 
@@ -155,4 +157,75 @@ export const getApptSlots = (a) => {
     return a.originalSlots
   }
   return Math.max(1, Math.ceil(apptDur(a) / 30))
+}
+
+/**
+ * Comprueba si un horario/slot específico está ocupado por otro turno o bloqueo en ese día.
+ */
+export const isSlotOccupied = (dayAppointments = {}, profId, hour, ignoreKey = null) => {
+  if (!dayAppointments) return false
+  const directKey = cellKey(profId, hour)
+  if (dayAppointments[directKey] && directKey !== ignoreKey) return true
+
+  for (const [k, a] of Object.entries(dayAppointments)) {
+    if (k === ignoreKey || !a) continue
+    const [pid, h] = k.split("||")
+    if (String(pid) !== String(profId)) continue
+
+    const startIdx = HOURS.indexOf(h)
+    if (startIdx < 0) continue
+    const requestedSlots = getApptSlots(a)
+
+    let actualSlots = requestedSlots
+    for (let s = 1; s < requestedSlots; s++) {
+      const checkHour = HOURS[startIdx + s]
+      if (!checkHour) { actualSlots = s; break }
+      const checkKey = cellKey(profId, checkHour)
+      if (dayAppointments[checkKey]) {
+        actualSlots = s
+        break
+      }
+    }
+
+    const targetIdx = HOURS.indexOf(hour)
+    if (targetIdx > startIdx && targetIdx < startIdx + actualSlots) {
+      return true
+    }
+  }
+  return false
+}
+
+/**
+ * Comprueba si un rango de horarios (a partir de startHour) está completamente libre para la duración en slots requerida.
+ */
+export const checkSlotAvailability = (dayAppointments = {}, profId, startHour, neededSlots = 1, ignoreKey = null) => {
+  const startIdx = HOURS.indexOf(startHour)
+  if (startIdx < 0) return { available: false, reason: "Horario inválido" }
+  if (startIdx + neededSlots > HOURS.length) return { available: false, reason: "Excede horario de cierre" }
+
+  for (let s = 0; s < neededSlots; s++) {
+    const checkHour = HOURS[startIdx + s]
+    if (isSlotOccupied(dayAppointments, profId, checkHour, ignoreKey)) {
+      const occupyingAppt = dayAppointments[cellKey(profId, checkHour)]
+      const label = occupyingAppt?.isBlocked ? "Bloqueado" : (occupyingAppt?.client ? `Ocupado (${occupyingAppt.client})` : "Ocupado")
+      return { available: false, reason: label, conflictHour: checkHour }
+    }
+  }
+
+  return { available: true }
+}
+
+/**
+ * Obtiene la lista completa de horarios del día con su estado de disponibilidad para la duración requerida.
+ */
+export const getAvailableHoursForDay = (dayAppointments = {}, profId, neededSlots = 1, ignoreKey = null) => {
+  return HOURS.map(hour => {
+    const check = checkSlotAvailability(dayAppointments, profId, hour, neededSlots, ignoreKey)
+    return {
+      hour,
+      available: check.available,
+      reason: check.reason || null,
+      conflictHour: check.conflictHour || null
+    }
+  })
 }

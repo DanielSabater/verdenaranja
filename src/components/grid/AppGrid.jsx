@@ -398,6 +398,7 @@ export function AppGrid({
   onResizeStart,
   paidAppts, totalByProf, earningsByProf, comisionPct, services,
   onCellClick, onEdit, onPay, onDelete,
+  onOpenReschedule,
   CELL_H,
   currentDate,
   quickBlock,
@@ -651,7 +652,7 @@ export function AppGrid({
   }, [])
 
   useEffect(() => {
-    const scrollToSpecificHour = (hour) => {
+    const scrollToSpecificHour = (hour, profId = null) => {
       let targetHour = hour
       if (!targetHour) {
         const now = new Date()
@@ -669,40 +670,61 @@ export function AppGrid({
         })
       }
       
-      const targetRow = document.querySelector(`[data-hour="${targetHour}"]`)
-      const scrollContainer = document.querySelector(".grid-scroll")
-      
-      if (targetRow && scrollContainer) {
-        const containerHeight = scrollContainer.clientHeight
-        const rowTop = targetRow.offsetTop
-        const rowHeight = targetRow.clientHeight
+      const doScroll = () => {
+        const targetRow = document.querySelector(`[data-hour="${targetHour}"]`)
+        const scrollContainer = document.querySelector(".grid-scroll")
         
-        // Calculate centered scroll position
-        const targetScrollTop = rowTop - (containerHeight / 2) + (rowHeight / 2)
-        
-        scrollContainer.scrollTo({
-          top: Math.max(0, targetScrollTop),
-          behavior: "smooth"
-        })
+        if (targetRow && scrollContainer) {
+          const containerHeight = scrollContainer.clientHeight
+          const rowTop = targetRow.offsetTop
+          const rowHeight = targetRow.clientHeight
+          
+          // Calculate centered scroll position vertically
+          const targetScrollTop = rowTop - (containerHeight / 2) + (rowHeight / 2)
+          
+          // If profId provided, calculate centered scroll position horizontally
+          let targetScrollLeft = scrollContainer.scrollLeft
+          if (profId) {
+            const targetCol = targetRow.querySelector(`[data-prof-id="${profId}"]`) || document.querySelector(`th[data-prof-id="${profId}"]`)
+            if (targetCol) {
+              const containerWidth = scrollContainer.clientWidth
+              const colLeft = targetCol.offsetLeft
+              const colWidth = targetCol.clientWidth
+              targetScrollLeft = Math.max(0, colLeft - (containerWidth / 2) + (colWidth / 2))
+            }
+          }
 
-        // Highlight visual flash effect
-        if (highlightTimeoutRef.current) {
-          clearTimeout(highlightTimeoutRef.current)
+          scrollContainer.scrollTo({
+            top: Math.max(0, targetScrollTop),
+            left: targetScrollLeft,
+            behavior: "smooth"
+          })
+
+          // Highlight visual flash effect
+          if (highlightTimeoutRef.current) {
+            clearTimeout(highlightTimeoutRef.current)
+          }
+          setHighlightedHour(null)
+          setTimeout(() => {
+            setHighlightedHour(targetHour)
+            highlightTimeoutRef.current = setTimeout(() => {
+              setHighlightedHour(null)
+            }, 3000)
+          }, 30)
+          return true
         }
-        setHighlightedHour(null)
-        setTimeout(() => {
-          setHighlightedHour(targetHour)
-          highlightTimeoutRef.current = setTimeout(() => {
-            setHighlightedHour(null)
-          }, 3000)
-        }, 30)
+        return false
+      }
+
+      if (!doScroll()) {
+        setTimeout(doScroll, 120)
       }
     }
 
     const handleScrollToday = () => scrollToSpecificHour()
     const handleScrollSpecific = (e) => {
       if (e.detail?.hour) {
-        scrollToSpecificHour(e.detail.hour)
+        scrollToSpecificHour(e.detail.hour, e.detail.profId)
       }
     }
 
@@ -1044,6 +1066,7 @@ export function AppGrid({
                  const tipsCount = Object.values(appointments).filter(a => a.profId === p.id && !a.isBlocked && (a.tip || 0) > 0).length
                  return (
                    <th key={p.id}
+                     data-prof-id={p.id}
                      draggable
                      onDragStart={() => onColDragStart(p.id)}
                      onDragOver={e => onColDragOver(e, p.id)}
@@ -1264,7 +1287,7 @@ export function AppGrid({
                 }
 
                 return (
-                  <td key={prof.id} rowSpan={span || 1}
+                  <td key={prof.id} data-prof-id={prof.id} data-hour={hour} rowSpan={span || 1}
                     style={{
                       padding: config.gridStyle === "classic" ? 3 : "5px 6px",
                       height: appt ? `${(span || 1) * 100}px` : 100,
@@ -2291,6 +2314,37 @@ export function AppGrid({
               </>
             ) : (
               <>
+                {onOpenReschedule && (
+                  <button
+                    onClick={() => {
+                      const k = cellKey(menuPos.profId, menuPos.hour)
+                      onOpenReschedule({
+                        fromDate: currentDate,
+                        fromKey: k,
+                        appt: appointments[k],
+                        activeRama: activeRama
+                      })
+                      setMenuPos(null)
+                    }}
+                    style={{
+                      padding: "8px 12px",
+                      background: "transparent",
+                      border: "none",
+                      borderRadius: 8,
+                      textAlign: "left",
+                      fontSize: 12,
+                      cursor: "pointer",
+                      color: C.green,
+                      fontWeight: "bold",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6
+                    }}
+                  >
+                    <span>📅</span> Reprogramar turno
+                  </button>
+                )}
+                <div style={{ borderTop: `1px solid ${C.border}`, margin: "2px 4px" }} />
                 <button onClick={() => { onDelete(cellKey(menuPos.profId, menuPos.hour)); setMenuPos(null) }} style={{ padding: "8px 12px", background: "transparent", border: "none", borderRadius: 8, textAlign: "left", fontSize: 12, cursor: "pointer", color: "#d44a4a" }}>🗑️ Eliminar turno</button>
               </>
             )}

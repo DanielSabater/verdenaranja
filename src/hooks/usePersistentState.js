@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react"
 import { createClient } from "@supabase/supabase-js"
 import { CONFIG_DEFAULT } from "../constants/data.js"
+import { cellKey } from "../utils/appointments.js"
 
 const SUPABASE_URL  = import.meta.env?.VITE_SUPABASE_URL || ""
 const SUPABASE_ANON = import.meta.env?.VITE_SUPABASE_ANON_KEY || ""
@@ -520,6 +521,47 @@ export function usePersistentState(currentDate) {
     })
   }
 
+  const rescheduleAppointment = ({ fromDate, fromKey, toDate, toProfId, toHour }) => {
+    dirtyKeys.current.add(`day:${fromDate}`)
+    dirtyKeys.current.add(`day:${toDate}`)
+
+    let movedAppt = null
+
+    setAllData(prev => {
+      const fromDay = { ...(prev[fromDate] || {}) }
+      const toDay = fromDate === toDate ? fromDay : { ...(prev[toDate] || {}) }
+
+      movedAppt = fromDay[fromKey]
+      if (!movedAppt) {
+        console.warn(`[rescheduleAppointment] Turno ${fromKey} no encontrado en ${fromDate}`)
+        return prev
+      }
+
+      delete fromDay[fromKey]
+
+      const toKey = cellKey(toProfId, toHour)
+      const updatedAppt = {
+        ...movedAppt,
+        profId: toProfId,
+        hour: toHour,
+      }
+
+      toDay[toKey] = updatedAppt
+
+      if (fromDate === toDate) {
+        return { ...prev, [fromDate]: fromDay }
+      } else {
+        return {
+          ...prev,
+          [fromDate]: fromDay,
+          [toDate]: toDay,
+        }
+      }
+    })
+
+    return movedAppt
+  }
+
   const setArqueo = (updater) => {
     dirtyKeys.current.add(`arqueo:${currentDate}`)
     setAllArqueos(prev => {
@@ -637,7 +679,7 @@ export function usePersistentState(currentDate) {
 
   return {
     loaded, saveStatus, connStatus,
-    allData,   setAppointments,
+    allData,   setAppointments, rescheduleAppointment,
     allArqueos, setArqueo,
     config,    setConfig: setConfigUser,
     clientes,  setClientes: setClientesUser,
