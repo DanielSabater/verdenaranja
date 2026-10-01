@@ -627,7 +627,7 @@ export default function App() {
     [appointments, allProfsMap]
   )
   const totalByProf = useCallback((pId) => paidAppts.filter(a => a.profId === pId).reduce((s, a) => s + apptPaidTotal(a), 0), [paidAppts])
-  const comisionableByProf = useCallback((pId) => paidAppts.filter(a => a.profId === pId).reduce((s, a) => s + apptComisionableTotal(a), 0), [paidAppts])
+  const comisionableByProf = useCallback((pId) => paidAppts.filter(a => a.profId === pId).reduce((s, a) => s + apptComisionableTotal(a, services), 0), [paidAppts, services])
   const earningsByProf = useCallback((pId) => paidAppts.filter(a => a.profId === pId).reduce((s, a) => s + apptComisionTotal(a, comisionPct, services, config.dateExceptions || {}, currentDate, config.professionals), 0), [paidAppts, comisionPct, services, config.dateExceptions, currentDate, config.professionals])
   const totalByMethod = useCallback((mid) => {
     const base = paidAppts.reduce((s, a) => {

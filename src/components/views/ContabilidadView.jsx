@@ -609,7 +609,7 @@ export default function ContabilidadView({
             profMap[profId].turnsCount += 1
             const apptTotalPaid = apptPaidTotal(appt)
             profMap[profId].total += apptTotalPaid
-            profMap[profId].comisionable += apptComisionableTotal(appt)
+            profMap[profId].comisionable += apptComisionableTotal(appt, safeServices)
             profMap[profId].comision += apptComisionTotal(appt, comisionPct, safeServices, config?.dateExceptions || {}, dk, professionals)
             
             if (appt.paymentSplits?.length) {

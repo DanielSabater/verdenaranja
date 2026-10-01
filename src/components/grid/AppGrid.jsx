@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect } from "react"
 import { C } from "../../constants/colors.js"
 import { PAYMENT_METHODS, HOURS, BLOCKED_COLORS, getBlockedAlphas } from "../../constants/data.js"
-import { fmt, cellKey, apptTotal, apptDur, apptPaidTotal, apptComisionableTotal, apptComisionTotal, getApptSlots } from "../../utils/appointments.js"
+import { fmt, cellKey, apptTotal, apptDur, apptPaidTotal, apptComisionableTotal, apptComisionTotal, getApptSlots, isServiceExcluido, hasCommissionableServices } from "../../utils/appointments.js"
 import { Overlay, ModalHeader, GhostBtn, SolidBtn, modalBox } from "../ui/index.jsx"
 import { todayKey, fmtDate } from "../../utils/dates.js"
 import html2canvas from "html2canvas"
-import { getApptClientPhone, formatWaNumber, generateReminderMessage, openWhatsAppLink } from "../../utils/whatsapp.js"
+import { getApptClientPhone, formatWaNumber, generateReminderMessage, openWhatsAppLink, cleanClientName } from "../../utils/whatsapp.js"
 
 const smallBtn = (color, isMobile) => ({
   padding: isMobile ? "4px 8px" : "5px 8px", borderRadius: 8, border: "none",
@@ -902,27 +902,54 @@ export function AppGrid({
   })()
 
   const getProfSummary = (profId) => {
-    const appts = Object.values(appointments).filter(a => a.profId === profId)
+    const prof = professionals.find(p => p.id === profId)
+    const effComisionPct = (prof?.comisionPct !== undefined && prof?.comisionPct !== null && prof?.comisionPct !== "")
+      ? parseFloat(prof.comisionPct)
+      : comisionPct
+
+    // Excluir bloqueos, notas y turnos que SOLO contengan servicios no comisionables (ej: café)
+    const appts = Object.values(appointments).filter(a =>
+      a.profId === profId &&
+      !a.isBlocked &&
+      !a.isNote &&
+      hasCommissionableServices(a, services)
+    )
     const paid = appts.filter(a => a.paid)
-    const total = paid.reduce((s, a) => s + apptPaidTotal(a), 0)
+    // Total neto comisionable (excluyendo café y otros servicios no comisionables)
+    const total = paid.reduce((s, a) => s + apptComisionableTotal(a, services), 0)
+    // Comisión total de la profesional sobre los servicios comisionables
+    const commissionTotal = paid.reduce((s, a) =>
+      s + apptComisionTotal(a, comisionPct, services, config?.dateExceptions || {}, currentDate, professionals),
+      0
+    )
     const tips = paid.reduce((s, a) => s + (a.tip || 0), 0)
+
+    // Por método de pago prorrateado al neto comisionable (excluyendo lo no comisionable)
     const byMethod = {}
     paid.forEach(a => {
+      const comiTotal = apptComisionableTotal(a, services)
+      const pTotal = apptPaidTotal(a)
+      const ratio = pTotal > 0 ? (comiTotal / pTotal) : 1
       if (a.paymentSplits?.length) {
-        a.paymentSplits.forEach(sp => { byMethod[sp.methodId] = (byMethod[sp.methodId] || 0) + (parseFloat(sp.amount) || 0) })
+        a.paymentSplits.forEach(sp => {
+          byMethod[sp.methodId] = (byMethod[sp.methodId] || 0) + ((parseFloat(sp.amount) || 0) * ratio)
+        })
       } else if (a.payMethod) {
-        byMethod[a.payMethod] = (byMethod[a.payMethod] || 0) + apptPaidTotal(a)
+        byMethod[a.payMethod] = (byMethod[a.payMethod] || 0) + comiTotal
       }
     })
-    return { appts, paid, total, tips, byMethod }
+    return { appts, paid, total, commissionTotal, effComisionPct, tips, byMethod }
   }
 
   const renderPaymentMethod = (a) => {
     if (!a.paid) return "⏳ Pendiente"
+    const comiTotal = apptComisionableTotal(a, services)
+    const pTotal = apptPaidTotal(a)
+    const ratio = pTotal > 0 ? (comiTotal / pTotal) : 1
     if (a.paymentSplits?.length) {
       return a.paymentSplits.map((r, i) => {
         const pm = PAYMENT_METHODS.find(m => m.id === r.methodId)
-        return <span key={i} style={{ marginRight: 6 }}>{pm?.icon} {fmt(r.amount)}</span>
+        return <span key={i} style={{ marginRight: 6 }}>{pm?.icon} {fmt(Math.round(r.amount * ratio))}</span>
       })
     }
     const pm = PAYMENT_METHODS.find(m => m.id === a.payMethod)
@@ -1023,7 +1050,7 @@ export function AppGrid({
                      onDrop={e => onColDrop(e, p.id)}
                      onDragEnd={onColDragEnd}
                       style={{
-                        padding: (isMobile && isLandscape) ? "5px 2px" : (isMobile ? "6px 2px" : "10px 5px"),
+                        padding: (isMobile && isLandscape) ? "5px 2px" : (isMobile ? "11px 2px 6px" : "12px 5px 8px"),
                         width: `${100 / orderedProfessionals.length}%`,
                         minWidth: (isMobile && isLandscape)
                           ? `calc((100vw - 60px) / ${orderedProfessionals.length})`
@@ -1702,7 +1729,6 @@ export function AppGrid({
         if (!prof) return null
         const s = getProfSummary(prof.id)
         const sortedAppts = [...s.appts]
-          .filter(a => !a.isBlocked)
           .sort((a, b) => (a.hour || "").localeCompare(b.hour || ""))
 
         const exportDailyAsPng = () => {
@@ -1770,43 +1796,63 @@ export function AppGrid({
           }
         }
 
-        const copyDailyToClipboard = () => {
-          const element = document.getElementById("prof-daily-receipt-capture")
-          if (!element) return
-
+        const copyDailyToClipboard = async () => {
           try {
-            const clipboardPromise = new Promise((resolve, reject) => {
-              html2canvas(element, {
-                scale: 2,
-                backgroundColor: "#ffffff",
-                useCORS: true
-              }).then(canvas => {
-                canvas.toBlob(blob => {
-                  if (blob) {
-                    resolve(blob)
-                  } else {
-                    reject(new Error("Blob creation failed"))
-                  }
-                }, "image/png")
-              }).catch(err => {
-                reject(err)
-              })
-            })
+            const dateStr = fmtDate(currentDate || todayKey())
+            const lines = []
+            lines.push(`📋 *RESUMEN DE TURNOS* · ${prof.name} ${prof.emoji || ""}`.trim())
+            lines.push(`📅 ${dateStr}`)
+            lines.push("─────────────────────────")
+            lines.push("")
 
-            navigator.clipboard.write([
-              new ClipboardItem({
-                "image/png": clipboardPromise
+            if (sortedAppts.length === 0) {
+              lines.push("Sin turnos registrados.")
+            } else {
+              sortedAppts.forEach(a => {
+                const comiTotal = apptComisionableTotal(a, services)
+                const comiEarned = apptComisionTotal(a, comisionPct, services, config?.dateExceptions || {}, currentDate, professionals)
+                const visibleServices = (a.services || []).filter(sv => !isServiceExcluido(sv, services))
+                const svNames = visibleServices.map(sv => sv.name).join(" + ")
+
+                lines.push(`• *${a.hour || "--:--"}* · *${cleanClientName(a.client) || "Clienta"}*`)
+                if (svNames) {
+                  lines.push(`  💅 ${svNames}`)
+                }
+                if (a.paid) {
+                  const tipPart = (a.tip || 0) > 0 ? `🎁 Propina: ${fmt(a.tip)} · ` : ""
+                  lines.push(`  ${tipPart}Neto: ${fmt(comiTotal)} · Comisión: ${fmt(comiEarned)}`)
+                } else {
+                  lines.push(`  ⏳ Pendiente de cobro`)
+                }
+                lines.push("")
               })
-            ]).then(() => {
-              setCopiedAgenda(true)
-              setTimeout(() => setCopiedAgenda(false), 2000)
-            }).catch(err => {
-              console.error("Clipboard copy failed:", err)
-              alert("No se pudo copiar al portapapeles automáticamente")
-            })
+            }
+
+            lines.push("─────────────────────────")
+            lines.push(`💰 *Total Neto:* ${fmt(s.total)}`)
+            lines.push(`✨ *Total Comisión:* ${fmt(s.commissionTotal)}`)
+
+            const textToCopy = lines.join("\n").trim()
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              await navigator.clipboard.writeText(textToCopy)
+            } else {
+              const ta = document.createElement("textarea")
+              ta.value = textToCopy
+              ta.style.position = "fixed"
+              ta.style.left = "-9999px"
+              document.body.appendChild(ta)
+              ta.focus()
+              ta.select()
+              document.execCommand("copy")
+              document.body.removeChild(ta)
+            }
+
+            setCopiedAgenda(true)
+            setTimeout(() => setCopiedAgenda(false), 2000)
           } catch (err) {
-            console.error("Clipboard not supported:", err)
-            alert("Tu navegador no soporta la copia de imágenes al portapapeles")
+            console.error("Clipboard copy failed:", err)
+            alert("No se pudo copiar el texto al portapapeles")
           }
         }
 
@@ -1843,11 +1889,17 @@ export function AppGrid({
                     {prof.name} · {s.appts.length} turno{s.appts.length !== 1 ? "s" : ""}
                   </ModalHeader>
 
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 10, marginBottom: 16 }}>
+                  <div style={{
+                    display: "grid",
+                    gridTemplateColumns: isMobile ? "repeat(2, minmax(0, 1fr))" : "repeat(5, minmax(0, 1fr))",
+                    gap: 10,
+                    marginBottom: 16
+                  }}>
                     {[
                       ["📅 Turnos", s.appts.length, C.textSoft],
                       ["✅ Cobrados", s.paid.length, C.green],
-                      ["💰 Total", fmt(s.total), C.orange],
+                      ["💰 Total Neto", fmt(s.total), C.orange],
+                      [`✨ Comisión (${s.effComisionPct}%)`, fmt(s.commissionTotal), C.green],
                     ].map(([label, val, col]) => (
                       <div key={label} style={{ background: C.cream, borderRadius: 12, padding: "10px 12px" }}>
                         <div style={{ fontSize: 9, color: C.textSoft, letterSpacing: "1px" }}>{label}</div>
@@ -1864,7 +1916,8 @@ export function AppGrid({
                       flexDirection: "column", 
                       justifyContent: "space-between",
                       minHeight: 65,
-                      position: "relative"
+                      position: "relative",
+                      gridColumn: isMobile ? "span 2" : "span 1"
                     }}>
                       <div>
                         <div style={{ fontSize: 9, color: C.textSoft, letterSpacing: "1px" }}>🎁 Propinas</div>
@@ -1919,33 +1972,152 @@ export function AppGrid({
                     </div>
                   )}
 
-                  <div style={{ fontSize: 10, letterSpacing: "2px", color: C.textSoft, textTransform: "uppercase", marginBottom: 10 }}>Detalle de turnos</div>
+                  <div style={{ fontSize: 10, letterSpacing: "2px", color: C.textSoft, textTransform: "uppercase", marginBottom: 8 }}>Detalle de turnos</div>
                   {sortedAppts.length > 0 ? (
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 10 }}>
-                      {sortedAppts.map((a, index) => (
-                        <div key={index} style={{ borderRadius: 14, border: `1px solid ${C.border}`, padding: 12, background: C.white }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "baseline", marginBottom: 6 }}>
-                            <div style={{ fontSize: 12, fontWeight: "bold", color: C.text }}>{a.hour} · {a.client}</div>
-                            <div style={{ fontSize: 11, color: a.paid ? C.green : C.orange, fontWeight: "bold" }}>
-                              {a.paid ? fmt(apptPaidTotal(a)) : "⏳ Pendiente"}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      {sortedAppts.map((a, index) => {
+                        const comiTotal = apptComisionableTotal(a, services)
+                        const comiEarned = apptComisionTotal(a, comisionPct, services, config?.dateExceptions || {}, currentDate, professionals)
+                        const visibleServices = (a.services || []).filter(sv => !isServiceExcluido(sv, services))
+
+                        return (
+                          <div
+                            key={index}
+                            style={{
+                              borderRadius: 10,
+                              border: `1px solid ${C.border}`,
+                              padding: isMobile ? "8px 10px" : "6px 12px",
+                              background: C.white,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              gap: 10,
+                              transition: "all .12s ease",
+                            }}
+                          >
+                            {/* Lado izquierdo: Hora + Clienta + Servicios + Info pago/notas */}
+                            <div style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 8,
+                              flex: 1,
+                              minWidth: 0,
+                              flexWrap: isMobile ? "wrap" : "nowrap"
+                            }}>
+                              <span style={{
+                                fontSize: 11,
+                                fontWeight: "bold",
+                                color: C.green,
+                                background: C.cream,
+                                border: `1px solid ${C.greenMint}`,
+                                borderRadius: 6,
+                                padding: "2px 6px",
+                                whiteSpace: "nowrap",
+                                letterSpacing: "0.5px"
+                              }}>
+                                {a.hour}
+                              </span>
+
+                              <span style={{
+                                fontSize: 12,
+                                fontWeight: "bold",
+                                color: C.text,
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                maxWidth: isMobile ? "120px" : "160px"
+                              }} title={cleanClientName(a.client)}>
+                                {cleanClientName(a.client)}
+                              </span>
+
+                              {visibleServices.length > 0 && (
+                                <div style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 4,
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  whiteSpace: "nowrap",
+                                  minWidth: 0,
+                                  flex: 1
+                                }}>
+                                  {visibleServices.map((sv, i) => (
+                                    <span
+                                      key={i}
+                                      style={{
+                                        fontSize: 10.5,
+                                        color: C.textSoft,
+                                        background: C.cream,
+                                        borderRadius: 6,
+                                        padding: "1px 6px",
+                                        border: `1px solid ${C.border}`,
+                                        whiteSpace: "nowrap",
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        gap: 3
+                                      }}
+                                    >
+                                      <span>{sv.icon}</span>
+                                      <span>{sv.name}</span>
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+
+                              {/* Badges de soporte: Propinas, método de pago, notas */}
+                              <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                                {a.tip > 0 && (
+                                  <span style={{ fontSize: 10, color: C.gold, fontWeight: "bold", background: "#fef9e7", padding: "1px 5px", borderRadius: 4, border: "1px solid #f9e79f", whiteSpace: "nowrap" }}>
+                                    🎁 {fmt(a.tip)}
+                                  </span>
+                                )}
+                                {a.paid && (
+                                  <span style={{ fontSize: 10, color: C.textSoft, opacity: 0.9, whiteSpace: "nowrap" }}>
+                                    {renderPaymentMethod(a)}
+                                  </span>
+                                )}
+                                {a.notes && (
+                                  <span title={a.notes} style={{ fontSize: 11, color: C.textSoft, cursor: "help" }}>
+                                    📝
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Lado derecho: Montos con Comisión Destacada */}
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                              {/* Monto Neto (más suave pero legible) */}
+                              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", minWidth: 60 }}>
+                                <span style={{ fontSize: 8.5, color: C.textSoft, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                                  Neto
+                                </span>
+                                <span style={{ fontSize: 11, fontWeight: "600", color: C.textSoft }}>
+                                  {fmt(comiTotal)}
+                                </span>
+                              </div>
+
+                              {/* Comisión Profesional (Destacada, fondo tenue y texto grande) */}
+                              <div style={{
+                                display: "flex",
+                                flexDirection: "column",
+                                alignItems: "flex-end",
+                                background: a.paid ? "rgba(45, 106, 54, 0.08)" : "rgba(232, 121, 58, 0.08)",
+                                border: `1.5px solid ${a.paid ? C.greenMint : "#fbd5b5"}`,
+                                borderRadius: 8,
+                                padding: "3px 9px",
+                                minWidth: 78
+                              }}>
+                                <span style={{ fontSize: 8.5, fontWeight: "bold", color: a.paid ? C.green : C.orange, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                                  {a.paid ? "Comisión" : "Pendiente"}
+                                </span>
+                                <span style={{ fontSize: 14, fontWeight: "bold", color: a.paid ? C.green : C.orange }}>
+                                  {a.paid ? fmt(comiEarned) : "⏳"}
+                                </span>
+                              </div>
                             </div>
                           </div>
-                          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
-                            {(a.services || []).map((sv, i) => (
-                              <span key={i} style={{ fontSize: 11, color: C.textSoft, background: C.cream, borderRadius: 10, padding: "4px 8px" }}>
-                                {sv.icon} {sv.name}
-                              </span>
-                            ))}
-                          </div>
-                          <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", fontSize: 11, color: C.textSoft }}>
-                            <span>{renderPaymentMethod(a)}</span>
-                            {a.tip > 0 && <span style={{ color: C.gold }}>🎁 {fmt(a.tip)}</span>}
-                          </div>
-                          {a.notes && (
-                            <div style={{ marginTop: 8, fontSize: 10, color: C.textSoft, fontStyle: "italic" }}>📝 {a.notes}</div>
-                          )}
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   ) : (
                     <div style={{ fontSize: 11, color: C.textSoft, fontStyle: "italic", textAlign: "center", padding: "22px 0" }}>Sin turnos registrados para esta profesional.</div>
@@ -2006,35 +2178,49 @@ export function AppGrid({
                       Sin turnos registrados para hoy.
                     </div>
                   ) : (
-                    sortedAppts.map((a, idx) => (
-                      <div key={idx} style={{ paddingBottom: "12px", borderBottom: idx === sortedAppts.length - 1 ? "none" : "1px solid #e8f5eb" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "4px" }}>
-                          <span style={{ fontSize: "13px", fontWeight: "bold", color: C.text }}>{a.hour}</span>
-                          <span style={{ fontSize: "11px", color: a.paid ? C.green : C.orange, fontWeight: "bold" }}>
-                            {a.paid ? `Abonado: ${fmt(apptPaidTotal(a))}` : "⏳ Pendiente"}
-                          </span>
+                    sortedAppts.map((a, idx) => {
+                      const comiTotal = apptComisionableTotal(a, services)
+                      const comiEarned = apptComisionTotal(a, comisionPct, services, config?.dateExceptions || {}, currentDate, professionals)
+                      const visibleServices = (a.services || []).filter(sv => !isServiceExcluido(sv, services))
+
+                      return (
+                        <div key={idx} style={{ paddingBottom: "10px", borderBottom: idx === sortedAppts.length - 1 ? "none" : "1px solid #e8f5eb" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "2px" }}>
+                            <div>
+                              <span style={{ fontSize: "13px", fontWeight: "bold", color: C.green, marginRight: "6px" }}>{a.hour}</span>
+                              <span style={{ fontSize: "13px", fontWeight: "bold", color: C.text }}>{cleanClientName(a.client)}</span>
+                            </div>
+                            <div style={{ textAlign: "right" }}>
+                              <span style={{ fontSize: "13px", color: a.paid ? C.green : C.orange, fontWeight: "bold" }}>
+                                {a.paid ? fmt(comiEarned) : "⏳ Pendiente"}
+                              </span>
+                              {a.paid && (
+                                <div style={{ fontSize: "9px", color: C.textSoft }}>
+                                  Neto: {fmt(comiTotal)}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          {visibleServices.length > 0 && (
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginTop: "3px" }}>
+                              {visibleServices.map((sv, i) => (
+                                <span key={i} style={{ fontSize: "10px", color: C.textSoft, background: C.cream, padding: "2px 6px", borderRadius: "8px", border: `1px solid ${C.border}` }}>
+                                  {sv.icon} {sv.name}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                        <div style={{ fontSize: "12px", color: C.text, fontWeight: "600", marginBottom: "4px" }}>
-                          Clienta: {a.client}
-                        </div>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
-                          {(a.services || []).map((sv, i) => (
-                            <span key={i} style={{ fontSize: "10px", color: C.textSoft, background: C.cream, padding: "2px 6px", borderRadius: "8px", border: `1px solid ${C.border}` }}>
-                              {sv.icon} {sv.name}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    ))
+                      )
+                    })
                   )}
                 </div>
 
                 {/* Total worked summary */}
                 {sortedAppts.length > 0 && (() => {
-                  const totalWorked = sortedAppts.reduce((sumVal, a) => sumVal + apptPaidTotal(a), 0)
-                  const totalComisionable = sortedAppts.reduce((sumVal, a) => sumVal + apptComisionableTotal(a), 0)
+                  const totalComisionable = sortedAppts.filter(a => a.paid).reduce((sumVal, a) => sumVal + apptComisionableTotal(a, services), 0)
                   const effComisionPct = (prof?.comisionPct !== undefined && prof?.comisionPct !== null && prof?.comisionPct !== "") ? parseFloat(prof.comisionPct) : comisionPct
-                  const totalEarned = sortedAppts.reduce((sumVal, a) => sumVal + apptComisionTotal(a, comisionPct, services, config?.dateExceptions || {}, currentDate, [prof]), 0)
+                  const totalEarned = sortedAppts.filter(a => a.paid).reduce((sumVal, a) => sumVal + apptComisionTotal(a, comisionPct, services, config?.dateExceptions || {}, currentDate, professionals), 0)
                   return (
                     <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 16 }}>
                       <div style={{ 
@@ -2047,10 +2233,10 @@ export function AppGrid({
                         alignItems: "center"
                       }}>
                         <span style={{ fontSize: 11, fontWeight: "bold", color: C.textSoft, letterSpacing: "1px" }}>
-                          TOTAL TRABAJADO:
+                          TOTAL NETO:
                         </span>
                         <span style={{ fontSize: 16, fontWeight: "bold", color: C.green }}>
-                          {fmt(totalWorked)}
+                          {fmt(totalComisionable)}
                         </span>
                       </div>
 

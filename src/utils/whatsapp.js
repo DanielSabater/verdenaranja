@@ -23,7 +23,7 @@ export function normalizeStr(str) {
 /**
  * Regex para detectar números de teléfono embebidos en el nombre del cliente o notas
  */
-const FULL_PHONE_REGEX = /(?:\+?\d{1,4}[-.\s]?)?\(?\d{2,5}\)?[-.\s]?\d{3,5}[-.\s]?\d{3,5}(?:[-.\s]?\d{1,5})?/g
+const FULL_PHONE_REGEX = /(?:(?:\+?54[\s.-]*)?(?:9[\s.-]*)?)?(?:\(?0?\d{2,5}\)?[-.\s]*)?(?:15[-.\s]*)?\d{3,5}[-.\s]?\d{3,5}(?:[-.\s]?\d{1,5})?/g
 const SHORT_PHONE_REGEX = /\(?\b\d{4,}\b\)?/g
 
 /**
@@ -46,11 +46,22 @@ export function extractPhoneFromString(text) {
  */
 export function cleanClientName(text) {
   if (!text || typeof text !== "string") return ""
-  const phone = extractPhoneFromString(text)
-  if (phone) {
-    return text.replace(phone, "").replace(/[-–—()]/g, "").trim()
+  const phonePattern = /(?:(?:\+?54[\s.-]*)?(?:9[\s.-]*)?)?(?:\(?0?\d{2,5}\)?[\s.-]*)?(?:15[\s.-]*)?\d{3,5}[\s.-]?\d{3,5}(?:[\s.-]?\d{1,5})?/g
+  const shortDigitsPattern = /\b\d{6,}\b/g
+  let cleaned = text
+  const matches = (text.match(phonePattern) || []).concat(text.match(shortDigitsPattern) || [])
+  for (const m of matches) {
+    if (!m) continue
+    const digits = cleanDigits(m)
+    if (digits.length >= 6) {
+      cleaned = cleaned.replace(m, " ")
+    }
   }
-  return text.trim()
+  cleaned = cleaned.replace(/(?:\+?54[\s.-]*)?(?:9[\s.-]*)?(?:\(?0?\d{2,5}\)?[\s.-]*)?$/g, "")
+                   .replace(/[-–—·()|/\\:,]+/g, " ")
+                   .replace(/\s+/g, " ")
+                   .trim()
+  return cleaned || text.trim()
 }
 
 /**

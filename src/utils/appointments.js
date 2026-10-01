@@ -26,9 +26,49 @@ export const apptPaidTotal = (a) => {
   return Math.max(0, apptTotal(a) - (a.discount || 0))
 }
 
+/** Normaliza nombres de servicios para matching flexible (ignora mayúsculas, tildes y emojis) */
+export const normServiceName = (str) => (str || "")
+  .toLowerCase()
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "")
+  .replace(/[^\p{L}\p{N}]/gu, "")
+  .trim()
+
+/** Busca el servicio correspondiente en la lista activa por ID o por nombre normalizado */
+export const findActiveService = (sv, activeServices) => {
+  if (!Array.isArray(activeServices) || !sv) return null
+  const svIdStr = sv.id != null ? String(sv.id) : null
+  const svNorm = normServiceName(sv.name)
+
+  return activeServices.find(s => {
+    if (svIdStr != null && s.id != null && String(s.id) === svIdStr) return true
+    if (svNorm && s.name && normServiceName(s.name) === svNorm) return true
+    return false
+  }) || null
+}
+
+/** Determina si un servicio está excluido de comisión (no comisionable, ej. café, o marcado sin comisión) */
+export const isServiceExcluido = (sv, activeServices = []) => {
+  if (!sv) return false
+  const liveSvc = findActiveService(sv, activeServices)
+  if (Boolean(liveSvc?.excluidoComision || sv?.excluidoComision)) return true
+  if (liveSvc?.comisionPct === 0 || sv?.comisionPct === 0) return true
+  const normName = normServiceName(sv.name)
+  if (normName === "cafe" || normName.startsWith("cafe") || normName.includes("cafeteria")) return true
+  return false
+}
+
+/** Determina si un turno contiene servicios comisionables (o si es turno manual sin servicios registrados) */
+export const hasCommissionableServices = (a, activeServices = []) => {
+  if (!a || a.isBlocked || a.isNote) return false
+  const services = Array.isArray(a.services) ? a.services : []
+  if (services.length === 0) return true
+  return services.some(sv => !isServiceExcluido(sv, activeServices))
+}
+
 /** Total comisionable base for an appointment (excluding services marked as no commission, prorating discounts) */
-export const apptComisionableTotal = (a) => {
-  if (a?.isBlocked) return 0
+export const apptComisionableTotal = (a, activeServices = []) => {
+  if (a?.isBlocked || a?.isNote) return 0
   const services = Array.isArray(a?.services) ? a.services : []
   const totalSvc = services.reduce((s, sv) => s + (sv?.price || 0), 0)
   const paidTotal = apptPaidTotal(a)
@@ -38,13 +78,15 @@ export const apptComisionableTotal = (a) => {
     return paidTotal > 0 ? Math.round(paidTotal) : 0
   }
   
-  const comiSvc = services.filter(sv => !sv?.excluidoComision).reduce((s, sv) => s + (sv?.price || 0), 0)
-  const ratio = paidTotal / totalSvc
+  const comiSvc = services.filter(sv => !isServiceExcluido(sv, activeServices))
+    .reduce((s, sv) => s + (sv?.price || 0), 0)
+
+  const ratio = totalSvc > 0 ? (paidTotal / totalSvc) : 1
   return Math.round(comiSvc * ratio)
 }
 
 export const apptComisionTotal = (a, globalComisionPct, activeServices = [], dateExceptions = {}, apptDate = null, professionals = []) => {
-  if (a?.isBlocked) return 0
+  if (a?.isBlocked || a?.isNote) return 0
   const services = Array.isArray(a?.services) ? a.services : []
   const totalSvc = services.reduce((s, sv) => s + (sv?.price || 0), 0)
 
@@ -77,14 +119,13 @@ export const apptComisionTotal = (a, globalComisionPct, activeServices = [], dat
     return 0
   }
 
-  const ratio = paidTotal / totalSvc
+  const ratio = totalSvc > 0 ? (paidTotal / totalSvc) : 1
 
   return services.reduce((sum, sv) => {
-    const liveSvc = Array.isArray(activeServices) ? activeServices.find(s => s.id === sv.id) : null
-    const isExcluido = liveSvc ? !!liveSvc.excluidoComision : !!sv.excluidoComision
-    if (isExcluido) return sum
+    if (isServiceExcluido(sv, activeServices)) return sum
 
     const comisionableAmt = sv.price * ratio
+    const liveSvc = findActiveService(sv, activeServices)
     const livePct = liveSvc?.comisionPct
     const pct = livePct !== undefined && livePct !== null ? livePct : (sv.comisionPct !== undefined && sv.comisionPct !== null ? sv.comisionPct : comisionPctToUse)
     return sum + (comisionableAmt * (pct / 100))
