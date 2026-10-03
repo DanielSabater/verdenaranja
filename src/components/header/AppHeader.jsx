@@ -470,6 +470,7 @@ export const AppHeader = memo(function AppHeader({
                 flexShrink: 0
               }}>
                 <button
+                  type="button"
                   onClick={() => setDailySummaryOpen(true)}
                   className="branch-tab-btn"
                   style={{
@@ -499,6 +500,28 @@ export const AppHeader = memo(function AppHeader({
                   <span className={privacyMode ? "privacy-blur" : ""} style={{ fontVariantNumeric: "tabular-nums" }}>
                     <AnimatedNumber value={grandTotal} formatFn={fmt} />
                   </span>
+                  {pastUnpaidAppts.length > 0 && (
+                    <span
+                      style={{
+                        background: "linear-gradient(135deg, #ef4444, #dc2626)",
+                        color: "#fff",
+                        fontSize: 8,
+                        fontWeight: "800",
+                        minWidth: 15,
+                        height: 15,
+                        borderRadius: 99,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        padding: "0 3px",
+                        boxShadow: "0 1px 4px rgba(220, 38, 38, 0.4)",
+                        marginLeft: 3
+                      }}
+                      title={`${pastUnpaidAppts.length} turnos anteriores sin cobrar`}
+                    >
+                      {pastUnpaidAppts.length}
+                    </span>
+                  )}
                 </button>
               </div>
             </div>
@@ -1173,18 +1196,20 @@ export const AppHeader = memo(function AppHeader({
       })()}
 
       {/* Daily Summary Modal */}
-      <DailySummaryModal
-        isOpen={dailySummaryOpen}
-        onClose={() => setDailySummaryOpen(false)}
-        currentDate={currentDate}
-        totalByMethod={totalByMethod}
-        grandTotal={grandTotal}
-        scheduledStats={scheduledStats}
-        getApptsByMethod={getApptsByMethod}
-        pastUnpaidAppts={pastUnpaidAppts}
-        onNavigateToTurno={onNavigateToTurno}
-        privacyMode={privacyMode}
-      />
+      {dailySummaryOpen && (
+        <DailySummaryModal
+          isOpen={dailySummaryOpen}
+          onClose={() => setDailySummaryOpen(false)}
+          currentDate={currentDate}
+          totalByMethod={totalByMethod}
+          grandTotal={grandTotal}
+          scheduledStats={scheduledStats}
+          getApptsByMethod={getApptsByMethod}
+          pastUnpaidAppts={pastUnpaidAppts}
+          onNavigateToTurno={onNavigateToTurno}
+          privacyMode={privacyMode}
+        />
+      )}
     </>
   )
 })

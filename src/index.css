@@ -145,35 +145,54 @@ select {
     display: none !important;
   }
 
+  /* Ocultar en mobile elementos de escritorio para evitar colisiones */
+  .daily-summary-btn {
+    display: none !important;
+  }
+
+  .desktop-savebadge {
+    display: none !important;
+  }
+
   .header-left-container {
     flex: 1 !important;
     display: flex;
     align-items: center;
-    gap: 8px;
+    justify-content: space-between;
+    gap: 6px;
     min-width: 0;
   }
 
   .header-turnos-active .header-center-group {
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
+    position: static !important;
+    transform: none !important;
     display: flex !important;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
     margin: 0;
-    max-width: calc(100vw - 110px);
+    max-width: none !important;
+    flex-shrink: 1;
+    min-width: 0;
     z-index: 5;
   }
 
   .branch-switcher-container {
-    flex: 1;
-    max-width: 320px;
     display: flex !important;
+    flex-shrink: 1;
+    min-width: 0;
   }
 
   .branch-switcher-container .branch-tab-btn {
-    flex: 1;
-    justify-content: center;
+    padding: 4px 7px !important;
+    font-size: 8.5px !important;
+    white-space: nowrap;
+    border-radius: 12px !important;
+  }
+
+  .mobile-total-bubble .branch-tab-btn {
+    padding: 4px 8px !important;
+    font-size: 9.5px !important;
+    border-radius: 12px !important;
   }
 
   /* Solo en vista de turnos en mobile: ocultar texto/eslogan del negocio y centrar perfectamente las planillas */
@@ -195,8 +214,10 @@ select {
   }
 
   .header-right-container {
+    display: flex !important;
+    align-items: center;
     flex: none;
-    margin-left: 10px;
+    margin-left: 2px;
   }
 }
 

@@ -299,7 +299,7 @@ function ApptCard({
         <div style={{ position: "absolute", top: 4, right: 5, fontSize: 9, color: "rgba(100,130,100,.4)", pointerEvents: "none", zIndex: 3 }}>⠿</div>
       )}
 
-      <div style={{ overflow: "hidden", marginTop: 2, position: "relative", zIndex: 2 }}>
+      <div style={{ overflow: "hidden", marginTop: 2, position: "relative", zIndex: 2, paddingBottom: isMobile ? 26 : 28 }}>
          {appt.isNote ? (
            <div>
              <div style={{ fontSize: 9, fontWeight: "bold", color: "#856404", display: "flex", alignItems: "center", gap: 3, marginBottom: 4 }}>

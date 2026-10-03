@@ -4,6 +4,7 @@ import { fmt, apptTotal } from "../../utils/appointments.js"
 import { fmtDate, fmtShort } from "../../utils/dates.js"
 import { formatWaNumber, openWhatsAppLink, cleanClientName } from "../../utils/whatsapp.js"
 import { Overlay, AnimatedNumber } from "../ui/index.jsx"
+import { useIsMobile } from "../../hooks/useIsMobile.js"
 
 export function DailySummaryModal({
   isOpen,
@@ -17,23 +18,25 @@ export function DailySummaryModal({
   onNavigateToTurno,
   privacyMode = false
 }) {
-  if (!isOpen) return null
+  const isMobile = useIsMobile()
 
-  // Cobros por método
-  const cashAppts = useMemo(() => getApptsByMethod("efectivo") || [], [getApptsByMethod])
-  const debitAppts = useMemo(() => getApptsByMethod("debito") || [], [getApptsByMethod])
-  const mpAppts = useMemo(() => getApptsByMethod("mercadopago") || [], [getApptsByMethod])
+  // Cobros por método (declarados incondicionalmente para respetar las reglas de hooks de React)
+  const cashAppts = useMemo(() => (isOpen && getApptsByMethod ? getApptsByMethod("efectivo") : []) || [], [isOpen, getApptsByMethod])
+  const debitAppts = useMemo(() => (isOpen && getApptsByMethod ? getApptsByMethod("debito") : []) || [], [isOpen, getApptsByMethod])
+  const mpAppts = useMemo(() => (isOpen && getApptsByMethod ? getApptsByMethod("mercadopago") : []) || [], [isOpen, getApptsByMethod])
 
-  const cashTotal = useMemo(() => totalByMethod("efectivo") || 0, [totalByMethod])
-  const debitTotal = useMemo(() => totalByMethod("debito") || 0, [totalByMethod])
-  const mpTotal = useMemo(() => totalByMethod("mercadopago") || 0, [totalByMethod])
+  const cashTotal = useMemo(() => (isOpen && totalByMethod ? totalByMethod("efectivo") : 0) || 0, [isOpen, totalByMethod])
+  const debitTotal = useMemo(() => (isOpen && totalByMethod ? totalByMethod("debito") : 0) || 0, [isOpen, totalByMethod])
+  const mpTotal = useMemo(() => (isOpen && totalByMethod ? totalByMethod("mercadopago") : 0) || 0, [isOpen, totalByMethod])
 
-  // Deudas pendientes: únicamente turnos de días anteriores sin cobrar (Opción 1)
-  const unpaidAppts = pastUnpaidAppts
+  // Deudas pendientes: únicamente turnos de días anteriores sin cobrar
+  const unpaidAppts = pastUnpaidAppts || []
 
   const totalUnpaidMoney = useMemo(() => {
     return unpaidAppts.reduce((sum, a) => sum + (a.totalAmount || 0), 0)
   }, [unpaidAppts])
+
+  if (!isOpen) return null
 
   return (
     <Overlay onClose={onClose}>
@@ -41,48 +44,78 @@ export function DailySummaryModal({
         onClick={e => e.stopPropagation()}
         style={{
           background: C.white,
-          borderRadius: 22,
-          padding: "20px 24px 22px",
-          width: "min(1160px, calc(100vw - 28px))",
-          maxHeight: "92vh",
+          borderRadius: isMobile ? 18 : 22,
+          padding: isMobile ? "14px 12px 18px" : "20px 24px 22px",
+          width: isMobile ? "calc(100vw - 16px)" : "min(1160px, calc(100vw - 28px))",
+          maxHeight: isMobile ? "94vh" : "92vh",
           display: "flex",
           flexDirection: "column",
-          gap: 14,
+          gap: isMobile ? 10 : 14,
           boxShadow: "0 24px 80px rgba(20,60,30,.24)",
           border: `1.5px solid ${C.greenMint}`,
           position: "relative",
+          overflowY: "auto",
           animation: "scaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
         }}
       >
+        {/* Botón Cerrar Absoluto en esquina superior derecha */}
+        <button
+          type="button"
+          onClick={onClose}
+          style={{
+            position: "absolute",
+            top: isMobile ? 10 : 14,
+            right: isMobile ? 10 : 14,
+            width: 32,
+            height: 32,
+            borderRadius: "50%",
+            background: "#f4f4f4",
+            border: "none",
+            cursor: "pointer",
+            color: C.textSoft,
+            fontSize: 16,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            transition: "all .15s",
+            zIndex: 30
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = "#e8e8e8"; e.currentTarget.style.color = C.text }}
+          onMouseLeave={e => { e.currentTarget.style.background = "#f4f4f4"; e.currentTarget.style.color = C.textSoft }}
+          title="Cerrar ventana (Esc)"
+        >
+          ✕
+        </button>
+
         {/* Cabecera Principal */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, paddingRight: isMobile ? 36 : 42 }}>
           <div>
-            <div style={{ fontSize: 9, letterSpacing: "2.5px", color: C.orange, textTransform: "uppercase", fontWeight: "bold", marginBottom: 3 }}>
+            <div style={{ fontSize: 9, letterSpacing: "2px", color: C.orange, textTransform: "uppercase", fontWeight: "bold", marginBottom: 2 }}>
               📊 Control Diario de Cobros · Verde Naranja
             </div>
-            <div style={{ fontSize: 20, fontWeight: "800", color: C.text, fontFamily: "Georgia, serif", display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ fontSize: isMobile ? 18 : 20, fontWeight: "800", color: C.text, fontFamily: "Georgia, serif", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
               <span>Resumen del Día</span>
-              <span style={{ fontSize: 13, fontWeight: "normal", color: C.textSoft, fontFamily: "sans-serif" }}>
+              <span style={{ fontSize: 12, fontWeight: "normal", color: C.textSoft, fontFamily: "sans-serif" }}>
                 · {fmtDate(currentDate)}
               </span>
             </div>
           </div>
 
           {/* Tarjetas resumen superior */}
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             {/* Total General */}
             <div style={{
               background: `linear-gradient(135deg, ${C.green}, ${C.greenLight})`,
               color: "#ffffff",
-              padding: "7px 14px",
+              padding: "6px 12px",
               borderRadius: 12,
               textAlign: "right",
               boxShadow: "0 4px 14px rgba(43,122,58,0.22)"
             }}>
-              <div style={{ fontSize: 8, letterSpacing: "1px", textTransform: "uppercase", opacity: 0.85, fontWeight: "bold" }}>
+              <div style={{ fontSize: 7.5, letterSpacing: "1px", textTransform: "uppercase", opacity: 0.85, fontWeight: "bold" }}>
                 Total Recaudado
               </div>
-              <div className={privacyMode ? "privacy-blur" : ""} style={{ fontSize: 18, fontWeight: "bold", fontVariantNumeric: "tabular-nums" }}>
+              <div className={privacyMode ? "privacy-blur" : ""} style={{ fontSize: isMobile ? 16 : 18, fontWeight: "bold", fontVariantNumeric: "tabular-nums" }}>
                 <AnimatedNumber value={grandTotal} formatFn={fmt} />
               </div>
             </div>
@@ -91,59 +124,34 @@ export function DailySummaryModal({
             <div style={{
               background: scheduledStats?.isFullyPaid ? "#f0fdf4" : C.cream,
               border: `1.5px solid ${scheduledStats?.isFullyPaid ? C.greenMint : C.border}`,
-              padding: "7px 12px",
+              padding: "6px 10px",
               borderRadius: 12,
               textAlign: "left"
             }}>
               <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <span style={{ fontSize: 13, fontWeight: "800", color: scheduledStats?.isFullyPaid ? C.green : C.text, fontVariantNumeric: "tabular-nums" }}>
+                <span style={{ fontSize: 12, fontWeight: "800", color: scheduledStats?.isFullyPaid ? C.green : C.text, fontVariantNumeric: "tabular-nums" }}>
                   {scheduledStats?.pctCount || 0}%
                 </span>
                 {scheduledStats?.isFullyPaid && (
-                  <span style={{ fontSize: 8, color: "#ffffff", background: C.green, fontWeight: "bold", padding: "1px 5px", borderRadius: 4 }}>
+                  <span style={{ fontSize: 7.5, color: "#ffffff", background: C.green, fontWeight: "bold", padding: "1px 4px", borderRadius: 4 }}>
                     COMPLETO
                   </span>
                 )}
               </div>
-              <div style={{ fontSize: 9, color: C.textSoft }}>
-                {scheduledStats?.paidCount || 0} de {scheduledStats?.totalCount || 0} turnos cobrados
+              <div style={{ fontSize: 8.5, color: C.textSoft }}>
+                {scheduledStats?.paidCount || 0} de {scheduledStats?.totalCount || 0} cobrados
               </div>
             </div>
-
-            {/* Botón Cerrar */}
-            <button
-              type="button"
-              onClick={onClose}
-              style={{
-                width: 34,
-                height: 34,
-                borderRadius: "50%",
-                background: "#f4f4f4",
-                border: "none",
-                cursor: "pointer",
-                color: C.textSoft,
-                fontSize: 18,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                transition: "all .15s"
-              }}
-              onMouseEnter={e => { e.currentTarget.style.background = "#e8e8e8"; e.currentTarget.style.color = C.text }}
-              onMouseLeave={e => { e.currentTarget.style.background = "#f4f4f4"; e.currentTarget.style.color = C.textSoft }}
-              title="Cerrar ventana (Esc)"
-            >
-              ✕
-            </button>
           </div>
         </div>
 
         {/* Separador sutil */}
         <div style={{ height: 1.5, background: `linear-gradient(90deg, ${C.greenMint}, ${C.border}, transparent)`, borderRadius: 2 }} />
 
-        {/* 4 Columnas: Efectivo, Débito, Mercado Pago, Sin Cobrar */}
+        {/* 4 Columnas: Efectivo, Débito, Mercado Pago, Sin Cobrar (Diseño anterior original) */}
         <div style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+          gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(240px, 1fr))",
           gap: 12,
           flex: 1,
           minHeight: 0
@@ -180,7 +188,7 @@ export function DailySummaryModal({
             </div>
 
             {/* Lista scrolleable */}
-            <div style={{ flex: 1, overflowY: "auto", padding: "8px 10px", maxHeight: 440, display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ flex: 1, overflowY: "auto", padding: "8px 10px", maxHeight: isMobile ? 260 : 440, display: "flex", flexDirection: "column", gap: 6 }}>
               {cashAppts.length === 0 ? (
                 <div style={{ fontSize: 11, color: C.textSoft, textAlign: "center", padding: "24px 0", fontStyle: "italic" }}>
                   Sin cobros en efectivo
@@ -263,7 +271,7 @@ export function DailySummaryModal({
             </div>
 
             {/* Lista scrolleable */}
-            <div style={{ flex: 1, overflowY: "auto", padding: "8px 10px", maxHeight: 440, display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ flex: 1, overflowY: "auto", padding: "8px 10px", maxHeight: isMobile ? 260 : 440, display: "flex", flexDirection: "column", gap: 6 }}>
               {debitAppts.length === 0 ? (
                 <div style={{ fontSize: 11, color: C.textSoft, textAlign: "center", padding: "24px 0", fontStyle: "italic" }}>
                   Sin cobros en débito
@@ -346,7 +354,7 @@ export function DailySummaryModal({
             </div>
 
             {/* Lista scrolleable */}
-            <div style={{ flex: 1, overflowY: "auto", padding: "8px 10px", maxHeight: 440, display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ flex: 1, overflowY: "auto", padding: "8px 10px", maxHeight: isMobile ? 260 : 440, display: "flex", flexDirection: "column", gap: 6 }}>
               {mpAppts.length === 0 ? (
                 <div style={{ fontSize: 11, color: C.textSoft, textAlign: "center", padding: "24px 0", fontStyle: "italic" }}>
                   Sin cobros en Mercado Pago
@@ -397,7 +405,7 @@ export function DailySummaryModal({
             </div>
           </div>
 
-          {/* 4. Columna Turnos Adeudados */}
+          {/* 4. Columna Turnos Adeudados (Clientas que no abonaron) */}
           <div style={{
             background: "#fff9f9",
             borderRadius: 16,
@@ -429,7 +437,7 @@ export function DailySummaryModal({
             </div>
 
             {/* Lista scrolleable */}
-            <div style={{ flex: 1, overflowY: "auto", padding: "8px 10px", maxHeight: 440, display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ flex: 1, overflowY: "auto", padding: "8px 10px", maxHeight: isMobile ? 260 : 440, display: "flex", flexDirection: "column", gap: 6 }}>
               {unpaidAppts.length === 0 ? (
                 <div style={{ fontSize: 11, color: "#15803d", textAlign: "center", padding: "32px 12px", display: "flex", flexDirection: "column", gap: 6, alignItems: "center" }}>
                   <span style={{ fontSize: 24 }}>🎉</span>
