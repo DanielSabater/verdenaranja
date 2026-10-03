@@ -9,6 +9,7 @@ export function NotebookModal({ isOpen, onClose, todoTasks, setTodoTasks }) {
   const inputRef = useRef(null)
   const editInputRef = useRef(null)
   const sheetRef = useRef(null)
+  const listRef = useRef(null)
   const [sheetHeight, setSheetHeight] = useState(480)
 
   // Medir la altura real de la libreta para calcular los anillos necesarios
@@ -32,13 +33,27 @@ export function NotebookModal({ isOpen, onClose, todoTasks, setTodoTasks }) {
     return () => ro.disconnect()
   }, [isOpen, todoTasks])
 
-  // Autofoco al abrir para el input de agregar tarea (sin desplazar el scroll bruscamente)
+  // Al abrir la libreta: posicionar el scroll al final para mostrar siempre la última anotación y el campo de edición, y dar foco al input
   useEffect(() => {
     if (isOpen) {
-      const timer = setTimeout(() => {
+      setEditingTaskId(null)
+      setEditingText("")
+
+      const scrollToBottomAndFocus = () => {
+        if (listRef.current) {
+          listRef.current.scrollTop = listRef.current.scrollHeight
+        }
         inputRef.current?.focus({ preventScroll: true })
-      }, 50)
-      return () => clearTimeout(timer)
+      }
+
+      // Ejecutar de inmediato y tras la animación de entrada del popover
+      const t1 = setTimeout(scrollToBottomAndFocus, 40)
+      const t2 = setTimeout(scrollToBottomAndFocus, 230)
+
+      return () => {
+        clearTimeout(t1)
+        clearTimeout(t2)
+      }
     }
   }, [isOpen])
 
@@ -72,6 +87,15 @@ export function NotebookModal({ isOpen, onClose, todoTasks, setTodoTasks }) {
       if (inputRef.current) {
         inputRef.current.style.height = "32px"
       }
+
+      setTimeout(() => {
+        if (listRef.current) {
+          listRef.current.scrollTo({
+            top: listRef.current.scrollHeight,
+            behavior: "smooth"
+          })
+        }
+      }, 50)
     }
   }
 
@@ -239,13 +263,17 @@ export function NotebookModal({ isOpen, onClose, todoTasks, setTodoTasks }) {
             </div>
 
             {/* Área de tareas (scrollable y alineada mediante bordes físicos en cada fila) */}
-            <div className="no-scrollbar" style={{
-              flex: 1,
-              overflowY: "auto",
-              display: "flex",
-              flexDirection: "column",
-              minHeight: 288
-            }}>
+            <div 
+              ref={listRef}
+              className="no-scrollbar" 
+              style={{
+                flex: 1,
+                overflowY: "auto",
+                display: "flex",
+                flexDirection: "column",
+                minHeight: 288
+              }}
+            >
               {/* 1. Renderizar tareas */}
               {todoTasks.map((task) => (
                 <div 
