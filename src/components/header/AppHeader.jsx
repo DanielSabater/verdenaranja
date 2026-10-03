@@ -6,6 +6,7 @@ import { AnimatedNumber } from "../ui/index.jsx"
 import { MESES_ES, todayKey, fmtDate, fmtShort, nextWorkDay } from "../../utils/dates.js"
 import { formatWaNumber, openWhatsAppLink, cleanClientName } from "../../utils/whatsapp.js"
 import { useIsMobile } from "../../hooks/useIsMobile.js"
+import { DailySummaryModal } from "../modals/DailySummaryModal.jsx"
 
 function getRamaEmoji(rama) {
   const r = String(rama).toLowerCase().trim()
@@ -220,7 +221,6 @@ export const AppHeader = memo(function AppHeader({
       window.dispatchEvent(new CustomEvent("scroll-to-today-hour"))
     }, isAlreadyToday ? 50 : 250)
   }
-  const [activeMethod, setActiveMethod] = useState(null)
   const dateStripRef = useRef(null)
 
   useEffect(() => {
@@ -251,56 +251,14 @@ export const AppHeader = memo(function AppHeader({
 
   const btnNav = { width: 30, height: 30, borderRadius: "50%", border: `1px solid ${C.border}`, background: C.white, color: C.green, fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }
 
-  // Abanico desplegable de totales hacia la izquierda en desktop
-  const [isTotalsFanExpanded, setIsTotalsFanExpanded] = useState(false)
-  const totalsFanTimerRef = useRef(null)
-
-  const handleTotalsFanMouseEnter = () => {
-    if (totalsFanTimerRef.current) {
-      clearTimeout(totalsFanTimerRef.current)
-      totalsFanTimerRef.current = null
-    }
-    setIsTotalsFanExpanded(true)
-  }
-
-  const handleTotalsFanMouseLeave = () => {
-    if (totalsFanTimerRef.current) {
-      clearTimeout(totalsFanTimerRef.current)
-    }
-    totalsFanTimerRef.current = setTimeout(() => {
-      // Si un popup de método de pago está abierto, no cerramos
-      if (!activeMethod) {
-        setIsTotalsFanExpanded(false)
-      }
-    }, 3000)
-  }
+  // Modal de resumen diario unificado (Efectivo, Débito, Mercado Pago, Sin Cobrar)
+  const [dailySummaryOpen, setDailySummaryOpen] = useState(false)
 
   useEffect(() => {
     if (activeView !== "turnos") {
-      setIsTotalsFanExpanded(false)
-      if (totalsFanTimerRef.current) {
-        clearTimeout(totalsFanTimerRef.current)
-        totalsFanTimerRef.current = null
-      }
+      setDailySummaryOpen(false)
     }
   }, [activeView])
-
-  useEffect(() => {
-    return () => {
-      if (totalsFanTimerRef.current) {
-        clearTimeout(totalsFanTimerRef.current)
-      }
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!activeMethod && isTotalsFanExpanded) {
-      if (totalsFanTimerRef.current) clearTimeout(totalsFanTimerRef.current)
-      totalsFanTimerRef.current = setTimeout(() => {
-        setIsTotalsFanExpanded(false)
-      }, 3000)
-    }
-  }, [activeMethod, isTotalsFanExpanded])
 
   const isMobile = useIsMobile(1100)
   const isToday = currentDate === tKey
@@ -512,17 +470,15 @@ export const AppHeader = memo(function AppHeader({
                 flexShrink: 0
               }}>
                 <button
-                  onClick={() => setActiveMethod(activeMethod === "resumen_mobile" ? null : "resumen_mobile")}
+                  onClick={() => setDailySummaryOpen(true)}
                   className="branch-tab-btn"
                   style={{
                     padding: "5px 10px",
                     borderRadius: 16,
                     cursor: "pointer",
                     border: "none",
-                    background: activeMethod === "resumen_mobile"
-                      ? `linear-gradient(135deg,${C.green},${C.greenLight})`
-                      : (grandTotal > 0 ? `linear-gradient(135deg,${C.green},${C.greenLight})` : "transparent"),
-                    color: (activeMethod === "resumen_mobile" || grandTotal > 0) ? "#fff" : C.textSoft,
+                    background: grandTotal > 0 ? `linear-gradient(135deg,${C.green},${C.greenLight})` : "transparent",
+                    color: grandTotal > 0 ? "#fff" : C.textSoft,
                     fontSize: 10,
                     fontFamily: "Georgia, serif",
                     letterSpacing: "0.2px",
@@ -531,14 +487,14 @@ export const AppHeader = memo(function AppHeader({
                     display: "flex",
                     alignItems: "center",
                     gap: 3,
-                    boxShadow: (activeMethod === "resumen_mobile" || grandTotal > 0) ? `0 2px 6px ${C.green}33` : "none",
+                    boxShadow: grandTotal > 0 ? `0 2px 6px ${C.green}33` : "none",
                     outline: "none",
                     position: "relative",
                     whiteSpace: "nowrap"
                   }}
-                  onMouseEnter={(e) => { if (activeMethod !== "resumen_mobile" && grandTotal === 0) { e.currentTarget.style.background = C.greenPale } }}
-                  onMouseLeave={(e) => { if (activeMethod !== "resumen_mobile" && grandTotal === 0) { e.currentTarget.style.background = "transparent" } }}
-                  title="Ver desglose del día (Efectivo, Débito, Mercado Pago)"
+                  onMouseEnter={(e) => { if (grandTotal === 0) { e.currentTarget.style.background = C.greenPale } }}
+                  onMouseLeave={(e) => { if (grandTotal === 0) { e.currentTarget.style.background = "transparent" } }}
+                  title="Ver desglose del día y turnos adeudados"
                 >
                   <span className={privacyMode ? "privacy-blur" : ""} style={{ fontVariantNumeric: "tabular-nums" }}>
                     <AnimatedNumber value={grandTotal} formatFn={fmt} />
@@ -578,533 +534,132 @@ export const AppHeader = memo(function AppHeader({
             flexShrink: 0
           }} title={connStatus === "online" ? "Sincronización Activa" : "Reconectando..."} />
 
-          {/* Desktop totals con Abanico desplegable hacia la izquierda (solo visibles en la vista Turnos) */}
+          {/* Botón Compacto de Resumen Diario en Header (Abre el modal unificado) */}
           {activeView === "turnos" && (
-            <div
-              className="desktop-totals fan-totals-wrapper"
-              onMouseEnter={handleTotalsFanMouseEnter}
-              onMouseLeave={handleTotalsFanMouseLeave}
+            <button
+              type="button"
+              onClick={() => setDailySummaryOpen(true)}
+              className="daily-summary-btn"
+              title={`Ver resumen del día y deudas pendientes\nProgreso de hoy: ${scheduledStats.pctCount}% (${scheduledStats.paidCount} de ${scheduledStats.totalCount} cobrados)\nRecaudado hoy: ${fmt(grandTotal)}${pastUnpaidAppts.length > 0 ? `\n⚠️ ${pastUnpaidAppts.length} turno${pastUnpaidAppts.length !== 1 ? "s" : ""} de días anteriores sin cobrar (${fmt(pastUnpaidTotalMoney)})` : ""}`}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                height: 38,
+                padding: "0 12px",
+                borderRadius: 12,
+                border: scheduledStats.isFullyPaid
+                  ? `1.5px solid ${C.green}`
+                  : (scheduledStats.totalCount > 0 ? `1.5px solid ${C.greenMint}` : `1.5px solid ${C.border}`),
+                background: scheduledStats.isFullyPaid
+                  ? `linear-gradient(135deg, ${C.green}, ${C.greenLight})`
+                  : (isLiquid ? "rgba(255, 255, 255, 0.75)" : C.white),
+                backdropFilter: isLiquid ? "blur(12px)" : "none",
+                WebkitBackdropFilter: isLiquid ? "blur(12px)" : "none",
+                boxShadow: scheduledStats.isFullyPaid
+                  ? `0 4px 14px ${C.green}44`
+                  : `0 2px 8px ${C.shadow}`,
+                cursor: "pointer",
+                userSelect: "none",
+                transition: "all .2s cubic-bezier(0.16, 1, 0.3, 1)",
+                outline: "none",
+                flexShrink: 0
+              }}
             >
-              {/* Abanico de botones en el flujo del header */}
-              <div
-                className={`fan-items-container ${isTotalsFanExpanded || activeMethod ? "fan-open" : "fan-closed"}`}
-                onMouseEnter={handleTotalsFanMouseEnter}
-                onMouseLeave={handleTotalsFanMouseLeave}
-              >
-                {PAYMENT_METHODS.map(pm => {
-                  const t = totalByMethod(pm.id); const isActive = activeMethod === pm.id; return (
-                    <div key={pm.id} style={{ position: "relative", flexShrink: 0 }} onMouseEnter={() => setActiveMethod(pm.id)} onMouseLeave={() => setActiveMethod(null)}>
-                      <div
-                        style={{ background: t > 0 ? (pm.id === "mercadopago" ? C.mpPale : pm.id === "debito" ? C.amberPale : C.greenPale) : "#f7f7f7", border: `1.5px solid ${isActive ? pm.color : (t > 0 ? (pm.id === "mercadopago" ? C.mpMid : pm.id === "debito" ? C.amberMid : C.greenMint) : "#e8e8e8")}`, borderRadius: 9, padding: "5px 9px", textAlign: "center", minWidth: 110, cursor: t > 0 ? "pointer" : "default", transition: "all .15s", boxShadow: isActive ? `0 4px 12px ${pm.color}33` : "none" }}>
-                        <div style={{ fontSize: 8, color: t > 0 ? pm.color : "#bbb", textTransform: "uppercase", whiteSpace: "nowrap" }}>{pm.icon} {pm.label}</div>
-                        <div className={privacyMode ? "privacy-blur" : ""} style={{ fontSize: 12, fontWeight: "bold", color: t > 0 ? pm.color : "#ccc", fontVariantNumeric: "tabular-nums" }}><AnimatedNumber value={t} formatFn={fmt} />{t > 0 && <span style={{ fontSize: 8, marginLeft: 3 }}>{isActive ? "▲" : "▼"}</span>}</div>
-                      </div>
+              {/* Anillo de progreso circular SVG */}
+              <div style={{ position: "relative", width: 24, height: 24, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <svg width="24" height="24" viewBox="0 0 36 36" style={{ transform: "rotate(-90deg)" }}>
+                  <path
+                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                    fill="none"
+                    stroke={scheduledStats.isFullyPaid ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.07)"}
+                    strokeWidth="3.8"
+                  />
+                  <path
+                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                    fill="none"
+                    stroke={scheduledStats.isFullyPaid ? "#ffffff" : C.green}
+                    strokeWidth="3.8"
+                    strokeDasharray={`${scheduledStats.pctCount}, 100`}
+                    strokeLinecap="round"
+                    style={{ transition: "stroke-dasharray 0.5s ease" }}
+                  />
+                </svg>
+                {scheduledStats.isFullyPaid ? (
+                  <span style={{ position: "absolute", fontSize: 10, color: "#fff", fontWeight: "bold" }}>✓</span>
+                ) : (
+                  <span style={{ position: "absolute", fontSize: 9, fontWeight: "bold", color: scheduledStats.totalCount > 0 ? C.green : C.textSoft }}>
+                    %
+                  </span>
+                )}
+              </div>
 
-                      {/* Dropdown */}
-                      {isActive && t > 0 && (() => {
-                        const appts = getApptsByMethod(pm.id)
-                        return (
-                          <>
-                            <div style={{ position: "absolute", top: "calc(100% + 8px)", left: "50%", transform: "translateX(-50%)", zIndex: 150, background: C.white, borderRadius: 14, border: `1.5px solid ${pm.color}44`, boxShadow: `0 8px 32px ${pm.color}22`, minWidth: 260, maxWidth: 340, padding: "12px 14px" }}>
-                              <div style={{ fontSize: 8, letterSpacing: "2px", color: pm.color, textTransform: "uppercase", marginBottom: 8 }}>{pm.icon} {pm.label} — {currentDate}</div>
-                              {appts.length === 0
-                                ? <div style={{ fontSize: 11, color: C.textSoft, textAlign: "center", padding: "8px 0" }}>Sin pagos</div>
-                                : <>
-                                  {appts.map((a, i) => (
-                                    <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: `1px solid ${C.greenPale}` }}>
-                                      <div>
-                                        <div style={{ fontSize: 11, color: C.text, fontWeight: "bold" }}>{a.client}</div>
-                                        <div style={{ fontSize: 9, color: C.textSoft }}>{a.hour} · {(a.services || []).map(s => s.name).join(", ")}</div>
-                                      </div>
-                                      <div style={{ fontSize: 13, fontWeight: "bold", color: pm.color }}>{fmt(a.methodAmount)}</div>
-                                    </div>
-                                  ))}
-                                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, paddingTop: 6, borderTop: `2px solid ${pm.color}33` }}>
-                                    <div style={{ fontSize: 9, color: C.textSoft }}>{appts.length} pago{appts.length !== 1 ? "s" : ""}</div>
-                                    <div style={{ fontSize: 13, fontWeight: "bold", color: pm.color }}>{fmt(t)}</div>
-                                  </div>
-                                </>
-                              }
-                            </div>
-                          </>
-                        )
-                      })()}
-                    </div>
-                  )
-                })}
-                <div style={{ background: grandTotal > 0 ? `linear-gradient(135deg,${C.green},${C.greenLight})` : "#f0f0f0", borderRadius: 10, padding: "6px 12px", textAlign: "center", minWidth: 120, flexShrink: 0 }}>
-                  <div style={{ fontSize: 7, color: grandTotal > 0 ? "rgba(255,255,255,.7)" : "#bbb", textTransform: "uppercase" }}>Total</div>
-                  <div className={privacyMode ? "privacy-blur" : ""} style={{ fontSize: 15, fontWeight: "bold", color: grandTotal > 0 ? C.white : "#ccc", fontVariantNumeric: "tabular-nums" }}><AnimatedNumber value={grandTotal} formatFn={fmt} /></div>
+              {/* Importe y Estado */}
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", textAlign: "left", lineHeight: 1.15 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <span
+                    className={privacyMode ? "privacy-blur" : ""}
+                    style={{
+                      fontSize: 13,
+                      fontWeight: "800",
+                      fontFamily: "Georgia, serif",
+                      color: scheduledStats.isFullyPaid ? "#ffffff" : (grandTotal > 0 ? C.green : C.textSoft),
+                      fontVariantNumeric: "tabular-nums"
+                    }}
+                  >
+                    <AnimatedNumber value={grandTotal} formatFn={fmt} />
+                  </span>
+
+                  {scheduledStats.isFullyPaid && (
+                    <span style={{ fontSize: 7.5, color: "#ffffff", fontWeight: "bold", background: "rgba(255,255,255,0.25)", padding: "1px 4px", borderRadius: 4, letterSpacing: "0.5px" }}>
+                      COMPLETO
+                    </span>
+                  )}
+
+                  {pastUnpaidAppts.length > 0 && (
+                    <span
+                      title={`${pastUnpaidAppts.length} turno${pastUnpaidAppts.length !== 1 ? "s" : ""} de días anteriores sin cobrar (${fmt(pastUnpaidTotalMoney)})`}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 2,
+                        background: "linear-gradient(135deg, #ef4444, #dc2626)",
+                        color: "#ffffff",
+                        fontSize: 8,
+                        fontWeight: "bold",
+                        padding: "1px 5px",
+                        borderRadius: 6,
+                        boxShadow: "0 1px 4px rgba(220, 38, 38, 0.35)",
+                        flexShrink: 0
+                      }}
+                    >
+                      <span>⚠️</span>
+                      <span>{pastUnpaidAppts.length}</span>
+                    </span>
+                  )}
+                </div>
+
+                <div style={{ fontSize: 8.5, color: scheduledStats.isFullyPaid ? "rgba(255,255,255,0.85)" : C.textSoft, whiteSpace: "nowrap" }}>
+                  {scheduledStats.totalCount === 0
+                    ? "Sin turnos"
+                    : `${scheduledStats.paidCount}/${scheduledStats.totalCount} cobrados`}
                 </div>
               </div>
 
-              {/* Botón Principal Unificado (Porcentaje y Conteo de Turnos) */}
-              <button
-                type="button"
-                onClick={() => setIsTotalsFanExpanded(v => !v)}
-                className="fan-trigger-btn"
-                title={`Progreso del día: ${scheduledStats.pctCount}% (${scheduledStats.paidCount} de ${scheduledStats.totalCount} turnos cobrados)\nRecaudado: ${fmt(scheduledStats.paidMoney)} de ${fmt(scheduledStats.totalMoney)} programado\nApoyá el puntero para desplegar los totales`}
+              {/* Indicador sutil de modal */}
+              <span
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  height: 38,
-                  padding: "0 12px",
-                  borderRadius: 12,
-                  border: scheduledStats.isFullyPaid
-                    ? `1.5px solid ${C.green}`
-                    : (scheduledStats.totalCount > 0 ? `1.5px solid ${C.greenMint}` : `1.5px solid ${C.border}`),
-                  background: scheduledStats.isFullyPaid
-                    ? `linear-gradient(135deg, ${C.green}, ${C.greenLight})`
-                    : (isLiquid ? "rgba(255, 255, 255, 0.65)" : C.white),
-                  backdropFilter: isLiquid ? "blur(12px)" : "none",
-                  WebkitBackdropFilter: isLiquid ? "blur(12px)" : "none",
-                  boxShadow: scheduledStats.isFullyPaid
-                    ? `0 4px 14px ${C.green}44`
-                    : (isTotalsFanExpanded ? `0 4px 14px rgba(0,0,0,0.1)` : `0 2px 8px ${C.shadow}`),
-                  cursor: "pointer",
-                  userSelect: "none",
-                  transition: "all .2s cubic-bezier(0.16, 1, 0.3, 1)",
-                  outline: "none",
-                  flexShrink: 0
+                  fontSize: 11,
+                  color: scheduledStats.isFullyPaid ? "rgba(255,255,255,0.7)" : C.textSoft,
+                  marginLeft: 1
                 }}
               >
-                {/* Anillo circular de progreso SVG */}
-                <div style={{ position: "relative", width: 24, height: 24, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <svg width="24" height="24" viewBox="0 0 36 36" style={{ transform: "rotate(-90deg)" }}>
-                    <path
-                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                      fill="none"
-                      stroke={scheduledStats.isFullyPaid ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.07)"}
-                      strokeWidth="3.8"
-                    />
-                    <path
-                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                      fill="none"
-                      stroke={scheduledStats.isFullyPaid ? "#ffffff" : C.green}
-                      strokeWidth="3.8"
-                      strokeDasharray={`${scheduledStats.pctCount}, 100`}
-                      strokeLinecap="round"
-                      style={{ transition: "stroke-dasharray 0.5s ease" }}
-                    />
-                  </svg>
-                  {scheduledStats.isFullyPaid ? (
-                    <span style={{ position: "absolute", fontSize: 10, color: "#fff", fontWeight: "bold" }}>✓</span>
-                  ) : (
-                    <span style={{ position: "absolute", fontSize: 9, fontWeight: "bold", color: scheduledStats.totalCount > 0 ? C.green : C.textSoft }}>
-                      %
-                    </span>
-                  )}
-                </div>
-
-                {/* Porcentaje y Conteo de turnos */}
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", textAlign: "left", lineHeight: 1.15 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                    <span
-                      className={privacyMode ? "privacy-blur" : ""}
-                      style={{
-                        fontSize: 13,
-                        fontWeight: "800",
-                        fontFamily: "Georgia, serif",
-                        color: scheduledStats.isFullyPaid ? "#ffffff" : (scheduledStats.totalCount > 0 ? C.green : C.textSoft),
-                        fontVariantNumeric: "tabular-nums"
-                      }}
-                    >
-                      {scheduledStats.pctCount}%
-                    </span>
-                    {scheduledStats.isFullyPaid && (
-                      <span style={{ fontSize: 8, color: "#ffffff", fontWeight: "bold", background: "rgba(255,255,255,0.25)", padding: "1px 4px", borderRadius: 4, letterSpacing: "0.5px" }}>
-                        COMPLETO
-                      </span>
-                    )}
-                    {/* Badge de alerta si hay turnos de días previos sin cobrar */}
-                    {pastUnpaidAppts.length > 0 && (
-                      <span
-                        title={`${pastUnpaidAppts.length} turno${pastUnpaidAppts.length !== 1 ? "s" : ""} de días anteriores sin cobrar (${fmt(pastUnpaidTotalMoney)})`}
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 2,
-                          background: "linear-gradient(135deg, #ef4444, #dc2626)",
-                          color: "#ffffff",
-                          fontSize: 8,
-                          fontWeight: "bold",
-                          padding: "2px 5px",
-                          borderRadius: 8,
-                          boxShadow: "0 2px 6px rgba(220, 38, 38, 0.4)",
-                          marginLeft: 2,
-                          flexShrink: 0
-                        }}
-                      >
-                        <span>⚠️</span>
-                        <span>{pastUnpaidAppts.length}</span>
-                      </span>
-                    )}
-                  </div>
-                  <div style={{ fontSize: 8.5, color: scheduledStats.isFullyPaid ? "rgba(255,255,255,0.85)" : C.textSoft, whiteSpace: "nowrap" }}>
-                    {scheduledStats.totalCount === 0
-                      ? "Sin turnos"
-                      : `${scheduledStats.paidCount}/${scheduledStats.totalCount} cobrados`}
-                  </div>
-                </div>
-
-                {/* Indicador / Flecha de abanico hacia la izquierda */}
-                <span
-                  style={{
-                    fontSize: 13,
-                    fontWeight: "bold",
-                    color: scheduledStats.isFullyPaid ? "rgba(255,255,255,0.8)" : C.textSoft,
-                    marginLeft: 2,
-                    transition: "transform 0.25s ease",
-                    transform: (isTotalsFanExpanded || activeMethod) ? "rotate(180deg)" : "translateX(-1px)",
-                    display: "inline-block"
-                  }}
-                >
-                  ‹
-                </span>
-              </button>
-
-              {/* Panel vertical desplegable hacia abajo con turnos pasados sin cobrar */}
-              {(isTotalsFanExpanded || activeMethod) && (
-                <div
-                  className="past-unpaid-dropdown"
-                  onMouseEnter={handleTotalsFanMouseEnter}
-                  onMouseLeave={handleTotalsFanMouseLeave}
-                  style={{
-                    position: "absolute",
-                    top: "calc(100% + 8px)",
-                    right: 0,
-                    zIndex: 150,
-                    background: C.white,
-                    borderRadius: 14,
-                    border: `1.5px solid ${pastUnpaidAppts.length > 0 ? "#fca5a5" : C.border}`,
-                    boxShadow: "0 12px 36px rgba(0,0,0,0.16)",
-                    width: 330,
-                    maxHeight: 400,
-                    display: "flex",
-                    flexDirection: "column",
-                    overflow: "hidden",
-                    animation: "scaleUp 0.18s cubic-bezier(0.16, 1, 0.3, 1)"
-                  }}
-                >
-                  {/* Cabecera del panel */}
-                  <div style={{
-                    padding: "10px 14px",
-                    background: pastUnpaidAppts.length > 0 ? "linear-gradient(135deg, #fff1f2, #ffe4e6)" : "linear-gradient(135deg, #f0fdf4, #dcfce7)",
-                    borderBottom: `1px solid ${pastUnpaidAppts.length > 0 ? "#fecdd3" : "#bbf7d0"}`,
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center"
-                  }}>
-                    <div>
-                      <div style={{
-                        fontSize: 11,
-                        fontWeight: "bold",
-                        color: pastUnpaidAppts.length > 0 ? "#b91c1c" : "#15803d",
-                        letterSpacing: "0.5px",
-                        textTransform: "uppercase"
-                      }}>
-                        {pastUnpaidAppts.length > 0
-                          ? `⚠️ ${pastUnpaidAppts.length} Turno${pastUnpaidAppts.length !== 1 ? "s" : ""} Pasado${pastUnpaidAppts.length !== 1 ? "s" : ""} Sin Cobrar`
-                          : "✓ Sin turnos pendientes previos"}
-                      </div>
-                      <div style={{ fontSize: 9, color: pastUnpaidAppts.length > 0 ? "#991b1b" : "#166534", marginTop: 2 }}>
-                        {pastUnpaidAppts.length > 0
-                          ? `Total adeudado: ${fmt(pastUnpaidTotalMoney)}`
-                          : "Todas las clientas de días anteriores están al día"}
-                      </div>
-                    </div>
-                    <span style={{ fontSize: 16 }}>{pastUnpaidAppts.length > 0 ? "⏳" : "🎉"}</span>
-                  </div>
-
-                  {/* Lista de turnos impagos pasados */}
-                  {pastUnpaidAppts.length > 0 ? (
-                    <>
-                      <div style={{
-                        overflowY: "auto",
-                        maxHeight: 300,
-                        padding: "8px",
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 6
-                      }}>
-                        {pastUnpaidAppts.map((item) => {
-                          const dateDisplay = fmtShort(item.date)
-                          const serviceNames = (item.services || []).map(s => s.name).join(", ") || "Turno"
-
-                          const handleWhatsAppClick = (e) => {
-                            e.stopPropagation()
-                            if (!item.clientPhone) return
-                            const message = `¡Hola ${cleanClientName(item.client)}! 🌿 Te escribimos de Verde Naranja por tu turno del día ${fmtDate(item.date)} (${serviceNames}). Te dejamos este recordatorio porque quedó pendiente el saldo de ${fmt(item.totalAmount)}. ¡Muchas gracias!`
-                            openWhatsAppLink(formatWaNumber(item.clientPhone), message)
-                          }
-
-                          return (
-                            <div
-                              key={item.key}
-                              onClick={() => {
-                                onNavigateToTurno?.({
-                                  date: item.date,
-                                  hour: item.hour,
-                                  profId: item.profId,
-                                  rama: item.profRama,
-                                  openEdit: false
-                                })
-                                setIsTotalsFanExpanded(false)
-                              }}
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "space-between",
-                                padding: "8px 10px",
-                                borderRadius: 10,
-                                background: "#fffaf0",
-                                border: "1px solid #fed7aa",
-                                cursor: "pointer",
-                                transition: "all .15s ease",
-                                gap: 8
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.background = "#fff4e5"
-                                e.currentTarget.style.borderColor = "#fdba74"
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.background = "#fffaf0"
-                                e.currentTarget.style.borderColor = "#fed7aa"
-                              }}
-                              title="Clic para ver el turno en la planilla"
-                            >
-                              {/* Info del turno */}
-                              <div style={{ flex: 1, minWidth: 0, textAlign: "left" }}>
-                                <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 2 }}>
-                                  <span style={{ fontSize: 9, fontWeight: "bold", color: "#c2410c", background: "#ffedd5", padding: "1px 5px", borderRadius: 4, letterSpacing: "0.3px" }}>
-                                    📅 {dateDisplay} · {item.hour} hs
-                                  </span>
-                                  <span style={{ fontSize: 9, color: C.textSoft }}>
-                                    ({item.profName})
-                                  </span>
-                                </div>
-                                <div style={{ fontSize: 11, fontWeight: "bold", color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                  {item.client}
-                                </div>
-                                <div style={{ fontSize: 9, color: C.textSoft, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                  {serviceNames}
-                                </div>
-                              </div>
-
-                              {/* Monto + Botón WhatsApp */}
-                              <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-                                <div style={{ textAlign: "right" }}>
-                                  <div style={{ fontSize: 12, fontWeight: "800", color: "#b91c1c", fontVariantNumeric: "tabular-nums" }}>
-                                    {fmt(item.totalAmount)}
-                                  </div>
-                                  <div style={{ fontSize: 8, color: "#ea580c" }}>
-                                    Sin cobrar
-                                  </div>
-                                </div>
-                                {item.clientPhone ? (
-                                  <button
-                                    type="button"
-                                    onClick={handleWhatsAppClick}
-                                    title={`Enviar recordatorio por WhatsApp a ${item.client}`}
-                                    style={{
-                                      width: 28,
-                                      height: 28,
-                                      borderRadius: "50%",
-                                      background: "#25d366",
-                                      border: "none",
-                                      cursor: "pointer",
-                                      display: "flex",
-                                      alignItems: "center",
-                                      justifyContent: "center",
-                                      color: "#fff",
-                                      fontSize: 13,
-                                      boxShadow: "0 2px 6px rgba(37, 211, 102, 0.35)",
-                                      transition: "transform .12s ease"
-                                    }}
-                                    onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.12)" }}
-                                    onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)" }}
-                                  >
-                                    💬
-                                  </button>
-                                ) : null}
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                      <div style={{
-                        padding: "6px 10px",
-                        background: "#f9fafb",
-                        borderTop: `1px solid ${C.border}`,
-                        fontSize: 8.5,
-                        color: C.textSoft,
-                        textAlign: "center"
-                      }}>
-                        👉 Clic en un turno para verlo en la planilla
-                      </div>
-                    </>
-                  ) : null}
-                </div>
-              )}
-            </div>
+                ›
+              </span>
+            </button>
           )}
         </div>
       </header>
-
-      {/* Mobile payment details popup (desplegado desde el botón Total al lado de las ramas) */}
-      {activeView === "turnos" && activeMethod && isMobile && (
-        <>
-          <div
-            onClick={() => setActiveMethod(null)}
-            style={{
-              position: "fixed",
-              inset: 0,
-              zIndex: 149,
-              background: "rgba(0, 0, 0, 0.35)",
-              backdropFilter: "blur(2px)",
-              WebkitBackdropFilter: "blur(2px)",
-              animation: "fadeIn .15s ease-out"
-            }}
-          />
-          <div
-            style={{
-              position: "fixed",
-              top: 66,
-              left: 14,
-              right: 14,
-              maxWidth: 360,
-              margin: "0 auto",
-              zIndex: 150,
-              background: C.white,
-              borderRadius: 18,
-              border: `1.5px solid ${C.border}`,
-              boxShadow: "0 12px 36px rgba(0,0,0,0.18)",
-              padding: "16px",
-              maxHeight: "78vh",
-              display: "flex",
-              flexDirection: "column",
-              animation: "scaleUp .18s cubic-bezier(0.16, 1, 0.3, 1)"
-            }}
-          >
-            {(activeMethod === "resumen_mobile" || activeMethod === "total") ? (
-              <>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, borderBottom: `1px solid ${C.greenPale}`, paddingBottom: 8 }}>
-                  <div>
-                    <div style={{ fontSize: 11, letterSpacing: "1.5px", color: C.green, textTransform: "uppercase", fontWeight: "bold" }}>
-                      💰 Resumen del Día
-                    </div>
-                    <div style={{ fontSize: 9, color: C.textSoft, marginTop: 1 }}>{currentDate}</div>
-                  </div>
-                  <button
-                    onClick={() => setActiveMethod(null)}
-                    style={{ background: C.cream, border: "none", fontSize: 14, cursor: "pointer", color: C.textSoft, width: 26, height: 26, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}
-                  >✕</button>
-                </div>
-
-                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 14 }}>
-                  {PAYMENT_METHODS.map(pm => {
-                    const t = totalByMethod(pm.id)
-                    const appts = getApptsByMethod(pm.id)
-                    const count = appts.length
-                    return (
-                      <div
-                        key={pm.id}
-                        onClick={() => { if (count > 0) setActiveMethod(pm.id) }}
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          padding: "10px 12px",
-                          background: pm.id === "mercadopago" ? C.mpPale : pm.id === "debito" ? C.amberPale : C.greenPale,
-                          borderRadius: 12,
-                          border: `1px solid ${pm.id === "mercadopago" ? C.mpMid : pm.id === "debito" ? C.amberMid : C.greenMint}`,
-                          cursor: count > 0 ? "pointer" : "default",
-                          transition: "transform .12s"
-                        }}
-                      >
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <span style={{ fontSize: 18 }}>{pm.icon}</span>
-                          <div>
-                            <div style={{ fontSize: 12, fontWeight: "bold", color: pm.color }}>{pm.label}</div>
-                            <div style={{ fontSize: 9, color: C.textSoft }}>
-                              {count} cobro{count !== 1 ? "s" : ""} {count > 0 && <span style={{ color: pm.color }}>· Ver detalle ›</span>}
-                            </div>
-                          </div>
-                        </div>
-                        <div style={{ fontSize: 14, fontWeight: "bold", color: pm.color, fontVariantNumeric: "tabular-nums" }} className={privacyMode ? "privacy-blur" : ""}>
-                          {fmt(t)}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 10, borderTop: `2px solid ${C.green}33` }}>
-                  <div style={{ fontSize: 12, fontWeight: "bold", color: C.text }}>Total General</div>
-                  <div style={{ fontSize: 18, fontWeight: "bold", color: C.green, fontVariantNumeric: "tabular-nums" }} className={privacyMode ? "privacy-blur" : ""}>
-                    {fmt(grandTotal)}
-                  </div>
-                </div>
-              </>
-            ) : (() => {
-              const pm = PAYMENT_METHODS.find(p => p.id === activeMethod)
-              if (!pm) return null
-              const t = totalByMethod(pm.id)
-              const appts = getApptsByMethod(pm.id)
-              return (
-                <>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, borderBottom: `1px solid ${pm.color}33`, paddingBottom: 8 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <button
-                        onClick={() => setActiveMethod("resumen_mobile")}
-                        style={{ background: "none", border: "none", color: pm.color, cursor: "pointer", fontSize: 14, padding: "0 4px" }}
-                        title="Volver al resumen general"
-                      >‹</button>
-                      <div>
-                        <div style={{ fontSize: 11, letterSpacing: "1px", color: pm.color, textTransform: "uppercase", fontWeight: "bold" }}>
-                          {pm.icon} {pm.label}
-                        </div>
-                        <div style={{ fontSize: 9, color: C.textSoft }}>{currentDate}</div>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => setActiveMethod(null)}
-                      style={{ background: C.cream, border: "none", fontSize: 14, cursor: "pointer", color: C.textSoft, width: 26, height: 26, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}
-                    >✕</button>
-                  </div>
-
-                  {appts.length === 0 ? (
-                    <div style={{ fontSize: 12, color: C.textSoft, textAlign: "center", padding: "20px 0" }}>
-                      Sin pagos registrados con {pm.label}
-                    </div>
-                  ) : (
-                    <div style={{ overflowY: "auto", maxHeight: "48vh", display: "flex", flexDirection: "column", gap: 6 }}>
-                      {appts.map((a, i) => (
-                        <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: `1px solid ${C.borderLight}` }}>
-                          <div>
-                            <div style={{ fontSize: 12, color: C.text, fontWeight: "bold" }}>{a.client}</div>
-                            <div style={{ fontSize: 9, color: C.textSoft }}>{a.hour} · {(a.services || []).map(s => s.name).join(", ")}</div>
-                          </div>
-                          <div style={{ fontSize: 13, fontWeight: "bold", color: pm.color }} className={privacyMode ? "privacy-blur" : ""}>
-                            {fmt(a.methodAmount)}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12, paddingTop: 10, borderTop: `2px solid ${pm.color}33` }}>
-                    <div style={{ fontSize: 10, color: C.textSoft }}>{appts.length} cobro{appts.length !== 1 ? "s" : ""}</div>
-                    <div style={{ fontSize: 15, fontWeight: "bold", color: pm.color }} className={privacyMode ? "privacy-blur" : ""}>{fmt(t)}</div>
-                  </div>
-                </>
-              )
-            })()}
-          </div>
-        </>
-      )}
-
 
       {/* Calendar popup */}
       {calendarOpen && activeView === "turnos" && (
@@ -1616,6 +1171,20 @@ export const AppHeader = memo(function AppHeader({
           </div>
         )
       })()}
+
+      {/* Daily Summary Modal */}
+      <DailySummaryModal
+        isOpen={dailySummaryOpen}
+        onClose={() => setDailySummaryOpen(false)}
+        currentDate={currentDate}
+        totalByMethod={totalByMethod}
+        grandTotal={grandTotal}
+        scheduledStats={scheduledStats}
+        getApptsByMethod={getApptsByMethod}
+        pastUnpaidAppts={pastUnpaidAppts}
+        onNavigateToTurno={onNavigateToTurno}
+        privacyMode={privacyMode}
+      />
     </>
   )
 })

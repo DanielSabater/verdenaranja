@@ -1095,61 +1095,17 @@ select {
   opacity: 0.85;
 }
 
-/* ── Abanico de totales integrado en el Header ── */
-.fan-totals-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 5px;
+/* ── Botón compacto de Resumen Diario en Header ── */
+.daily-summary-btn {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.fan-items-container {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  max-width: 0;
-  opacity: 0;
-  overflow: hidden;
-  pointer-events: none;
-  flex-shrink: 0;
-  transition: max-width 0.38s cubic-bezier(0.16, 1, 0.3, 1),
-              opacity 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+.daily-summary-btn:hover {
+  transform: translateY(-1px);
 }
 
-.fan-items-container.fan-open {
-  max-width: 580px;
-  opacity: 1;
-  overflow: visible;
-  pointer-events: auto;
+.daily-summary-btn:active {
+  transform: translateY(0) scale(0.98);
 }
 
-.fan-items-container.fan-closed {
-  max-width: 0;
-  opacity: 0;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.fan-items-container > * {
-  flex-shrink: 0;
-}
-
-.fan-items-container.fan-open > * {
-  animation: fanItemEnter 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.fan-items-container.fan-open > *:nth-child(4) { animation-delay: 0ms; }
-.fan-items-container.fan-open > *:nth-child(3) { animation-delay: 25ms; }
-.fan-items-container.fan-open > *:nth-child(2) { animation-delay: 50ms; }
-.fan-items-container.fan-open > *:nth-child(1) { animation-delay: 75ms; }
-
-@keyframes fanItemEnter {
-  from {
-    opacity: 0;
-    transform: translateX(10px) scale(0.96);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0) scale(1);
-  }
-}
 
