@@ -457,7 +457,7 @@ export const AppHeader = memo(function AppHeader({
                 })}
               </div>
 
-              {/* Burbuja 2: Total del día en tiempo real (separada con el mismo estilo) */}
+              {/* Burbuja 2: Progreso de turnos cobrados (Abre el modal de resumen) */}
               <div className="mobile-total-bubble" style={{
                 display: "flex",
                 alignItems: "center",
@@ -465,7 +465,7 @@ export const AppHeader = memo(function AppHeader({
                 backdropFilter: isLiquid ? "blur(10px)" : "none",
                 WebkitBackdropFilter: isLiquid ? "blur(10px)" : "none",
                 padding: 3,
-                borderRadius: 20,
+                borderRadius: 18,
                 border: isLiquid ? "1px solid rgba(255, 255, 255, 0.5)" : `1px solid ${C.border}`,
                 flexShrink: 0
               }}>
@@ -474,54 +474,106 @@ export const AppHeader = memo(function AppHeader({
                   onClick={() => setDailySummaryOpen(true)}
                   className="branch-tab-btn"
                   style={{
-                    padding: "5px 10px",
-                    borderRadius: 16,
+                    padding: "4px 9px",
+                    borderRadius: 14,
                     cursor: "pointer",
                     border: "none",
-                    background: grandTotal > 0 ? `linear-gradient(135deg,${C.green},${C.greenLight})` : "transparent",
-                    color: grandTotal > 0 ? "#fff" : C.textSoft,
-                    fontSize: 10,
-                    fontFamily: "Georgia, serif",
-                    letterSpacing: "0.2px",
-                    fontWeight: "bold",
+                    background: scheduledStats.isFullyPaid
+                      ? `linear-gradient(135deg, ${C.green}, ${C.greenLight})`
+                      : (scheduledStats.totalCount > 0 ? `linear-gradient(135deg, ${C.green}, ${C.greenLight})` : "transparent"),
+                    color: scheduledStats.totalCount > 0 ? "#fff" : C.textSoft,
                     transition: "all .18s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
                     display: "flex",
                     alignItems: "center",
-                    gap: 3,
-                    boxShadow: grandTotal > 0 ? `0 2px 6px ${C.green}33` : "none",
+                    gap: 6,
+                    boxShadow: scheduledStats.totalCount > 0 ? `0 2px 6px ${C.green}33` : "none",
                     outline: "none",
                     position: "relative",
                     whiteSpace: "nowrap"
                   }}
-                  onMouseEnter={(e) => { if (grandTotal === 0) { e.currentTarget.style.background = C.greenPale } }}
-                  onMouseLeave={(e) => { if (grandTotal === 0) { e.currentTarget.style.background = "transparent" } }}
-                  title="Ver desglose del día y turnos adeudados"
+                  onMouseEnter={(e) => { if (scheduledStats.totalCount === 0) { e.currentTarget.style.background = C.greenPale } }}
+                  onMouseLeave={(e) => { if (scheduledStats.totalCount === 0) { e.currentTarget.style.background = "transparent" } }}
+                  title={`Progreso del día: ${scheduledStats.pctCount}% (${scheduledStats.paidCount} de ${scheduledStats.totalCount} cobrados)${pastUnpaidAppts.length > 0 ? `\n⚠️ ${pastUnpaidAppts.length} turnos anteriores sin cobrar` : ""}\nClic para ver el resumen completo`}
                 >
-                  <span className={privacyMode ? "privacy-blur" : ""} style={{ fontVariantNumeric: "tabular-nums" }}>
-                    <AnimatedNumber value={grandTotal} formatFn={fmt} />
-                  </span>
-                  {pastUnpaidAppts.length > 0 && (
-                    <span
-                      style={{
-                        background: "linear-gradient(135deg, #ef4444, #dc2626)",
-                        color: "#fff",
-                        fontSize: 8,
-                        fontWeight: "800",
-                        minWidth: 15,
-                        height: 15,
-                        borderRadius: 99,
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        padding: "0 3px",
-                        boxShadow: "0 1px 4px rgba(220, 38, 38, 0.4)",
-                        marginLeft: 3
-                      }}
-                      title={`${pastUnpaidAppts.length} turnos anteriores sin cobrar`}
-                    >
-                      {pastUnpaidAppts.length}
-                    </span>
-                  )}
+                  {/* Anillo de progreso circular SVG */}
+                  <div style={{ position: "relative", width: 22, height: 22, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <svg width="22" height="22" viewBox="0 0 36 36" style={{ transform: "rotate(-90deg)" }}>
+                      <path
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                        fill="none"
+                        stroke={scheduledStats.totalCount > 0 ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.07)"}
+                        strokeWidth="4"
+                      />
+                      <path
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                        fill="none"
+                        stroke={scheduledStats.isFullyPaid ? "#ffffff" : (scheduledStats.totalCount > 0 ? "#ffffff" : C.green)}
+                        strokeWidth="4"
+                        strokeDasharray={`${scheduledStats.pctCount}, 100`}
+                        strokeLinecap="round"
+                        style={{ transition: "stroke-dasharray 0.5s ease" }}
+                      />
+                    </svg>
+                    {scheduledStats.isFullyPaid ? (
+                      <span style={{ position: "absolute", fontSize: 9.5, color: "#fff", fontWeight: "bold" }}>✓</span>
+                    ) : (
+                      <span style={{ position: "absolute", fontSize: 8, fontWeight: "bold", color: scheduledStats.totalCount > 0 ? "#fff" : C.textSoft }}>
+                        %
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Porcentaje y Conteo de turnos (SIN MONTOS DE DINERO) */}
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", textAlign: "left", lineHeight: 1.15 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                      <span
+                        style={{
+                          fontSize: 12,
+                          fontWeight: "800",
+                          fontFamily: "Georgia, serif",
+                          color: scheduledStats.totalCount > 0 ? "#ffffff" : C.textSoft,
+                          fontVariantNumeric: "tabular-nums"
+                        }}
+                      >
+                        {scheduledStats.pctCount}%
+                      </span>
+
+                      {scheduledStats.isFullyPaid && (
+                        <span style={{ fontSize: 7, color: "#ffffff", fontWeight: "bold", background: "rgba(255,255,255,0.25)", padding: "1px 3px", borderRadius: 3, letterSpacing: "0.5px" }}>
+                          COMPLETO
+                        </span>
+                      )}
+
+                      {pastUnpaidAppts.length > 0 && (
+                        <span
+                          style={{
+                            background: "linear-gradient(135deg, #ef4444, #dc2626)",
+                            color: "#fff",
+                            fontSize: 7.5,
+                            fontWeight: "800",
+                            minWidth: 14,
+                            height: 14,
+                            borderRadius: 99,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            padding: "0 3px",
+                            boxShadow: "0 1px 4px rgba(220, 38, 38, 0.4)",
+                            marginLeft: 1
+                          }}
+                          title={`${pastUnpaidAppts.length} turnos anteriores sin cobrar`}
+                        >
+                          ⚠️ {pastUnpaidAppts.length}
+                        </span>
+                      )}
+                    </div>
+
+                    <div style={{ fontSize: 7.5, color: scheduledStats.totalCount > 0 ? "rgba(255,255,255,0.85)" : C.textSoft, whiteSpace: "nowrap" }}>
+                      {scheduledStats.totalCount === 0
+                        ? "Sin turnos"
+                        : `${scheduledStats.paidCount}/${scheduledStats.totalCount} cobrados`}
+                    </div>
+                  </div>
                 </button>
               </div>
             </div>
@@ -617,20 +669,19 @@ export const AppHeader = memo(function AppHeader({
                 )}
               </div>
 
-              {/* Importe y Estado */}
+              {/* Porcentaje y Conteo (SIN MONTOS DE DINERO) */}
               <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", textAlign: "left", lineHeight: 1.15 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                   <span
-                    className={privacyMode ? "privacy-blur" : ""}
                     style={{
                       fontSize: 13,
                       fontWeight: "800",
                       fontFamily: "Georgia, serif",
-                      color: scheduledStats.isFullyPaid ? "#ffffff" : (grandTotal > 0 ? C.green : C.textSoft),
+                      color: scheduledStats.isFullyPaid ? "#ffffff" : (scheduledStats.totalCount > 0 ? C.green : C.textSoft),
                       fontVariantNumeric: "tabular-nums"
                     }}
                   >
-                    <AnimatedNumber value={grandTotal} formatFn={fmt} />
+                    {scheduledStats.pctCount}%
                   </span>
 
                   {scheduledStats.isFullyPaid && (
