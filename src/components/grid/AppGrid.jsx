@@ -390,7 +390,7 @@ function ApptCard({
 
 export function AppGrid({
   professionals, appointments, isMobile,
-  config,
+  config, setConfig,
   draggingKey, dropTarget, dropValid, resizePreview,
   remoteEdits,
   isOccupied, spanOf,
@@ -1759,19 +1759,19 @@ export function AppGrid({
           if (!element) return
 
           const triggerWhatsApp = () => {
-            let opened = false
-            const handleBlur = () => { opened = true }
-            window.addEventListener("blur", handleBlur)
-            
-            // Attempt to open native WhatsApp client
-            window.location.href = "whatsapp://"
-            
-            setTimeout(() => {
-              window.removeEventListener("blur", handleBlur)
-              if (!opened) {
-                window.open("https://web.whatsapp.com/", "_blank")
-              }
-            }, 1500)
+            const waUri = "whatsapp://"
+            try {
+              const a = document.createElement("a")
+              a.href = waUri
+              a.style.display = "none"
+              document.body.appendChild(a)
+              a.click()
+              setTimeout(() => {
+                try { document.body.removeChild(a) } catch (_) {}
+              }, 400)
+            } catch (_) {
+              window.location.href = waUri
+            }
           }
 
           try {
@@ -1857,25 +1857,62 @@ export function AppGrid({
 
             const textToCopy = lines.join("\n").trim()
 
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-              await navigator.clipboard.writeText(textToCopy)
-            } else {
-              const ta = document.createElement("textarea")
-              ta.value = textToCopy
-              ta.style.position = "fixed"
-              ta.style.left = "-9999px"
-              document.body.appendChild(ta)
-              ta.focus()
-              ta.select()
-              document.execCommand("copy")
-              document.body.removeChild(ta)
+            // 1. Siempre copiar al portapapeles como respaldo
+            try {
+              if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(textToCopy)
+              } else {
+                const ta = document.createElement("textarea")
+                ta.value = textToCopy
+                ta.style.position = "fixed"
+                ta.style.left = "-9999px"
+                document.body.appendChild(ta)
+                ta.focus()
+                ta.select()
+                document.execCommand("copy")
+                document.body.removeChild(ta)
+              }
+            } catch (clipErr) {
+              console.warn("Clipboard copy fallback:", clipErr)
             }
 
-            setCopiedAgenda(true)
-            setTimeout(() => setCopiedAgenda(false), 2000)
+            // 2. Obtener el teléfono de la profesional (de config actualizada o prof)
+            const currentProf = (config?.professionals || professionals || []).find(p => p.id === prof.id) || prof
+            let targetPhone = currentProf?.phone || prof?.phone || ""
+
+            // Si no tiene teléfono configurado, pedirlo rápidamente
+            if (!targetPhone || !targetPhone.trim()) {
+              const inputPhone = window.prompt(
+                `WhatsApp de ${prof.name}:\nIngresá el número de celular para enviarle su agenda directamente:\n(Ej: 11 2345-6789)`,
+                ""
+              )
+              if (inputPhone && inputPhone.trim()) {
+                targetPhone = inputPhone.trim()
+                if (setConfig) {
+                  setConfig(prev => ({
+                    ...prev,
+                    professionals: (prev.professionals || []).map(p =>
+                      p.id === prof.id ? { ...p, phone: targetPhone } : p
+                    )
+                  }))
+                }
+              }
+            }
+
+            // 3. Abrir WhatsApp si tenemos número
+            if (targetPhone && targetPhone.trim()) {
+              const formattedPhone = formatWaNumber(targetPhone)
+              openWhatsAppLink(formattedPhone, textToCopy, "app")
+              setCopiedAgenda(true)
+              setTimeout(() => setCopiedAgenda(false), 2500)
+            } else {
+              setCopiedAgenda(true)
+              setTimeout(() => setCopiedAgenda(false), 2000)
+              alert(`Copiado al portapapeles. Podés cargar el teléfono de ${prof.name} en Configuración para enviárselo directamente.`)
+            }
           } catch (err) {
-            console.error("Clipboard copy failed:", err)
-            alert("No se pudo copiar el texto al portapapeles")
+            console.error("Clipboard copy / WhatsApp send failed:", err)
+            alert("No se pudo procesar el envío de la agenda")
           }
         }
 
@@ -1907,10 +1944,62 @@ export function AppGrid({
                   zIndex: 201,
                 }}
               >
+                {/* Botón Cerrar en la esquina superior derecha */}
+                <button
+                  type="button"
+                  onClick={() => setProfPopup(null)}
+                  style={{
+                    position: "absolute",
+                    top: 14,
+                    right: 14,
+                    width: 32,
+                    height: 32,
+                    borderRadius: "50%",
+                    border: "none",
+                    background: "#f3f4f6",
+                    color: C.textSoft,
+                    fontSize: 16,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    zIndex: 210,
+                    transition: "all .15s ease"
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.background = "#e5e7eb"
+                    e.currentTarget.style.color = C.text
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.background = "#f3f4f6"
+                    e.currentTarget.style.color = C.textSoft
+                  }}
+                  title="Cerrar ventana (Esc)"
+                >
+                  ✕
+                </button>
+
                 <div style={{ padding: (isMobile && isLandscape) ? "14px 18px" : 24, overflowY: "auto", flex: 1 }}>
-                  <ModalHeader emoji={prof.emoji} sub="Resumen de turnos">
-                    {prof.name} · {s.appts.length} turno{s.appts.length !== 1 ? "s" : ""}
+                  <div style={{ paddingRight: 36 }}>
+                    <ModalHeader emoji={prof.emoji} sub="Resumen de turnos">
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      <span>{prof.name} · {s.appts.length} turno{s.appts.length !== 1 ? "s" : ""}</span>
+                      {(() => {
+                        const curP = (config?.professionals || professionals || []).find(p => p.id === prof.id) || prof
+                        return curP?.phone ? (
+                          <span style={{ fontSize: 11, fontWeight: "normal", color: "#15803d", background: "#dcfce7", border: "1px solid #bbf7d0", padding: "2px 8px", borderRadius: 8, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                            <WhatsAppIcon size={12} color="#16a34a" />
+                            <span>{curP.phone}</span>
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: 10, fontWeight: "normal", color: C.textSoft, background: C.cream, border: `1px solid ${C.border}`, padding: "2px 6px", borderRadius: 6 }}>
+                            Sin WhatsApp cargado
+                          </span>
+                        )
+                      })()}
+                    </div>
                   </ModalHeader>
+                </div>
 
                   <div style={{
                     display: "grid",
@@ -2155,12 +2244,37 @@ export function AppGrid({
                   gap: 8,
                   justifyContent: "flex-end"
                 }}>
-                  <GhostBtn onClick={() => setProfPopup(null)}>Cerrar</GhostBtn>
-                  <SolidBtn onClick={exportDailyAsPng} color={C.orange}>
+                  <SolidBtn 
+                    onClick={exportDailyAsPng} 
+                    color={C.orange}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      textAlign: "center",
+                      padding: "10px 18px",
+                      lineHeight: "1.2"
+                    }}
+                  >
                     Descargar / Compartir Agenda
                   </SolidBtn>
-                  <SolidBtn onClick={copyDailyToClipboard} color={C.green}>
-                    {copiedAgenda ? "✓ Copiado" : "Copiar al portapapeles"}
+                  <SolidBtn 
+                    onClick={copyDailyToClipboard} 
+                    color="#25D366"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      textAlign: "center",
+                      gap: 8,
+                      padding: "10px 18px",
+                      background: "linear-gradient(135deg, #25D366, #1fad52)",
+                      boxShadow: "0 2px 8px rgba(37, 211, 102, 0.35)",
+                      lineHeight: "1.2"
+                    }}
+                  >
+                    <WhatsAppIcon size={15} color="#fff" style={{ marginTop: -1, flexShrink: 0 }} />
+                    <span style={{ textAlign: "center" }}>{copiedAgenda ? "✓ Abriendo WhatsApp..." : "Enviar por WhatsApp"}</span>
                   </SolidBtn>
                 </div>
               </div>

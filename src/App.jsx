@@ -1437,7 +1437,7 @@ export default function App() {
 
               <AppGrid
                 professionals={professionals} appointments={appointments} isMobile={isMobile}
-                config={config}
+                config={config} setConfig={setConfig}
                 draggingKey={draggingKey} dropTarget={dropTarget} dropValid={dropValid} resizePreview={resizePreview}
                 remoteEdits={remoteEdits}
                 isOccupied={isOccupied} spanOf={spanOf}

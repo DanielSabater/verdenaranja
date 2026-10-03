@@ -225,7 +225,7 @@ function openWaWeb(url) {
 
 /**
  * Abre WhatsApp directamente.
- * - Modo "app": usa whatsapp://send?phone=...&text=... para abrir la App de Windows directamente SIN pestañas adicionales en el navegador.
+ * - Modo "app": usa whatsapp://send?phone=...&text=... para abrir directamente la Aplicación de WhatsApp (Desktop en Mac/Windows o App en celular) sin intermediarios.
  * - Modo "web": abre en una pestaña reutilizable de WhatsApp Web.
  */
 export function openWhatsAppLink(formattedPhone, message, openMode = "app") {
@@ -237,31 +237,23 @@ export function openWhatsAppLink(formattedPhone, message, openMode = "app") {
     return openWaWeb(webUrl)
   }
 
-  // ── Modo "app": protocolo nativo de escritorio/móvil ──
+  // ── Modo "app": activa directamente la aplicación instalada de WhatsApp ──
   const waAppUri = `whatsapp://send?phone=${formattedPhone}&text=${encodedText}`
 
-  let appTriggered = false
-  const handleBlur = () => {
-    appTriggered = true
+  try {
+    const a = document.createElement("a")
+    a.href = waAppUri
+    a.style.display = "none"
+    document.body.appendChild(a)
+    a.click()
+    setTimeout(() => {
+      try {
+        if (a && a.parentNode) document.body.removeChild(a)
+      } catch (_) {}
+    }, 500)
+  } catch (_) {
+    window.location.href = waAppUri
   }
-  window.addEventListener("blur", handleBlur)
-
-  // Disparar click en enlace oculto para activar el handler del sistema operativo
-  const a = document.createElement("a")
-  a.href = waAppUri
-  a.target = "_self"
-  a.style.display = "none"
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-
-  // Si después de 1.8 segundos la ventana no perdió el foco (la app no se abrió), fallback a WhatsApp Web reutilizable
-  setTimeout(() => {
-    window.removeEventListener("blur", handleBlur)
-    if (!appTriggered && document.hasFocus && document.hasFocus()) {
-      openWaWeb(webUrl)
-    }
-  }, 1800)
 
   return true
 }

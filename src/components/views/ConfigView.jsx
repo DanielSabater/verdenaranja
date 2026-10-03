@@ -70,7 +70,7 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
 
   const addProf = () => {
     const newId = Date.now();
-    setConfig(p => ({ ...p, professionals: [...p.professionals, { id:newId, name:"Nueva profesional", emoji:"🌸", rama: "manos" }] }));
+    setConfig(p => ({ ...p, professionals: [...p.professionals, { id:newId, name:"Nueva profesional", emoji:"🌸", rama: "manos", phone: "" }] }));
   };
 
   const removeProf = (id) => {
@@ -350,6 +350,27 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
                       <option key={r} value={r}>{getDatalistLabel(r)}</option>
                     ))}
                   </select>
+                </div>
+
+                <div style={{ flex: "1.5 1 150px", minWidth: 140 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
+                    <label style={{ ...cfgLabel, marginBottom: 0 }}>WhatsApp / Teléfono</label>
+                    {savedProfField === `${prof.id}-phone` && (
+                      <span style={{ fontSize: 9, color: C.green, fontWeight: "bold", background: "#dcfce7", padding: "1px 6px", borderRadius: 4, letterSpacing: "0.5px", animation: "fadeIn .2s" }}>
+                        ✓ Guardado
+                      </span>
+                    )}
+                  </div>
+                  <input
+                    value={prof.phone || ""}
+                    onChange={e => updateProf(prof.id, "phone", e.target.value)}
+                    style={{
+                      ...cfgInput,
+                      borderColor: savedProfField === `${prof.id}-phone` ? C.green : C.border,
+                      transition: "all .2s"
+                    }}
+                    placeholder="Ej: 11 2345-6789"
+                  />
                 </div>
 
                 <div style={{ width: 125, flex: "0 0 125px" }}>
