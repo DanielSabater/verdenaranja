@@ -1122,11 +1122,12 @@ export default function ContabilidadView({
           left: 0;
           right: 0;
           z-index: 200;
-          background: rgba(20,40,24,.4);
+          background: var(--modal-overlay-bg, rgba(20, 40, 24, 0.4));
           display: flex;
           align-items: center;
           justify-content: center;
-          backdrop-filter: blur(5px);
+          backdrop-filter: var(--modal-overlay-blur, blur(5px));
+          -webkit-backdrop-filter: var(--modal-overlay-blur, blur(5px));
           animation: fadeIn .18s ease;
         }
         @media (max-width: 768px) {

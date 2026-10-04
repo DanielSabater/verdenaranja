@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from "react"
 import { C } from "./constants/colors.js"
-import { PAYMENT_METHODS, HOURS, APP_VERSION } from "./constants/data.js"
+import { PAYMENT_METHODS, HOURS, APP_VERSION, getModalOverlayStyle } from "./constants/data.js"
 import { cellKey, apptTotal, apptDur, apptPaidTotal, apptComisionableTotal, apptComisionTotal, getApptSlots } from "./utils/appointments.js"
 import { toDateKey, todayKey, isWorkDay, nextWorkDay, addMonths, DIAS_ES, MESES_ES } from "./utils/dates.js"
 import { cleanClientName, normalizeStr, formatWaNumber, generateRescheduleMessage, openWhatsAppLink } from "./utils/whatsapp.js"
@@ -103,6 +103,13 @@ export default function App() {
     restoreBackup,
     deleteAppointment
   } = usePersistentState(currentDate)
+
+  // Sincronizar variables CSS dinámicas para fondo, opacidad y desenfoque de modales
+  useEffect(() => {
+    const overlayStyle = getModalOverlayStyle(config)
+    document.documentElement.style.setProperty("--modal-overlay-bg", overlayStyle.background)
+    document.documentElement.style.setProperty("--modal-overlay-blur", overlayStyle.backdropFilter)
+  }, [config?.modalTone, config?.modalOpacityLevel, config?.modalBlurLevel])
 
   const playPageSound = () => {
     try {

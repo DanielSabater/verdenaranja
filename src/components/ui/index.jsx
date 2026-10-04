@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
 import { C } from '../../constants/colors.js'
 
-export function Overlay({ children, onClose }) {
+export function Overlay({ children, onClose, style = {} }) {
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === "Escape") {
@@ -20,9 +20,12 @@ export function Overlay({ children, onClose }) {
       className="modal-overlay"
       style={{
         position: "fixed", inset: 0, zIndex: 200,
-        background: "rgba(20,40,24,.4)",
+        background: "var(--modal-overlay-bg, rgba(20, 40, 24, 0.4))",
         display: "flex", alignItems: "center", justifyContent: "center",
-        backdropFilter: "blur(5px)", animation: "fadeIn .18s ease",
+        backdropFilter: "var(--modal-overlay-blur, blur(5px))",
+        WebkitBackdropFilter: "var(--modal-overlay-blur, blur(5px))",
+        animation: "fadeIn .18s ease",
+        ...style
       }}
     >
       {children}

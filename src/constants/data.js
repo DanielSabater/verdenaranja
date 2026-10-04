@@ -80,6 +80,9 @@ export const CONFIG_DEFAULT = {
   waReminderMins:   15,
   waOpenMode:       "app",
   waReminderTemplate: "¡Hola {cliente}! 🌿 Te recordamos tu turno en {empresa} para hoy a las {hora} hs con {profesional} ({servicios}).\n¡Te esperamos! 💅✨",
+  modalTone:        "verde",
+  modalOpacityLevel: 4,
+  modalBlurLevel:   3,
 }
 
 
@@ -108,4 +111,62 @@ export const getBlockedAlphas = (level) => {
     10: { a1: 0.32, a2: 0.65, border: 0.98 },
   }
   return alphas[level] || alphas[3]
+}
+
+// ── Opciones de Fondo / Overlay para Modales ──
+
+export const MODAL_TONES = [
+  { id: "verde",   name: "Verde Botánico", isDefault: true,  rgb: "20, 40, 24",   hex: "#142818", desc: "Original de la marca" },
+  { id: "negro",   name: "Negro Neutro",   isDefault: false, rgb: "0, 0, 0",      hex: "#050505", desc: "Estilo Apple puro" },
+  { id: "grafito", name: "Gris Grafito",   isDefault: false, rgb: "28, 34, 44",   hex: "#1c222c", desc: "Sobrio y moderno" },
+  { id: "calido",  name: "Cálido / Tierra",isDefault: false, rgb: "46, 28, 20",   hex: "#2e1c14", desc: "Tonos tierra acogedores" },
+  { id: "ciruela", name: "Ciruela / Vino", isDefault: false, rgb: "42, 20, 38",   hex: "#2a1426", desc: "Elegante y nocturno" },
+  { id: "marino",  name: "Azul Marino",    isDefault: false, rgb: "14, 28, 48",   hex: "#0e1c30", desc: "Profundo y sereno" },
+]
+
+export const MODAL_OPACITY_DEFAULT_LEVEL = 4 // Nivel 4 = 40% (0.40)
+export const MODAL_OPACITY_LEVELS = {
+  1:  { alpha: 0.15, label: "15%", desc: "Muy transparente" },
+  2:  { alpha: 0.22, label: "22%", desc: "Translúcido alto" },
+  3:  { alpha: 0.30, label: "30%", desc: "Translúcido medio" },
+  4:  { alpha: 0.40, label: "40%", desc: "Equilibrado (Por defecto)", isDefault: true },
+  5:  { alpha: 0.50, label: "50%", desc: "Medio" },
+  6:  { alpha: 0.60, label: "60%", desc: "Sólido suave" },
+  7:  { alpha: 0.70, label: "70%", desc: "Sólido moderado" },
+  8:  { alpha: 0.80, label: "80%", desc: "Oscuro" },
+  9:  { alpha: 0.88, label: "88%", desc: "Muy oscuro" },
+  10: { alpha: 0.95, label: "95%", desc: "Casi opaco" },
+}
+
+export const MODAL_BLUR_DEFAULT_LEVEL = 3 // Nivel 3 = 5px (original)
+export const MODAL_BLUR_LEVELS = {
+  1:  { blur: 0,  label: "0px",  desc: "Sin desenfoque (Nítido)" },
+  2:  { blur: 2,  label: "2px",  desc: "Sutil" },
+  3:  { blur: 5,  label: "5px",  desc: "Clásico (Por defecto)", isDefault: true },
+  4:  { blur: 8,  label: "8px",  desc: "Suave" },
+  5:  { blur: 11, label: "11px", desc: "Moderado" },
+  6:  { blur: 14, label: "14px", desc: "Apple Glass" },
+  7:  { blur: 18, label: "18px", desc: "Intenso" },
+  8:  { blur: 24, label: "24px", desc: "Profundo" },
+  9:  { blur: 32, label: "32px", desc: "Ultra difuso" },
+  10: { blur: 44, label: "44px", desc: "Frosted Glass total" },
+}
+
+export const getModalOverlayStyle = (config = {}) => {
+  const toneId    = config?.modalTone || "verde"
+  const toneObj   = MODAL_TONES.find(t => t.id === toneId) || MODAL_TONES[0]
+  const opLevel   = config?.modalOpacityLevel ?? MODAL_OPACITY_DEFAULT_LEVEL
+  const blurLevel = config?.modalBlurLevel ?? MODAL_BLUR_DEFAULT_LEVEL
+
+  const alpha = (MODAL_OPACITY_LEVELS[opLevel] || MODAL_OPACITY_LEVELS[MODAL_OPACITY_DEFAULT_LEVEL]).alpha
+  const blur  = (MODAL_BLUR_LEVELS[blurLevel] || MODAL_BLUR_LEVELS[MODAL_BLUR_DEFAULT_LEVEL]).blur
+
+  const background = `rgba(${toneObj.rgb}, ${alpha})`
+  const backdropFilter = blur > 0 ? `blur(${blur}px)` : "none"
+
+  return {
+    background,
+    backdropFilter,
+    WebkitBackdropFilter: backdropFilter,
+  }
 }

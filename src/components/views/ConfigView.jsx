@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { C } from "../../constants/colors.js"
-import { CAT_OPTIONS as CAT_OPTIONS_DEFAULT, EMOJI_SUGGESTIONS, BLOCKED_COLORS, APP_VERSION } from "../../constants/data.js"
+import { CAT_OPTIONS as CAT_OPTIONS_DEFAULT, EMOJI_SUGGESTIONS, BLOCKED_COLORS, APP_VERSION, MODAL_TONES, MODAL_OPACITY_DEFAULT_LEVEL, MODAL_OPACITY_LEVELS, MODAL_BLUR_DEFAULT_LEVEL, MODAL_BLUR_LEVELS, getModalOverlayStyle } from "../../constants/data.js"
 import { GhostBtn, SolidBtn } from "../ui/index.jsx"
 import { MESES_ES, todayKey } from "../../utils/dates.js"
 
@@ -1732,6 +1732,363 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
                 <div style={{ width:20, height:20, borderRadius:"50%", background:"#fff", position:"absolute", top:2, transition:"left .2s", left:(config.premiumLoading ?? true)?"22px":"2px" }}/>
               </button>
             </div>
+          </CfgField>
+
+          <CfgField label="✨ Fondo de Modales (Overlay) - Tonalidad y Efecto">
+            {/* Introducción */}
+            <div style={{ fontSize: 11, color: C.textSoft, marginBottom: 14, lineHeight: 1.4 }}>
+              Personalizá la tonalidad del fondo oscuro al abrir modales, junto con su nivel de transparencia y desenfoque (blur). Cada barra cuenta con 10 niveles y tiene marcado su valor original de fábrica.
+            </div>
+
+            {/* 1. Tonalidad */}
+            <div style={{ background: C.cream, padding: "14px 16px", borderRadius: 12, border: `1.5px solid ${C.border}`, marginBottom: 14 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: "bold", color: C.text }}>Tonalidad del fondo</div>
+                  <div style={{ fontSize: 10, color: C.textSoft }}>Tinte o matiz de color que tiñe el fondo translúcido</div>
+                </div>
+                {((config.modalTone || "verde") === "verde") && (
+                  <span style={{ fontSize: 9.5, fontWeight: "bold", color: C.green, background: "#e8f5e9", border: `1px solid ${C.greenLight}`, padding: "2px 8px", borderRadius: 20 }}>
+                    ★ Por defecto
+                  </span>
+                )}
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 8 }}>
+                {MODAL_TONES.map(tone => {
+                  const isSel = (config.modalTone || "verde") === tone.id
+                  return (
+                    <button
+                      key={tone.id}
+                      type="button"
+                      onClick={() => updateConfig("modalTone", tone.id)}
+                      style={{
+                        padding: "8px 10px",
+                        borderRadius: 10,
+                        border: `1.5px solid ${isSel ? C.green : C.border}`,
+                        background: isSel ? "#f2faf3" : C.white,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        cursor: "pointer",
+                        transition: "all .15s ease",
+                        textAlign: "left"
+                      }}
+                    >
+                      <div style={{
+                        width: 22, height: 22, borderRadius: "50%",
+                        background: tone.hex,
+                        border: "1.5px solid rgba(0,0,0,0.15)",
+                        flexShrink: 0,
+                        boxShadow: isSel ? `0 0 0 2px ${C.green}` : "none",
+                        display: "flex", alignItems: "center", justifyContent: "center"
+                      }}>
+                        {isSel && <span style={{ color: "#fff", fontSize: 10, fontWeight: "bold" }}>✓</span>}
+                      </div>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ fontSize: 11, fontWeight: isSel ? "bold" : "600", color: isSel ? C.green : C.text, display: "flex", alignItems: "center", gap: 4 }}>
+                          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tone.name}</span>
+                          {tone.isDefault && <span style={{ fontSize: 8, color: C.textSoft, fontWeight: "normal" }}>(Def)</span>}
+                        </div>
+                        <div style={{ fontSize: 8.5, color: C.textSoft, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{tone.desc}</div>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* 2. Transparencia / Opacidad (10 niveles) */}
+            {(() => {
+              const currentOpLevel = config.modalOpacityLevel ?? MODAL_OPACITY_DEFAULT_LEVEL
+              const opData = MODAL_OPACITY_LEVELS[currentOpLevel] || MODAL_OPACITY_LEVELS[MODAL_OPACITY_DEFAULT_LEVEL]
+              const isDefaultOp = currentOpLevel === MODAL_OPACITY_DEFAULT_LEVEL
+
+              return (
+                <div style={{ background: C.cream, padding: "14px 16px", borderRadius: 12, border: `1.5px solid ${C.border}`, marginBottom: 14 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: "bold", color: C.text }}>Transparencia / Opacidad (10 niveles)</div>
+                      <div style={{ fontSize: 10, color: C.textSoft }}>Qué tan visible o tenue es el fondo debajo del modal</div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ fontSize: 11, fontWeight: "bold", color: C.text }}>
+                        Nivel {currentOpLevel} ({opData.label})
+                      </span>
+                      {isDefaultOp && (
+                        <span style={{ fontSize: 9.5, fontWeight: "bold", color: C.green, background: "#e8f5e9", border: `1px solid ${C.greenLight}`, padding: "2px 7px", borderRadius: 20 }}>
+                          ★ Por defecto
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Slider */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8, marginBottom: 8 }}>
+                    <span style={{ fontSize: 9, color: C.textSoft, width: 28 }}>10%</span>
+                    <input
+                      type="range"
+                      min={1}
+                      max={10}
+                      step={1}
+                      value={currentOpLevel}
+                      onChange={e => updateConfig("modalOpacityLevel", parseInt(e.target.value))}
+                      style={{ flex: 1, accentColor: C.green, cursor: "pointer", height: 6 }}
+                    />
+                    <span style={{ fontSize: 9, color: C.textSoft, width: 28, textAlign: "right" }}>95%</span>
+                  </div>
+
+                  {/* Botones de nivelación de 10 niveles */}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(10, 1fr)", gap: 4 }}>
+                    {Array.from({ length: 10 }, (_, i) => i + 1).map(lvl => {
+                      const isCurrent = currentOpLevel === lvl
+                      const isDef = lvl === MODAL_OPACITY_DEFAULT_LEVEL
+                      return (
+                        <button
+                          key={lvl}
+                          type="button"
+                          onClick={() => updateConfig("modalOpacityLevel", lvl)}
+                          style={{
+                            padding: "6px 2px",
+                            borderRadius: 7,
+                            border: `1.5px solid ${isCurrent ? C.green : isDef ? C.greenLight : C.border}`,
+                            background: isCurrent ? C.green : isDef ? "#f0f7f1" : C.white,
+                            color: isCurrent ? "#fff" : isDef ? C.green : C.textSoft,
+                            fontSize: 10,
+                            fontWeight: isCurrent || isDef ? "bold" : "normal",
+                            cursor: "pointer",
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            gap: 1,
+                            transition: "all .12s ease",
+                            boxShadow: isCurrent ? `0 2px 6px ${C.green}44` : "none"
+                          }}
+                          title={`Nivel ${lvl} (${MODAL_OPACITY_LEVELS[lvl].label}): ${MODAL_OPACITY_LEVELS[lvl].desc}${isDef ? " - Valor por defecto" : ""}`}
+                        >
+                          <span>{lvl}</span>
+                          {isDef && (
+                            <span style={{ fontSize: 7, textTransform: "uppercase", letterSpacing: "-0.3px", opacity: isCurrent ? 0.95 : 0.85, fontWeight: "bold" }}>
+                              Def
+                            </span>
+                          )}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <div style={{ fontSize: 9.5, color: C.textSoft, marginTop: 6, fontStyle: "italic" }}>
+                    Nivel seleccionado: {opData.desc} ({opData.label} de opacidad)
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* 3. Efecto de Desenfoque / Blur (10 niveles) */}
+            {(() => {
+              const currentBlurLevel = config.modalBlurLevel ?? MODAL_BLUR_DEFAULT_LEVEL
+              const blurData = MODAL_BLUR_LEVELS[currentBlurLevel] || MODAL_BLUR_LEVELS[MODAL_BLUR_DEFAULT_LEVEL]
+              const isDefaultBlur = currentBlurLevel === MODAL_BLUR_DEFAULT_LEVEL
+
+              return (
+                <div style={{ background: C.cream, padding: "14px 16px", borderRadius: 12, border: `1.5px solid ${C.border}`, marginBottom: 14 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: "bold", color: C.text }}>Efecto de desenfoque / Blur (10 niveles)</div>
+                      <div style={{ fontSize: 10, color: C.textSoft }}>Intensidad del difuminado de la pantalla al abrir un modal</div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ fontSize: 11, fontWeight: "bold", color: C.text }}>
+                        Nivel {currentBlurLevel} ({blurData.label})
+                      </span>
+                      {isDefaultBlur && (
+                        <span style={{ fontSize: 9.5, fontWeight: "bold", color: C.green, background: "#e8f5e9", border: `1px solid ${C.greenLight}`, padding: "2px 7px", borderRadius: 20 }}>
+                          ★ Por defecto
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Slider */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8, marginBottom: 8 }}>
+                    <span style={{ fontSize: 9, color: C.textSoft, width: 28 }}>0px</span>
+                    <input
+                      type="range"
+                      min={1}
+                      max={10}
+                      step={1}
+                      value={currentBlurLevel}
+                      onChange={e => updateConfig("modalBlurLevel", parseInt(e.target.value))}
+                      style={{ flex: 1, accentColor: C.green, cursor: "pointer", height: 6 }}
+                    />
+                    <span style={{ fontSize: 9, color: C.textSoft, width: 28, textAlign: "right" }}>44px</span>
+                  </div>
+
+                  {/* Botones de nivelación de 10 niveles */}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(10, 1fr)", gap: 4 }}>
+                    {Array.from({ length: 10 }, (_, i) => i + 1).map(lvl => {
+                      const isCurrent = currentBlurLevel === lvl
+                      const isDef = lvl === MODAL_BLUR_DEFAULT_LEVEL
+                      return (
+                        <button
+                          key={lvl}
+                          type="button"
+                          onClick={() => updateConfig("modalBlurLevel", lvl)}
+                          style={{
+                            padding: "6px 2px",
+                            borderRadius: 7,
+                            border: `1.5px solid ${isCurrent ? C.green : isDef ? C.greenLight : C.border}`,
+                            background: isCurrent ? C.green : isDef ? "#f0f7f1" : C.white,
+                            color: isCurrent ? "#fff" : isDef ? C.green : C.textSoft,
+                            fontSize: 10,
+                            fontWeight: isCurrent || isDef ? "bold" : "normal",
+                            cursor: "pointer",
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            gap: 1,
+                            transition: "all .12s ease",
+                            boxShadow: isCurrent ? `0 2px 6px ${C.green}44` : "none"
+                          }}
+                          title={`Nivel ${lvl} (${MODAL_BLUR_LEVELS[lvl].label}): ${MODAL_BLUR_LEVELS[lvl].desc}${isDef ? " - Valor por defecto" : ""}`}
+                        >
+                          <span>{lvl}</span>
+                          {isDef && (
+                            <span style={{ fontSize: 7, textTransform: "uppercase", letterSpacing: "-0.3px", opacity: isCurrent ? 0.95 : 0.85, fontWeight: "bold" }}>
+                              Def
+                            </span>
+                          )}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <div style={{ fontSize: 9.5, color: C.textSoft, marginTop: 6, fontStyle: "italic" }}>
+                    Efecto seleccionado: {blurData.desc} ({blurData.label})
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* 4. Previsualización en Vivo (Live Preview) */}
+            {(() => {
+              const previewStyle = getModalOverlayStyle(config)
+              const isAllDefault = (config.modalTone || "verde") === "verde" &&
+                (config.modalOpacityLevel ?? MODAL_OPACITY_DEFAULT_LEVEL) === MODAL_OPACITY_DEFAULT_LEVEL &&
+                (config.modalBlurLevel ?? MODAL_BLUR_DEFAULT_LEVEL) === MODAL_BLUR_DEFAULT_LEVEL
+
+              return (
+                <div style={{ background: C.cream, padding: "14px 16px", borderRadius: 12, border: `1.5px solid ${C.border}` }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: "bold", color: C.text }}>Vista previa en tiempo real</div>
+                      <div style={{ fontSize: 10, color: C.textSoft }}>Así se verá el fondo y el desenfoque detrás de las ventanas modales</div>
+                    </div>
+                    {!isAllDefault && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          updateConfig("modalTone", "verde")
+                          updateConfig("modalOpacityLevel", MODAL_OPACITY_DEFAULT_LEVEL)
+                          updateConfig("modalBlurLevel", MODAL_BLUR_DEFAULT_LEVEL)
+                        }}
+                        style={{
+                          fontSize: 10,
+                          fontWeight: "bold",
+                          color: C.green,
+                          background: "#fff",
+                          border: `1.5px solid ${C.greenLight}`,
+                          borderRadius: 8,
+                          padding: "5px 10px",
+                          cursor: "pointer",
+                          transition: "all .15s"
+                        }}
+                        title="Restablecer tonalidad verde, opacidad 40% y desenfoque 5px"
+                      >
+                        ↺ Restaurar por defecto
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Contenedor de simulación */}
+                  <div style={{
+                    position: "relative",
+                    height: 150,
+                    borderRadius: 12,
+                    overflow: "hidden",
+                    border: `1.5px solid ${C.border}`,
+                    background: "#f4f6f3",
+                    boxShadow: "inset 0 2px 6px rgba(0,0,0,0.04)"
+                  }}>
+                    {/* Fondo simulando la grilla y turnos */}
+                    <div style={{
+                      position: "absolute",
+                      inset: 0,
+                      padding: 12,
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 8,
+                      pointerEvents: "none",
+                      userSelect: "none"
+                    }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `1px solid ${C.border}`, paddingBottom: 6 }}>
+                        <div style={{ fontWeight: "bold", fontSize: 11, color: C.green }}>🌿 Perla Verde · Agenda</div>
+                        <div style={{ fontSize: 10, color: C.textSoft }}>Viernes 24 · 15:30 hs</div>
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
+                        <div style={{ background: "#fff", padding: "6px 8px", borderRadius: 6, border: `1px solid ${C.border}` }}>
+                          <div style={{ fontSize: 9, fontWeight: "bold", color: C.green }}>💅 Manicura Semi</div>
+                          <div style={{ fontSize: 8.5, color: C.textSoft }}>Lucía Morales</div>
+                        </div>
+                        <div style={{ background: "#fff", padding: "6px 8px", borderRadius: 6, border: `1px solid ${C.border}` }}>
+                          <div style={{ fontSize: 9, fontWeight: "bold", color: C.amber }}>✨ Nail Art Spa</div>
+                          <div style={{ fontSize: 8.5, color: C.textSoft }}>Camila Ramos</div>
+                        </div>
+                        <div style={{ background: "#fff", padding: "6px 8px", borderRadius: 6, border: `1px solid ${C.border}` }}>
+                          <div style={{ fontSize: 9, fontWeight: "bold", color: C.green }}>🌸 Pedicura Clásica</div>
+                          <div style={{ fontSize: 8.5, color: C.textSoft }}>Valeria Rossi</div>
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 9, color: C.textSoft, marginTop: 4 }}>
+                        <span>📍 Sala Principal</span>
+                        <span>•</span>
+                        <span>💰 Total acumulado: $84.500</span>
+                      </div>
+                    </div>
+
+                    {/* Capa de overlay en tiempo real */}
+                    <div style={{
+                      position: "absolute",
+                      inset: 0,
+                      background: previewStyle.background,
+                      backdropFilter: previewStyle.backdropFilter,
+                      WebkitBackdropFilter: previewStyle.WebkitBackdropFilter,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      transition: "background 0.2s ease, backdrop-filter 0.2s ease",
+                    }}>
+                      {/* Ventana modal simulada */}
+                      <div style={{
+                        background: "#fff",
+                        borderRadius: 12,
+                        padding: "10px 14px",
+                        boxShadow: "0 10px 25px rgba(0,0,0,0.18)",
+                        border: `1px solid ${C.border}`,
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: 4,
+                        maxWidth: 200,
+                        textAlign: "center"
+                      }}>
+                        <span style={{ fontSize: 16 }}>📋</span>
+                        <div style={{ fontSize: 11, fontWeight: "bold", color: C.text }}>Modal de Ejemplo</div>
+                        <div style={{ fontSize: 8.5, color: C.textSoft }}>El fondo detrás muestra tu ajuste actual</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })()}
           </CfgField>
 
           <CfgField label="💬 WhatsApp y Recordatorios de Turnos">

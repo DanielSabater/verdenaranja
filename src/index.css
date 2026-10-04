@@ -4,6 +4,17 @@
   box-sizing: border-box;
 }
 
+:root {
+  --modal-overlay-bg: rgba(20, 40, 24, 0.4);
+  --modal-overlay-blur: blur(5px);
+}
+
+.modal-overlay {
+  background: var(--modal-overlay-bg, rgba(20, 40, 24, 0.4));
+  backdrop-filter: var(--modal-overlay-blur, blur(5px));
+  -webkit-backdrop-filter: var(--modal-overlay-blur, blur(5px));
+}
+
 html,
 body {
   margin: 0;
