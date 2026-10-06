@@ -772,7 +772,7 @@ export default function App() {
       fromDate: currentDate,
       fromKey: key
     })
-    setTruncateToast(`✂️ Turno de ${a.client || "Clienta"} cortado. Hacé clic derecho donde quieras pegarlo`)
+    setTruncateToast(`✂️ Turno de ${a.client || "Clienta"} cortado. Pegalo con Ctrl+V / ⌘V o clic derecho`)
     setTimeout(() => setTruncateToast(null), 3500)
   }, [appointments, currentDate])
 
@@ -785,7 +785,7 @@ export default function App() {
       fromDate: currentDate,
       fromKey: key
     })
-    setTruncateToast(`📋 Turno de ${a.client || "Clienta"} copiado. Hacé clic derecho donde quieras pegarlo`)
+    setTruncateToast(`📋 Turno de ${a.client || "Clienta"} copiado. Pegalo con Ctrl+V / ⌘V o clic derecho`)
     setTimeout(() => setTruncateToast(null), 3500)
   }, [appointments, currentDate])
 

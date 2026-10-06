@@ -541,6 +541,19 @@ export function AppGrid({
   const animFrameRef = useRef(null)
   const isLiquid = config?.liquidGlass ?? true
 
+  // ── Portapapeles y detección de celda bajo cursor para atajos Ctrl+C / Cmd+C, etc. ──
+  const hoveredCellRef = useRef(null)
+  const clipboardApptRef = useRef(clipboardAppt)
+  clipboardApptRef.current = clipboardAppt
+  const appointmentsRef = useRef(appointments)
+  appointmentsRef.current = appointments
+  const onCopyApptRef = useRef(onCopyAppt)
+  onCopyApptRef.current = onCopyAppt
+  const onCutApptRef = useRef(onCutAppt)
+  onCutApptRef.current = onCutAppt
+  const onPasteApptRef = useRef(onPasteAppt)
+  onPasteApptRef.current = onPasteAppt
+
   // ── Pinch to Zoom mobile cols state & handlers ─────────────────────────────
   const [colsToShow, setColsToShow] = useState(() => {
     try {
@@ -677,6 +690,56 @@ export function AppGrid({
 
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [])
+
+  // ── Atajos de teclado para turnos (Ctrl+C / ⌘C, Ctrl+X / ⌘X, Ctrl+V / ⌘V) ──
+  useEffect(() => {
+    const handleKeyDownClipboard = (e) => {
+      const isModifier = e.ctrlKey || e.metaKey
+      if (!isModifier || e.altKey) return
+
+      const activeEl = document.activeElement
+      const target = e.target
+      const isInput = (el) => {
+        if (!el) return false
+        const tag = el.tagName?.toLowerCase()
+        return (
+          tag === "input" ||
+          tag === "textarea" ||
+          tag === "select" ||
+          el.isContentEditable ||
+          Boolean(el.closest?.("input, textarea, select, [contenteditable='true']"))
+        )
+      }
+
+      // Si el usuario está escribiendo o interactuando con un campo de texto, no interferir
+      if (isInput(activeEl) || isInput(target)) {
+        return
+      }
+
+      const key = e.key?.toLowerCase()
+      const hovered = hoveredCellRef.current
+
+      if (key === "c") {
+        if (hovered?.key && appointmentsRef.current?.[hovered.key] && onCopyApptRef.current) {
+          e.preventDefault()
+          onCopyApptRef.current(hovered.key)
+        }
+      } else if (key === "x") {
+        if (hovered?.key && appointmentsRef.current?.[hovered.key] && onCutApptRef.current) {
+          e.preventDefault()
+          onCutApptRef.current(hovered.key)
+        }
+      } else if (key === "v") {
+        if (hovered?.profId && hovered?.hour && clipboardApptRef.current && onPasteApptRef.current) {
+          e.preventDefault()
+          onPasteApptRef.current(hovered.profId, hovered.hour)
+        }
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDownClipboard)
+    return () => window.removeEventListener("keydown", handleKeyDownClipboard)
   }, [])
 
   useEffect(() => {
@@ -1052,6 +1115,7 @@ export function AppGrid({
     <div 
       ref={scrollContainerRef} 
       className="grid-scroll" 
+      onMouseLeave={() => { hoveredCellRef.current = null }}
       style={{ touchAction: isMobile ? "pan-x pan-y" : "auto", overflow: "auto", padding: isMobile ? "0 8px 120px 0" : "0 8px 78px", WebkitOverflowScrolling: "touch", maxHeight: "100%", scrollSnapType: isMobile ? "x mandatory" : "none", scrollPaddingLeft: 60, scrollPaddingBottom: isMobile ? 120 : 78 }}
     >
       {showToast && isMobile && !isLandscape && (
@@ -1332,10 +1396,19 @@ export function AppGrid({
                     }}
                     onClick={() => !appt && !draggingKey && onCellClick(prof.id, hour)}
                     onMouseEnter={e => {
+                      hoveredCellRef.current = { profId: prof.id, hour, key: k, hasAppt: !!appt }
                       if (!appt && !draggingKey && !resizePreview) e.currentTarget.style.background = C.greenPale
                       if (appt && appt.client) setHoveredClientName(appt.client)
                     }}
+                    onMouseMove={() => {
+                      if (!hoveredCellRef.current || hoveredCellRef.current.key !== k) {
+                        hoveredCellRef.current = { profId: prof.id, hour, key: k, hasAppt: !!appt }
+                      }
+                    }}
                     onMouseLeave={e => {
+                      if (hoveredCellRef.current?.key === k) {
+                        hoveredCellRef.current = null
+                      }
                       if (!appt && !draggingKey && !resizePreview) e.currentTarget.style.background = ""
                       if (appt && appt.client) setHoveredClientName(null)
                     }}
@@ -2524,13 +2597,17 @@ export function AppGrid({
                         fontWeight: "bold",
                         display: "flex",
                         alignItems: "center",
+                        justifyContent: "space-between",
                         gap: 8,
                       }}
                     >
-                      <span style={{ fontSize: 14 }}>📌</span>
-                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        Pegar ({clipboardAppt.appt?.client || "Turno"})
-                      </span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, overflow: "hidden" }}>
+                        <span style={{ fontSize: 14 }}>📌</span>
+                        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          Pegar ({clipboardAppt.appt?.client || "Turno"})
+                        </span>
+                      </div>
+                      <span style={{ fontSize: 10, opacity: 0.75, fontFamily: "monospace", flexShrink: 0 }}>Ctrl+V / ⌘V</span>
                     </button>
                     {onCancelClipboard && (
                       <button
@@ -2606,13 +2683,17 @@ export function AppGrid({
                         fontWeight: 500,
                         display: "flex",
                         alignItems: "center",
+                        justifyContent: "space-between",
                         gap: 8,
                       }}
                       onMouseEnter={e => e.currentTarget.style.background = "#f4f4f5"}
                       onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                     >
-                      <span style={{ fontSize: 14 }}>✂️</span>
-                      <span>Cortar turno</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 14 }}>✂️</span>
+                        <span>Cortar turno</span>
+                      </div>
+                      <span style={{ fontSize: 10, color: C.textSoft, fontFamily: "monospace" }}>Ctrl+X / ⌘X</span>
                     </button>
                   )}
 
@@ -2634,13 +2715,17 @@ export function AppGrid({
                         fontWeight: 500,
                         display: "flex",
                         alignItems: "center",
+                        justifyContent: "space-between",
                         gap: 8,
                       }}
                       onMouseEnter={e => e.currentTarget.style.background = "#f4f4f5"}
                       onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                     >
-                      <span style={{ fontSize: 14 }}>📋</span>
-                      <span>Copiar turno</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 14 }}>📋</span>
+                        <span>Copiar turno</span>
+                      </div>
+                      <span style={{ fontSize: 10, color: C.textSoft, fontFamily: "monospace" }}>Ctrl+C / ⌘C</span>
                     </button>
                   )}
 
@@ -2858,7 +2943,7 @@ export function AppGrid({
             </span>
           </div>
           <div style={{ fontSize: 11, opacity: 0.9, borderLeft: "1px solid rgba(255,255,255,0.25)", paddingLeft: 12 }}>
-            Clic derecho en una celda vacía para pegar
+            Pegalo con Ctrl+V / ⌘V o clic derecho en una celda vacía
           </div>
           <button
             onClick={e => {
