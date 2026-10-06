@@ -3,7 +3,7 @@ import { C } from "./constants/colors.js"
 import { PAYMENT_METHODS, HOURS, APP_VERSION, getModalOverlayStyle } from "./constants/data.js"
 import { cellKey, apptTotal, apptDur, apptPaidTotal, apptComisionableTotal, apptComisionTotal, getApptSlots } from "./utils/appointments.js"
 import { toDateKey, todayKey, isWorkDay, nextWorkDay, addMonths, DIAS_ES, MESES_ES } from "./utils/dates.js"
-import { cleanClientName, normalizeStr, formatWaNumber, generateRescheduleMessage, openWhatsAppLink } from "./utils/whatsapp.js"
+import { normalizeStr, formatWaNumber, generateRescheduleMessage, openWhatsAppLink } from "./utils/whatsapp.js"
 import { useIsMobile } from "./hooks/useIsMobile.js"
 import { usePersistentState } from "./hooks/usePersistentState.js"
 import { AppHeader } from "./components/header/AppHeader.jsx"
@@ -1268,7 +1268,7 @@ export default function App() {
       if (!current) return prev
       const newArrived = !current.arrived
       const rawTarget = current.client || ""
-      const targetNorm = normalizeStr(cleanClientName(rawTarget))
+      const targetNorm = normalizeStr(rawTarget)
 
       if (!targetNorm) {
         return {
@@ -1284,7 +1284,7 @@ export default function App() {
       Object.keys(prev).forEach(k => {
         const appt = prev[k]
         if (!appt || appt.isBlocked || appt.isNote) return
-        const apptNorm = normalizeStr(cleanClientName(appt.client || ""))
+        const apptNorm = normalizeStr(appt.client || "")
         if (apptNorm === targetNorm) {
           next[k] = {
             ...appt,
