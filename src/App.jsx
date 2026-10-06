@@ -870,6 +870,7 @@ export default function App() {
         toProfId,
         toHour
       })
+      setClipboardAppt(null)
       setTruncateToast(`✅ Turno de ${appt.client || "Clienta"} copiado con éxito a ${toHour} hs`)
       setTimeout(() => setTruncateToast(null), 3000)
     }
