@@ -1205,9 +1205,9 @@ export function AppGrid({
                 const isResizeStart = resizePreview && resizePreview.profId === prof.id && HOURS[resizePreview.hourIdx] === hour
                 const isResizeOriginal = resizePreview && resizePreview.key === k
 
-                const appt = isResizeStart ? appointments[resizePreview.key] : appointments[k]
+                const appt = isResizeStart ? appointments[resizePreview.key] : (isResizeOriginal ? null : appointments[k])
                 const isDragging = draggingKey === k
-                const span = isResizeStart ? resizePreview.slots : spanOf(prof.id, hour)
+                const span = isResizeStart ? resizePreview.slots : (isResizeOriginal ? null : spanOf(prof.id, hour))
 
                 const isCoveredByResize = !isResizeStart && resizePreview && resizePreview.profId === prof.id && (() => {
                   const rStart = resizePreview.hourIdx
@@ -1217,7 +1217,7 @@ export function AppGrid({
                 })()
 
                 const isEditingRemote = !appt && remoteEdits?.[k]
-                const isBlocked = (!appt && isOccupied(prof.id, hour, resizePreview?.key)) || isCoveredByResize || (isResizeOriginal && !isResizeStart) || isEditingRemote
+                const isBlocked = (!appt && isOccupied(prof.id, hour, resizePreview?.key)) || isCoveredByResize || isEditingRemote
                 if (isBlocked && !isEditingRemote) return null
 
                 const isTarget = dropTarget?.profId === prof.id && dropTarget?.hour === hour
@@ -1340,7 +1340,7 @@ export function AppGrid({
                       </div>
                     )}
                     {appt ? (() => {
-                      const isResizing = resizePreview?.key === k
+                      const isResizing = Boolean(resizePreview && (resizePreview.key === k || isResizeStart))
                       const isCurrentTurn = currentTurnKeys.has(k)
                       const isSelectedForMultiPay = selectedMultiPayKeys?.includes(k)
                       const selectedIndex = isSelectedForMultiPay ? selectedMultiPayKeys.indexOf(k) + 1 : null
