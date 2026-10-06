@@ -151,6 +151,11 @@ export default function App() {
 
   useEffect(() => {
     const handleKeyDown = (e) => {
+      // Ignorar si hay modificadores presionados (Ctrl, Cmd, Alt) para evitar conflictos con atajos compuestos (ej. Ctrl+C)
+      if (e.ctrlKey || e.metaKey || e.altKey) {
+        return
+      }
+
       const activeEl = document.activeElement
       if (activeEl && (
         activeEl.tagName === "INPUT" || 
@@ -461,6 +466,11 @@ export default function App() {
 
   useEffect(() => {
     const handleKeyDown = (e) => {
+      // Ignorar combinaciones con modificadores (Ctrl, Cmd, Alt) para no interferir con atajos como Ctrl+V
+      if (e.ctrlKey || e.metaKey || e.altKey) {
+        return
+      }
+
       const activeTag = document.activeElement?.tagName?.toLowerCase()
       if (activeTag === "input" || activeTag === "textarea" || document.activeElement?.isContentEditable) {
         return
