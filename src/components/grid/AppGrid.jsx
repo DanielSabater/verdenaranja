@@ -511,6 +511,29 @@ export function AppGrid({
   const [dragCol, setDragCol] = useState(null) // profId being dragged
   const [dragOver, setDragOverCol] = useState(null) // profId being hovered
   const [menuPos, setMenuPos] = useState(null) // { x, y, profId, hour, hasAppt }
+  const contextMenuRef = useRef(null)
+
+  useEffect(() => {
+    if (!menuPos) return
+    const handleOutside = (e) => {
+      if (contextMenuRef.current && contextMenuRef.current.contains(e.target)) return
+      setMenuPos(null)
+    }
+    const handleKey = (e) => {
+      if (e.key === "Escape") setMenuPos(null)
+    }
+
+    window.addEventListener("mousedown", handleOutside)
+    window.addEventListener("keydown", handleKey)
+    window.addEventListener("scroll", handleOutside, true)
+
+    return () => {
+      window.removeEventListener("mousedown", handleOutside)
+      window.removeEventListener("keydown", handleKey)
+      window.removeEventListener("scroll", handleOutside, true)
+    }
+  }, [menuPos])
+
   const dragColRef = useRef(null)
   const scrollContainerRef = useRef(null)
   const theadRef = useRef(null)
@@ -2446,14 +2469,28 @@ export function AppGrid({
       })()}
 
       {menuPos && (
-        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999 }} onClick={() => setMenuPos(null)}>
-          <div style={{
-            position: "absolute", top: menuPos.y, left: menuPos.x,
-            background: C.white, borderRadius: 12, border: `1px solid ${C.border}`,
-            boxShadow: "0 8px 30px rgba(0,0,0,0.18)", overflow: "hidden",
-            width: 210, padding: 4, display: "flex", flexDirection: "column", gap: 2,
+        <div
+          ref={contextMenuRef}
+          style={{
+            position: "fixed",
+            top: menuPos.y,
+            left: menuPos.x,
+            zIndex: 9999,
+            background: C.white,
+            borderRadius: 12,
+            border: `1px solid ${C.border}`,
+            boxShadow: "0 8px 30px rgba(0,0,0,0.18)",
+            overflow: "hidden",
+            width: 210,
+            padding: 4,
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
             animation: "popIn .15s ease-out"
-          }} onClick={e => e.stopPropagation()}>
+          }}
+          onClick={e => e.stopPropagation()}
+          onContextMenu={e => e.stopPropagation()}
+        >
             {!menuPos.hasAppt ? (
               <>
                 {clipboardAppt && onPasteAppt && (
@@ -2697,7 +2734,6 @@ export function AppGrid({
               )
             })()}
           </div>
-        </div>
       )}
 
       {/* Barra flotante de cobro múltiple con Ctrl / Cmd */}
