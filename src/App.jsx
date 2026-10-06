@@ -955,6 +955,7 @@ export default function App() {
 
       const updatedAppt = {
         ...appt,
+        id: appt.id || (Date.now().toString() + Math.random().toString(36).substring(2, 7)),
         profId: targetProfId,
         hour: targetHour,
       }
@@ -1079,6 +1080,7 @@ export default function App() {
       if (editKey && editKey !== k) delete next[editKey]
       next[k] = {
         ...prev,
+        id: prev.id || (Date.now().toString() + Math.random().toString(36).substring(2, 7)),
         profId,
         hour,
         client: clientName.trim(),

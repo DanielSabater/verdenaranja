@@ -29,12 +29,45 @@ function lsWrite(key, data) {
   try { localStorage.setItem(`pv:${key}`, JSON.stringify(data)) } catch {}
 }
 
-export function mergeDayAppointments(localDay = {}, remoteDay = {}) {
+export function mergeDayAppointments(localDay = {}, remoteDay = {}, dateKey = null, deletedCellsMap = null) {
   const merged = { ...remoteDay }
 
+  // 1. Descartar celdas que fueron eliminadas o trasladadas localmente hace menos de 45 segundos
+  if (dateKey && deletedCellsMap) {
+    const now = Date.now()
+    Object.keys(remoteDay || {}).forEach(cellKey => {
+      const fullKey = `${dateKey}:${cellKey}`
+      const delTime = deletedCellsMap.get(fullKey)
+      if (delTime && (now - delTime) < 45000) {
+        delete merged[cellKey]
+      }
+    })
+  }
+
+  // 2. Si un turno con ID explícito se trasladó a otra celda en localDay,
+  // eliminar la celda vieja en remoteDay para evitar que resucite duplicado
+  const localIds = new Map()
+  Object.entries(localDay || {}).forEach(([locKey, locAppt]) => {
+    if (locAppt?.id) {
+      localIds.set(String(locAppt.id), locKey)
+    }
+  })
+
+  if (localIds.size > 0) {
+    Object.entries(remoteDay || {}).forEach(([remKey, remAppt]) => {
+      if (remAppt?.id && localIds.has(String(remAppt.id))) {
+        const locKey = localIds.get(String(remAppt.id))
+        if (remKey !== locKey) {
+          delete merged[remKey]
+        }
+      }
+    })
+  }
+
+  // 3. Fusionar turnos locales
   Object.entries(localDay || {}).forEach(([key, localAppt]) => {
     if (!localAppt) return
-    const remoteAppt = remoteDay?.[key]
+    const remoteAppt = merged[key]
 
     if (!remoteAppt) {
       // Turno creado localmente mientras no había conexión: se conserva
@@ -133,6 +166,7 @@ export function usePersistentState(currentDate) {
   
   const lastSaved   = useRef({})
   const dirtyKeys   = useRef(new Set())
+  const deletedCellsRef = useRef(new Map())
   const lastFetchTime = useRef(0)
   const fetchedDates = useRef(new Set())
 
@@ -203,7 +237,7 @@ export function usePersistentState(currentDate) {
             const id = `day:${dateKey}`
             if (dirtyKeys.current.has(id)) {
               // Fusión inteligente: combinamos turnos remotos con los cobros/cambios locales sin pisar
-              next[dateKey] = mergeDayAppointments(prev[dateKey] || {}, updates[dateKey] || {})
+              next[dateKey] = mergeDayAppointments(prev[dateKey] || {}, updates[dateKey] || {}, dateKey, deletedCellsRef.current)
             } else {
               next[dateKey] = updates[dateKey]
             }
@@ -247,7 +281,7 @@ export function usePersistentState(currentDate) {
             const dateKey = row.id.replace("day:", "")
             setAllData(prev => ({
               ...prev,
-              [dateKey]: mergeDayAppointments(prev[dateKey] || {}, row.data || {})
+              [dateKey]: mergeDayAppointments(prev[dateKey] || {}, row.data || {}, dateKey, deletedCellsRef.current)
             }))
           }
           return
@@ -366,7 +400,7 @@ export function usePersistentState(currentDate) {
           if (dirtyKeys.current.has(id)) {
             setAllData(prev => ({
               ...prev,
-              [dateToFetch]: mergeDayAppointments(prev[dateToFetch] || {}, dayRes.data.data || {})
+              [dateToFetch]: mergeDayAppointments(prev[dateToFetch] || {}, dayRes.data.data || {}, dateToFetch, deletedCellsRef.current)
             }))
           } else {
             lastSaved.current[id] = JSON.stringify(dayRes.data.data)
@@ -517,6 +551,11 @@ export function usePersistentState(currentDate) {
     setAllData(prev => {
       const current = prev[currentDate] || {}
       const next = typeof updater === "function" ? updater(current) : updater
+      Object.keys(current).forEach(k => {
+        if (!next[k]) {
+          deletedCellsRef.current.set(`${currentDate}:${k}`, Date.now())
+        }
+      })
       return { ...prev, [currentDate]: next }
     })
   }
@@ -524,6 +563,7 @@ export function usePersistentState(currentDate) {
   const rescheduleAppointment = ({ fromDate, fromKey, toDate, toProfId, toHour }) => {
     dirtyKeys.current.add(`day:${fromDate}`)
     dirtyKeys.current.add(`day:${toDate}`)
+    deletedCellsRef.current.set(`${fromDate}:${fromKey}`, Date.now())
 
     let movedAppt = null
 
@@ -542,6 +582,7 @@ export function usePersistentState(currentDate) {
       const toKey = cellKey(toProfId, toHour)
       const updatedAppt = {
         ...movedAppt,
+        id: movedAppt.id || (Date.now().toString() + Math.random().toString(36).substring(2, 7)),
         profId: toProfId,
         hour: toHour,
       }
@@ -606,6 +647,7 @@ export function usePersistentState(currentDate) {
 
   const deleteAppointment = (date, key) => {
     dirtyKeys.current.add(`day:${date}`)
+    deletedCellsRef.current.set(`${date}:${key}`, Date.now())
     setAllData(prev => {
       const dayData = { ...(prev[date] || {}) }
       delete dayData[key]
