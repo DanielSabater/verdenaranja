@@ -92,7 +92,7 @@ export default function App() {
 
   const {
     loaded, saveStatus, connStatus,
-    allData, setAppointments, rescheduleAppointment,
+    allData, setAppointments, rescheduleAppointment, copyAppointment,
     allArqueos, setArqueo,
     gastos, setGastos,
     sueldos, setSueldos,
@@ -744,6 +744,9 @@ export default function App() {
         if (selectedMultiPayKeysRef.current.length > 0) {
           setSelectedMultiPayKeys([])
         }
+        if (clipboardApptRef.current) {
+          setClipboardAppt(null)
+        }
       }
     }
 
@@ -754,6 +757,41 @@ export default function App() {
       window.removeEventListener("keydown", handleKeyDownGlobal)
     }
   }, [openMultiPay])
+
+  // Portapapeles para Cortar, Copiar y Pegar turnos
+  const [clipboardAppt, setClipboardAppt] = useState(null)
+  const clipboardApptRef = useRef(null)
+  clipboardApptRef.current = clipboardAppt
+
+  const handleCutAppt = useCallback((key) => {
+    const a = appointments[key]
+    if (!a) return
+    setClipboardAppt({
+      mode: "cut",
+      appt: a,
+      fromDate: currentDate,
+      fromKey: key
+    })
+    setTruncateToast(`✂️ Turno de ${a.client || "Clienta"} cortado. Hacé clic derecho donde quieras pegarlo`)
+    setTimeout(() => setTruncateToast(null), 3500)
+  }, [appointments, currentDate])
+
+  const handleCopyAppt = useCallback((key) => {
+    const a = appointments[key]
+    if (!a) return
+    setClipboardAppt({
+      mode: "copy",
+      appt: a,
+      fromDate: currentDate,
+      fromKey: key
+    })
+    setTruncateToast(`📋 Turno de ${a.client || "Clienta"} copiado. Hacé clic derecho donde quieras pegarlo`)
+    setTimeout(() => setTruncateToast(null), 3500)
+  }, [appointments, currentDate])
+
+  const handleCancelClipboard = useCallback(() => {
+    setClipboardAppt(null)
+  }, [])
 
   const isOccupied = useCallback((profId, hour, ignoreKey = null) => {
     if (appointments[cellKey(profId, hour)] && cellKey(profId, hour) !== ignoreKey) return true
@@ -782,6 +820,60 @@ export default function App() {
     }
     return false
   }, [appointments])
+
+  const handlePasteAppt = useCallback((toProfId, toHour) => {
+    if (!clipboardAppt) return
+    const { mode, appt, fromDate, fromKey } = clipboardAppt
+    const toKey = cellKey(toProfId, toHour)
+
+    if (mode === "cut" && fromDate === currentDate && fromKey === toKey) {
+      setClipboardAppt(null)
+      return
+    }
+
+    const ignoreKey = (mode === "cut" && fromDate === currentDate) ? fromKey : null
+    const requestedSlots = getApptSlots(appt)
+    const idx = HOURS.indexOf(toHour)
+    if (idx < 0) return
+
+    let canFit = true
+    for (let s = 0; s < requestedSlots; s++) {
+      const checkHour = HOURS[idx + s]
+      if (!checkHour || isOccupied(toProfId, checkHour, ignoreKey)) {
+        canFit = false
+        break
+      }
+    }
+
+    if (!canFit) {
+      setTruncateToast(`⚠️ No hay espacio suficiente (${requestedSlots * 30} min) en ese horario`)
+      setTimeout(() => setTruncateToast(null), 3500)
+      return
+    }
+
+    if (mode === "cut") {
+      rescheduleAppointment({
+        fromDate,
+        fromKey,
+        toDate: currentDate,
+        toProfId,
+        toHour
+      })
+      setClipboardAppt(null)
+      setTruncateToast(`✅ Turno de ${appt.client || "Clienta"} movido con éxito a ${toHour} hs`)
+      setTimeout(() => setTruncateToast(null), 3000)
+    } else if (mode === "copy") {
+      copyAppointment({
+        fromDate,
+        fromKey,
+        toDate: currentDate,
+        toProfId,
+        toHour
+      })
+      setTruncateToast(`✅ Turno de ${appt.client || "Clienta"} copiado con éxito a ${toHour} hs`)
+      setTimeout(() => setTruncateToast(null), 3000)
+    }
+  }, [clipboardAppt, currentDate, isOccupied, rescheduleAppointment, copyAppointment])
 
   const checkDropStatus = useCallback((dragKey, targetProfId, targetHour) => {
     const a = appointments[dragKey]
@@ -1472,6 +1564,11 @@ export default function App() {
                 clientes={clientes}
                 setClientes={setClientes}
                 onMarkWaSent={handleMarkWaSent}
+                clipboardAppt={clipboardAppt}
+                onCutAppt={handleCutAppt}
+                onCopyAppt={handleCopyAppt}
+                onPasteAppt={handlePasteAppt}
+                onCancelClipboard={handleCancelClipboard}
               />
             </div>
           </div>

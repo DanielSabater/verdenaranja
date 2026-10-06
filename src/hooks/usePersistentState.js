@@ -562,6 +562,48 @@ export function usePersistentState(currentDate) {
     return movedAppt
   }
 
+  const copyAppointment = ({ fromDate, fromKey, toDate, toProfId, toHour }) => {
+    dirtyKeys.current.add(`day:${toDate}`)
+
+    let copiedAppt = null
+
+    setAllData(prev => {
+      const fromDay = prev[fromDate] || {}
+      const source = fromDay[fromKey]
+      if (!source) {
+        console.warn(`[copyAppointment] Turno ${fromKey} no encontrado en ${fromDate}`)
+        return prev
+      }
+
+      const toDay = { ...(prev[toDate] || {}) }
+      const toKey = cellKey(toProfId, toHour)
+
+      copiedAppt = {
+        ...source,
+        id: Date.now().toString(),
+        profId: toProfId,
+        hour: toHour,
+        services: Array.isArray(source.services) ? source.services.map(s => ({ ...s })) : (source.services || []),
+        paid: false,
+        payMethod: null,
+        payGroupId: null,
+        paymentSplits: [],
+        tip: 0,
+        discount: 0,
+        arrived: false
+      }
+
+      toDay[toKey] = copiedAppt
+
+      return {
+        ...prev,
+        [toDate]: toDay
+      }
+    })
+
+    return copiedAppt
+  }
+
   const deleteAppointment = (date, key) => {
     dirtyKeys.current.add(`day:${date}`)
     setAllData(prev => {
@@ -688,7 +730,7 @@ export function usePersistentState(currentDate) {
 
   return {
     loaded, saveStatus, connStatus,
-    allData,   setAppointments, rescheduleAppointment, deleteAppointment,
+    allData,   setAppointments, rescheduleAppointment, copyAppointment, deleteAppointment,
     allArqueos, setArqueo,
     config,    setConfig: setConfigUser,
     clientes,  setClientes: setClientesUser,

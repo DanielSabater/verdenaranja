@@ -412,6 +412,11 @@ export function AppGrid({
   clientes = [],
   setClientes,
   onMarkWaSent,
+  clipboardAppt = null,
+  onCutAppt,
+  onCopyAppt,
+  onPasteAppt,
+  onCancelClipboard,
 }) {
   const [profPopup, setProfPopup] = useState(null)
   const [copiedAgenda, setCopiedAgenda] = useState(false)
@@ -980,7 +985,10 @@ export function AppGrid({
 
   const handleContextMenu = (e, profId, hour, hasAppt) => {
     e.preventDefault()
-    setMenuPos({ x: e.clientX, y: e.clientY, profId, hour, hasAppt })
+    e.stopPropagation()
+    const x = Math.max(10, Math.min(e.clientX, window.innerWidth - 230))
+    const y = Math.max(10, Math.min(e.clientY, window.innerHeight - 300))
+    setMenuPos({ x, y, profId, hour, hasAppt })
   }
 
   const blockedColorConfig = config?.blockedColor || "rojo"
@@ -1357,6 +1365,8 @@ export function AppGrid({
                       const cd = overdueInfo?.cd
                       const overdueStyle = overdueInfo?.overdueStyle
                       const isOverdueAlert = overdueInfo?.isOverdueAlert && !isDragging && !isResizeStart && !isSelectedForMultiPay
+                      const isCutAppt = clipboardAppt?.mode === "cut" && clipboardAppt?.fromKey === k && clipboardAppt?.fromDate === currentDate
+                      const isCopiedAppt = clipboardAppt?.mode === "copy" && clipboardAppt?.fromKey === k && clipboardAppt?.fromDate === currentDate
                       return (
                         <div
                           draggable={!resizePreview && !isSelectedForMultiPay}
@@ -1398,19 +1408,23 @@ export function AppGrid({
                                   : overdueStyle
                                     ? overdueStyle.background
                                     : `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Ctext x='50%25' y='50%25' font-size='14' fill='%23e8793a' opacity='0.08' text-anchor='middle' dominant-baseline='middle' transform='rotate(-20 30 30)'%3E🕒%3C/text%3E%3C/svg%3E"), linear-gradient(135deg,${C.orangePale},#fde8d4)`),
-                            border: isSelectedForMultiPay
-                              ? `2px solid #16a34a`
-                              : (appt.isBlocked
-                              ? (config.gridStyle === "classic" ? `1px dashed rgba(${rgbString}, ${alphas.border})` : `1.5px dashed rgba(${rgbString}, ${alphas.border})`)
-                              : appt.isNote
-                                ? "1.5px solid #ffe066"
-                                : isResizeStart
-                                  ? `1.5px solid ${C.greenLight}`
-                                  : appt.arrived && !appt.paid
-                                    ? `1.5px solid #4a90e2`
-                                    : overdueStyle
-                                      ? overdueStyle.border
-                                      : `1.5px solid ${appt.paid ? C.greenLight : C.orangeLight}`),
+                            border: isCutAppt
+                              ? "2px dashed #ea580c"
+                              : isCopiedAppt
+                                ? "2px dashed #2563eb"
+                                : isSelectedForMultiPay
+                                  ? `2px solid #16a34a`
+                                  : (appt.isBlocked
+                                  ? (config.gridStyle === "classic" ? `1px dashed rgba(${rgbString}, ${alphas.border})` : `1.5px dashed rgba(${rgbString}, ${alphas.border})`)
+                                  : appt.isNote
+                                    ? "1.5px solid #ffe066"
+                                    : isResizeStart
+                                      ? `1.5px solid ${C.greenLight}`
+                                      : appt.arrived && !appt.paid
+                                        ? `1.5px solid #4a90e2`
+                                        : overdueStyle
+                                          ? overdueStyle.border
+                                          : `1.5px solid ${appt.paid ? C.greenLight : C.orangeLight}`),
                             padding: "6px 7px 6px",
                             display: "flex", flexDirection: "column",
                             boxShadow: isDragging
@@ -1426,7 +1440,7 @@ export function AppGrid({
                                     : overdueStyle
                                       ? overdueStyle.boxShadow
                                       : `0 2px 8px ${appt.paid ? "rgba(58,125,68,0.1)" : "rgba(232,121,58,0.1)"}`)),
-                            opacity: isDragging ? 0.45 : 1,
+                            opacity: isDragging ? 0.45 : (isCutAppt ? 0.45 : 1),
                             transform: isDragging ? "scale(0.97)" : (isSelectedForMultiPay ? "scale(1.02)" : "scale(1)"),
                             transition: isResizing ? "none" : "opacity .15s, box-shadow .15s, transform .15s",
                             cursor: (selectedMultiPayKeys && selectedMultiPayKeys.length > 0) ? "pointer" : "grab",
@@ -1435,6 +1449,30 @@ export function AppGrid({
                             zIndex: isSelectedForMultiPay ? 15 : (isOverdueAlert ? 6 : 1),
                           }}
                         >
+                          {isCutAppt && (
+                            <div style={{
+                              position: "absolute", top: 2, right: 4,
+                              background: "#ea580c", color: "#ffffff",
+                              fontSize: 9, fontWeight: "bold",
+                              padding: "1px 6px", borderRadius: 8,
+                              boxShadow: "0 2px 4px rgba(0,0,0,0.18)",
+                              pointerEvents: "none", zIndex: 20
+                            }}>
+                              ✂️ Cortado
+                            </div>
+                          )}
+                          {isCopiedAppt && (
+                            <div style={{
+                              position: "absolute", top: 2, right: 4,
+                              background: "#2563eb", color: "#ffffff",
+                              fontSize: 9, fontWeight: "bold",
+                              padding: "1px 6px", borderRadius: 8,
+                              boxShadow: "0 2px 4px rgba(0,0,0,0.18)",
+                              pointerEvents: "none", zIndex: 20
+                            }}>
+                              📋 Copiado
+                            </div>
+                          )}
                           {isDragging && (span || 1) > 1 && (
                             <div style={{
                               position: "absolute",
@@ -2412,12 +2450,78 @@ export function AppGrid({
           <div style={{
             position: "absolute", top: menuPos.y, left: menuPos.x,
             background: C.white, borderRadius: 12, border: `1px solid ${C.border}`,
-            boxShadow: "0 8px 30px rgba(0,0,0,0.15)", overflow: "hidden",
-            width: 160, padding: 4, display: "flex", flexDirection: "column", gap: 2,
+            boxShadow: "0 8px 30px rgba(0,0,0,0.18)", overflow: "hidden",
+            width: 210, padding: 4, display: "flex", flexDirection: "column", gap: 2,
             animation: "popIn .15s ease-out"
           }} onClick={e => e.stopPropagation()}>
             {!menuPos.hasAppt ? (
               <>
+                {clipboardAppt && onPasteAppt && (
+                  <>
+                    <div style={{
+                      fontSize: 10,
+                      fontWeight: "bold",
+                      color: clipboardAppt.mode === "cut" ? "#c2410c" : "#15803d",
+                      padding: "6px 10px 4px",
+                      letterSpacing: "0.5px",
+                      textTransform: "uppercase",
+                      borderBottom: `1px solid ${C.border}`,
+                      marginBottom: 2
+                    }}>
+                      {clipboardAppt.mode === "cut" ? "✂️ Mover turno" : "📋 Pegar turno"}
+                    </div>
+                    <button
+                      onClick={() => {
+                        onPasteAppt(menuPos.profId, menuPos.hour)
+                        setMenuPos(null)
+                      }}
+                      style={{
+                        padding: "8px 12px",
+                        background: clipboardAppt.mode === "cut" ? "#fff7ed" : "#f0fdf4",
+                        border: `1px solid ${clipboardAppt.mode === "cut" ? "#fed7aa" : "#bbf7d0"}`,
+                        borderRadius: 8,
+                        textAlign: "left",
+                        fontSize: 12,
+                        cursor: "pointer",
+                        color: clipboardAppt.mode === "cut" ? "#9a3412" : "#166534",
+                        fontWeight: "bold",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                      }}
+                    >
+                      <span style={{ fontSize: 14 }}>📌</span>
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        Pegar ({clipboardAppt.appt?.client || "Turno"})
+                      </span>
+                    </button>
+                    {onCancelClipboard && (
+                      <button
+                        onClick={() => {
+                          onCancelClipboard()
+                          setMenuPos(null)
+                        }}
+                        style={{
+                          padding: "6px 12px",
+                          background: "transparent",
+                          border: "none",
+                          borderRadius: 8,
+                          textAlign: "left",
+                          fontSize: 11,
+                          cursor: "pointer",
+                          color: C.textSoft,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6
+                        }}
+                      >
+                        <span>✕</span>
+                        <span>Cancelar {clipboardAppt.mode === "cut" ? "mover" : "copiar"}</span>
+                      </button>
+                    )}
+                    <div style={{ borderTop: `1px solid ${C.border}`, margin: "3px 4px" }} />
+                  </>
+                )}
                 <div style={{ fontSize: 9, color: C.textSoft, padding: "6px 10px", letterSpacing: "1px", textTransform: "uppercase" }}>Bloqueo Rápido</div>
                 <button onClick={() => { quickBlock(menuPos.profId, menuPos.hour, 1); setMenuPos(null) }} style={{ padding: "8px 12px", background: "transparent", border: "none", borderRadius: 8, textAlign: "left", fontSize: 12, cursor: "pointer", color: C.text }}>🔴 30 min</button>
                 <button onClick={() => { quickBlock(menuPos.profId, menuPos.hour, 2); setMenuPos(null) }} style={{ padding: "8px 12px", background: "transparent", border: "none", borderRadius: 8, textAlign: "left", fontSize: 12, cursor: "pointer", color: C.text }}>🔴 1 hora</button>
@@ -2426,18 +2530,148 @@ export function AppGrid({
                 <div style={{ borderTop: `1px solid ${C.border}`, margin: "2px 4px" }} />
                 <button onClick={() => { quickBlock(menuPos.profId, HOURS[0], HOURS.length); setMenuPos(null) }} style={{ padding: "8px 12px", background: "transparent", border: "none", borderRadius: 8, textAlign: "left", fontSize: 12, cursor: "pointer", color: C.red, fontWeight: "bold" }}>🚫 Todo el día</button>
               </>
-            ) : (
-              <>
-                {onOpenReschedule && (
+            ) : (() => {
+              const k = cellKey(menuPos.profId, menuPos.hour)
+              const appt = appointments[k]
+              return (
+                <>
+                  <div style={{
+                    fontSize: 10,
+                    fontWeight: "bold",
+                    color: C.textSoft,
+                    padding: "6px 10px 4px",
+                    letterSpacing: "0.5px",
+                    textTransform: "uppercase",
+                    borderBottom: `1px solid ${C.border}`,
+                    marginBottom: 2,
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis"
+                  }}>
+                    {appt?.client || "Turno"} · {menuPos.hour} hs
+                  </div>
+
+                  {onCutAppt && (
+                    <button
+                      onClick={() => {
+                        onCutAppt(k)
+                        setMenuPos(null)
+                      }}
+                      style={{
+                        padding: "8px 12px",
+                        background: "transparent",
+                        border: "none",
+                        borderRadius: 8,
+                        textAlign: "left",
+                        fontSize: 12,
+                        cursor: "pointer",
+                        color: C.text,
+                        fontWeight: 500,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = "#f4f4f5"}
+                      onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                    >
+                      <span style={{ fontSize: 14 }}>✂️</span>
+                      <span>Cortar turno</span>
+                    </button>
+                  )}
+
+                  {onCopyAppt && (
+                    <button
+                      onClick={() => {
+                        onCopyAppt(k)
+                        setMenuPos(null)
+                      }}
+                      style={{
+                        padding: "8px 12px",
+                        background: "transparent",
+                        border: "none",
+                        borderRadius: 8,
+                        textAlign: "left",
+                        fontSize: 12,
+                        cursor: "pointer",
+                        color: C.text,
+                        fontWeight: 500,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = "#f4f4f5"}
+                      onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                    >
+                      <span style={{ fontSize: 14 }}>📋</span>
+                      <span>Copiar turno</span>
+                    </button>
+                  )}
+
+                  {onOpenReschedule && (
+                    <button
+                      onClick={() => {
+                        onOpenReschedule({
+                          fromDate: currentDate,
+                          fromKey: k,
+                          appt: appointments[k],
+                          activeRama: activeRama
+                        })
+                        setMenuPos(null)
+                      }}
+                      style={{
+                        padding: "8px 12px",
+                        background: "transparent",
+                        border: "none",
+                        borderRadius: 8,
+                        textAlign: "left",
+                        fontSize: 12,
+                        cursor: "pointer",
+                        color: C.green,
+                        fontWeight: "bold",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = "#f4f4f5"}
+                      onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                    >
+                      <span style={{ fontSize: 14 }}>📅</span>
+                      <span>Reprogramar turno</span>
+                    </button>
+                  )}
+
+                  {clipboardAppt && onCancelClipboard && (
+                    <>
+                      <div style={{ borderTop: `1px solid ${C.border}`, margin: "2px 4px" }} />
+                      <button
+                        onClick={() => {
+                          onCancelClipboard()
+                          setMenuPos(null)
+                        }}
+                        style={{
+                          padding: "6px 12px",
+                          background: "transparent",
+                          border: "none",
+                          borderRadius: 8,
+                          textAlign: "left",
+                          fontSize: 11,
+                          cursor: "pointer",
+                          color: C.textSoft,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6
+                        }}
+                      >
+                        <span>✕</span>
+                        <span>Cancelar {clipboardAppt.mode === "cut" ? "cortar" : "copiar"}</span>
+                      </button>
+                    </>
+                  )}
+
+                  <div style={{ borderTop: `1px solid ${C.border}`, margin: "2px 4px" }} />
                   <button
                     onClick={() => {
-                      const k = cellKey(menuPos.profId, menuPos.hour)
-                      onOpenReschedule({
-                        fromDate: currentDate,
-                        fromKey: k,
-                        appt: appointments[k],
-                        activeRama: activeRama
-                      })
+                      onDelete(k)
                       setMenuPos(null)
                     }}
                     style={{
@@ -2448,20 +2682,20 @@ export function AppGrid({
                       textAlign: "left",
                       fontSize: 12,
                       cursor: "pointer",
-                      color: C.green,
-                      fontWeight: "bold",
+                      color: "#d44a4a",
                       display: "flex",
                       alignItems: "center",
-                      gap: 6
+                      gap: 8,
                     }}
+                    onMouseEnter={e => e.currentTarget.style.background = "#fef2f2"}
+                    onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                   >
-                    <span>📅</span> Reprogramar turno
+                    <span style={{ fontSize: 14 }}>🗑️</span>
+                    <span>Eliminar turno</span>
                   </button>
-                )}
-                <div style={{ borderTop: `1px solid ${C.border}`, margin: "2px 4px" }} />
-                <button onClick={() => { onDelete(cellKey(menuPos.profId, menuPos.hour)); setMenuPos(null) }} style={{ padding: "8px 12px", background: "transparent", border: "none", borderRadius: 8, textAlign: "left", fontSize: 12, cursor: "pointer", color: "#d44a4a" }}>🗑️ Eliminar turno</button>
-              </>
-            )}
+                </>
+              )
+            })()}
           </div>
         </div>
       )}
@@ -2548,6 +2782,73 @@ export function AppGrid({
           </div>
         )
       })()}
+
+      {/* Barra flotante para Cortar / Copiar turno activo */}
+      {clipboardAppt && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: isMobile
+              ? (selectedMultiPayKeys?.length > 0 ? "calc(200px + env(safe-area-inset-bottom))" : "calc(140px + env(safe-area-inset-bottom))")
+              : (selectedMultiPayKeys?.length > 0 ? 144 : 86),
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: clipboardAppt.mode === "cut"
+              ? "linear-gradient(135deg, #ea580c, #c2410c)"
+              : "linear-gradient(135deg, #2563eb, #1d4ed8)",
+            color: "#ffffff",
+            borderRadius: 36,
+            padding: "8px 16px 8px 20px",
+            fontSize: 13,
+            zIndex: 9998,
+            boxShadow: "0 10px 35px rgba(0,0,0,0.35), 0 0 0 1.5px rgba(255,255,255,0.25)",
+            display: "flex",
+            alignItems: "center",
+            gap: 14,
+            backdropFilter: "blur(12px)",
+            animation: "popIn .18s ease-out",
+            maxWidth: "92vw",
+            whiteSpace: "nowrap"
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 8, overflow: "hidden", textOverflow: "ellipsis" }}>
+            <span style={{ fontSize: 16 }}>{clipboardAppt.mode === "cut" ? "✂️" : "📋"}</span>
+            <span>
+              <strong>{clipboardAppt.mode === "cut" ? "Moviendo" : "Copiando"}:</strong>{" "}
+              <span style={{ color: "#fef08a", fontWeight: "bold" }}>{clipboardAppt.appt?.client || "Turno"}</span>
+              <span style={{ opacity: 0.9, fontSize: 11, marginLeft: 6 }}>
+                ({clipboardAppt.fromDate} · {clipboardAppt.appt?.hour} hs)
+              </span>
+            </span>
+          </div>
+          <div style={{ fontSize: 11, opacity: 0.9, borderLeft: "1px solid rgba(255,255,255,0.25)", paddingLeft: 12 }}>
+            Clic derecho en una celda vacía para pegar
+          </div>
+          <button
+            onClick={e => {
+              e.stopPropagation()
+              if (onCancelClipboard) onCancelClipboard()
+            }}
+            style={{
+              background: "rgba(255,255,255,0.2)",
+              color: "#fff",
+              border: "none",
+              borderRadius: 20,
+              padding: "5px 12px",
+              fontSize: 11,
+              fontWeight: "bold",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+              transition: "background .15s",
+            }}
+            title="Cancelar (Esc)"
+          >
+            <span>✕</span> Cancelar
+          </button>
+        </div>
+      )}
 
       {/* ── Modal para ingresar WhatsApp si no tiene número ── */}
       {waPromptModal && (
