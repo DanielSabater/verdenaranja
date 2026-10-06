@@ -1,8 +1,7 @@
 import React, { useMemo } from "react"
 import { C } from "../../constants/colors.js"
-import { fmt, apptTotal } from "../../utils/appointments.js"
-import { fmtDate, fmtShort } from "../../utils/dates.js"
-import { formatWaNumber, openWhatsAppLink, cleanClientName } from "../../utils/whatsapp.js"
+import { fmt } from "../../utils/appointments.js"
+import { fmtDate } from "../../utils/dates.js"
 import { Overlay, AnimatedNumber } from "../ui/index.jsx"
 import { useIsMobile } from "../../hooks/useIsMobile.js"
 
@@ -14,7 +13,6 @@ export function DailySummaryModal({
   grandTotal,
   scheduledStats,
   getApptsByMethod,
-  pastUnpaidAppts = [],
   onNavigateToTurno,
   privacyMode = false
 }) {
@@ -29,13 +27,6 @@ export function DailySummaryModal({
   const debitTotal = useMemo(() => (isOpen && totalByMethod ? totalByMethod("debito") : 0) || 0, [isOpen, totalByMethod])
   const mpTotal = useMemo(() => (isOpen && totalByMethod ? totalByMethod("mercadopago") : 0) || 0, [isOpen, totalByMethod])
 
-  // Deudas pendientes: únicamente turnos de días anteriores sin cobrar
-  const unpaidAppts = pastUnpaidAppts || []
-
-  const totalUnpaidMoney = useMemo(() => {
-    return unpaidAppts.reduce((sum, a) => sum + (a.totalAmount || 0), 0)
-  }, [unpaidAppts])
-
   if (!isOpen) return null
 
   return (
@@ -46,7 +37,7 @@ export function DailySummaryModal({
           background: C.white,
           borderRadius: isMobile ? 18 : 22,
           padding: isMobile ? "14px 12px 18px" : "20px 24px 22px",
-          width: isMobile ? "calc(100vw - 16px)" : "min(1160px, calc(100vw - 28px))",
+          width: isMobile ? "calc(100vw - 16px)" : "min(980px, calc(100vw - 28px))",
           maxHeight: isMobile ? "94vh" : "92vh",
           display: "flex",
           flexDirection: "column",
@@ -148,10 +139,10 @@ export function DailySummaryModal({
         {/* Separador sutil */}
         <div style={{ height: 1.5, background: `linear-gradient(90deg, ${C.greenMint}, ${C.border}, transparent)`, borderRadius: 2 }} />
 
-        {/* 4 Columnas: Efectivo, Débito, Mercado Pago, Sin Cobrar (Diseño anterior original) */}
+        {/* 3 Columnas: Efectivo, Débito, Mercado Pago */}
         <div style={{
           display: "grid",
-          gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(240px, 1fr))",
+          gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(280px, 1fr))",
           gap: 12,
           flex: 1,
           minHeight: 0
@@ -405,155 +396,9 @@ export function DailySummaryModal({
             </div>
           </div>
 
-          {/* 4. Columna Turnos Adeudados (Clientas que no abonaron) */}
-          <div style={{
-            background: "#fff9f9",
-            borderRadius: 16,
-            border: "1.5px solid #fca5a5",
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden"
-          }}>
-            {/* Header columna */}
-            <div style={{
-              background: "linear-gradient(135deg, #fff1f2, #ffe4e6)",
-              padding: "10px 14px",
-              borderBottom: "1px solid #fecdd3",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center"
-            }}>
-              <div>
-                <div style={{ fontSize: 9, letterSpacing: "1.5px", color: "#b91c1c", textTransform: "uppercase", fontWeight: "bold" }}>
-                  ⚠️ Deudas Anteriores
-                </div>
-                <div style={{ fontSize: 9, color: "#991b1b", marginTop: 1 }}>
-                  {unpaidAppts.length} turno{unpaidAppts.length !== 1 ? "s" : ""}
-                </div>
-              </div>
-              <div className={privacyMode ? "privacy-blur" : ""} style={{ fontSize: 16, fontWeight: "bold", color: "#b91c1c", fontVariantNumeric: "tabular-nums" }}>
-                <AnimatedNumber value={totalUnpaidMoney} formatFn={fmt} />
-              </div>
-            </div>
-
-            {/* Lista scrolleable */}
-            <div style={{ flex: 1, overflowY: "auto", padding: "8px 10px", maxHeight: isMobile ? 260 : 440, display: "flex", flexDirection: "column", gap: 6 }}>
-              {unpaidAppts.length === 0 ? (
-                <div style={{ fontSize: 11, color: "#15803d", textAlign: "center", padding: "32px 12px", display: "flex", flexDirection: "column", gap: 6, alignItems: "center" }}>
-                  <span style={{ fontSize: 24 }}>🎉</span>
-                  <span style={{ fontWeight: "bold" }}>¡Al día! Sin deudas pendientes</span>
-                  <span style={{ fontSize: 9.5, color: C.textSoft, fontWeight: "normal" }}>
-                    Todas las clientas de días anteriores están cobradas.
-                  </span>
-                </div>
-              ) : (
-                unpaidAppts.map((item) => {
-                  const dateDisplay = fmtShort(item.date)
-                  const serviceNames = (item.services || []).map(s => s.name).join(", ") || "Turno"
-
-                  const handleWhatsAppClick = (e) => {
-                    e.stopPropagation()
-                    if (!item.clientPhone) return
-                    const message = `¡Hola ${cleanClientName(item.client)}! 🌿 Te escribimos de Verde Naranja por tu turno del día ${fmtDate(item.date)} (${serviceNames}). Te dejamos este recordatorio porque quedó pendiente el saldo de ${fmt(item.totalAmount)}. ¡Muchas gracias!`
-                    openWhatsAppLink(formatWaNumber(item.clientPhone), message)
-                  }
-
-                  return (
-                    <div
-                      key={item.key || item.id}
-                      onClick={() => {
-                        onNavigateToTurno?.({
-                          date: item.date,
-                          hour: item.hour,
-                          profId: item.profId,
-                          rama: item.profRama || "manos",
-                          openEdit: false
-                        })
-                        onClose()
-                      }}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        padding: "8px 10px",
-                        borderRadius: 10,
-                        background: C.white,
-                        border: "1px solid #fed7aa",
-                        cursor: "pointer",
-                        transition: "all .12s",
-                        gap: 8
-                      }}
-                      onMouseEnter={e => {
-                        e.currentTarget.style.background = "#fffaf0"
-                        e.currentTarget.style.borderColor = "#fdba74"
-                      }}
-                      onMouseLeave={e => {
-                        e.currentTarget.style.background = C.white
-                        e.currentTarget.style.borderColor = "#fed7aa"
-                      }}
-                      title="Clic para ver turno en planilla"
-                    >
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2 }}>
-                          <span style={{ fontSize: 8.5, fontWeight: "bold", color: "#c2410c", background: "#ffedd5", padding: "1px 5px", borderRadius: 4 }}>
-                            📅 {dateDisplay} · {item.hour} hs
-                          </span>
-                          <span style={{ fontSize: 8.5, color: C.textSoft }}>
-                            ({item.profName})
-                          </span>
-                        </div>
-                        <div style={{ fontSize: 11, fontWeight: "bold", color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {item.client}
-                        </div>
-                        <div style={{ fontSize: 8.5, color: C.textSoft, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {serviceNames}
-                        </div>
-                      </div>
-
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-                        <div style={{ textAlign: "right" }}>
-                          <div style={{ fontSize: 12, fontWeight: "800", color: "#b91c1c", fontVariantNumeric: "tabular-nums" }}>
-                            {fmt(item.totalAmount)}
-                          </div>
-                          <div style={{ fontSize: 7.5, color: "#ea580c" }}>
-                            Sin cobrar
-                          </div>
-                        </div>
-                        {item.clientPhone ? (
-                          <button
-                            type="button"
-                            onClick={handleWhatsAppClick}
-                            title={`Enviar recordatorio por WhatsApp a ${item.client}`}
-                            style={{
-                              width: 26,
-                              height: 26,
-                              borderRadius: "50%",
-                              background: "#25d366",
-                              border: "none",
-                              cursor: "pointer",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              color: "#fff",
-                              fontSize: 13,
-                              boxShadow: "0 2px 6px rgba(37, 211, 102, 0.35)",
-                              transition: "transform 0.15s ease"
-                            }}
-                            onMouseEnter={e => e.currentTarget.style.transform = "scale(1.1)"}
-                            onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
-                          >
-                            💬
-                          </button>
-                        ) : null}
-                      </div>
-                    </div>
-                  )
-                })
-              )}
-            </div>
-          </div>
         </div>
       </div>
     </Overlay>
   )
 }
+

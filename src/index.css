@@ -157,7 +157,8 @@ select {
   }
 
   /* Ocultar en mobile elementos de escritorio para evitar colisiones */
-  .daily-summary-btn {
+  .daily-summary-btn,
+  .daily-summary-wrapper {
     display: none !important;
   }
 
@@ -1132,12 +1133,33 @@ select {
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.daily-summary-btn:hover {
-  transform: translateY(-1px);
+.daily-summary-btn:hover,
+.daily-summary-btn.force-hover {
+  transform: scale(1.005) !important;
+  box-shadow: 0 0 0 2px #3a7d44, 0 4px 20px rgba(58, 125, 68, .35), 0 0 24px rgba(58, 125, 68, .20) !important;
+}
+
+.daily-summary-btn.paid:hover {
+  box-shadow: 0 0 0 2px #3a7d44, 0 4px 20px rgba(58, 125, 68, .35), 0 0 24px rgba(58, 125, 68, .20) !important;
+}
+
+.daily-summary-btn.unpaid:hover {
+  box-shadow: 0 0 0 2px #e8793a, 0 4px 20px rgba(232, 121, 58, .35), 0 0 24px rgba(232, 121, 58, .20) !important;
 }
 
 .daily-summary-btn:active {
-  transform: translateY(0) scale(0.98);
+  transform: scale(0.98) !important;
+}
+
+@keyframes scaleUp {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 
