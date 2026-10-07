@@ -3,6 +3,8 @@ import { C } from "../../constants/colors.js"
 import { PAYMENT_METHODS } from "../../constants/data.js"
 import { GhostBtn, SolidBtn, Field, inputStyle } from "../ui/index.jsx"
 import { formatWaNumber, openWhatsAppLink, extractPhoneFromString } from "../../utils/whatsapp.js"
+import MergeClientsModal from "../modals/MergeClientsModal.jsx"
+import { findDuplicateSuggestions, getPairKey } from "../../utils/clientDeduplication.js"
 
 function WhatsAppIcon({ size = 15, color = "currentColor", style = {} }) {
   return (
@@ -21,7 +23,7 @@ function WhatsAppIcon({ size = 15, color = "currentColor", style = {} }) {
   )
 }
 
-export default function ClientesView({ clientes, setClientes, allData }) {
+export default function ClientesView({ clientes, setClientes, allData, updateClientNameInAppointments }) {
   const [search, setSearch] = useState("")
   const [activeTab, setActiveTab] = useState("all") // all, vip, frecuentes, nuevas, inactivas
   const [sortBy, setSortBy] = useState("alpha") // alpha, freq, spent, recent
@@ -37,6 +39,11 @@ export default function ClientesView({ clientes, setClientes, allData }) {
   // Edición rápida de notas en la ficha
   const [inlineNotes, setInlineNotes] = useState("")
   const [notesSavedAlert, setNotesSavedAlert] = useState(false)
+
+  // Modal de Unificación de Clientas
+  const [mergeModalOpen, setMergeModalOpen] = useState(false)
+  const [mergeModalInitialClient, setMergeModalInitialClient] = useState(null)
+  const [mergeToast, setMergeToast] = useState(null)
 
   const safe = clientes || []
   const safeD = allData || {}
@@ -142,6 +149,34 @@ export default function ClientesView({ clientes, setClientes, allData }) {
     })
   }, [safe, clientStatsMap])
 
+  // ── Pares ignorados persistidos en localStorage ──
+  const [ignoredPairs, setIgnoredPairs] = useState(() => {
+    try {
+      const raw = localStorage.getItem("vn_ignored_client_merges")
+      return raw ? new Set(JSON.parse(raw)) : new Set()
+    } catch {
+      return new Set()
+    }
+  })
+
+  // ── Detección en segundo plano (no bloquea el render ni la apertura de la pantalla) ──
+  const [duplicateSuggestions, setDuplicateSuggestions] = useState([])
+
+  useEffect(() => {
+    if (!enriched || enriched.length < 2) {
+      setDuplicateSuggestions([])
+      return
+    }
+
+    // Se ejecuta de manera asíncrona tras pintar la pantalla de inmediato
+    const timer = setTimeout(() => {
+      const sugs = findDuplicateSuggestions(enriched, ignoredPairs)
+      setDuplicateSuggestions(sugs)
+    }, 40)
+
+    return () => clearTimeout(timer)
+  }, [enriched, ignoredPairs])
+
   // ── Lista de todos los servicios históricos disponibles ──
   const allServices = useMemo(() => {
     const set = new Set()
@@ -209,6 +244,16 @@ export default function ClientesView({ clientes, setClientes, allData }) {
   const selected = useMemo(() => {
     return enriched.find(c => c.id === selectedId) || null
   }, [enriched, selectedId])
+
+  // Sugerencia de duplicado vinculada a la clienta actualmente seleccionada
+  const selectedDuplicateSuggestion = useMemo(() => {
+    if (!selected) return null
+    return (
+      duplicateSuggestions.find(
+        s => s.clientA.id === selected.id || s.clientB.id === selected.id
+      ) || null
+    )
+  }, [selected, duplicateSuggestions])
 
   // Si no hay seleccionada en desktop, preseleccionar la primera si hay resultados
   useEffect(() => {
@@ -348,6 +393,62 @@ export default function ClientesView({ clientes, setClientes, allData }) {
     return (parts[0][0] + (parts[1] ? parts[1][0] : "")).toUpperCase()
   }
 
+  // ── Gestión de Unificación y Descarte de Sugerencias ──
+  const handleIgnoreSuggestion = (idA, idB) => {
+    const key = getPairKey(idA, idB)
+    setDuplicateSuggestions(prev => prev.filter(s => s.id !== key))
+    setIgnoredPairs(prev => {
+      const next = new Set(prev)
+      next.add(key)
+      try {
+        localStorage.setItem("vn_ignored_client_merges", JSON.stringify([...next]))
+      } catch {}
+      return next
+    })
+  }
+
+  const handleMergeClients = ({ targetClient, sourceClient, finalName, finalPhone, finalNotes, oldNames }) => {
+    const key = getPairKey(targetClient.id, sourceClient.id)
+    setDuplicateSuggestions(prev => prev.filter(s => s.id !== key && s.clientA.id !== sourceClient.id && s.clientB.id !== sourceClient.id))
+
+    // 1. Actualizar turnos en allData si la prop está disponible
+    if (updateClientNameInAppointments) {
+      updateClientNameInAppointments(oldNames, finalName)
+    }
+
+    // 2. Actualizar lista de clientes en state
+    setClientes(prev => {
+      const list = prev || []
+      return list
+        .filter(c => c.id !== sourceClient.id)
+        .map(c => {
+          if (c.id === targetClient.id) {
+            return {
+              ...c,
+              name: finalName,
+              phone: finalPhone,
+              notes: finalNotes
+            }
+          }
+          return c
+        })
+    })
+
+    // 3. Mantener seleccionada la ficha unificada
+    setSelectedId(targetClient.id)
+    setMergeModalOpen(false)
+    setMergeModalInitialClient(null)
+
+    // 4. Feedback visual
+    setMergeToast(`¡Clientas unificadas con éxito en "${finalName}"!`)
+    setTimeout(() => setMergeToast(null), 3500)
+  }
+
+  const openMergeForClient = (clientObj) => {
+    setMergeModalInitialClient(clientObj || selected)
+    setMergeModalOpen(true)
+  }
+
   return (
     <div style={{ background: C.cream, minHeight: "100vh" }}>
       <div className="clientes-container">
@@ -373,25 +474,65 @@ export default function ClientesView({ clientes, setClientes, allData }) {
                   Clientas ({safe.length})
                 </div>
               </div>
-              <button
-                onClick={openNew}
-                style={{
-                  padding: "8px 14px",
-                  borderRadius: 12,
-                  border: "none",
-                  background: `linear-gradient(135deg, ${C.green}, ${C.greenLight})`,
-                  color: "#fff",
-                  fontSize: 11,
-                  fontWeight: "bold",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 5,
-                  boxShadow: "0 2px 8px rgba(58,125,68,.2)"
-                }}
-              >
-                <span>+</span> Nueva clienta
-              </button>
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <button
+                  onClick={() => {
+                    setMergeModalInitialClient(null)
+                    setMergeModalOpen(true)
+                  }}
+                  title="Unificar clientas duplicadas o con nombres similares"
+                  style={{
+                    padding: "8px 11px",
+                    borderRadius: 12,
+                    border: `1.5px solid ${duplicateSuggestions.length > 0 ? "#fed7aa" : C.border}`,
+                    background: duplicateSuggestions.length > 0 ? "#fffaf0" : C.white,
+                    color: duplicateSuggestions.length > 0 ? "#c2410c" : C.text,
+                    fontSize: 11,
+                    fontWeight: "bold",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 5,
+                    boxShadow: duplicateSuggestions.length > 0 ? "0 2px 6px rgba(234, 88, 12, 0.1)" : "none"
+                  }}
+                >
+                  <span>🔗</span>
+                  <span>Unificar</span>
+                  {duplicateSuggestions.length > 0 && (
+                    <span
+                      style={{
+                        background: "#ea580c",
+                        color: "#fff",
+                        padding: "1px 5px",
+                        borderRadius: 10,
+                        fontSize: 9.5,
+                        fontWeight: "bold"
+                      }}
+                    >
+                      {duplicateSuggestions.length}
+                    </span>
+                  )}
+                </button>
+                <button
+                  onClick={openNew}
+                  style={{
+                    padding: "8px 14px",
+                    borderRadius: 12,
+                    border: "none",
+                    background: `linear-gradient(135deg, ${C.green}, ${C.greenLight})`,
+                    color: "#fff",
+                    fontSize: 11,
+                    fontWeight: "bold",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 5,
+                    boxShadow: "0 2px 8px rgba(58,125,68,.2)"
+                  }}
+                >
+                  <span>+</span> Nueva clienta
+                </button>
+              </div>
             </div>
 
             {/* Buscador */}
@@ -425,6 +566,45 @@ export default function ClientesView({ clientes, setClientes, allData }) {
                 </button>
               )}
             </div>
+
+            {/* Banner de sugerencias de unificación detectadas */}
+            {duplicateSuggestions.length > 0 && (
+              <div
+                onClick={() => {
+                  setMergeModalInitialClient(null)
+                  setMergeModalOpen(true)
+                }}
+                style={{
+                  padding: "9px 12px",
+                  borderRadius: 12,
+                  background: "linear-gradient(135deg, #fff7ed, #ffedd5)",
+                  border: "1px solid #fed7aa",
+                  marginBottom: 10,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 10,
+                  boxShadow: "0 2px 6px rgba(234, 88, 12, 0.08)",
+                  transition: "all 0.15s ease"
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+                  <span style={{ fontSize: 16 }}>💡</span>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: "bold", color: "#c2410c" }}>
+                      {duplicateSuggestions.length} {duplicateSuggestions.length === 1 ? "posible duplicado detectado" : "posibles duplicados detectados"}
+                    </div>
+                    <div style={{ fontSize: 10, color: "#9a3412" }}>
+                      Tocá acá para revisar sugerencias y unificar
+                    </div>
+                  </div>
+                </div>
+                <span style={{ fontSize: 11, fontWeight: "bold", color: "#ea580c", whiteSpace: "nowrap" }}>
+                  Revisar →
+                </span>
+              </div>
+            )}
 
             {/* Chips de filtro rápido */}
             <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 6, marginBottom: 8 }}>
@@ -800,6 +980,27 @@ export default function ClientesView({ clientes, setClientes, allData }) {
                     )}
 
                     <button
+                      onClick={() => openMergeForClient(selected)}
+                      title="Unificar esta ficha con otra clienta similar"
+                      style={{
+                        padding: "8px 12px",
+                        borderRadius: 10,
+                        border: `1px solid ${selectedDuplicateSuggestion ? "#fed7aa" : C.border}`,
+                        background: selectedDuplicateSuggestion ? "#fffaf0" : C.white,
+                        color: selectedDuplicateSuggestion ? "#c2410c" : C.text,
+                        fontSize: 11,
+                        cursor: "pointer",
+                        fontWeight: "600",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 5
+                      }}
+                    >
+                      <span>🔗</span>
+                      <span>Unificar</span>
+                    </button>
+
+                    <button
                       onClick={e => openEdit(selected, e)}
                       title="Editar datos básicos"
                       style={{
@@ -833,6 +1034,80 @@ export default function ClientesView({ clientes, setClientes, allData }) {
                     </button>
                   </div>
                 </div>
+
+                {/* Banner contextual si esta clienta tiene una sugerencia de duplicado detectada */}
+                {selectedDuplicateSuggestion && (() => {
+                  const otherClient =
+                    selectedDuplicateSuggestion.clientA.id === selected.id
+                      ? selectedDuplicateSuggestion.clientB
+                      : selectedDuplicateSuggestion.clientA
+
+                  return (
+                    <div
+                      style={{
+                        marginTop: 12,
+                        marginBottom: 14,
+                        padding: "10px 14px",
+                        borderRadius: 12,
+                        background: "linear-gradient(135deg, #fff7ed, #ffedd5)",
+                        border: "1px solid #fed7aa",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 12,
+                        boxShadow: "0 2px 6px rgba(234, 88, 12, 0.08)"
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <span style={{ fontSize: 18 }}>💡</span>
+                        <div>
+                          <div style={{ fontSize: 12, fontWeight: "bold", color: "#c2410c" }}>
+                            Sugerencia: Parece coincidir con "{otherClient.name}"
+                          </div>
+                          <div style={{ fontSize: 10.5, color: "#9a3412" }}>
+                            Motivo: {selectedDuplicateSuggestion.reason} ({otherClient.visits || 0} turnos, {fmt(otherClient.totalSpent)})
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                        <button
+                          onClick={() => handleIgnoreSuggestion(selectedDuplicateSuggestion.clientA.id, selectedDuplicateSuggestion.clientB.id)}
+                          style={{
+                            padding: "6px 10px",
+                            borderRadius: 8,
+                            border: "1px solid #fed7aa",
+                            background: "transparent",
+                            color: "#9a3412",
+                            fontSize: 10.5,
+                            fontWeight: "bold",
+                            cursor: "pointer",
+                            whiteSpace: "nowrap"
+                          }}
+                        >
+                          No son la misma
+                        </button>
+                        <button
+                          onClick={() => openMergeForClient(selected)}
+                          style={{
+                            padding: "6px 12px",
+                            borderRadius: 8,
+                            border: "none",
+                            background: "#ea580c",
+                            color: "#fff",
+                            fontSize: 11,
+                            fontWeight: "bold",
+                            cursor: "pointer",
+                            whiteSpace: "nowrap",
+                            boxShadow: "0 2px 6px rgba(234, 88, 12, 0.2)"
+                          }}
+                        >
+                          Revisar y unificar →
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })()}
 
                 {/* Grid de KPIs de la clienta */}
                 <div className="cliente-kpi-grid">
@@ -1158,6 +1433,45 @@ export default function ClientesView({ clientes, setClientes, allData }) {
               </SolidBtn>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Modal de Unificación de Clientas */}
+      <MergeClientsModal
+        isOpen={mergeModalOpen}
+        onClose={() => {
+          setMergeModalOpen(false)
+          setMergeModalInitialClient(null)
+        }}
+        suggestions={duplicateSuggestions}
+        allEnrichedClients={enriched}
+        onMergeClients={handleMergeClients}
+        onIgnoreSuggestion={handleIgnoreSuggestion}
+        initialClient={mergeModalInitialClient}
+      />
+
+      {/* Toast flotante de confirmación */}
+      {mergeToast && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: 24,
+            right: 24,
+            zIndex: 350,
+            padding: "12px 20px",
+            borderRadius: 14,
+            background: "#166534",
+            color: "#fff",
+            fontSize: 13,
+            fontWeight: "bold",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.22)",
+            display: "flex",
+            alignItems: "center",
+            gap: 10
+          }}
+        >
+          <span>✅</span>
+          <span>{mergeToast}</span>
         </div>
       )}
     </div>

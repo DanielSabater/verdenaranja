@@ -674,6 +674,45 @@ export function usePersistentState(currentDate) {
     })
   }
 
+  // Renombra de forma segura el nombre de una clienta en todos sus turnos históricos de allData
+  const updateClientNameInAppointments = (oldNames, newName) => {
+    if (!oldNames || !newName) return
+    const namesArray = (Array.isArray(oldNames) ? oldNames : [oldNames])
+      .map(n => String(n || "").trim().toLowerCase())
+      .filter(Boolean)
+    if (!namesArray.length) return
+    const cleanNewName = String(newName).trim()
+
+    setAllData(prev => {
+      let changed = false
+      const next = { ...prev }
+
+      Object.entries(prev || {}).forEach(([dateKey, dayAppointments]) => {
+        if (!dayAppointments || typeof dayAppointments !== "object") return
+        let dayChanged = false
+        const nextDay = { ...dayAppointments }
+
+        Object.entries(dayAppointments).forEach(([slotId, appt]) => {
+          if (appt && typeof appt === "object") {
+            const currentClientNorm = String(appt.client || "").trim().toLowerCase()
+            if (namesArray.includes(currentClientNorm)) {
+              nextDay[slotId] = { ...appt, client: cleanNewName }
+              dayChanged = true
+            }
+          }
+        })
+
+        if (dayChanged) {
+          next[dateKey] = nextDay
+          dirtyKeys.current.add(`day:${dateKey}`)
+          changed = true
+        }
+      })
+
+      return changed ? next : prev
+    })
+  }
+
   // Setters envolventes para componentes (registran el cambio del usuario en dirtyKeys)
   const setConfigUser = (updater) => {
     dirtyKeys.current.add("config")
@@ -783,6 +822,7 @@ export function usePersistentState(currentDate) {
   return {
     loaded, saveStatus, connStatus,
     allData,   setAppointments, rescheduleAppointment, copyAppointment, deleteAppointment, restoreAppointment,
+    updateClientNameInAppointments,
     allArqueos, setArqueo,
     config,    setConfig: setConfigUser,
     clientes,  setClientes: setClientesUser,

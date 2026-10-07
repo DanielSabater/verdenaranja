@@ -95,6 +95,7 @@ export default function App() {
   const {
     loaded, saveStatus, connStatus,
     allData, setAppointments, rescheduleAppointment, copyAppointment,
+    updateClientNameInAppointments,
     allArqueos, setArqueo,
     gastos, setGastos,
     sueldos, setSueldos,
@@ -1861,7 +1862,7 @@ export default function App() {
         )}
 
         {activeView === "config" && <div key="v-cfg" className="pv-view pv-bg" style={{ overflowY: "auto", overflowX: "hidden", flex: 1, paddingTop: 72 }}><ConfigView config={config} setConfig={setConfig} allData={allData} gastos={gastos} sueldos={sueldos} clientes={clientes} onLogout={handleLogout} restoreBackup={restoreBackup} /></div>}
-        {activeView === "clientes" && <div key="v-cli" className="pv-view pv-bg" style={{ overflowY: "auto", overflowX: "hidden", flex: 1, paddingTop: 72 }}><ClientesView clientes={clientes} setClientes={setClientes} allData={allData} /></div>}
+        {activeView === "clientes" && <div key="v-cli" className="pv-view pv-bg" style={{ overflowY: "auto", overflowX: "hidden", flex: 1, paddingTop: 72 }}><ClientesView clientes={clientes} setClientes={setClientes} allData={allData} updateClientNameInAppointments={updateClientNameInAppointments} /></div>}
 
 
         {/* Bottom nav (mobile) */}
