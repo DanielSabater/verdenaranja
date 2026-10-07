@@ -22,7 +22,8 @@ export const AppHeader = memo(function AppHeader({
   config, activeView, setActiveView, saveStatus, connStatus, totalByMethod, grandTotal, grandEarnings, onLogout,
   currentDate, setCurrentDate, calendarOpen, setCalendarOpen, calViewDate, setCalViewDate, allData, onQuickGasto,
   professionals, activeRama, setActiveRama, ramas, privacyMode, gastos,
-  notebookOpen, onOpenNotebook, todoTasks, onOpenSearchTurnos, onNavigateToTurno, onDeleteAppointment, clientes
+  notebookOpen, onOpenNotebook, todoTasks, onOpenSearchTurnos, onNavigateToTurno, onDeleteAppointment, clientes,
+  onOpenHistory
 }) {
   const isMobileNav = typeof window !== "undefined" && window.innerWidth <= 1100
   const tKey = todayKey()
@@ -304,7 +305,7 @@ export const AppHeader = memo(function AppHeader({
     {
       id: "notas",
       label: "Anotador",
-      angle: 162,
+      angle: 165,
       content: "📝",
       badge: hasUncheckedTasks,
       bg: isLiquid ? "rgba(255, 245, 230, 0.95)" : C.orangePale,
@@ -313,15 +314,23 @@ export const AppHeader = memo(function AppHeader({
     {
       id: "buscar",
       label: "Buscar turnos",
-      angle: 126,
+      angle: 132,
       content: "🔍",
       bg: isLiquid ? "rgba(235, 250, 240, 0.95)" : C.greenPale,
       action: () => onOpenSearchTurnos()
     },
     {
+      id: "historial",
+      label: "Historial",
+      angle: 99,
+      content: "🕒",
+      bg: isLiquid ? "rgba(255, 245, 230, 0.95)" : C.orangePale,
+      action: () => onOpenHistory && onOpenHistory()
+    },
+    {
       id: "hoy",
       label: "Ir a Hoy",
-      angle: 90,
+      angle: 66,
       content: "HOY",
       fontSize: 10,
       fontWeight: "bold",
@@ -340,7 +349,7 @@ export const AppHeader = memo(function AppHeader({
     {
       id: "gasto",
       label: "Gasto rápido",
-      angle: 54,
+      angle: 33,
       content: "💸",
       bg: isLiquid ? "rgba(255, 255, 250, 0.95)" : C.cream,
       action: () => onQuickGasto()
@@ -348,7 +357,7 @@ export const AppHeader = memo(function AppHeader({
     {
       id: "calendario",
       label: "Calendario",
-      angle: 18,
+      angle: 0,
       content: "📅",
       bg: calendarOpen
         ? `linear-gradient(135deg, ${C.green}, ${C.greenLight})`
@@ -356,7 +365,7 @@ export const AppHeader = memo(function AppHeader({
       color: calendarOpen ? "#ffffff" : undefined,
       action: () => setCalendarOpen(v => !v)
     }
-  ], [hasUncheckedTasks, isLiquid, currentDate, tKey, calendarOpen, onOpenNotebook, onOpenSearchTurnos, handleHoyClick, onQuickGasto, setCalendarOpen])
+  ], [hasUncheckedTasks, isLiquid, currentDate, tKey, calendarOpen, onOpenNotebook, onOpenSearchTurnos, onOpenHistory, handleHoyClick, onQuickGasto, setCalendarOpen])
 
   return (
     <>
@@ -1466,6 +1475,17 @@ export const AppHeader = memo(function AppHeader({
                 }}
                 title="Buscar turnos por clienta o teléfono [Tecla B]"
               >🔍</button>
+              <button 
+                onClick={onOpenHistory} 
+                style={{
+                  width: 46, height: 46, borderRadius: 18, border: `none`,
+                  background: C.orangePale,
+                  fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                  transition: "all .18s",
+                  boxShadow: "none"
+                }}
+                title="Historial de movimientos y cambios"
+              >🕒</button>
               <button 
                 onClick={onQuickGasto} 
                 style={{ width: 46, height: 46, borderRadius: 18, border: `none`, background: C.cream, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all .18s" }}

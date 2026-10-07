@@ -14,6 +14,8 @@ import { ArqueoModal } from "./components/modals/ArqueoModal.jsx"
 import { NotebookModal } from "./components/modals/NotebookModal.jsx"
 import { SearchTurnosModal } from "./components/modals/SearchTurnosModal.jsx"
 import { RescheduleModal } from "./components/modals/RescheduleModal.jsx"
+import { HistoryModal } from "./components/modals/HistoryModal.jsx"
+import { getHistoryLog, addHistoryEntry, saveHistoryLog } from "./utils/history.js"
 import ContabilidadView from "./components/views/ContabilidadView.jsx"
 import ConfigView from "./components/views/ConfigView.jsx"
 import ClientesView from "./components/views/ClientesView.jsx"
@@ -148,6 +150,28 @@ export default function App() {
 
   const [notebookOpen, setNotebookOpen] = useState(false)
   const [searchTurnosOpen, setSearchTurnosOpen] = useState(false)
+  const [historyModalOpen, setHistoryModalOpen] = useState(false)
+  const [historyLog, setHistoryLog] = useState(getHistoryLog)
+  const [undoToast, setUndoToast] = useState(null)
+  const undoToastTimerRef = useRef(null)
+
+  const showUndoToast = useCallback((message, onUndo, icon = "↩️") => {
+    if (undoToastTimerRef.current) clearTimeout(undoToastTimerRef.current)
+    setUndoToast({
+      id: Date.now(),
+      message,
+      icon,
+      onUndo
+    })
+    undoToastTimerRef.current = setTimeout(() => {
+      setUndoToast(null)
+    }, 6000)
+  }, [])
+
+  const recordHistory = useCallback((entry) => {
+    const updated = addHistoryEntry(entry)
+    setHistoryLog(updated)
+  }, [])
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -351,7 +375,7 @@ export default function App() {
   activeViewRef.current = activeView
   const isAnyModalOpenRef = useRef(false)
   isAnyModalOpenRef.current = Boolean(
-    modal || payModal || deleteKey || gastoModal || quickGastoModal || arqueoModal || notebookOpen || searchTurnosOpen || calendarOpen || rescheduleData
+    modal || payModal || deleteKey || gastoModal || quickGastoModal || arqueoModal || notebookOpen || searchTurnosOpen || historyModalOpen || calendarOpen || rescheduleData
   )
 
   const executeDateJump = useCallback((dayToJump) => {
@@ -872,6 +896,27 @@ export default function App() {
       setClipboardAppt(null)
       setTruncateToast(`✅ Turno de ${appt.client || "Clienta"} movido con éxito a ${toHour} hs`)
       setTimeout(() => setTruncateToast(null), 3000)
+
+      const toProfName = (config?.professionals || []).find(p => p.id === toProfId)?.name || "Profesional"
+      recordHistory({
+        date: currentDate,
+        action: "move",
+        client: appt.client || "Clienta",
+        profName: toProfName,
+        hour: toHour,
+        details: `Movido con portapapeles a ${toProfName} (${toHour} hs)`,
+        canUndo: true,
+        payload: {
+          fromKey,
+          toKey,
+          fromDate,
+          toDate: currentDate,
+          fromProfId: appt.profId,
+          toProfId,
+          fromHour: appt.hour,
+          toHour
+        }
+      })
     } else if (mode === "copy") {
       copyAppointment({
         fromDate,
@@ -883,8 +928,106 @@ export default function App() {
       setClipboardAppt(null)
       setTruncateToast(`✅ Turno de ${appt.client || "Clienta"} copiado con éxito a ${toHour} hs`)
       setTimeout(() => setTruncateToast(null), 3000)
+
+      const toProfName = (config?.professionals || []).find(p => p.id === toProfId)?.name || "Profesional"
+      recordHistory({
+        date: currentDate,
+        action: "create",
+        client: appt.client || "Clienta",
+        profName: toProfName,
+        hour: toHour,
+        details: `Copiado con portapapeles a ${toProfName} (${toHour} hs)`
+      })
     }
-  }, [clipboardAppt, currentDate, isOccupied, rescheduleAppointment, copyAppointment])
+  }, [clipboardAppt, currentDate, isOccupied, rescheduleAppointment, copyAppointment, config?.professionals, recordHistory])
+
+  const handleRestoreDeletedAppt = useCallback((entry) => {
+    if (!entry || !entry.payload?.deletedAppt) return
+    const { deletedAppt, deletedKey, deletedDate } = entry.payload
+    const targetDate = deletedDate || currentDate
+
+    const targetDay = allData[targetDate] || {}
+    if (targetDay[deletedKey]) {
+      setTruncateToast(`⚠️ El horario original (${deletedAppt.hour} hs) ya está ocupado en esa fecha`)
+      setTimeout(() => setTruncateToast(null), 4000)
+      return
+    }
+
+    if (targetDate === currentDate) {
+      setAppointments(prev => ({
+        ...prev,
+        [deletedKey]: deletedAppt
+      }))
+    } else {
+      setAllData(prev => {
+        const d = { ...(prev[targetDate] || {}) }
+        d[deletedKey] = deletedAppt
+        return { ...prev, [targetDate]: d }
+      })
+    }
+
+    setHistoryLog(prev => {
+      const updated = prev.map(item => item.id === entry.id ? { ...item, undone: true } : item)
+      saveHistoryLog(updated)
+      return updated
+    })
+
+    recordHistory({
+      date: targetDate,
+      action: "restore",
+      client: deletedAppt.client || "Clienta",
+      profName: (config?.professionals || []).find(p => p.id === deletedAppt.profId)?.name || "",
+      hour: deletedAppt.hour,
+      details: `Turno de ${deletedAppt.client || "Clienta"} restaurado en ${deletedAppt.hour} hs`
+    })
+
+    setTruncateToast(`✅ Turno de ${deletedAppt.client || "Clienta"} restaurado con éxito`)
+    setTimeout(() => setTruncateToast(null), 3500)
+  }, [allData, currentDate, setAppointments, setAllData, recordHistory, config?.professionals])
+
+  const handleRevertMoveAppt = useCallback((entry) => {
+    if (!entry || !entry.payload?.fromKey) return
+    const { fromKey, toKey, fromDate, toDate, fromProfId, fromHour } = entry.payload
+
+    const targetDay = allData[fromDate] || {}
+    if (targetDay[fromKey]) {
+      setTruncateToast(`⚠️ El horario original (${fromHour} hs) ahora está ocupado`)
+      setTimeout(() => setTruncateToast(null), 4000)
+      return
+    }
+
+    const currentDay = allData[toDate] || {}
+    const currentAppt = currentDay[toKey]
+    if (!currentAppt) {
+      setTruncateToast(`⚠️ No se encontró el turno en su ubicación actual`)
+      setTimeout(() => setTruncateToast(null), 3500)
+      return
+    }
+
+    rescheduleAppointment({
+      fromDate: toDate,
+      fromKey: toKey,
+      toDate: fromDate,
+      toProfId: fromProfId,
+      toHour: fromHour
+    })
+
+    setHistoryLog(prev => {
+      const updated = prev.map(item => item.id === entry.id ? { ...item, undone: true } : item)
+      saveHistoryLog(updated)
+      return updated
+    })
+
+    recordHistory({
+      date: fromDate,
+      action: "restore",
+      client: currentAppt.client || "Clienta",
+      details: `Movimiento revertido: regresó a ${fromHour} hs`
+    })
+
+    setTruncateToast(`✅ Turno de ${currentAppt.client || "Clienta"} regresado a ${fromHour} hs`)
+    setTimeout(() => setTruncateToast(null), 3500)
+  }, [allData, rescheduleAppointment, recordHistory])
 
   const checkDropStatus = useCallback((dragKey, targetProfId, targetHour) => {
     const a = appointments[dragKey]
@@ -957,6 +1100,43 @@ export default function App() {
     if (!key) { setDropTarget(null); setDropValid(false); return }
     const status = checkDropStatus(key, targetProfId, targetHour)
     if (!status.canDrop) { setDropTarget(null); setDropValid(false); return }
+
+    const originalAppt = appointments[key]
+    if (originalAppt) {
+      const fromProf = (config?.professionals || []).find(p => p.id === originalAppt.profId)?.name || "Profesional"
+      const toProf = (config?.professionals || []).find(p => p.id === targetProfId)?.name || "Profesional"
+      const destKey = cellKey(targetProfId, targetHour)
+      recordHistory({
+        date: currentDate,
+        action: "move",
+        client: originalAppt.client || "Clienta",
+        profName: toProf,
+        hour: targetHour,
+        details: `Movido de ${fromProf} (${originalAppt.hour}) ➔ ${toProf} (${targetHour})`,
+        canUndo: true,
+        payload: {
+          fromKey: key,
+          toKey: destKey,
+          fromDate: currentDate,
+          toDate: currentDate,
+          fromProfId: originalAppt.profId,
+          toProfId: targetProfId,
+          fromHour: originalAppt.hour,
+          toHour: targetHour
+        }
+      })
+      showUndoToast(`Turno de ${originalAppt.client || "Clienta"} movido a ${targetHour} hs`, () => {
+        setAppointments(prev => {
+          const moved = prev[destKey]
+          if (!moved) return prev
+          const n = { ...prev }
+          delete n[destKey]
+          n[key] = { ...moved, profId: originalAppt.profId, hour: originalAppt.hour }
+          return n
+        })
+      })
+    }
+
     setAppointments(prev => {
       const next = { ...prev }; const appt = next[key]; delete next[key]
       const svcDur = Array.isArray(appt.services) && appt.services.length > 0
@@ -1053,6 +1233,18 @@ export default function App() {
       }
       
       if (!conflict) {
+        const apptObj = appointments[r.key]
+        if (apptObj && (finalSlots !== r.origSlots || newHour !== HOURS[r.origHourIdx])) {
+          const profName = (config?.professionals || []).find(p => p.id === r.profId)?.name || "Profesional"
+          recordHistory({
+            date: currentDate,
+            action: "resize",
+            client: apptObj.client || "Clienta",
+            profName,
+            hour: newHour,
+            details: `Duración ajustada de ${r.origSlots * 30} min a ${finalSlots * 30} min (${newHour} hs)`
+          })
+        }
         setAppointments(p => {
           const next = { ...p }
           const apptObj = next[r.key]
@@ -1103,6 +1295,26 @@ export default function App() {
       }
       return next
     })
+    const profName = (config?.professionals || []).find(p => p.id === profId)?.name || "Profesional"
+    if (editKey) {
+      recordHistory({
+        date: currentDate,
+        action: "edit",
+        client: clientName.trim(),
+        profName,
+        hour,
+        details: extraParams.isNote ? "Nota editada" : `Editado: ${clientName.trim()} (${hour} hs · ${profName})`
+      })
+    } else {
+      recordHistory({
+        date: currentDate,
+        action: "create",
+        client: clientName.trim(),
+        profName,
+        hour,
+        details: extraParams.isNote ? "Nota creada" : `Creado: ${clientName.trim()} (${hour} hs · ${profName})`
+      })
+    }
     setModal(null)
   }
 
@@ -1122,6 +1334,15 @@ export default function App() {
   }) => {
     const moved = rescheduleAppointment({ fromDate, fromKey, toDate, toProfId, toHour })
     if (!moved) return
+
+    recordHistory({
+      date: toDate,
+      action: "reschedule",
+      client: clientName,
+      profName,
+      hour: toHour,
+      details: `Reprogramado de ${fromDate} ➔ ${dateFormatted || toDate} (${toHour} hs · ${profName})`
+    })
 
     if (sendWhatsApp && clientPhone) {
       const formattedPhone = formatWaNumber(clientPhone)
@@ -1233,6 +1454,17 @@ export default function App() {
       })
       return next
     })
+
+    const clientsList = keys.map(k => appointments[k]?.client).filter(Boolean).join(", ")
+    recordHistory({
+      date: currentDate,
+      action: "pay",
+      client: clientsList || "Cobro",
+      details: isUnpaying
+        ? `Cobro anulado (${keys.length} ${keys.length === 1 ? "turno" : "turnos"})`
+        : `Abonado: ${validSplits.map(s => `${s.methodId}: $${s.amount}`).join(", ")}`
+    })
+
     setPayModal(null)
   }
 
@@ -1245,7 +1477,35 @@ export default function App() {
   const removeSplit = (idx) => setPaymentSplits(p => p.filter((_, i) => i !== idx))
   const updateSplit = (idx, field, value) => setPaymentSplits(p => p.map((r, i) => i === idx ? { ...r, [field]: value } : r))
 
-  const doDelete = () => { setAppointments(p => { const n = { ...p }; delete n[deleteKey]; return n }); setDeleteKey(null) }
+  const doDelete = () => {
+    const apptToDelete = appointments[deleteKey]
+    if (apptToDelete) {
+      const profName = (config?.professionals || []).find(p => p.id === apptToDelete.profId)?.name || "Profesional"
+      const svcsStr = (apptToDelete.services || []).map(s => s.name).join(", ")
+      recordHistory({
+        date: currentDate,
+        action: "delete",
+        client: apptToDelete.client || "Clienta",
+        profName,
+        hour: apptToDelete.hour,
+        details: `Eliminado de ${profName} · ${apptToDelete.hour} hs${svcsStr ? ` (${svcsStr})` : ""}`,
+        canUndo: true,
+        payload: {
+          deletedAppt: apptToDelete,
+          deletedKey: deleteKey,
+          deletedDate: currentDate
+        }
+      })
+      showUndoToast(`🗑️ Turno de ${apptToDelete.client || "Clienta"} eliminado`, () => {
+        setAppointments(prev => ({
+          ...prev,
+          [deleteKey]: apptToDelete
+        }))
+      })
+    }
+    setAppointments(p => { const n = { ...p }; delete n[deleteKey]; return n })
+    setDeleteKey(null)
+  }
 
   const onToggleTipsRelease = useCallback((profId, shouldRelease) => {
     setAppointments(prev => {
@@ -1269,6 +1529,13 @@ export default function App() {
       const newArrived = !current.arrived
       const rawTarget = current.client || ""
       const targetNorm = normalizeStr(rawTarget)
+
+      recordHistory({
+        date: currentDate,
+        action: "arrived",
+        client: rawTarget || "Clienta",
+        details: newArrived ? "Marcada como presente en local" : "Llegada desmarcada"
+      })
 
       if (!targetNorm) {
         return {
@@ -1294,7 +1561,7 @@ export default function App() {
       })
       return next
     })
-  }, [setAppointments])
+  }, [setAppointments, currentDate, recordHistory])
 
   const handleMarkWaSent = useCallback((key) => {
     setAppointments(prev => {
@@ -1475,6 +1742,7 @@ export default function App() {
         onNavigateToTurno={handleNavigateToTurno}
         onDeleteAppointment={deleteAppointment}
         clientes={clientes}
+        onOpenHistory={() => setHistoryModalOpen(true)}
       />
       <div className="main-content" style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
 
@@ -1805,6 +2073,80 @@ export default function App() {
           ramas={ramas}
           onConfirmReschedule={handleConfirmReschedule}
         />
+
+        <HistoryModal
+          isOpen={historyModalOpen}
+          onClose={() => setHistoryModalOpen(false)}
+          historyLog={historyLog}
+          setHistoryLog={setHistoryLog}
+          currentDate={currentDate}
+          onRestoreDeletedAppt={handleRestoreDeletedAppt}
+          onRevertMoveAppt={handleRevertMoveAppt}
+        />
+
+        {/* Notificación flotante con Deshacer */}
+        {undoToast && (
+          <div style={{
+            position: "fixed",
+            bottom: isMobile ? "calc(140px + env(safe-area-inset-bottom))" : 86,
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "linear-gradient(135deg, #1e293b, #0f172a)",
+            color: "#ffffff",
+            borderRadius: 36,
+            padding: "8px 14px 8px 18px",
+            fontSize: 13,
+            zIndex: 9999,
+            boxShadow: "0 10px 35px rgba(0,0,0,0.45), 0 0 0 1.5px rgba(255,255,255,0.2)",
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            backdropFilter: "blur(12px)",
+            animation: "popIn .18s ease-out",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span>{undoToast.icon || "ℹ️"}</span>
+              <span>{undoToast.message}</span>
+            </div>
+            {undoToast.onUndo && (
+              <button
+                onClick={() => {
+                  undoToast.onUndo()
+                  setUndoToast(null)
+                }}
+                style={{
+                  background: "#38bdf8",
+                  color: "#0f172a",
+                  border: "none",
+                  borderRadius: 20,
+                  padding: "5px 12px",
+                  fontSize: 11,
+                  fontWeight: "bold",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4
+                }}
+              >
+                <span>↩️</span> Deshacer
+              </button>
+            )}
+            <button
+              onClick={() => setUndoToast(null)}
+              style={{
+                background: "transparent",
+                border: "none",
+                color: "#ffffff",
+                opacity: 0.6,
+                fontSize: 14,
+                cursor: "pointer",
+                padding: "2px 4px"
+              }}
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {/* Notificación flotante de turno reprogramado */}
         {rescheduleToast && (
