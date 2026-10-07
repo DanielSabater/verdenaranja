@@ -204,6 +204,9 @@ export default function App() {
       } else if (key === "b") {
         e.preventDefault()
         setSearchTurnosOpen(prev => !prev)
+      } else if (key === "h") {
+        e.preventDefault()
+        setHistoryModalOpen(prev => !prev)
       }
     }
 
@@ -531,7 +534,7 @@ export default function App() {
         }
       }
 
-      if (e.key?.toLowerCase() === 'h' || e.key === ' ' || e.code === 'Space') {
+      if (e.key === ' ' || e.code === 'Space') {
         e.preventDefault()
         const tKey = todayKey()
         const isAlreadyToday = currentDate === tKey
@@ -1729,7 +1732,6 @@ export default function App() {
         onNavigateToTurno={handleNavigateToTurno}
         onDeleteAppointment={deleteAppointment}
         clientes={clientes}
-        onOpenHistory={() => setHistoryModalOpen(true)}
       />
       <div className="main-content" style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
 
