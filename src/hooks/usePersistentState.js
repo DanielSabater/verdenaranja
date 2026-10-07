@@ -655,6 +655,16 @@ export function usePersistentState(currentDate) {
     })
   }
 
+  const restoreAppointment = (date, key, appointment) => {
+    dirtyKeys.current.add(`day:${date}`)
+    deletedCellsRef.current.delete(`${date}:${key}`)
+    setAllData(prev => {
+      const dayData = { ...(prev[date] || {}) }
+      dayData[key] = appointment
+      return { ...prev, [date]: dayData }
+    })
+  }
+
   const setArqueo = (updater) => {
     dirtyKeys.current.add(`arqueo:${currentDate}`)
     setAllArqueos(prev => {
@@ -772,7 +782,7 @@ export function usePersistentState(currentDate) {
 
   return {
     loaded, saveStatus, connStatus,
-    allData,   setAppointments, rescheduleAppointment, copyAppointment, deleteAppointment,
+    allData,   setAppointments, rescheduleAppointment, copyAppointment, deleteAppointment, restoreAppointment,
     allArqueos, setArqueo,
     config,    setConfig: setConfigUser,
     clientes,  setClientes: setClientesUser,

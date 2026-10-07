@@ -103,7 +103,8 @@ export default function App() {
     todoTasks, setTodoTasks,
     remoteEdits, broadcastEditing,
     restoreBackup,
-    deleteAppointment
+    deleteAppointment,
+    restoreAppointment
   } = usePersistentState(currentDate)
 
   // Sincronizar variables CSS dinámicas para fondo, opacidad y desenfoque de modales
@@ -953,18 +954,7 @@ export default function App() {
       return
     }
 
-    if (targetDate === currentDate) {
-      setAppointments(prev => ({
-        ...prev,
-        [deletedKey]: deletedAppt
-      }))
-    } else {
-      setAllData(prev => {
-        const d = { ...(prev[targetDate] || {}) }
-        d[deletedKey] = deletedAppt
-        return { ...prev, [targetDate]: d }
-      })
-    }
+    restoreAppointment(targetDate, deletedKey, deletedAppt)
 
     setHistoryLog(prev => {
       const updated = prev.map(item => item.id === entry.id ? { ...item, undone: true } : item)
@@ -983,7 +973,7 @@ export default function App() {
 
     setTruncateToast(`✅ Turno de ${deletedAppt.client || "Clienta"} restaurado con éxito`)
     setTimeout(() => setTruncateToast(null), 3500)
-  }, [allData, currentDate, setAppointments, setAllData, recordHistory, config?.professionals])
+  }, [allData, currentDate, restoreAppointment, recordHistory, config?.professionals])
 
   const handleRevertMoveAppt = useCallback((entry) => {
     if (!entry || !entry.payload?.fromKey) return
@@ -1497,10 +1487,7 @@ export default function App() {
         }
       })
       showUndoToast(`🗑️ Turno de ${apptToDelete.client || "Clienta"} eliminado`, () => {
-        setAppointments(prev => ({
-          ...prev,
-          [deleteKey]: apptToDelete
-        }))
+        restoreAppointment(currentDate, deleteKey, apptToDelete)
       })
     }
     setAppointments(p => { const n = { ...p }; delete n[deleteKey]; return n })
