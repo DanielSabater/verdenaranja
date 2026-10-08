@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react"
 import { C } from "../../constants/colors.js"
 import { PAYMENT_METHODS } from "../../constants/data.js"
-import { GhostBtn, SolidBtn, Field, inputStyle } from "../ui/index.jsx"
+import { GhostBtn, SolidBtn, Field, inputStyle, Overlay } from "../ui/index.jsx"
 import { formatWaNumber, openWhatsAppLink, extractPhoneFromString } from "../../utils/whatsapp.js"
 import MergeClientsModal from "../modals/MergeClientsModal.jsx"
 import { findDuplicateSuggestions, getPairKey } from "../../utils/clientDeduplication.js"
@@ -1357,22 +1357,7 @@ export default function ClientesView({ clientes, setClientes, allData, updateCli
           MODAL CREAR / EDITAR CLIENTA
          ════════════════════════════════════════════════════════════ */}
       {modal && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            zIndex: 9999,
-            background: "rgba(0,0,0,.45)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            backdropFilter: "blur(2px)"
-          }}
-          onClick={() => setModal(false)}
-        >
+        <Overlay onClose={() => setModal(false)}>
           <div
             style={{
               background: C.white,
@@ -1433,7 +1418,7 @@ export default function ClientesView({ clientes, setClientes, allData, updateCli
               </SolidBtn>
             </div>
           </div>
-        </div>
+        </Overlay>
       )}
 
       {/* Modal de Unificación de Clientas */}

@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { C } from "../../constants/colors.js"
 import { CAT_OPTIONS as CAT_OPTIONS_DEFAULT, EMOJI_SUGGESTIONS, BLOCKED_COLORS, APP_VERSION, MODAL_TONES, MODAL_OPACITY_DEFAULT_LEVEL, MODAL_OPACITY_LEVELS, MODAL_BLUR_DEFAULT_LEVEL, MODAL_BLUR_LEVELS, getModalOverlayStyle } from "../../constants/data.js"
-import { GhostBtn, SolidBtn } from "../ui/index.jsx"
+import { GhostBtn, SolidBtn, Overlay } from "../ui/index.jsx"
 import { MESES_ES, todayKey } from "../../utils/dates.js"
 
 // ─── Config View ──────────────────────────────────────────────────────────────
@@ -1130,11 +1130,8 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
 
           {/* New service modal */}
           {newSvcModal && (
-            <div 
-              onClick={e => e.target === e.currentTarget && setNewSvcModal(false)}
-              style={{ position:"fixed", inset:0, zIndex:400, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(0,0,0,.4)" }}
-            >
-              <div style={{ background:C.white, borderRadius:20, padding:"24px 28px", width:"min(480px,calc(100vw-32px))", boxShadow:"0 20px 60px rgba(0,0,0,.2)" }}>
+            <Overlay onClose={() => setNewSvcModal(false)}>
+              <div onClick={e => e.stopPropagation()} style={{ background:C.white, borderRadius:20, padding:"24px 28px", width:"min(480px,calc(100vw-32px))", boxShadow:"0 20px 60px rgba(0,0,0,.2)" }}>
                 <div style={{ fontSize:14, fontWeight:"bold", color:C.green, marginBottom:18 }}>✨ Nuevo servicio</div>
 
                 <div style={{ marginBottom:12 }}>
@@ -1224,16 +1221,13 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
                 </div>
 
               </div>
-            </div>
+            </Overlay>
           )}
 
           {/* New Category modal */}
           {newCatModal && (
-            <div 
-              onClick={e => e.target === e.currentTarget && setNewCatModal(false)}
-              style={{ position:"fixed", inset:0, zIndex:400, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(0,0,0,.4)" }}
-            >
-              <div style={{ background:C.white, borderRadius:20, padding:"24px 28px", width:"min(400px,calc(100vw-32px))", boxShadow:"0 20px 60px rgba(0,0,0,.2)" }}>
+            <Overlay onClose={() => setNewCatModal(false)}>
+              <div onClick={e => e.stopPropagation()} style={{ background:C.white, borderRadius:20, padding:"24px 28px", width:"min(400px,calc(100vw-32px))", boxShadow:"0 20px 60px rgba(0,0,0,.2)" }}>
                 <div style={{ fontSize:14, fontWeight:"bold", color:C.green, marginBottom:18 }}>➕ Nueva Categoría</div>
 
                 <div style={{ marginBottom:16 }}>
@@ -1273,16 +1267,13 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
                   <button onClick={saveNewCat} disabled={!newCat.label.trim()} style={{ flex:2, padding:"10px", borderRadius:12, border:"none", background:newCat.label.trim()?`linear-gradient(135deg,${C.green},${C.greenLight})`:"#e8e8e8", color:newCat.label.trim()?"#fff":"#bbb", fontSize:12, cursor:newCat.label.trim()?"pointer":"not-allowed", fontFamily:"Georgia,serif" }}>✅ Guardar Categoría</button>
                 </div>
               </div>
-            </div>
+            </Overlay>
           )}
 
           {/* New Rama modal */}
           {newRamaModal && (
-            <div 
-              onClick={e => e.target === e.currentTarget && setNewRamaModal(false)}
-              style={{ position:"fixed", inset:0, zIndex:400, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(0,0,0,.4)" }}
-            >
-              <div style={{ background:C.white, borderRadius:20, padding:"24px 28px", width:"min(400px,calc(100vw-32px))", boxShadow:"0 20px 60px rgba(0,0,0,.2)" }}>
+            <Overlay onClose={() => setNewRamaModal(false)}>
+              <div onClick={e => e.stopPropagation()} style={{ background:C.white, borderRadius:20, padding:"24px 28px", width:"min(400px,calc(100vw-32px))", boxShadow:"0 20px 60px rgba(0,0,0,.2)" }}>
                 <div style={{ fontSize:14, fontWeight:"bold", color:C.green, marginBottom:18 }}>🌿 Nueva Rama / Especialidad</div>
 
                 <div style={{ marginBottom:20 }}>
@@ -1302,7 +1293,7 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
                   <button onClick={saveNewRama} disabled={!newRama.label.trim()} style={{ flex:2, padding:"10px", borderRadius:12, border:"none", background:newRama.label.trim()?`linear-gradient(135deg,${C.green},${C.greenLight})`:"#e8e8e8", color:newRama.label.trim()?"#fff":"#bbb", fontSize:12, cursor:newRama.label.trim()?"pointer":"not-allowed", fontFamily:"Georgia,serif" }}>🌿 Crear Rama</button>
                 </div>
               </div>
-            </div>
+            </Overlay>
           )}
 
         </div>

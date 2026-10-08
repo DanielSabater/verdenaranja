@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import { createPortal } from "react-dom"
 import { C } from '../../constants/colors.js'
 
 export function Overlay({ children, onClose, style = {} }) {
@@ -14,14 +15,18 @@ export function Overlay({ children, onClose, style = {} }) {
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [onClose])
 
-  return (
+  const content = (
     <div
-      onClick={e => e.target === e.currentTarget && onClose()}
+      onClick={e => e.target === e.currentTarget && onClose?.()}
       className="modal-overlay"
       style={{
-        position: "fixed", inset: 0, zIndex: 200,
+        position: "fixed",
+        inset: 0,
+        zIndex: 1000,
         background: "var(--modal-overlay-bg, rgba(20, 40, 24, 0.4))",
-        display: "flex", alignItems: "center", justifyContent: "center",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
         backdropFilter: "var(--modal-overlay-blur, blur(5px))",
         WebkitBackdropFilter: "var(--modal-overlay-blur, blur(5px))",
         animation: "fadeIn .18s ease",
@@ -31,6 +36,11 @@ export function Overlay({ children, onClose, style = {} }) {
       {children}
     </div>
   )
+
+  if (typeof document !== "undefined") {
+    return createPortal(content, document.body)
+  }
+  return content
 }
 
 export function ModalHeader({ emoji, sub, children }) {

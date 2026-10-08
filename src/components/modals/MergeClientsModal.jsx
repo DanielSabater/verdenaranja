@@ -168,6 +168,7 @@ export default function MergeClientsModal({
     <Overlay onClose={onClose}>
       <div
         className="modal-sheet"
+        onClick={e => e.stopPropagation()}
         style={{
           background: C.white,
           borderRadius: 20,
