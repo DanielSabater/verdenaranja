@@ -561,11 +561,15 @@ export default function App() {
         e.preventDefault()
         setArqueoModal(p => !p)
       } else if (e.key === 'ArrowLeft') {
-        e.preventDefault()
-        setCurrentDate(d => nextWorkDay(d, -1))
+        if (!isAnyModalOpenRef.current && activeViewRef.current === "turnos") {
+          e.preventDefault()
+          setCurrentDate(d => nextWorkDay(d, -1))
+        }
       } else if (e.key === 'ArrowRight') {
-        e.preventDefault()
-        setCurrentDate(d => nextWorkDay(d, 1))
+        if (!isAnyModalOpenRef.current && activeViewRef.current === "turnos") {
+          e.preventDefault()
+          setCurrentDate(d => nextWorkDay(d, 1))
+        }
       }
     }
 
