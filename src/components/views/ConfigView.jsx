@@ -6,7 +6,7 @@ import { MESES_ES, todayKey } from "../../utils/dates.js"
 
 // ─── Config View ──────────────────────────────────────────────────────────────
 
-export default function ConfigView({ config, setConfig, allData, gastos, sueldos, clientes, onLogout, restoreBackup }) {
+export default function ConfigView({ config, setConfig, allData, gastos, sueldos, clientes, todoTasks = [], todoHistory = [], onLogout, restoreBackup }) {
   const [seccion, setSeccion] = useState("empresa");
   const [emojiPicker,  setEmojiPicker]  = useState(null)
   const [svcFilter,    setSvcFilter]    = useState({ cat:"all", search:"" })
@@ -1306,7 +1306,7 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
           <CfgField label="💾 Backup de datos">
             <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
               <button onClick={() => {
-                const data = { allData, gastos, sueldos, config, clientes, exportedAt: new Date().toISOString() }
+                const data = { allData, gastos, sueldos, config, clientes, todoTasks, todoHistory, exportedAt: new Date().toISOString() }
                 const blob = new Blob([JSON.stringify(data, null, 2)], { type:"application/json" })
                 const url  = URL.createObjectURL(blob)
                 const a    = document.createElement("a")

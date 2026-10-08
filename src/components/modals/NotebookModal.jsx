@@ -1,7 +1,19 @@
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
 import { C } from "../../constants/colors.js"
+import { formatRelativeTime } from "../../utils/history.js"
 
-export function NotebookModal({ isOpen, onClose, todoTasks, setTodoTasks }) {
+export function NotebookModal({
+  isOpen,
+  onClose,
+  todoTasks = [],
+  setTodoTasks,
+  todoHistory = [],
+  setTodoHistory
+}) {
+  const [activeTab, setActiveTab] = useState("active") // "active" | "history"
+  const [historySearch, setHistorySearch] = useState("")
+  const [toast, setToast] = useState(null) // { message, onUndo }
+  const [copiedId, setCopiedId] = useState(null)
   const [newText, setNewText] = useState("")
   const [editingTaskId, setEditingTaskId] = useState(null)
   const [editingText, setEditingText] = useState("")
@@ -31,22 +43,33 @@ export function NotebookModal({ isOpen, onClose, todoTasks, setTodoTasks }) {
 
     ro.observe(el)
     return () => ro.disconnect()
-  }, [isOpen, todoTasks])
+  }, [isOpen, todoTasks, todoHistory, activeTab])
 
-  // Al abrir la libreta: posicionar el scroll al final para mostrar siempre la última anotación y el campo de edición, y dar foco al input
+  // Temporizador para auto-descartar el toast
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 5500)
+      return () => clearTimeout(timer)
+    }
+  }, [toast])
+
+  // Al abrir la libreta o cambiar de tab: posicionar el scroll y dar foco según corresponda
   useEffect(() => {
     if (isOpen) {
       setEditingTaskId(null)
       setEditingText("")
 
       const scrollToBottomAndFocus = () => {
-        if (listRef.current) {
-          listRef.current.scrollTop = listRef.current.scrollHeight
+        if (activeTab === "active") {
+          if (listRef.current) {
+            listRef.current.scrollTop = listRef.current.scrollHeight
+          }
+          inputRef.current?.focus({ preventScroll: true })
+        } else if (listRef.current) {
+          listRef.current.scrollTop = 0
         }
-        inputRef.current?.focus({ preventScroll: true })
       }
 
-      // Ejecutar de inmediato y tras la animación de entrada del popover
       const t1 = setTimeout(scrollToBottomAndFocus, 40)
       const t2 = setTimeout(scrollToBottomAndFocus, 230)
 
@@ -55,7 +78,7 @@ export function NotebookModal({ isOpen, onClose, todoTasks, setTodoTasks }) {
         clearTimeout(t2)
       }
     }
-  }, [isOpen])
+  }, [isOpen, activeTab])
 
   // Autofoco, selección y cálculo de altura exacto al editar una tarea
   useEffect(() => {
@@ -64,14 +87,23 @@ export function NotebookModal({ isOpen, onClose, todoTasks, setTodoTasks }) {
       const len = editInputRef.current.value.length
       editInputRef.current.setSelectionRange(len, len)
       
-      // Auto-grow inicial redondeando al múltiplo de 32px más cercano para evitar líneas huérfanas
       editInputRef.current.style.height = "auto"
       const exactHeight = Math.max(32, Math.round(editInputRef.current.scrollHeight / 32) * 32)
       editInputRef.current.style.height = `${exactHeight}px`
     }
   }, [editingTaskId])
 
+  // Filtrado de notas en el historial
+  const safeHistory = Array.isArray(todoHistory) ? todoHistory : []
+  const filteredHistory = useMemo(() => {
+    const q = historySearch.trim().toLowerCase()
+    if (!q) return safeHistory
+    return safeHistory.filter(h => (h.text || "").toLowerCase().includes(q))
+  }, [safeHistory, historySearch])
+
   if (!isOpen) return null
+
+  // ── Acciones de tareas activas ──
 
   const handleAddTask = (e) => {
     if (e.key === "Enter" || e.type === "click") {
@@ -79,7 +111,8 @@ export function NotebookModal({ isOpen, onClose, todoTasks, setTodoTasks }) {
       const newTask = {
         id: Date.now().toString(),
         text: newText.trim(),
-        completed: false
+        completed: false,
+        createdAt: Date.now()
       }
       setTodoTasks([...todoTasks, newTask])
       setNewText("")
@@ -103,6 +136,20 @@ export function NotebookModal({ isOpen, onClose, todoTasks, setTodoTasks }) {
     if (!editingText.trim()) {
       handleDeleteTask(id)
     } else {
+      const prevTask = todoTasks.find(t => t.id === id)
+      if (prevTask && prevTask.text !== editingText.trim()) {
+        // Guardamos copia de la versión anterior en el historial para evitar pérdidas
+        const historyEntry = {
+          id: Date.now().toString() + Math.random().toString(36).substring(2, 6),
+          text: prevTask.text,
+          deletedAt: Date.now(),
+          completed: Boolean(prevTask.completed),
+          isPreviousVersion: true
+        }
+        if (setTodoHistory) {
+          setTodoHistory(prev => [historyEntry, ...(prev || [])].slice(0, 150))
+        }
+      }
       setTodoTasks(todoTasks.map(t => t.id === id ? { ...t, text: editingText.trim() } : t))
     }
     setEditingTaskId(null)
@@ -114,20 +161,110 @@ export function NotebookModal({ isOpen, onClose, todoTasks, setTodoTasks }) {
   }
 
   const handleDeleteTask = (id) => {
+    const taskToDelete = todoTasks.find(t => t.id === id)
+    if (!taskToDelete) return
+    const now = Date.now()
+    const historyEntry = {
+      id: taskToDelete.id || (Date.now().toString() + Math.random().toString(36).substring(2, 6)),
+      text: taskToDelete.text,
+      deletedAt: now,
+      completed: Boolean(taskToDelete.completed)
+    }
+
+    if (setTodoHistory) {
+      setTodoHistory(prev => [historyEntry, ...(prev || [])].slice(0, 150))
+    }
     setTodoTasks(todoTasks.filter(t => t.id !== id))
     if (editingTaskId === id) {
       setEditingTaskId(null)
       setEditingText("")
     }
+
+    // Ofrecer Deshacer inmediato
+    setToast({
+      message: "Anotación borrada",
+      onUndo: () => {
+        setTodoTasks(prev => [...(prev || []), taskToDelete])
+        if (setTodoHistory) {
+          setTodoHistory(prev => (prev || []).filter(h => h.id !== historyEntry.id))
+        }
+        setToast(null)
+      }
+    })
   }
 
   const handleClearCompleted = () => {
+    const completed = todoTasks.filter(t => t.completed)
+    if (completed.length === 0) return
+    const now = Date.now()
+    const entries = completed.map(t => ({
+      id: t.id || (Date.now().toString() + Math.random().toString(36).substring(2, 6)),
+      text: t.text,
+      deletedAt: now,
+      completed: true
+    }))
+
+    if (setTodoHistory) {
+      setTodoHistory(prev => [...entries, ...(prev || [])].slice(0, 150))
+    }
     setTodoTasks(todoTasks.filter(t => !t.completed))
+
+    setToast({
+      message: `${completed.length} ${completed.length === 1 ? "nota completada archivada" : "notas completadas archivadas"}`,
+      onUndo: () => {
+        setTodoTasks(prev => [...(prev || []), ...completed])
+        if (setTodoHistory) {
+          const ids = new Set(entries.map(e => e.id))
+          setTodoHistory(prev => (prev || []).filter(h => !ids.has(h.id)))
+        }
+        setToast(null)
+      }
+    })
+  }
+
+  // ── Acciones de historial / recuperación ──
+
+  const handleRestoreTask = (item) => {
+    const restored = {
+      id: item.id || Date.now().toString(),
+      text: item.text,
+      completed: false
+    }
+    setTodoTasks(prev => [...(prev || []), restored])
+    if (setTodoHistory) {
+      setTodoHistory(prev => (prev || []).filter(h => h.id !== item.id))
+    }
+    setToast({
+      message: "✅ Anotación recuperada a la libreta",
+      onUndo: null
+    })
+  }
+
+  const handlePermanentDelete = (id) => {
+    if (setTodoHistory) {
+      setTodoHistory(prev => (prev || []).filter(h => h.id !== id))
+    }
+  }
+
+  const handleClearAllHistory = () => {
+    if (window.confirm("¿Seguro que deseas vaciar el historial de notas borradas? Esta acción no se puede deshacer.")) {
+      if (setTodoHistory) setTodoHistory([])
+      setToast({ message: "Historial vaciado", onUndo: null })
+    }
+  }
+
+  const handleCopyText = (text, id) => {
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).catch(() => {})
+    }
+    setCopiedId(id)
+    setTimeout(() => setCopiedId(null), 1600)
   }
 
   // Calcular líneas de relleno para completar el aspecto visual de la hoja
   const minLines = 9
-  const taskLinesCount = todoTasks.reduce((acc, t) => acc + (t.text.length > 28 ? 2 : 1), 0)
+  const currentList = activeTab === "history" ? filteredHistory : todoTasks
+  const taskLinesCount = currentList.reduce((acc, t) => acc + ((t.text || "").length > 28 ? 2 : 1), 0)
   const fillerCount = Math.max(0, minLines - taskLinesCount - 1)
 
   // Calcular la altura real de la hoja respetando el límite visual de maxHeight (75vh)
@@ -189,6 +326,7 @@ export function NotebookModal({ isOpen, onClose, todoTasks, setTodoTasks }) {
           <div 
             ref={sheetRef}
             style={{
+            position: "relative",
             background: "#fef6c5", // Tonalidad amarillita de anotador de papel
             backgroundImage: `linear-gradient(90deg, transparent 44px, #f4b0b0 44px, #f4b0b0 46px, transparent 46px)`, // Línea de margen roja vertical
             backgroundSize: "100% 100%",
@@ -244,25 +382,116 @@ export function NotebookModal({ isOpen, onClose, todoTasks, setTodoTasks }) {
                 </button>
               </div>
 
-              {/* Renglón 2: Mis anotaciones */}
+              {/* Renglón 2: Selector de pestañas Anotaciones vs Historial */}
               <div style={{
                 display: "flex",
-                alignItems: "flex-end",
+                alignItems: "center",
+                justifyContent: "space-between",
                 height: 32,
                 flexShrink: 0,
                 borderBottom: "1.5px solid rgba(74, 144, 226, 0.15)",
-                paddingLeft: 54,
-                paddingRight: 16,
-                paddingBottom: 4,
+                paddingLeft: 50,
+                paddingRight: 14,
                 boxSizing: "border-box"
               }}>
-                <span style={{ fontSize: 15, color: C.text, fontWeight: "bold", fontStyle: "italic" }}>
-                  Mis anotaciones
-                </span>
+                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <button
+                    onClick={() => setActiveTab("active")}
+                    style={{
+                      background: activeTab === "active" ? "rgba(58, 125, 68, 0.15)" : "transparent",
+                      border: "none",
+                      borderRadius: 6,
+                      padding: "2px 7px",
+                      fontSize: 12,
+                      fontWeight: "bold",
+                      fontStyle: "italic",
+                      color: activeTab === "active" ? C.green : C.textSoft,
+                      cursor: "pointer",
+                      fontFamily: "'Georgia', serif",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                      transition: "all .15s"
+                    }}
+                  >
+                    <span>📝</span>
+                    <span>Anotaciones</span>
+                    {todoTasks.length > 0 && (
+                      <span style={{
+                        fontSize: 9.5,
+                        background: activeTab === "active" ? C.green : "rgba(0,0,0,0.06)",
+                        color: activeTab === "active" ? "#fff" : C.textSoft,
+                        borderRadius: 10,
+                        padding: "0px 5px",
+                        lineHeight: "14px"
+                      }}>
+                        {todoTasks.length}
+                      </span>
+                    )}
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab("history")}
+                    style={{
+                      background: activeTab === "history" ? "rgba(234, 88, 12, 0.15)" : "transparent",
+                      border: "none",
+                      borderRadius: 6,
+                      padding: "2px 7px",
+                      fontSize: 12,
+                      fontWeight: "bold",
+                      fontStyle: "italic",
+                      color: activeTab === "history" ? "#ea580c" : C.textSoft,
+                      cursor: "pointer",
+                      fontFamily: "'Georgia', serif",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                      transition: "all .15s"
+                    }}
+                  >
+                    <span>🕒</span>
+                    <span>Historial</span>
+                    {safeHistory.length > 0 && (
+                      <span style={{
+                        fontSize: 9.5,
+                        background: activeTab === "history" ? "#ea580c" : "rgba(234, 88, 12, 0.12)",
+                        color: activeTab === "history" ? "#fff" : "#ea580c",
+                        borderRadius: 10,
+                        padding: "0px 5px",
+                        lineHeight: "14px",
+                        fontWeight: "bold"
+                      }}>
+                        {safeHistory.length}
+                      </span>
+                    )}
+                  </button>
+                </div>
+
+                {activeTab === "history" && safeHistory.length > 2 && (
+                  <input
+                    type="text"
+                    placeholder="Filtrar..."
+                    value={historySearch}
+                    onChange={e => setHistorySearch(e.target.value)}
+                    style={{
+                      height: 20,
+                      width: 80,
+                      fontSize: 10.5,
+                      fontFamily: "'Georgia', serif",
+                      fontStyle: "italic",
+                      border: `1px solid ${C.border}`,
+                      borderRadius: 6,
+                      padding: "1px 6px",
+                      background: "rgba(255,255,255,0.7)",
+                      outline: "none",
+                      color: C.text
+                    }}
+                  />
+                )}
               </div>
             </div>
 
-            {/* Área de tareas (scrollable y alineada mediante bordes físicos en cada fila) */}
+            {/* Área de contenido (scrollable y alineada con líneas de fondo) */}
             <div 
               ref={listRef}
               className="no-scrollbar" 
@@ -274,72 +503,312 @@ export function NotebookModal({ isOpen, onClose, todoTasks, setTodoTasks }) {
                 minHeight: 288
               }}
             >
-              {/* 1. Renderizar tareas */}
-              {todoTasks.map((task) => (
-                <div 
-                  key={task.id} 
-                  style={{
-                    display: "flex",
-                    alignItems: "flex-start", // Alinear al inicio del renglón para soportar multilínea
-                    minHeight: 32, // Altura mínima de un renglón
-                    flexShrink: 0, // Evita que flexbox aplaste filas cuando hay muchas notas
-                    backgroundImage: "linear-gradient(rgba(74, 144, 226, 0.15) 1.5px, transparent 1.5px)", // Asegura líneas divisorias internas si la tarea ocupa varios renglones
+              {activeTab === "history" ? (
+                /* ── PESTAÑA HISTORIAL / NOTAS BORRADAS ── */
+                filteredHistory.length === 0 ? (
+                  <div style={{
+                    padding: "32px 20px 24px 54px",
+                    textAlign: "left",
+                    color: C.textSoft,
+                    fontStyle: "italic",
+                    fontSize: 12.5,
+                    lineHeight: 1.6
+                  }}>
+                    <div style={{ fontSize: 22, marginBottom: 6 }}>✨</div>
+                    <div style={{ fontWeight: "bold", color: C.text, fontSize: 13, marginBottom: 4 }}>
+                      {safeHistory.length === 0 ? "Historial vacío" : "Sin coincidencias"}
+                    </div>
+                    <div>
+                      {safeHistory.length === 0 
+                        ? "Las anotaciones que borres quedarán guardadas acá para que puedas recuperarlas en cualquier momento."
+                        : "No se encontraron notas en el historial que coincidan con la búsqueda."}
+                    </div>
+                  </div>
+                ) : (
+                  filteredHistory.map((item) => (
+                    <div 
+                      key={item.id} 
+                      style={{
+                        display: "flex",
+                        alignItems: "flex-start",
+                        minHeight: 32,
+                        flexShrink: 0,
+                        backgroundImage: "linear-gradient(rgba(74, 144, 226, 0.15) 1.5px, transparent 1.5px)",
+                        backgroundSize: "100% 32px",
+                        backgroundPosition: "0 31px",
+                        paddingLeft: 54,
+                        paddingRight: 16,
+                        gap: 8,
+                        fontSize: 12.5,
+                        color: C.text,
+                        boxSizing: "border-box"
+                      }}
+                    >
+                      {/* Icono indicador */}
+                      <span style={{ fontSize: 11, color: C.textSoft, marginTop: 7, flexShrink: 0 }}>
+                        {item.completed ? "✓" : "🕒"}
+                      </span>
+
+                      {/* Texto de la nota e info de borrado */}
+                      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", padding: "5px 0 3px" }}>
+                        <span style={{
+                          fontStyle: "italic",
+                          color: C.text,
+                          lineHeight: "20px",
+                          wordBreak: "break-word",
+                          overflowWrap: "anywhere",
+                          textDecoration: item.completed ? "line-through" : "none",
+                          opacity: item.completed ? 0.7 : 1
+                        }}>
+                          {item.text}
+                        </span>
+                        <div style={{ fontSize: 9.5, color: C.textSoft, marginTop: 1, display: "flex", alignItems: "center", gap: 5 }}>
+                          <span>{formatRelativeTime(item.deletedAt)}</span>
+                          {item.isPreviousVersion && (
+                            <span style={{ color: "#d97706", fontWeight: "bold" }}>· versión editada</span>
+                          )}
+                          {item.completed && (
+                            <span style={{ color: C.green }}>· completada</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Botones de acción */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 6, flexShrink: 0 }}>
+                        <button
+                          onClick={() => handleRestoreTask(item)}
+                          title="Recuperar a notas activas"
+                          style={{
+                            background: C.greenPale,
+                            border: `1px solid ${C.green}55`,
+                            color: C.green,
+                            borderRadius: 6,
+                            padding: "2px 7px",
+                            fontSize: 10,
+                            fontWeight: "bold",
+                            cursor: "pointer",
+                            fontFamily: "'Georgia', serif",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 3,
+                            transition: "all .15s"
+                          }}
+                        >
+                          <span>🔄</span> Recuperar
+                        </button>
+
+                        <button
+                          onClick={() => handleCopyText(item.text, item.id)}
+                          title="Copiar texto"
+                          style={{
+                            background: "rgba(255,255,255,0.7)",
+                            border: `1px solid ${C.border}`,
+                            color: C.textSoft,
+                            borderRadius: 6,
+                            padding: "2px 6px",
+                            fontSize: 10,
+                            cursor: "pointer",
+                            fontFamily: "'Georgia', serif"
+                          }}
+                        >
+                          {copiedId === item.id ? "✓" : "📋"}
+                        </button>
+
+                        <button
+                          onClick={() => handlePermanentDelete(item.id)}
+                          title="Eliminar permanentemente del historial"
+                          style={{
+                            background: "transparent",
+                            border: "none",
+                            color: C.red,
+                            cursor: "pointer",
+                            fontSize: 12,
+                            padding: "2px 4px",
+                            opacity: 0.45,
+                            transition: "opacity .15s"
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.opacity = 1}
+                          onMouseLeave={e => e.currentTarget.style.opacity = 0.45}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )
+              ) : (
+                /* ── PESTAÑA NOTAS ACTIVAS ── */
+                <>
+                  {todoTasks.map((task) => (
+                    <div 
+                      key={task.id} 
+                      style={{
+                        display: "flex",
+                        alignItems: "flex-start",
+                        minHeight: 32,
+                        flexShrink: 0,
+                        backgroundImage: "linear-gradient(rgba(74, 144, 226, 0.15) 1.5px, transparent 1.5px)",
+                        backgroundSize: "100% 32px",
+                        backgroundPosition: "0 31px",
+                        paddingLeft: 54,
+                        paddingRight: 16,
+                        gap: 10,
+                        fontSize: 13,
+                        color: C.text,
+                        boxSizing: "border-box"
+                      }}
+                    >
+                      {/* Checkbox circular */}
+                      <button
+                        onClick={() => handleToggleTask(task.id)}
+                        style={{
+                          width: 18,
+                          height: 18,
+                          minHeight: "unset",
+                          borderRadius: "50%",
+                          border: `1.5px solid ${task.completed ? C.green : C.textSoft}`,
+                          background: task.completed ? C.greenPale : "transparent",
+                          color: C.green,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          cursor: "pointer",
+                          fontSize: 12,
+                          padding: 0,
+                          fontWeight: "bold",
+                          flexShrink: 0,
+                          outline: "none",
+                          marginTop: 7
+                        }}
+                      >
+                        {task.completed && "✓"}
+                      </button>
+
+                      {/* Texto de la tarea o editor inline */}
+                      {editingTaskId === task.id ? (
+                        <textarea
+                          ref={editInputRef}
+                          value={editingText}
+                          onChange={(e) => {
+                            setEditingText(e.target.value)
+                            e.target.style.height = "auto"
+                            const exactHeight = Math.max(32, Math.round(e.target.scrollHeight / 32) * 32)
+                            e.target.style.height = `${exactHeight}px`
+                          }}
+                          onBlur={() => handleSaveEdit(task.id)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && !e.shiftKey) {
+                              e.preventDefault()
+                              handleSaveEdit(task.id)
+                            } else if (e.key === "Escape") {
+                              setEditingTaskId(null)
+                            }
+                          }}
+                          style={{
+                            flex: 1,
+                            minWidth: 0,
+                            border: "none",
+                            background: "transparent",
+                            outline: "none",
+                            fontSize: 13,
+                            fontFamily: "'Georgia', serif",
+                            fontStyle: "italic",
+                            color: C.text,
+                            height: 32,
+                            lineHeight: "32px",
+                            padding: 0,
+                            margin: 0,
+                            resize: "none",
+                            overflow: "hidden",
+                            boxSizing: "border-box"
+                          }}
+                        />
+                      ) : (
+                        <span 
+                          onClick={() => {
+                            setEditingTaskId(task.id)
+                            setEditingText(task.text)
+                          }}
+                          style={{
+                            flex: 1,
+                            minWidth: 0,
+                            textDecoration: task.completed ? "line-through" : "none",
+                            color: task.completed ? C.textSoft : C.text,
+                            opacity: task.completed ? 0.6 : 1,
+                            fontStyle: "italic",
+                            lineHeight: "32px",
+                            whiteSpace: "normal",
+                            wordBreak: "break-word",
+                            overflowWrap: "anywhere",
+                            transition: "all 0.2s",
+                            cursor: "pointer"
+                          }}
+                          title="Hacé clic para editar"
+                        >
+                          {task.text}
+                        </span>
+                      )}
+
+                      {/* Botón eliminar */}
+                      <button 
+                        onClick={() => handleDeleteTask(task.id)}
+                        style={{
+                          background: "transparent",
+                          border: "none",
+                          color: C.red,
+                          cursor: "pointer",
+                          fontSize: 14,
+                          width: 28,
+                          height: 32,
+                          minHeight: "unset",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          opacity: 0.5,
+                          transition: "opacity 0.2s",
+                          flexShrink: 0,
+                          alignSelf: "flex-start"
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.opacity = 1}
+                        onMouseLeave={e => e.currentTarget.style.opacity = 0.5}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+
+                  {/* Renglón para agregar nueva tarea */}
+                  <div style={{ 
+                    display: "flex", 
+                    alignItems: "flex-start", 
+                    minHeight: 32, 
+                    flexShrink: 0,
+                    backgroundImage: "linear-gradient(rgba(74, 144, 226, 0.15) 1.5px, transparent 1.5px)",
                     backgroundSize: "100% 32px",
                     backgroundPosition: "0 31px",
                     paddingLeft: 54,
                     paddingRight: 16,
                     gap: 10,
-                    fontSize: 13,
-                    color: C.text,
                     boxSizing: "border-box"
-                  }}
-                >
-                  {/* Checkbox circular: Centrado vertical en la primera línea de 32px */}
-                  <button
-                    onClick={() => handleToggleTask(task.id)}
-                    style={{
-                      width: 18,
-                      height: 18,
-                      minHeight: "unset", // Anula min-height global de mobile
-                      borderRadius: "50%",
-                      border: `1.5px solid ${task.completed ? C.green : C.textSoft}`,
-                      background: task.completed ? C.greenPale : "transparent",
-                      color: C.green,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      cursor: "pointer",
-                      fontSize: 12,
-                      padding: 0,
-                      fontWeight: "bold",
-                      flexShrink: 0,
-                      outline: "none",
-                      marginTop: 7 // Centrado vertical en la primera línea
-                    }}
-                  >
-                    {task.completed && "✓"}
-                  </button>
-
-                  {/* Texto de la tarea o editor inline */}
-                  {editingTaskId === task.id ? (
+                  }}>
+                    <span style={{ fontSize: 16, color: C.green, marginLeft: 2, userSelect: "none", marginTop: 7 }}>✏️</span>
                     <textarea
-                      ref={editInputRef}
-                      value={editingText}
+                      ref={inputRef}
+                      rows={1}
+                      value={newText}
                       onChange={(e) => {
-                        setEditingText(e.target.value)
+                        setNewText(e.target.value)
                         e.target.style.height = "auto"
                         const exactHeight = Math.max(32, Math.round(e.target.scrollHeight / 32) * 32)
                         e.target.style.height = `${exactHeight}px`
                       }}
-                      onBlur={() => handleSaveEdit(task.id)}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && !e.shiftKey) {
                           e.preventDefault()
-                          handleSaveEdit(task.id)
-                        } else if (e.key === "Escape") {
-                          setEditingTaskId(null)
+                          handleAddTask(e)
                         }
                       }}
+                      placeholder="Escribir nuevo recordatorio..."
                       style={{
                         flex: 1,
                         minWidth: 0,
@@ -359,139 +828,36 @@ export function NotebookModal({ isOpen, onClose, todoTasks, setTodoTasks }) {
                         boxSizing: "border-box"
                       }}
                     />
-                  ) : (
-                    <span 
-                      onClick={() => {
-                        setEditingTaskId(task.id)
-                        setEditingText(task.text)
-                      }}
-                      style={{
-                        flex: 1,
-                        minWidth: 0,
-                        textDecoration: task.completed ? "line-through" : "none",
-                        color: task.completed ? C.textSoft : C.text,
-                        opacity: task.completed ? 0.6 : 1,
-                        fontStyle: "italic",
-                        lineHeight: "32px", // Cada renglón mide exactamente 32px
-                        whiteSpace: "normal", // Permite saltar de línea limpiamente
-                        wordBreak: "break-word",
-                        overflowWrap: "anywhere",
-                        transition: "all 0.2s",
-                        cursor: "pointer"
-                      }}
-                      title="Hacé clic para editar"
-                    >
-                      {task.text}
-                    </span>
-                  )}
+                    {newText.trim() && (
+                      <button 
+                        onClick={handleAddTask}
+                        style={{
+                          background: "transparent",
+                          border: "none",
+                          color: C.green,
+                          cursor: "pointer",
+                          fontSize: 11,
+                          fontWeight: "bold",
+                          fontFamily: "Georgia, serif",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.5px",
+                          padding: "0 8px",
+                          height: 32,
+                          minHeight: "unset",
+                          display: "flex",
+                          alignItems: "center",
+                          alignSelf: "flex-start",
+                          flexShrink: 0
+                        }}
+                      >
+                        Listo
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
 
-                  {/* Botón eliminar: Alineado al primer renglón de la tarea */}
-                  <button 
-                    onClick={() => handleDeleteTask(task.id)}
-                    style={{
-                      background: "transparent",
-                      border: "none",
-                      color: C.red,
-                      cursor: "pointer",
-                      fontSize: 14,
-                      width: 28,
-                      height: 32, // Alto de un renglón
-                      minHeight: "unset", // Anula min-height global de mobile
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      opacity: 0.5,
-                      transition: "opacity 0.2s",
-                      flexShrink: 0,
-                      alignSelf: "flex-start" // Se alinea en el primer renglón junto al checkbox
-                    }}
-                    onMouseEnter={e => e.currentTarget.style.opacity = 1}
-                    onMouseLeave={e => e.currentTarget.style.opacity = 0.5}
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
-
-              {/* 2. Renglón para agregar nueva tarea (con textarea autoregulable en multilínea en tiempo real) */}
-              <div style={{ 
-                display: "flex", 
-                alignItems: "flex-start", 
-                minHeight: 32, 
-                flexShrink: 0,
-                backgroundImage: "linear-gradient(rgba(74, 144, 226, 0.15) 1.5px, transparent 1.5px)",
-                backgroundSize: "100% 32px",
-                backgroundPosition: "0 31px",
-                paddingLeft: 54,
-                paddingRight: 16,
-                gap: 10,
-                boxSizing: "border-box"
-              }}>
-                <span style={{ fontSize: 16, color: C.green, marginLeft: 2, userSelect: "none", marginTop: 7 }}>✏️</span>
-                <textarea
-                  ref={inputRef}
-                  rows={1}
-                  value={newText}
-                  onChange={(e) => {
-                    setNewText(e.target.value)
-                    e.target.style.height = "auto"
-                    const exactHeight = Math.max(32, Math.round(e.target.scrollHeight / 32) * 32)
-                    e.target.style.height = `${exactHeight}px`
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault()
-                      handleAddTask(e)
-                    }
-                  }}
-                  placeholder="Escribir nuevo recordatorio..."
-                  style={{
-                    flex: 1,
-                    minWidth: 0,
-                    border: "none",
-                    background: "transparent",
-                    outline: "none",
-                    fontSize: 13,
-                    fontFamily: "'Georgia', serif",
-                    fontStyle: "italic",
-                    color: C.text,
-                    height: 32,
-                    lineHeight: "32px",
-                    padding: 0,
-                    margin: 0,
-                    resize: "none",
-                    overflow: "hidden",
-                    boxSizing: "border-box"
-                  }}
-                />
-                {newText.trim() && (
-                  <button 
-                    onClick={handleAddTask}
-                    style={{
-                      background: "transparent",
-                      border: "none",
-                      color: C.green,
-                      cursor: "pointer",
-                      fontSize: 11,
-                      fontWeight: "bold",
-                      fontFamily: "Georgia, serif",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.5px",
-                      padding: "0 8px",
-                      height: 32,
-                      minHeight: "unset", // Anula min-height global de mobile
-                      display: "flex",
-                      alignItems: "center",
-                      alignSelf: "flex-start",
-                      flexShrink: 0
-                    }}
-                  >
-                    Listo
-                  </button>
-                )}
-              </div>
-
-              {/* 3. Renglones vacíos de relleno (renderizados abajo del input para completar la visual de la hoja) */}
+              {/* Renglones vacíos de relleno para mantener la estética de la hoja */}
               {Array.from({ length: fillerCount }).map((_, idx) => (
                 <div 
                   key={`filler-${idx}`} 
@@ -505,30 +871,141 @@ export function NotebookModal({ isOpen, onClose, todoTasks, setTodoTasks }) {
               ))}
             </div>
 
-            {/* Pie de Libreta / Acciones generales */}
-            {todoTasks.some(t => t.completed) && (
-              <div style={{ display: "flex", justifyContent: "flex-end", padding: "10px 16px 0", boxSizing: "border-box" }}>
-                <button 
-                  onClick={handleClearCompleted}
-                  style={{
-                    background: "transparent",
-                    border: `1px solid ${C.border}`,
-                    borderRadius: 8,
-                    padding: "4px 10px",
-                    fontSize: 10,
-                    color: C.textSoft,
-                    minHeight: "unset", // Anula min-height global de mobile
-                    cursor: "pointer",
-                    fontFamily: "Georgia, serif",
-                    transition: "all 0.15s"
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.4)"; e.currentTarget.style.color = C.text }}
-                  onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = C.textSoft }}
-                >
-                  🧹 Limpiar completadas
-                </button>
+            {/* Toast flotante de Deshacer */}
+            {toast && (
+              <div style={{
+                position: "absolute",
+                bottom: 12,
+                left: 54,
+                right: 16,
+                background: "rgba(20, 32, 22, 0.94)",
+                backdropFilter: "blur(10px)",
+                color: "#fff",
+                borderRadius: 10,
+                padding: "7px 12px",
+                fontSize: 11,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 8,
+                zIndex: 30,
+                boxShadow: "0 6px 18px rgba(0,0,0,0.25)"
+              }}>
+                <span style={{ fontStyle: "italic", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {toast.message}
+                </span>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                  {toast.onUndo && (
+                    <button
+                      onClick={() => {
+                        toast.onUndo()
+                        setToast(null)
+                      }}
+                      style={{
+                        background: "#38bdf8",
+                        color: "#0f172a",
+                        border: "none",
+                        borderRadius: 6,
+                        padding: "2px 8px",
+                        fontSize: 10.5,
+                        fontWeight: "bold",
+                        cursor: "pointer"
+                      }}
+                    >
+                      ↩️ Deshacer
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setToast(null)}
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      color: "#fff",
+                      opacity: 0.7,
+                      cursor: "pointer",
+                      fontSize: 12,
+                      padding: "0 4px"
+                    }}
+                  >
+                    &times;
+                  </button>
+                </div>
               </div>
             )}
+
+            {/* Pie de Libreta / Acciones generales */}
+            <div style={{
+              display: "flex",
+              justifyContent: activeTab === "history" ? "space-between" : "flex-end",
+              alignItems: "center",
+              padding: "10px 16px 0 54px",
+              boxSizing: "border-box"
+            }}>
+              {activeTab === "history" ? (
+                <>
+                  <button 
+                    onClick={() => setActiveTab("active")}
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      padding: "4px 0",
+                      fontSize: 11,
+                      color: C.green,
+                      fontWeight: "bold",
+                      cursor: "pointer",
+                      fontFamily: "Georgia, serif"
+                    }}
+                  >
+                    ← Volver a anotaciones
+                  </button>
+
+                  {safeHistory.length > 0 && (
+                    <button 
+                      onClick={handleClearAllHistory}
+                      style={{
+                        background: "transparent",
+                        border: `1px solid ${C.border}`,
+                        borderRadius: 8,
+                        padding: "3px 8px",
+                        fontSize: 9.5,
+                        color: C.red,
+                        opacity: 0.8,
+                        cursor: "pointer",
+                        fontFamily: "Georgia, serif",
+                        transition: "all 0.15s"
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.opacity = 1}
+                      onMouseLeave={e => e.currentTarget.style.opacity = 0.8}
+                    >
+                      Vaciar historial
+                    </button>
+                  )}
+                </>
+              ) : (
+                todoTasks.some(t => t.completed) && (
+                  <button 
+                    onClick={handleClearCompleted}
+                    style={{
+                      background: "transparent",
+                      border: `1px solid ${C.border}`,
+                      borderRadius: 8,
+                      padding: "4px 10px",
+                      fontSize: 10,
+                      color: C.textSoft,
+                      minHeight: "unset",
+                      cursor: "pointer",
+                      fontFamily: "Georgia, serif",
+                      transition: "all 0.15s"
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.4)"; e.currentTarget.style.color = C.text }}
+                    onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = C.textSoft }}
+                  >
+                    🧹 Limpiar completadas
+                  </button>
+                )
+              )}
+            </div>
+
           </div>
         </div>
       </div>

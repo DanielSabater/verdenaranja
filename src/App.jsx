@@ -102,6 +102,7 @@ export default function App() {
     config, setConfig,
     clientes, setClientes,
     todoTasks, setTodoTasks,
+    todoHistory, setTodoHistory,
     remoteEdits, broadcastEditing,
     restoreBackup,
     deleteAppointment,
@@ -1861,7 +1862,7 @@ export default function App() {
           /></div>
         )}
 
-        {activeView === "config" && <div key="v-cfg" className="pv-view pv-bg" style={{ overflowY: "auto", overflowX: "hidden", flex: 1, paddingTop: 72 }}><ConfigView config={config} setConfig={setConfig} allData={allData} gastos={gastos} sueldos={sueldos} clientes={clientes} onLogout={handleLogout} restoreBackup={restoreBackup} /></div>}
+        {activeView === "config" && <div key="v-cfg" className="pv-view pv-bg" style={{ overflowY: "auto", overflowX: "hidden", flex: 1, paddingTop: 72 }}><ConfigView config={config} setConfig={setConfig} allData={allData} gastos={gastos} sueldos={sueldos} clientes={clientes} todoTasks={todoTasks} todoHistory={todoHistory} onLogout={handleLogout} restoreBackup={restoreBackup} /></div>}
         {activeView === "clientes" && <div key="v-cli" className="pv-view pv-bg" style={{ overflowY: "auto", overflowX: "hidden", flex: 1, paddingTop: 72 }}><ClientesView clientes={clientes} setClientes={setClientes} allData={allData} updateClientNameInAppointments={updateClientNameInAppointments} /></div>}
 
 
@@ -2040,6 +2041,8 @@ export default function App() {
           onClose={() => { playPageSound(); setNotebookOpen(false); }}
           todoTasks={todoTasks}
           setTodoTasks={setTodoTasks}
+          todoHistory={todoHistory}
+          setTodoHistory={setTodoHistory}
         />
 
         <SearchTurnosModal

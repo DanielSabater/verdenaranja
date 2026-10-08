@@ -15,7 +15,8 @@ const LS_KEYS = {
   clientes:  "pv:clientes",
   gastos:    "pv:gastos",
   sueldos:   "pv:sueldos",
-  todoTasks: "pv:todo_tasks",
+  todoTasks:   "pv:todo_tasks",
+  todoHistory: "pv:todo_history",
 }
 
 function lsRead(key) {
@@ -159,6 +160,7 @@ export function usePersistentState(currentDate) {
   const [gastos,     setGastos]     = useState(() => lsRead("gastos") || [])
   const [sueldos,    setSueldos]    = useState(() => lsRead("sueldos") || {})
   const [todoTasks,  setTodoTasks]  = useState(() => lsRead("todo_tasks") || [])
+  const [todoHistory, setTodoHistory] = useState(() => lsRead("todo_history") || [])
 
   const [remoteEdits, setRemoteEdits] = useState({}) 
   const sessionId   = useRef(Math.random().toString(36).substring(7))
@@ -172,7 +174,7 @@ export function usePersistentState(currentDate) {
 
   // Referencia al estado más reciente para validar dirtyKeys tras peticiones asíncronas
   const latestStateRef = useRef({})
-  latestStateRef.current = { allData, allArqueos, config, clientes, gastos, sueldos, todoTasks }
+  latestStateRef.current = { allData, allArqueos, config, clientes, gastos, sueldos, todoTasks, todoHistory }
 
   // ── 1. Initial Load & Realtime Subscription ────────────────────────────────
   useEffect(() => {
@@ -200,6 +202,7 @@ export function usePersistentState(currentDate) {
             if (row.id === "gastos")   setGastos(row.data)
             if (row.id === "sueldos")  setSueldos(row.data)
             if (row.id === "todo_tasks") setTodoTasks(row.data)
+            if (row.id === "todo_history") setTodoHistory(row.data)
           }
           if (row.id.startsWith("day:")) {
             const dateKey = row.id.replace("day:", "")
@@ -295,6 +298,7 @@ export function usePersistentState(currentDate) {
           if (row.id === "gastos")   setGastos(row.data)
           if (row.id === "sueldos")  setSueldos(row.data)
           if (row.id === "todo_tasks") setTodoTasks(row.data)
+          if (row.id === "todo_history") setTodoHistory(row.data)
           if (row.id.startsWith("day:")) {
             const dateKey = row.id.replace("day:", "")
             setAllData(prev => ({ ...prev, [dateKey]: row.data }))
@@ -501,6 +505,7 @@ export function usePersistentState(currentDate) {
       check("gastos", gastos)
       check("sueldos", sueldos)
       check("todo_tasks", todoTasks)
+      check("todo_history", todoHistory)
       Object.keys(allData).forEach(date => check(`day:${date}`, allData[date]))
       Object.keys(allArqueos).forEach(date => check(`arqueo:${date}`, allArqueos[date]))
 
@@ -524,6 +529,7 @@ export function usePersistentState(currentDate) {
             else if (id === "gastos") currentLocalVal = latest.gastos
             else if (id === "sueldos") currentLocalVal = latest.sueldos
             else if (id === "todo_tasks") currentLocalVal = latest.todoTasks
+            else if (id === "todo_history") currentLocalVal = latest.todoHistory
             else if (id.startsWith("day:")) {
               const d = id.replace("day:", "")
               currentLocalVal = latest.allData?.[d]
@@ -543,7 +549,7 @@ export function usePersistentState(currentDate) {
       }
     }, 400)
     return () => clearTimeout(saveTimer)
-  }, [allData, allArqueos, config, clientes, gastos, sueldos, todoTasks, loaded])
+  }, [allData, allArqueos, config, clientes, gastos, sueldos, todoTasks, todoHistory, loaded])
 
   // ── 4. Exposed Setters ─────────────────────────────────────────────────────
   const setAppointments = (updater) => {
@@ -739,6 +745,11 @@ export function usePersistentState(currentDate) {
     setTodoTasks(updater)
   }
 
+  const setTodoHistoryUser = (updater) => {
+    dirtyKeys.current.add("todo_history")
+    setTodoHistory(updater)
+  }
+
   const broadcastEditing = (cellKey, isEditing) => {
     if (channelRef.current) {
       channelRef.current.send({
@@ -781,6 +792,11 @@ export function usePersistentState(currentDate) {
       tasks.push({ id: "todo_tasks", data: backupData.todoTasks, updated_at: new Date().toISOString() })
       setTodoTasks(backupData.todoTasks)
       lsWrite("todo_tasks", backupData.todoTasks)
+    }
+    if (backupData.todoHistory && Array.isArray(backupData.todoHistory)) {
+      tasks.push({ id: "todo_history", data: backupData.todoHistory, updated_at: new Date().toISOString() })
+      setTodoHistory(backupData.todoHistory)
+      lsWrite("todo_history", backupData.todoHistory)
     }
 
     if (backupData.allData && typeof backupData.allData === "object") {
@@ -829,6 +845,7 @@ export function usePersistentState(currentDate) {
     gastos,    setGastos: setGastosUser,
     sueldos,   setSueldos: setSueldosUser,
     todoTasks, setTodoTasks: setTodoTasksUser,
+    todoHistory, setTodoHistory: setTodoHistoryUser,
     remoteEdits, broadcastEditing,
     restoreBackup
   }
