@@ -43,6 +43,41 @@ export function extractPhoneFromString(text) {
 }
 
 /**
+ * Extrae cualquier número o secuencia telefónica presente en el texto
+ * (soporta desde 1 dígito mientras se tipea hasta números con formato completo)
+ */
+export function extractNumberFromText(text) {
+  if (!text || typeof text !== "string") return ""
+  if (!/\d/.test(text)) return ""
+  const match = text.match(/(?:\(?\+?\d[\d\s().-]*\d|\+?\d)/)
+  return match ? match[0].trim() : ""
+}
+
+/**
+ * Asegura que el número de teléfono quede incluido en el nombre del cliente
+ * sin duplicarlo si ya está presente.
+ */
+export function ensurePhoneInName(name, phone) {
+  const trimmedName = (name || "").trim()
+  const trimmedPhone = (phone || "").trim()
+  if (!trimmedPhone) return trimmedName
+  if (!trimmedName) return trimmedPhone
+  const nameDigits = cleanDigits(trimmedName)
+  const phoneDigits = cleanDigits(trimmedPhone)
+  if (phoneDigits && nameDigits.includes(phoneDigits)) {
+    return trimmedName
+  }
+  // Si el nombre ya tenía otro teléfono embebido diferente, reemplazarlo limpiamente
+  if (nameDigits.length >= 6) {
+    const cleaned = cleanClientName(trimmedName)
+    if (cleaned && cleaned !== trimmedName) {
+      return `${cleaned} ${trimmedPhone}`.trim()
+    }
+  }
+  return `${trimmedName} ${trimmedPhone}`.trim()
+}
+
+/**
  * Limpia el nombre del cliente removiendo el número de teléfono si estaba embebido
  */
 export function cleanClientName(text) {

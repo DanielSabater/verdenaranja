@@ -1,9 +1,9 @@
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import { C } from "../../constants/colors.js"
 import { PAYMENT_METHODS } from "../../constants/data.js"
 import { fmt, apptTotal } from "../../utils/appointments.js"
 import { Overlay, ModalHeader, Field, GhostBtn, SolidBtn, inputStyle, modalBox } from "../ui/index.jsx"
-import { getApptClientPhone, formatWaNumber, generateReminderMessage, openWhatsAppLink, cleanClientName, normalizeStr, extractPhoneFromString } from "../../utils/whatsapp.js"
+import { getApptClientPhone, formatWaNumber, generateReminderMessage, openWhatsAppLink, cleanClientName, normalizeStr, extractPhoneFromString, extractNumberFromText, ensurePhoneInName } from "../../utils/whatsapp.js"
 import { fmtDate, todayKey } from "../../utils/dates.js"
 import { useIsMobile } from "../../hooks/useIsMobile.js"
 import { RescheduleContent } from "./RescheduleModal.jsx"
@@ -90,6 +90,7 @@ export function AppModals({
 
   // Teléfono del cliente gestionado en el formulario
   const [clientPhone, setClientPhone] = useState("")
+  const lastExtractedFromNameRef = useRef("")
   const isMobile = useIsMobile(820)
 
   useEffect(() => {
@@ -98,15 +99,33 @@ export function AppModals({
       setIsNoteMode(appt?.isNote || false)
       setNoteDuration(appt?.manualDur || 30)
       setModalMode("form")
+      lastExtractedFromNameRef.current = ""
 
       // Cargar teléfono si ya existía en el turno o en la clienta
       if (modal.editKey && appt) {
         const ph = appt.clientPhone || appt.phone || getApptClientPhone(appt, clientes).phone || ""
         setClientPhone(ph)
+        if (ph && appt.client) {
+          const withPhone = ensurePhoneInName(appt.client, ph)
+          if (withPhone !== clientName) {
+            setClientName(withPhone)
+          }
+        }
       } else if (clientName) {
+        const extracted = extractNumberFromText(clientName)
         const norm = normalizeStr(cleanClientName(clientName))
         const found = (clientes || []).find(c => c && normalizeStr(c.name) === norm)
-        setClientPhone(found?.phone || "")
+        const initialPh = extracted || found?.phone || ""
+        setClientPhone(initialPh)
+        if (extracted) {
+          lastExtractedFromNameRef.current = extracted
+        }
+        if (initialPh) {
+          const withPhone = ensurePhoneInName(clientName, initialPh)
+          if (withPhone !== clientName) {
+            setClientName(withPhone)
+          }
+        }
       } else {
         setClientPhone("")
       }
@@ -150,9 +169,6 @@ export function AppModals({
       return raw.length >= 1 && cl.name && cl.name.toLowerCase().includes(raw.toLowerCase()) && Boolean(clPhoneDigits)
     }).slice(0, 8)
   }, [clientPhone, safeClientes])
-
-  const isNewCliente = clientName.trim().length >= 1 &&
-    !safeClientes.some(cl => cl.name.toLowerCase() === clientName.trim().toLowerCase())
 
   // Análisis inteligente de reconocimiento de la clienta y lo que suele pedir
   const clientAnalysis = useMemo(() => {
@@ -227,6 +243,8 @@ export function AppModals({
     }
   }, [clientName, clientPhone, safeClientes, allData, services])
 
+  const isNewCliente = !clientAnalysis.isRecognized && clientName.trim().length >= 1
+
   // Si reconoce a la clienta y no hay teléfono ingresado, auto-completar el teléfono guardado
   useEffect(() => {
     if (!clientPhone && clientAnalysis.isRecognized) {
@@ -239,7 +257,9 @@ export function AppModals({
 
   const saveNewCliente = () => {
     if (!clientName.trim()) return
-    setClientes(p => [...(p || []), { id: Date.now(), name: clientName.trim(), phone: clientPhone.trim(), notes: "" }])
+    const trimmedPhone = clientPhone.trim()
+    const finalName = ensurePhoneInName(clientName, trimmedPhone)
+    setClientes(p => [...(p || []), { id: Date.now(), name: finalName, phone: trimmedPhone, notes: "" }])
   }
 
   const handleSave = () => {
@@ -253,27 +273,34 @@ export function AppModals({
       return
     }
 
-    const trimmedName = clientName.trim()
     const trimmedPhone = clientPhone.trim()
+    // El teléfono tiene que quedar en el nombre también
+    const finalClientName = ensurePhoneInName(clientName, trimmedPhone)
+    if (finalClientName !== clientName) {
+      setClientName(finalClientName)
+    }
 
     saveAppt({
       isNote: false,
+      client: finalClientName,
       clientPhone: trimmedPhone,
       manualDur: undefined,
       manualSlots: undefined,
     })
 
-    if (trimmedName && setClientes) {
+    if (finalClientName && setClientes) {
       setClientes(prev => {
         const list = Array.isArray(prev) ? [...prev] : []
-        const norm = normalizeStr(cleanClientName(trimmedName))
+        const norm = normalizeStr(cleanClientName(finalClientName))
         const idx = list.findIndex(c => c && normalizeStr(cleanClientName(c.name)) === norm)
         if (idx >= 0) {
-          if (trimmedPhone && list[idx].phone !== trimmedPhone) {
-            list[idx] = { ...list[idx], phone: trimmedPhone }
+          list[idx] = {
+            ...list[idx],
+            name: ensurePhoneInName(list[idx].name, trimmedPhone),
+            phone: trimmedPhone || list[idx].phone
           }
         } else {
-          list.push({ id: Date.now(), name: trimmedName, phone: trimmedPhone, notes: "" })
+          list.push({ id: Date.now(), name: finalClientName, phone: trimmedPhone, notes: "" })
         }
         return list
       })
@@ -557,14 +584,19 @@ export function AppModals({
                               data-form-type="other"
                               aria-autocomplete="none"
                               onChange={e => {
-                                const capitalizeName = (str) => str.split(' ').map(word => word ? word.charAt(0).toUpperCase() + word.slice(1) : '').join(' ')
                                 const raw = e.target.value
-                                const extractedPhone = extractPhoneFromString(raw)
-                                if (extractedPhone && !clientPhone) {
-                                  setClientPhone(extractedPhone)
-                                  setClientName(capitalizeName(cleanClientName(raw)))
-                                } else {
-                                  setClientName(capitalizeName(raw))
+                                // Capitalizar palabras pero preservando números, espacios y caracteres intactos (nunca se borra)
+                                const capitalized = raw.split(' ').map(word => word ? word.charAt(0).toUpperCase() + word.slice(1) : '').join(' ')
+                                setClientName(capitalized)
+
+                                // Si contiene números, por defecto se agrega automáticamente al input de teléfono
+                                const extracted = extractNumberFromText(raw)
+                                if (extracted) {
+                                  setClientPhone(extracted)
+                                  lastExtractedFromNameRef.current = extracted
+                                } else if (lastExtractedFromNameRef.current && clientPhone === lastExtractedFromNameRef.current) {
+                                  setClientPhone("")
+                                  lastExtractedFromNameRef.current = ""
                                 }
                                 setShowSug(true)
                               }}
@@ -582,7 +614,13 @@ export function AppModals({
                                 padding: "8px 0",
                               }}
                               onFocus={() => setShowSug(true)}
-                              onBlur={() => setTimeout(() => setShowSug(false), 200)}
+                              onBlur={() => {
+                                setTimeout(() => setShowSug(false), 200)
+                                if (clientPhone.trim()) {
+                                  const updated = ensurePhoneInName(clientName, clientPhone.trim())
+                                  if (updated && updated !== clientName) setClientName(updated)
+                                }
+                              }}
                               onKeyDown={e => {
                                 if (e.key === 'Enter') {
                                   e.preventDefault();
@@ -618,12 +656,16 @@ export function AppModals({
                               {suggestions.map(cl => {
                                 const clean = cleanClientName(cl.name)
                                 const ph = cl.phone || extractPhoneFromString(cl.name)
+                                const nameWithPhone = ensurePhoneInName(cl.name, ph)
                                 return (
                                   <div
                                     key={cl.id}
                                     onMouseDown={() => {
-                                      setClientName(clean || cl.name);
-                                      if (ph) setClientPhone(ph);
+                                      setClientName(nameWithPhone);
+                                      if (ph) {
+                                        setClientPhone(ph);
+                                        lastExtractedFromNameRef.current = ph;
+                                      }
                                       setShowSug(false);
                                     }}
                                     style={{ padding: "8px 12px", cursor: "pointer", borderBottom: `1px solid ${C.greenPale}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}
@@ -663,10 +705,17 @@ export function AppModals({
                               aria-autocomplete="none"
                               onChange={e => {
                                 setClientPhone(e.target.value)
+                                lastExtractedFromNameRef.current = ""
                                 setShowPhoneSug(true)
                               }}
                               onFocus={() => setShowPhoneSug(true)}
-                              onBlur={() => setTimeout(() => setShowPhoneSug(false), 200)}
+                              onBlur={() => {
+                                setTimeout(() => setShowPhoneSug(false), 200)
+                                if (clientPhone.trim()) {
+                                  const updated = ensurePhoneInName(clientName, clientPhone.trim())
+                                  if (updated && updated !== clientName) setClientName(updated)
+                                }
+                              }}
                               placeholder="Ej: 11 4523-8890"
                               style={{
                                 ...inputStyle,
@@ -694,14 +743,17 @@ export function AppModals({
                           {showPhoneSug && phoneSuggestions.length > 0 && (
                             <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 999, background: C.white, borderRadius: 12, border: `1.5px solid ${C.green}`, boxShadow: "0 8px 24px rgba(58,125,68,.18)", overflowY: "auto", maxHeight: 200 }}>
                               {phoneSuggestions.map(cl => {
-                                const clean = cleanClientName(cl.name)
                                 const ph = cl.phone || extractPhoneFromString(cl.name)
+                                const nameWithPhone = ensurePhoneInName(cl.name, ph)
                                 return (
                                   <div
                                     key={cl.id}
                                     onMouseDown={() => {
-                                      if (clean) setClientName(clean);
-                                      if (ph) setClientPhone(ph);
+                                      if (nameWithPhone) setClientName(nameWithPhone);
+                                      if (ph) {
+                                        setClientPhone(ph);
+                                        lastExtractedFromNameRef.current = ph;
+                                      }
                                       setShowPhoneSug(false);
                                     }}
                                     style={{ padding: "8px 12px", cursor: "pointer", borderBottom: `1px solid ${C.greenPale}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}
