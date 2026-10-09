@@ -52,13 +52,197 @@ function playPaySound() {
 
 
 
+function ChosenServiceRow({ group, onIncrease, onDecrease, isMobile }) {
+  const [isHovered, setIsHovered] = useState(false)
+  const s = group.service
+  const count = group.count
+  const showControls = isHovered || isMobile
+
+  return (
+    <div
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={{
+        width: "100%",
+        height: 35,
+        minHeight: 35,
+        maxHeight: 35,
+        boxSizing: "border-box",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        padding: "0 11px",
+        borderRadius: 9,
+        border: `1.5px solid ${C.green}`,
+        outline: "1px dashed rgba(58, 125, 68, 0.35)",
+        outlineOffset: "-3px",
+        background: "rgba(58, 125, 68, 0.04)",
+        transition: "box-shadow .15s ease, background-color .15s ease",
+        boxShadow: isHovered ? "0 2px 8px rgba(58, 125, 68, 0.12)" : "none",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, flex: 1, paddingRight: 6 }}>
+        <div
+          style={{
+            width: 17,
+            height: 17,
+            minWidth: 17,
+            minHeight: 17,
+            maxWidth: 17,
+            maxHeight: 17,
+            borderRadius: 5,
+            border: `2px solid ${C.green}`,
+            background: C.green,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+            boxSizing: "border-box",
+          }}
+        >
+          {count > 1 ? (
+            <span style={{ fontSize: 10, color: "#fff", fontWeight: "bold", lineHeight: 1 }}>{count}</span>
+          ) : (
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          )}
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, overflow: "hidden" }}>
+          <span style={{ fontSize: 11, color: C.text, fontWeight: "bold", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "inline-flex", alignItems: "center", gap: 4 }}>
+            <span style={{ fontSize: 12, lineHeight: 1, flexShrink: 0, display: "inline-flex", alignItems: "center" }}>{s.icon}</span>
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</span>
+          </span>
+          <span style={{ fontSize: 9, color: C.textSoft, whiteSpace: "nowrap", flexShrink: 0 }}>
+            {group.totalDuration} min
+          </span>
+          {count > 1 && (
+            <span style={{
+              fontSize: 9,
+              color: C.green,
+              fontWeight: "bold",
+              background: C.greenPale,
+              padding: "1px 6px",
+              borderRadius: 6,
+              border: `1px solid ${C.greenMint}`,
+              whiteSpace: "nowrap",
+              flexShrink: 0,
+              lineHeight: 1.2,
+            }}>
+              x{count}
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0, height: "100%" }}>
+        {showControls && (
+          <div style={{ display: "flex", alignItems: "center", gap: 3, height: 20, flexShrink: 0, animation: "fadeIn .15s ease" }}>
+            <button
+              type="button"
+              className="qty-btn-minus"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDecrease(group);
+              }}
+              style={{
+                width: 20,
+                height: 20,
+                minWidth: 20,
+                minHeight: 20,
+                maxHeight: 20,
+                borderRadius: 5,
+                border: `1px solid ${C.border}`,
+                background: C.white,
+                color: "#c62828",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                fontSize: 12,
+                fontWeight: "bold",
+                padding: 0,
+                lineHeight: 1,
+                boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+                transition: "background .12s ease, border-color .12s ease",
+                flexShrink: 0,
+                boxSizing: "border-box",
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = "#ffebee";
+                e.currentTarget.style.borderColor = "#ef5350";
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = C.white;
+                e.currentTarget.style.borderColor = C.border;
+              }}
+              title={count > 1 ? "Disminuir cantidad" : "Quitar servicio"}
+            >
+              –
+            </button>
+            <span style={{ fontSize: 11, fontWeight: "bold", color: C.text, minWidth: 14, textAlign: "center", lineHeight: 1 }}>
+              {count}
+            </span>
+            <button
+              type="button"
+              className="qty-btn-plus"
+              onClick={(e) => {
+                e.stopPropagation();
+                onIncrease(group.service);
+              }}
+              style={{
+                width: 20,
+                height: 20,
+                minWidth: 20,
+                minHeight: 20,
+                maxHeight: 20,
+                borderRadius: 5,
+                border: `1px solid ${C.green}`,
+                background: C.greenPale,
+                color: C.green,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                fontSize: 12,
+                fontWeight: "bold",
+                padding: 0,
+                lineHeight: 1,
+                boxShadow: "0 1px 3px rgba(58,125,68,0.12)",
+                transition: "background .12s ease, color .12s ease",
+                flexShrink: 0,
+                boxSizing: "border-box",
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = C.green;
+                e.currentTarget.style.color = "#fff";
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = C.greenPale;
+                e.currentTarget.style.color = C.green;
+              }}
+              title="Aumentar cantidad"
+            >
+              +
+            </button>
+          </div>
+        )}
+        <span style={{ fontSize: 11, color: C.orange, fontWeight: "bold", whiteSpace: "nowrap", lineHeight: 1 }}>
+          {fmt(group.totalPrice)}
+        </span>
+      </div>
+    </div>
+  )
+}
+
+
 export function AppModals({
   modal, setModal,
   payModal, setPayModal,
   deleteKey, setDeleteKey,
   clientName, setClientName,
   apptNotes, setApptNotes,
-  chosenServices,
+  chosenServices, setChosenServices,
   filterCat, setFilterCat,
   searchTerm, setSearchTerm,
   paymentSplits, setPaymentSplits,
@@ -82,7 +266,7 @@ export function AppModals({
   onConfirmReschedule,
 }) {
   const [showSug, setShowSug] = useState(false)
-  const [serviceHighlightIdx, setServiceHighlightIdx] = useState(0)
+  const [serviceHighlightIdx, setServiceHighlightIdx] = useState(-1)
   const [isNoteMode, setIsNoteMode] = useState(false)
   const [noteDuration, setNoteDuration] = useState(30)
   const [modalMode, setModalMode] = useState("form") // "form" | "reschedule"
@@ -308,12 +492,51 @@ export function AppModals({
   }
 
   const handleToggleService = (s) => {
-    const existing = chosenServices.find(x => x.id === s.id)
-    if (existing) {
-      removeService(existing.uniqueId)
+    const isChosen = chosenServices.some(x => (x.id || x.name) === (s.id || s.name))
+    if (isChosen) {
+      if (setChosenServices) {
+        setChosenServices(prev => prev.filter(x => (x.id || x.name) !== (s.id || s.name)))
+      } else {
+        const existing = chosenServices.find(x => (x.id || x.name) === (s.id || s.name))
+        if (existing) removeService(existing.uniqueId)
+      }
     } else {
       toggleService(s)
     }
+  }
+
+  const groupedChosenServices = useMemo(() => {
+    const map = new Map()
+    chosenServices.forEach(item => {
+      const key = item.id || item.name
+      if (!map.has(key)) {
+        map.set(key, {
+          id: key,
+          service: item,
+          items: [item],
+          count: 1,
+          totalPrice: item.price || 0,
+          totalDuration: item.duration || 0,
+        })
+      } else {
+        const entry = map.get(key)
+        entry.items.push(item)
+        entry.count += 1
+        entry.totalPrice += item.price || 0
+        entry.totalDuration += item.duration || 0
+      }
+    })
+    return Array.from(map.values())
+  }, [chosenServices])
+
+  const handleIncreaseService = (svc) => {
+    toggleService(svc)
+  }
+
+  const handleDecreaseService = (group) => {
+    if (!group || !group.items || group.items.length === 0) return
+    const itemToRemove = group.items[group.items.length - 1]
+    removeService(itemToRemove.uniqueId)
   }
 
   const handleAddAllUsual = () => {
@@ -829,6 +1052,9 @@ export function AppModals({
                         border: `1.5px solid ${C.borderLight}`,
                         outline: "1.2px dashed rgba(184, 142, 60, 0.4)",
                         outlineOffset: "-4px",
+                        display: "flex",
+                        flexDirection: "column",
+                        minHeight: 0,
                       }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                           <span style={{ fontSize: 8, letterSpacing: "2px", color: C.textSoft, textTransform: "uppercase", fontWeight: "bold" }}>
@@ -839,31 +1065,20 @@ export function AppModals({
                           </span>
                         </div>
 
-                        {chosenServices.length === 0 ? (
-                          <div style={{ fontSize: 11, color: C.textSoft, fontStyle: "italic", textAlign: "center", padding: "8px 0" }}>
+                        {groupedChosenServices.length === 0 ? (
+                          <div style={{ fontSize: 11, color: C.textSoft, fontStyle: "italic", textAlign: "center", padding: "10px 0" }}>
                             Tocá los turnos a la derecha para agregarlos ➔
                           </div>
                         ) : (
-                          <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-                            {chosenServices.map(sv => (
-                              <div
-                                key={sv.uniqueId}
-                                style={{
-                                  display: "flex", alignItems: "center", gap: 5,
-                                  background: C.greenPale, border: `1px solid ${C.greenMint}`,
-                                  borderRadius: 20, padding: "3px 9px", fontSize: 11, color: C.green,
-                                }}
-                              >
-                                <span>{sv.icon} {sv.name}</span>
-                                <span style={{ fontSize: 9, color: C.orange, fontWeight: "bold", marginLeft: 2 }}>{fmt(sv.price)}</span>
-                                <span
-                                  onClick={() => removeService(sv.uniqueId)}
-                                  style={{ cursor: "pointer", color: "#a0b8a4", fontWeight: "bold", marginLeft: 4 }}
-                                  title="Quitar"
-                                >
-                                  ×
-                                </span>
-                              </div>
+                          <div className="chosen-services-scroll" style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: isMobile ? 250 : 330, overflowY: "auto", paddingRight: 4, paddingBottom: 2 }}>
+                            {groupedChosenServices.map(group => (
+                              <ChosenServiceRow
+                                key={group.id}
+                                group={group}
+                                onIncrease={handleIncreaseService}
+                                onDecrease={handleDecreaseService}
+                                isMobile={isMobile}
+                              />
                             ))}
                           </div>
                         )}
@@ -933,7 +1148,8 @@ export function AppModals({
 
                           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(180px, 1fr))", gap: 6 }}>
                             {clientAnalysis.usualServices.map(us => {
-                              const isChosen = chosenServices.some(x => x.id === us.id)
+                              const usCount = chosenServices.filter(x => (x.id || x.name) === (us.id || us.name)).length
+                              const isChosen = usCount > 0
                               return (
                                 <div
                                   key={us.id}
@@ -975,51 +1191,41 @@ export function AppModals({
                                       }}
                                     >
                                       {isChosen && (
-                                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                                          <polyline points="20 6 9 17 4 12" />
-                                        </svg>
+                                        usCount > 1 ? (
+                                          <span style={{ fontSize: 9, color: "#fff", fontWeight: "bold", lineHeight: 1 }}>{usCount}</span>
+                                        ) : (
+                                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                            <polyline points="20 6 9 17 4 12" />
+                                          </svg>
+                                        )
                                       )}
                                     </div>
                                     <div style={{ overflow: "hidden" }}>
                                       <div style={{ fontSize: 11, fontWeight: "bold", color: isChosen ? C.green : C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                                         {us.icon} {us.name}
+                                        {usCount > 1 && (
+                                          <span style={{ fontSize: 9, color: C.green, fontWeight: "bold", background: C.white, padding: "1px 5px", borderRadius: 6, border: `1px solid ${C.greenMint}`, marginLeft: 5 }}>
+                                            x{usCount}
+                                          </span>
+                                        )}
                                       </div>
                                       <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 1 }}>
                                         <span style={{ fontSize: 8, color: "#996515", background: "#fef3c7", padding: "1px 5px", borderRadius: 6, fontWeight: "bold" }}>
                                           x{us.count} {us.count === 1 ? "vez" : "veces"}
                                         </span>
-                                        <span style={{ fontSize: 8, color: C.textSoft }}>{us.duration}m</span>
+                                        <span style={{ fontSize: 8, color: C.textSoft }}>{(us.duration || 30) * (usCount || 1)}m</span>
                                       </div>
                                     </div>
                                   </div>
                                   <span style={{ fontSize: 11, color: C.orange, fontWeight: "bold", marginLeft: 4 }}>
-                                    {fmt(us.price)}
+                                    {fmt((us.price || 0) * (usCount || 1))}
                                   </span>
                                 </div>
                               )
                             })}
                           </div>
                         </div>
-                      ) : (
-                        <div style={{
-                          background: "rgba(58, 125, 68, 0.05)",
-                          border: `1px solid ${C.greenMint}`,
-                          borderRadius: 10,
-                          padding: "8px 12px",
-                          fontSize: 10,
-                          color: C.green,
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 6,
-                        }}>
-                          <span>✨</span>
-                          <span>
-                            {clientName.trim().length > 1
-                              ? "Clienta nueva · Elegí sus turnos y el sistema aprenderá lo que suele pedir para las próximas citas."
-                              : "Escribí el nombre de la clienta para ver sus turnos frecuentes y sugerencias personalizadas."}
-                          </span>
-                        </div>
-                      )}
+                      ) : null}
 
                       {/* ── SECCIÓN B: LUEGO LOS SUGERIDOS (CATÁLOGO COMPLETO) ── */}
                       <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
@@ -1042,25 +1248,26 @@ export function AppModals({
                           data-lpignore="true"
                           data-form-type="other"
                           aria-autocomplete="none"
-                          onChange={e => { setSearchTerm(e.target.value); setServiceHighlightIdx(0); }}
+                          onChange={e => { setSearchTerm(e.target.value); setServiceHighlightIdx(-1); }}
                           onKeyDown={e => {
                             const list = filteredServices;
                             if (list.length === 0) return;
                             if (e.key === "Enter") {
                               e.preventDefault();
-                              if (list[serviceHighlightIdx]) {
-                                handleToggleService(list[serviceHighlightIdx]);
+                              const targetIdx = serviceHighlightIdx >= 0 ? serviceHighlightIdx : 0;
+                              if (list[targetIdx]) {
+                                handleToggleService(list[targetIdx]);
                                 setSearchTerm("");
-                                setServiceHighlightIdx(0);
+                                setServiceHighlightIdx(-1);
                               }
                             } else if (e.key === "ArrowDown" || (e.key === "Tab" && !e.shiftKey)) {
                               e.preventDefault();
-                              const nextIdx = (serviceHighlightIdx + 1) % list.length;
+                              const nextIdx = serviceHighlightIdx < 0 ? 0 : (serviceHighlightIdx + 1) % list.length;
                               setServiceHighlightIdx(nextIdx);
                               document.getElementById(`service-item-${nextIdx}`)?.scrollIntoView({ block: 'nearest' });
                             } else if (e.key === "ArrowUp" || (e.key === "Tab" && e.shiftKey)) {
                               e.preventDefault();
-                              const prevIdx = (serviceHighlightIdx - 1 + list.length) % list.length;
+                              const prevIdx = serviceHighlightIdx <= 0 ? list.length - 1 : serviceHighlightIdx - 1;
                               setServiceHighlightIdx(prevIdx);
                               document.getElementById(`service-item-${prevIdx}`)?.scrollIntoView({ block: 'nearest' });
                             }
@@ -1081,7 +1288,7 @@ export function AppModals({
                             <button
                               key={cat}
                               type="button"
-                              onClick={() => { setFilterCat(cat); setServiceHighlightIdx(0); }}
+                              onClick={() => { setFilterCat(cat); setServiceHighlightIdx(-1); }}
                               style={{
                                 padding: "4px 9px", borderRadius: 20, cursor: "pointer",
                                 border: `1.5px solid ${filterCat === cat ? C.green : C.border}`,
@@ -1099,6 +1306,7 @@ export function AppModals({
                         {/* Lista scrolleable de servicios sugeridos */}
                         <div
                           className="service-scroll"
+                          onMouseLeave={() => setServiceHighlightIdx(-1)}
                           style={{
                             flex: 1,
                             minHeight: 0,
@@ -1110,7 +1318,8 @@ export function AppModals({
                           }}
                         >
                           {filteredServices.map((s, idx) => {
-                            const isChosen = chosenServices.some(x => x.id === s.id)
+                            const chosenCount = chosenServices.filter(x => (x.id || x.name) === (s.id || s.name)).length
+                            const isChosen = chosenCount > 0
                             const isFirstMatch = idx === serviceHighlightIdx
                             const borderColor = isFirstMatch 
                               ? "#4a90e2" 
@@ -1124,10 +1333,11 @@ export function AppModals({
                                 key={s.id} 
                                 id={`service-item-${idx}`}
                                 onMouseEnter={() => setServiceHighlightIdx(idx)}
+                                onMouseLeave={() => setServiceHighlightIdx(-1)}
                                 onClick={() => { 
                                   handleToggleService(s); 
                                   setSearchTerm(""); 
-                                  setServiceHighlightIdx(idx);
+                                  setServiceHighlightIdx(-1);
                                   document.getElementById("search-services-input")?.focus(); 
                                 }} 
                                 style={{
@@ -1158,17 +1368,35 @@ export function AppModals({
                                     }}
                                   >
                                     {isChosen && (
-                                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round">
-                                        <polyline points="20 6 9 17 4 12" />
-                                      </svg>
+                                      chosenCount > 1 ? (
+                                        <span style={{ fontSize: 10, color: "#fff", fontWeight: "bold", lineHeight: 1 }}>{chosenCount}</span>
+                                      ) : (
+                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round">
+                                          <polyline points="20 6 9 17 4 12" />
+                                        </svg>
+                                      )
                                     )}
                                   </div>
                                   <div>
                                     <span style={{ fontSize: 11, color: C.text, fontWeight: isChosen ? "bold" : "normal" }}>{s.icon} {s.name}</span>
-                                    <span style={{ fontSize: 9, color: C.textSoft, marginLeft: 6 }}>{s.duration} min</span>
+                                    <span style={{ fontSize: 9, color: C.textSoft, marginLeft: 6 }}>{(s.duration || 30) * (chosenCount || 1)} min</span>
+                                    {chosenCount > 1 && (
+                                      <span style={{
+                                        fontSize: 9,
+                                        color: C.green,
+                                        fontWeight: "bold",
+                                        background: C.white,
+                                        padding: "1px 5px",
+                                        borderRadius: 6,
+                                        border: `1px solid ${C.greenMint}`,
+                                        marginLeft: 6,
+                                      }}>
+                                        x{chosenCount}
+                                      </span>
+                                    )}
                                   </div>
                                 </div>
-                                <span style={{ fontSize: 11, color: C.orange, fontWeight: "bold" }}>{fmt(s.price)}</span>
+                                <span style={{ fontSize: 11, color: C.orange, fontWeight: "bold" }}>{fmt((s.price || 0) * (chosenCount || 1))}</span>
                               </div>
                             )
                           })}

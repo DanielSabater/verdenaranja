@@ -436,6 +436,29 @@ select {
   height: 0;
 }
 
+.chosen-services-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(58, 125, 68, 0.4) rgba(184, 142, 60, 0.08);
+}
+
+.chosen-services-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+
+.chosen-services-scroll::-webkit-scrollbar-track {
+  background: rgba(184, 142, 60, 0.08);
+  border-radius: 4px;
+}
+
+.chosen-services-scroll::-webkit-scrollbar-thumb {
+  background: rgba(58, 125, 68, 0.35);
+  border-radius: 4px;
+}
+
+.chosen-services-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(58, 125, 68, 0.6);
+}
+
 /* ── Grid scroll ── */
 .grid-scroll {
   overflow-x: auto;
