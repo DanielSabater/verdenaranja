@@ -458,6 +458,7 @@ export function AppGrid({
       profName: prof?.name,
       empresaNombre: config?.empresaNombre || "Verde Naranja",
       template: config?.waReminderTemplate,
+      date: currentDate || todayKey(),
     })
 
     const opened = openWhatsAppLink(formatted, msg, config?.waOpenMode || "app")
@@ -493,6 +494,7 @@ export function AppGrid({
       profName: prof?.name,
       empresaNombre: config?.empresaNombre || "Verde Naranja",
       template: config?.waReminderTemplate,
+      date: currentDate || todayKey(),
     })
 
     openWhatsAppLink(formatted, msg, config?.waOpenMode || "app")
@@ -2989,7 +2991,7 @@ export function AppGrid({
                   Recordatorio por WhatsApp
                 </div>
                 <div style={{ fontSize: 11, color: C.textSoft }}>
-                  {waPromptModal.cleanName} · {waPromptModal.appt.hour} hs
+                  {waPromptModal.cleanName} · {currentDate && currentDate !== todayKey() ? `${fmtDate(currentDate)} · ` : ""}{waPromptModal.appt.hour} hs
                 </div>
               </div>
             </div>

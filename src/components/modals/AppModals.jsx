@@ -423,6 +423,7 @@ export function AppModals({
                       profName: prof?.name,
                       empresaNombre: config?.empresaNombre || "Verde Naranja",
                       template: config?.waReminderTemplate,
+                      date: currentDate || todayKey(),
                     })
                     openWhatsAppLink(formatted, msg, config?.waOpenMode || "app")
                   }}

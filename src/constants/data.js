@@ -79,7 +79,7 @@ export const CONFIG_DEFAULT = {
   premiumLoading:   true,
   waReminderMins:   15,
   waOpenMode:       "app",
-  waReminderTemplate: "¡Hola {cliente}! 🌿 Te recordamos tu turno en {empresa} para hoy a las {hora} hs con {profesional} ({servicios}).\n¡Te esperamos! 💅✨",
+  waReminderTemplate: "¡Hola {cliente}! 🌿 Te recordamos tu turno en {empresa} para {dia} a las {hora} hs con {profesional} ({servicios}).\n¡Te esperamos! 💅✨",
   modalTone:        "verde",
   modalOpacityLevel: 4,
   modalBlurLevel:   3,

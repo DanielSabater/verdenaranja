@@ -1,4 +1,5 @@
 // ── Utilidades de WhatsApp para Verde Naranja ──────────────────────────────────
+import { todayKey, fmtDate } from "./dates.js"
 
 /**
  * Remueve caracteres no numéricos
@@ -157,8 +158,40 @@ export function getApptClientPhone(appt, clientes = []) {
 }
 
 /**
+ * Plantilla por defecto de recordatorio con la variable {dia}
+ */
+export const DEFAULT_WA_REMINDER_TEMPLATE = "¡Hola {cliente}! 🌿 Te recordamos tu turno en {empresa} para {dia} a las {hora} hs con {profesional} ({servicios}).\n¡Te esperamos! 💅✨"
+
+/**
+ * Devuelve la expresión adecuada para referirse al día del turno:
+ * - "hoy" si el turno es hoy
+ * - "mañana" si el turno es para el día siguiente
+ * - "ayer" si el turno es de ayer
+ * - "el [Día] [número] de [mes]" (ej: "el Viernes 9 de octubre") si es cualquier otra fecha
+ */
+export function getTurnoDayLabel(dateKey) {
+  if (!dateKey) return "hoy"
+  const tKey = todayKey()
+  if (dateKey === tKey) return "hoy"
+
+  try {
+    const [ty, tm, td] = tKey.split("-").map(Number)
+    const [dy, dm, dd] = dateKey.split("-").map(Number)
+    const tDate = new Date(ty, tm - 1, td, 12, 0, 0)
+    const dDate = new Date(dy, dm - 1, dd, 12, 0, 0)
+    const diffDays = Math.round((dDate.getTime() - tDate.getTime()) / (1000 * 60 * 60 * 24))
+
+    if (diffDays === 1) return "mañana"
+    if (diffDays === -1) return "ayer"
+    return `el ${fmtDate(dateKey)}`
+  } catch (_) {
+    return `el ${fmtDate(dateKey)}`
+  }
+}
+
+/**
  * Genera el texto del mensaje de recordatorio cordial y profesional
- * Soporta plantilla personalizada con etiquetas: {cliente}, {hora}, {servicios}, {profesional}, {empresa}
+ * Soporta plantilla personalizada con etiquetas: {cliente}, {dia}, {fecha}, {hora}, {servicios}, {profesional}, {empresa}
  */
 export function generateReminderMessage({
   clientName,
@@ -167,24 +200,49 @@ export function generateReminderMessage({
   profName,
   empresaNombre = "Verde Naranja",
   template,
+  date,
 }) {
   const nameDisplay = clientName ? clientName.trim() : "¡Hola!"
   const servicesList = services.length > 0
     ? services.map(s => s.name || s).join(" + ")
     : "tu turno"
   const profDisplay = profName ? profName.trim() : "Profesional"
+  const dateKey = date || todayKey()
+  const dayLabel = getTurnoDayLabel(dateKey)
+  const fullDate = fmtDate(dateKey)
 
-  if (template && typeof template === "string" && template.trim()) {
-    return template
-      .replace(/{cliente}/gi, nameDisplay)
-      .replace(/{hora}/gi, hour || "")
-      .replace(/{servicios}/gi, servicesList)
-      .replace(/{profesional}/gi, profDisplay)
-      .replace(/{empresa}/gi, empresaNombre)
+  let text = (template && typeof template === "string" && template.trim())
+    ? template
+    : DEFAULT_WA_REMINDER_TEMPLATE
+
+  // Compatibilidad retroactiva: si la plantilla guardada aún tenía "para hoy" o "hoy" fijo
+  // y el turno pertenece a otro día que no sea el que corre:
+  if (!text.includes("{dia}") && !text.includes("{fecha}") && dateKey !== todayKey()) {
+    if (/para\s+hoy/i.test(text)) {
+      text = text.replace(/para\s+hoy/gi, `para ${dayLabel}`)
+    } else if (/hoy\s+a\s+las/i.test(text)) {
+      text = text.replace(/hoy\s+a\s+las/gi, `${dayLabel} a las`)
+    } else if (/de\s+hoy/i.test(text)) {
+      text = text.replace(/de\s+hoy/gi, `del ${fullDate}`)
+    }
   }
 
-  const profPart = profName ? ` con ${profName}` : ""
-  return `¡Hola ${nameDisplay}! 🌿 Te recordamos tu turno en ${empresaNombre} para hoy a las ${hour} hs${profPart} (${servicesList}).\n¡Te esperamos! 💅✨`
+  let result = text
+    .replace(/{cliente}/gi, nameDisplay)
+    .replace(/{dia}/gi, dayLabel)
+    .replace(/{fecha}/gi, fullDate)
+    .replace(/{hora}/gi, hour || "")
+    .replace(/{servicios}/gi, servicesList)
+    .replace(/{profesional}/gi, profDisplay)
+    .replace(/{empresa}/gi, empresaNombre)
+
+  // Limpieza de posibles redundancias o cacofonías gramaticales
+  result = result
+    .replace(/\bel\s+el\b/gi, "el")
+    .replace(/\bpara\s+el\s+hoy\b/gi, "para hoy")
+    .replace(/\bpara\s+el\s+mañana\b/gi, "para mañana")
+
+  return result
 }
 
 /**
