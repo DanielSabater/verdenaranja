@@ -1653,7 +1653,7 @@ export default function App() {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: C.cream, fontFamily: "'Georgia','Times New Roman',serif", color: C.text, userSelect: draggingKey ? "none" : "auto" }}>
       {exitOpen && (
-        <Overlay onClose={cancelExit}>
+        <Overlay onClose={cancelExit} registerBack={false}>
           <div role="dialog" aria-modal="true" aria-label="Confirmar salida" onClick={e => e.stopPropagation()} style={{ ...modalBox, boxSizing: "border-box", width: "min(380px, 100%)", borderRadius: 22, outline: "1px dashed rgba(184, 142, 60, .45)", outlineOffset: -8 }}>
             <ModalHeader emoji="🌿" sub="Verde Naranja">¿Querés salir de la aplicación?</ModalHeader>
             <p style={{ color: C.textSoft, fontSize: 13, lineHeight: 1.5, margin: "0 0 20px" }}>Elegí Sí para salir o No para seguir trabajando.</p>

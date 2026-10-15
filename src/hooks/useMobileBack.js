@@ -19,6 +19,7 @@ export function useMobileNavigation(view, setView, enabled) {
   const mobile = useIsMobile()
   const [exitOpen, setExitOpen] = useState(false)
   const leaving = useRef(false)
+  const exitVisible = useRef(false)
   const restore = useRef(setView)
   restore.current = setView
   useEffect(() => {
@@ -39,7 +40,8 @@ export function useMobileNavigation(view, setView, enabled) {
       if (target.exitBoundary) {
         write({ view: target.view, layers: [] })
         restore.current(target.view)
-        setExitOpen(true)
+        exitVisible.current = !exitVisible.current
+        setExitOpen(exitVisible.current)
         return
       }
       const retained = new Set(target.layers || [])
@@ -66,7 +68,7 @@ export function useMobileNavigation(view, setView, enabled) {
     // Skip app entries and return to the document before the app.
     window.history.go(-((state()?.position ?? 1) + 1))
   }
-  return { exitOpen, cancelExit: () => setExitOpen(false), confirmExit }
+  return { exitOpen, cancelExit: () => { exitVisible.current = false; setExitOpen(false) }, confirmExit }
 }
 
 // Register only while a modal is visible. The latest layer closes first.
