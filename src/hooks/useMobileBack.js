@@ -50,18 +50,30 @@ export function useMobileBackLayer(open, onClose) {
   const mobile = useIsMobile()
   const close = useRef(onClose)
   close.current = onClose
+  const registration = useRef(null)
   useEffect(() => {
     if (!mobile || !open || !state()) return
-    const id = ++nextLayer
-    layers.set(id, () => close.current?.())
-    write({ ...state(), layers: [...(state().layers || []), id] })
+    // StrictMode replays setup/cleanup without actually closing the modal.
+    // Reuse its entry and defer disposal until that replay has finished.
+    let entry = registration.current
+    if (!entry || !layers.has(entry.id)) {
+      entry = { id: ++nextLayer, cleanupToken: null }
+      registration.current = entry
+      layers.set(entry.id, () => close.current?.())
+      write({ ...state(), layers: [...(state().layers || []), entry.id] })
+    }
+    entry.cleanupToken = null
     return () => {
-      if (!layers.delete(id)) return // Already consumed by browser Back.
-      const current = state()
-      if (current?.layers?.at(-1) === id) window.history.back()
-      else if (current?.layers?.includes(id)) {
-        write({ ...current, layers: current.layers.filter(value => value !== id) }, true)
-      }
+      const token = Symbol()
+      entry.cleanupToken = token
+      queueMicrotask(() => {
+        if (entry.cleanupToken !== token || !layers.delete(entry.id)) return
+        const current = state()
+        if (current?.layers?.at(-1) === entry.id) window.history.back()
+        else if (current?.layers?.includes(entry.id)) {
+          write({ ...current, layers: current.layers.filter(value => value !== entry.id) }, true)
+        }
+      })
     }
   }, [open, mobile])
 }

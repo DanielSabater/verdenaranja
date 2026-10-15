@@ -366,7 +366,7 @@ export const AppHeader = memo(function AppHeader({
           background: isLiquid ? "rgba(255, 255, 255, 0.45)" : C.white,
           backdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none",
           WebkitBackdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none",
-          borderTop: isMobile ? `4px solid ${headerAccentColor}` : "none",
+          borderTop: "none",
           borderBottom: isLiquid ? "none" : `1px solid ${C.border}`,
           padding: "0 14px",
           display: "flex",

@@ -554,7 +554,7 @@ export function AppModals({
       {modal && (
         <Overlay onClose={() => setModal(null)}>
           <div
-            className="modal-sheet"
+            className="modal-sheet appointment-modal"
             style={{
               ...modalBox,
               width: isNoteMode ? "min(520px, calc(100vw - 24px))" : "min(960px, calc(100vw - 24px))",
@@ -1409,7 +1409,7 @@ export function AppModals({
             )}
 
             {/* ═══ BARRA INFERIOR UNIFICADA DE ACCIONES ═══ */}
-            <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0, paddingTop: 10, background: "transparent", borderTop: `1px solid ${C.borderLight}` }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "center", flexShrink: 0, paddingTop: isMobile ? 16 : 10, background: "transparent", borderTop: `1px solid ${C.borderLight}` }}>
               {modal.editKey && !isNoteMode && (
                 <button
                   type="button"
