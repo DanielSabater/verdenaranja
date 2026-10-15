@@ -1,3 +1,4 @@
+import { useMobileBackLayer } from "../../hooks/useMobileBack.js"
 import { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import { createPortal } from "react-dom"
 import { C } from "../../constants/colors.js"
@@ -52,6 +53,8 @@ export function NotebookModal({
   todoHistory = [],
   setTodoHistory
 }) {
+  useMobileBackLayer(isOpen, onClose)
+
   const isMobile = useIsMobile(850)
 
   // Búsqueda en historial y copiado

@@ -1,3 +1,4 @@
+import { useMobileBackLayer } from "../../hooks/useMobileBack.js"
 import { useState, useMemo, useEffect, useRef } from "react"
 import { C } from "../../constants/colors.js"
 import { HOURS } from "../../constants/data.js"
@@ -66,6 +67,8 @@ export function SearchTurnosModal({
   config,
   onNavigateToTurno,
 }) {
+  useMobileBackLayer(isOpen, onClose)
+
   const [searchQuery, setSearchQuery] = useState("")
   const [filterTab, setFilterTab] = useState("proximos") // 'proximos' | 'todos' | 'pasados'
   const inputRef = useRef(null)

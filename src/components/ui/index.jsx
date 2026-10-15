@@ -1,8 +1,10 @@
+import { useMobileBackLayer } from "../../hooks/useMobileBack.js"
 import { useState, useEffect } from "react"
 import { createPortal } from "react-dom"
 import { C } from '../../constants/colors.js'
 
 export function Overlay({ children, onClose, style = {} }) {
+  useMobileBackLayer(true, onClose)
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === "Escape") {

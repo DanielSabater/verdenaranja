@@ -1,3 +1,4 @@
+import { useMobileNavigation } from "./hooks/useMobileBack.js"
 import { useState, useRef, useCallback, useMemo, useEffect } from "react"
 import { C } from "./constants/colors.js"
 import { PAYMENT_METHODS, HOURS, APP_VERSION, getModalOverlayStyle } from "./constants/data.js"
@@ -287,6 +288,7 @@ export default function App() {
   }, [calendarOpen])
 
   const [activeView, setActiveView] = useState("turnos")
+  useMobileNavigation(activeView, setActiveView, Boolean(session))
   const [contPeriod, setContPeriod] = useState("mes")
   const [contFrom, setContFrom] = useState("")
   const [contTo, setContTo] = useState("")

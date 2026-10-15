@@ -1,3 +1,4 @@
+import { useMobileBackLayer } from "../../hooks/useMobileBack.js"
 import React, { useState, useMemo, useEffect } from "react"
 import { createPortal } from "react-dom"
 import html2canvas from "html2canvas"
@@ -54,6 +55,7 @@ export default function ContabilidadView({
   const [expandedDates, setExpandedDates] = useState({})
   const [receiptProf, setReceiptProf] = useState(null)
   const [activeZoomedChart, setActiveZoomedChart] = useState(null)
+  useMobileBackLayer(Boolean(activeZoomedChart), () => setActiveZoomedChart(null))
   const [hoveredProfId, setHoveredProfId] = useState(null)
   const [dollarRate, setDollarRate] = useState(940)
   const [contOffset, setContOffset] = useState(0)

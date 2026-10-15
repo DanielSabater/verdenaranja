@@ -30,22 +30,29 @@ export function DailySummaryModal({
   if (!isOpen) return null
 
   return (
-    <Overlay onClose={onClose}>
+    <Overlay onClose={onClose} style={{ padding: 14, boxSizing: "border-box", height: "100dvh" }}>
       <div
+        className="daily-summary-modal"
+        role="dialog"
+        aria-label="Resumen del día"
+        aria-modal="true"
         onClick={e => e.stopPropagation()}
         style={{
           background: C.white,
           borderRadius: isMobile ? 18 : 22,
-          padding: isMobile ? "14px 12px 18px" : "20px 24px 22px",
-          width: isMobile ? "calc(100vw - 16px)" : "min(980px, calc(100vw - 28px))",
-          maxHeight: isMobile ? "94vh" : "92vh",
+          padding: 0,
+          boxSizing: "border-box",
+          width: "100%",
+          maxWidth: 980,
+          minHeight: 0,
+          maxHeight: "100%",
           display: "flex",
           flexDirection: "column",
           gap: isMobile ? 10 : 14,
           boxShadow: "0 24px 80px rgba(20,60,30,.24)",
           border: `1.5px solid ${C.greenMint}`,
           position: "relative",
-          overflowY: "auto",
+          overflow: "hidden",
           animation: "scaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
         }}
       >
@@ -78,8 +85,19 @@ export function DailySummaryModal({
           ✕
         </button>
 
+        <div style={{
+          minHeight: 0,
+          overflowY: "auto",
+          overflowX: "hidden",
+          overscrollBehavior: "contain",
+          scrollbarGutter: "stable",
+          padding: isMobile ? "14px 12px 18px" : "20px 24px 22px",
+          display: "flex",
+          flexDirection: "column",
+          gap: isMobile ? 10 : 14
+        }}>
         {/* Cabecera Principal */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, paddingRight: isMobile ? 36 : 42 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", flexShrink: 0, gap: 10, paddingRight: isMobile ? 36 : 42 }}>
           <div>
             <div style={{ fontSize: 9, letterSpacing: "2px", color: C.orange, textTransform: "uppercase", fontWeight: "bold", marginBottom: 2 }}>
               📊 Control Diario de Cobros · Verde Naranja
@@ -137,14 +155,14 @@ export function DailySummaryModal({
         </div>
 
         {/* Separador sutil */}
-        <div style={{ height: 1.5, background: `linear-gradient(90deg, ${C.greenMint}, ${C.border}, transparent)`, borderRadius: 2 }} />
+        <div style={{ height: 1.5, flexShrink: 0, background: `linear-gradient(90deg, ${C.greenMint}, ${C.border}, transparent)`, borderRadius: 2 }} />
 
         {/* 3 Columnas: Efectivo, Débito, Mercado Pago */}
         <div style={{
           display: "grid",
-          gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(280px, 1fr))",
+          gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(min(100%, 280px), 1fr))",
           gap: 12,
-          flex: 1,
+          flex: isMobile ? "0 0 auto" : 1,
           minHeight: 0
         }}>
           {/* 1. Columna Efectivo */}
@@ -179,7 +197,7 @@ export function DailySummaryModal({
             </div>
 
             {/* Lista scrolleable */}
-            <div style={{ flex: 1, overflowY: "auto", padding: "8px 10px", maxHeight: isMobile ? 260 : 440, display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ flex: 1, overflowY: "auto", padding: "8px 10px", minHeight: 0, maxHeight: isMobile ? 180 : 440, display: "flex", flexDirection: "column", gap: 6 }}>
               {cashAppts.length === 0 ? (
                 <div style={{ fontSize: 11, color: C.textSoft, textAlign: "center", padding: "24px 0", fontStyle: "italic" }}>
                   Sin cobros en efectivo
@@ -202,6 +220,7 @@ export function DailySummaryModal({
                       display: "flex",
                       justifyContent: "space-between",
                       alignItems: "center",
+                      flexShrink: 0,
                       padding: "7px 9px",
                       borderRadius: 9,
                       background: C.white,
@@ -262,7 +281,7 @@ export function DailySummaryModal({
             </div>
 
             {/* Lista scrolleable */}
-            <div style={{ flex: 1, overflowY: "auto", padding: "8px 10px", maxHeight: isMobile ? 260 : 440, display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ flex: 1, overflowY: "auto", padding: "8px 10px", minHeight: 0, maxHeight: isMobile ? 180 : 440, display: "flex", flexDirection: "column", gap: 6 }}>
               {debitAppts.length === 0 ? (
                 <div style={{ fontSize: 11, color: C.textSoft, textAlign: "center", padding: "24px 0", fontStyle: "italic" }}>
                   Sin cobros en débito
@@ -285,6 +304,7 @@ export function DailySummaryModal({
                       display: "flex",
                       justifyContent: "space-between",
                       alignItems: "center",
+                      flexShrink: 0,
                       padding: "7px 9px",
                       borderRadius: 9,
                       background: C.white,
@@ -345,7 +365,7 @@ export function DailySummaryModal({
             </div>
 
             {/* Lista scrolleable */}
-            <div style={{ flex: 1, overflowY: "auto", padding: "8px 10px", maxHeight: isMobile ? 260 : 440, display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ flex: 1, overflowY: "auto", padding: "8px 10px", minHeight: 0, maxHeight: isMobile ? 180 : 440, display: "flex", flexDirection: "column", gap: 6 }}>
               {mpAppts.length === 0 ? (
                 <div style={{ fontSize: 11, color: C.textSoft, textAlign: "center", padding: "24px 0", fontStyle: "italic" }}>
                   Sin cobros en Mercado Pago
@@ -368,6 +388,7 @@ export function DailySummaryModal({
                       display: "flex",
                       justifyContent: "space-between",
                       alignItems: "center",
+                      flexShrink: 0,
                       padding: "7px 9px",
                       borderRadius: 9,
                       background: C.white,
@@ -396,6 +417,7 @@ export function DailySummaryModal({
             </div>
           </div>
 
+        </div>
         </div>
       </div>
     </Overlay>
