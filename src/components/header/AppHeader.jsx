@@ -377,7 +377,8 @@ export const AppHeader = memo(function AppHeader({
           top: 0,
           left: 0,
           right: 0,
-          zIndex: 100,
+          // Above the sticky professionals row (100), below modal overlays (299+).
+          zIndex: 150,
           minHeight: 56,
           gap: 8,
           transition: isMobile ? "border-color .25s ease" : "none"
@@ -621,7 +622,7 @@ export const AppHeader = memo(function AppHeader({
         </div>
 
         {/* Right Container (Metrics, savebadge & status alignment) */}
-        <div className="header-right-container">
+        <div className="header-right-container" onMouseEnter={handleDailySummaryMouseEnter} onMouseLeave={handleDailySummaryMouseLeave}>
           {/* Save Badge */}
           <div className="desktop-savebadge" style={{ padding: "4px 10px", borderRadius: 16, minWidth: 90, textAlign: "center", background: saveStatus === "saving" ? "#f5f5f5" : saveStatus === "saved" ? C.greenPale : saveStatus === "error" ? "#fde8e8" : "transparent", border: `1px solid ${saveStatus === "saving" ? "#ddd" : saveStatus === "saved" ? C.greenMint : saveStatus === "error" ? "#f4b0b0" : "transparent"}`, opacity: saveStatus === "idle" ? 0 : 1, transition: "opacity .3s ease" }}>
             <span style={{ fontSize: 9, color: saveStatus === "saved" ? C.green : saveStatus === "error" ? "#c04040" : "#aaa" }}>{saveStatus === "saving" ? "⏳ Guardando..." : saveStatus === "saved" ? "✓ Guardado" : saveStatus === "error" ? "⚠️ Error" : "✓ Guardado"}</span>
@@ -644,7 +645,33 @@ export const AppHeader = memo(function AppHeader({
               style={{ position: "relative" }}
               onMouseEnter={handleDailySummaryMouseEnter}
               onMouseLeave={handleDailySummaryMouseLeave}
+              onFocus={handleDailySummaryMouseEnter}
+              onBlur={e => {
+                if (!e.currentTarget.contains(e.relatedTarget)) handleDailySummaryMouseLeave()
+              }}
+              onKeyDown={e => {
+                if (e.key === "Escape") setIsDailySummaryHovered(false)
+              }}
             >
+              <div className={`payment-methods-reveal${isDailySummaryHovered && !dailySummaryOpen ? " is-open" : ""}`} aria-hidden={!isDailySummaryHovered || dailySummaryOpen}>
+                {PAYMENT_METHODS.map(method => {
+                  const count = isDailySummaryHovered ? getApptsByMethod(method.id).length : 0
+                  return (
+                    <button
+                      key={method.id}
+                      type="button"
+                      tabIndex={isDailySummaryHovered && !dailySummaryOpen ? 0 : -1}
+                      className="payment-method-summary"
+                      style={{ "--method-color": method.color }}
+                      title={`${method.label}: ${privacyMode ? "••••" : fmt(totalByMethod(method.id))} · ${count} cobros. Ver detalle del día`}
+                      onClick={() => { setIsDailySummaryHovered(false); setDailySummaryOpen(true) }}
+                    >
+                      <span className="payment-method-label">{method.icon} {method.label}</span>
+                      <strong>{privacyMode ? "••••" : fmt(totalByMethod(method.id))}</strong>
+                    </button>
+                  )
+                })}
+                  </div>
               <button
                 type="button"
                 onClick={() => {
@@ -655,7 +682,6 @@ export const AppHeader = memo(function AppHeader({
                   setDailySummaryOpen(true)
                 }}
                 className={`daily-summary-btn ${scheduledStats.isFullyPaid ? "paid" : "unpaid"}`}
-                title={`Ver resumen del día y deudas pendientes\nProgreso de hoy: ${scheduledStats.pctCount}% (${scheduledStats.paidCount} de ${scheduledStats.totalCount} cobrados)\nRecaudado hoy: ${fmt(grandTotal)}${pastUnpaidAppts.length > 0 ? `\n⚠️ ${pastUnpaidAppts.length} turno${pastUnpaidAppts.length !== 1 ? "s" : ""} de días anteriores sin cobrar (${fmt(pastUnpaidTotalMoney)})` : ""}`}
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -710,11 +736,11 @@ export const AppHeader = memo(function AppHeader({
                 </div>
 
                 {/* Porcentaje y Conteo (SIN MONTOS DE DINERO) */}
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", textAlign: "left", lineHeight: 1.15 }}>
+                <div style={{ display: "flex", flexDirection: "row-reverse", alignItems: "center", gap: 8, textAlign: "left", lineHeight: 1.15 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                     <span
                       style={{
-                        fontSize: 13,
+                        fontSize: 16,
                         fontWeight: "800",
                         fontFamily: "Georgia, serif",
                         color: scheduledStats.isFullyPaid ? "#ffffff" : (scheduledStats.totalCount > 0 ? C.green : C.textSoft),
@@ -753,11 +779,17 @@ export const AppHeader = memo(function AppHeader({
                     )}
                   </div>
 
-                  <div style={{ fontSize: 8.5, color: scheduledStats.isFullyPaid ? "rgba(255,255,255,0.85)" : C.textSoft, whiteSpace: "nowrap" }}>
-                    {scheduledStats.totalCount === 0
-                      ? "Sin turnos"
-                      : `${scheduledStats.paidCount}/${scheduledStats.totalCount} cobrados`}
-                  </div>
+                  {isDailySummaryHovered && (
+                    <span
+                      className="payment-count-diagonal"
+                      aria-label={`${scheduledStats.paidCount} de ${scheduledStats.totalCount} turnos cobrados`}
+                      style={{ color: scheduledStats.isFullyPaid ? "#fff" : C.green }}
+                    >
+                      <span className="payment-count-paid">{scheduledStats.paidCount}</span>
+                      <span className="payment-count-slash" aria-hidden="true">/</span>
+                      <span className="payment-count-total">{scheduledStats.totalCount}</span>
+                    </span>
+                  )}
                 </div>
 
                 {/* Indicador sutil de modal */}
@@ -773,6 +805,7 @@ export const AppHeader = memo(function AppHeader({
                   ›
                 </span>
               </button>
+
 
               {/* Panel vertical desplegable hacia abajo con turnos adeudados al posar el puntero */}
               {isDailySummaryHovered && !dailySummaryOpen && (
