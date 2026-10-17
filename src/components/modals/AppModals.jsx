@@ -417,7 +417,7 @@ export function AppModals({
     setClientes(p => [...(p || []), { id: Date.now(), name: finalName, phone: trimmedPhone, notes: "" }])
   }
 
-  const handleSave = () => {
+  const handleSave = (phoneOverride) => {
     if (isNoteMode) {
       saveAppt({
         isNote: true,
@@ -428,7 +428,7 @@ export function AppModals({
       return
     }
 
-    const trimmedPhone = clientPhone.trim()
+    const trimmedPhone = typeof phoneOverride === "string" ? phoneOverride.trim() : clientPhone.trim()
     // El teléfono tiene que quedar en el nombre también
     const finalClientName = ensurePhoneInName(clientName, trimmedPhone)
     if (finalClientName !== clientName) {
@@ -510,14 +510,12 @@ export function AppModals({
     removeService(itemToRemove.uniqueId)
   }
 
-  const handleAddAllUsual = () => {
-    if (!clientAnalysis.usualServices.length) return
-    clientAnalysis.usualServices.forEach(us => {
-      if (!chosenServices.some(cs => cs.id === us.id)) {
-        toggleService(us)
-      }
-    })
-  }
+  // Ordenar la lista filtrada sin duplicar servicios ni alterar sus filtros.
+  const usualServiceCounts = new Map(clientAnalysis.usualServices.map(service => [service.id || service.name, service.count]))
+  const orderedServices = [...filteredServices].sort((a, b) =>
+    (usualServiceCounts.get(b.id || b.name) || 0) - (usualServiceCounts.get(a.id || a.name) || 0)
+  )
+
 
   return (
     <>
@@ -668,8 +666,8 @@ export function AppModals({
                     <div
                       className="no-scrollbar"
                       style={{
-                        flex: isMobile ? "none" : "1 1 380px",
-                        minWidth: isMobile ? "100%" : 350,
+                        flex: isMobile ? "none" : "1.3 1 480px",
+                        minWidth: 0,
                         display: "flex",
                         flexDirection: "column",
                         gap: 10,
@@ -716,7 +714,7 @@ export function AppModals({
 
                       {/* ── 1. NOMBRE DE LA CLIENTA (EXTRA GRANDE Y EN DORADO) ── */}
                       <div style={{ marginBottom: 4 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5, height: 14 }}>
                           <label style={{ fontSize: 8, letterSpacing: "2.5px", color: "#a88526", textTransform: "uppercase", fontWeight: "bold" }}>
                             Nombre de la clienta
                           </label>
@@ -785,28 +783,51 @@ export function AppModals({
 
                                 setShowSug(true)
                               }}
-                              placeholder="Ej: María González 11 4523-8890"
+                              placeholder="Nombre o teléfono"
+                              id="appointment-client-input"
                               aria-label="Nombre de la clienta y WhatsApp"
                               style={{
                                 width: "100%",
+                                minWidth: 0,
+                                flex: 1,
                                 border: "none",
                                 background: "transparent",
                                 outline: "none",
-                                fontSize: isMobile ? 18 : 22,
+                                fontSize: isMobile ? 18 : 20,
                                 fontWeight: "700",
                                 color: "#996515", // Dorado elegante y cálido
                                 fontFamily: "Georgia, serif",
                                 letterSpacing: "0.5px",
-                                padding: "8px 0",
+                                padding: "8px 112px 8px 0",
                               }}
                               onFocus={() => setShowSug(true)}
                               onBlur={() => setTimeout(() => setShowSug(false), 200)}
                             />
+                            {clientName && (
+                              <button
+                                type="button"
+                                aria-label="Borrar nombre y teléfono de la clienta"
+                                title="Borrar nombre y teléfono"
+                                onMouseDown={e => e.preventDefault()}
+                                onClick={() => {
+                                  setClientName("")
+                                  setShowSug(false)
+                                  document.getElementById("appointment-client-input")?.focus()
+                                }}
+                                style={{ position: "absolute", right: isNewCliente ? 88 : 12, top: "50%", transform: "translateY(-50%)", width: 28, height: 28, flexShrink: 0, borderRadius: 6, border: "none", background: "transparent", color: "#a99c7d", cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", marginLeft: 6 }}
+                              >
+                                ×
+                              </button>
+                            )}
                             {isNewCliente && (
                               <button
                                 onMouseDown={saveNewCliente}
                                 type="button"
                                 style={{
+                                  position: "absolute",
+                                  right: 10,
+                                  top: "50%",
+                                  transform: "translateY(-50%)",
                                   padding: "4px 9px",
                                   borderRadius: 8,
                                   border: "none",
@@ -855,38 +876,10 @@ export function AppModals({
                         </div>
                       </div>
 
-                      {clientPhone && (
-                        <div style={{ fontSize: 10, color: C.green, marginBottom: 6 }}>
-                          ✓ WhatsApp detectado: {clientPhone}
-                        </div>
-                      )}
-
-                      {/* ── 3. RESUMEN DE RECONOCIMIENTO / HISTORIAL DE LA CLIENTA ── */}
-                      {clientAnalysis.isRecognized && (
-                        <div style={{
-                          background: "linear-gradient(135deg, rgba(254, 243, 199, 0.4), rgba(253, 230, 138, 0.25))",
-                          border: "1px solid rgba(212, 175, 55, 0.4)",
-                          borderRadius: 10,
-                          padding: "6px 10px",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          fontSize: 10,
-                          color: "#854d0e",
-                        }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                            <span>✨</span>
-                            <span><strong>{clientAnalysis.visitCount}</strong> {clientAnalysis.visitCount === 1 ? "turno histórico" : "turnos históricos registrados"}</span>
-                          </div>
-                          {clientAnalysis.lastVisit && (
-                            <span style={{ color: C.textSoft, fontSize: 9 }}>
-                              Última visita: {fmtDate(clientAnalysis.lastVisit)}
-                            </span>
-                          )}
-                        </div>
-                      )}
-
                       {/* ── 4. OBSERVACIONES ── */}
+                      <details key={modal.editKey || `${currentDate}-${modal.profId}-${modal.hour}`} open={apptNotes.trim() ? true : undefined} style={{ marginBottom: 4 }}>
+                        <summary style={{ cursor: "pointer", color: C.green, fontSize: 12, padding: "5px 0", listStyle: "none" }}>＋ {apptNotes.trim() ? "Editar observación" : "Agregar observación"}</summary>
+                        <div style={{ paddingTop: 6 }}>
                       <Field label="Observaciones" style={{ marginBottom: 4 }}>
                         <textarea
                           value={apptNotes}
@@ -907,67 +900,10 @@ export function AppModals({
                           }}
                         />
                       </Field>
-
-                      {/* ── 5. RESUMEN DE SERVICIOS SELECCIONADOS ── */}
-                      <div style={{
-                        marginTop: 2,
-                        background: C.cream,
-                        borderRadius: 12,
-                        padding: "10px 12px",
-                        border: `1.5px solid ${C.borderLight}`,
-                        outline: "1.2px dashed rgba(184, 142, 60, 0.4)",
-                        outlineOffset: "-4px",
-                        display: "flex",
-                        flexDirection: "column",
-                        minHeight: 0,
-                      }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                          <span style={{ fontSize: 8, letterSpacing: "2px", color: C.textSoft, textTransform: "uppercase", fontWeight: "bold" }}>
-                            Servicios elegidos ({chosenServices.length})
-                          </span>
-                          <span style={{ fontSize: 11, color: C.orange, fontWeight: "bold" }}>
-                            {modalDuration} min · {fmt(modalSubtotal)}
-                          </span>
                         </div>
+                      </details>
 
-                        {groupedChosenServices.length === 0 ? (
-                          <div style={{ fontSize: 11, color: C.textSoft, fontStyle: "italic", textAlign: "center", padding: "10px 0" }}>
-                            Tocá los turnos a la derecha para agregarlos ➔
-                          </div>
-                        ) : (
-                          <div className="chosen-services-scroll" style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: isMobile ? 250 : 330, overflowY: "auto", paddingRight: 4, paddingBottom: 2 }}>
-                            {groupedChosenServices.map(group => (
-                              <ChosenServiceRow
-                                key={group.id}
-                                group={group}
-                                onIncrease={handleIncreaseService}
-                                onDecrease={handleDecreaseService}
-                                isMobile={isMobile}
-                              />
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* ═══ COLUMNA DERECHA: TURNOS QUE SUELE PEDIR Y SUGERIDOS ═══ */}
-                    <div
-                      className="no-scrollbar"
-                      style={{
-                        flex: isMobile ? "none" : "1.25 1 450px",
-                        minWidth: isMobile ? "100%" : 380,
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 10,
-                        overflowY: isMobile ? "visible" : "auto",
-                        background: "rgba(255, 255, 255, 0.75)",
-                        borderRadius: 14,
-                        padding: isMobile ? "12px 10px" : "12px 14px",
-                        border: `1.5px solid ${C.greenMint || "#d9e8dc"}`,
-                        outline: "1.5px dashed rgba(58, 125, 68, 0.38)",
-                        outlineOffset: "-6px",
-                      }}
-                    >
+                      <section className="appointment-catalog" aria-label="Elegir servicios" style={{ display: "flex", flexDirection: "column", gap: 8, minHeight: isMobile ? 300 : 220, height: isMobile ? 380 : "auto", flex: isMobile ? "none" : "1 0 220px", overflowY: "auto", padding: 12, borderRadius: 14, border: `1.5px solid ${C.greenMint || C.border}`, outline: "1.2px dashed rgba(58, 125, 68, 0.4)", outlineOffset: "-4px", background: C.cream }}>
                         {/* Buscador de servicios */}
                         <input
                           id="search-services-input"
@@ -983,7 +919,7 @@ export function AppModals({
                           aria-autocomplete="none"
                           onChange={e => { setSearchTerm(e.target.value); setServiceHighlightIdx(-1); }}
                           onKeyDown={e => {
-                            const list = filteredServices;
+                            const list = orderedServices;
                             if (list.length === 0) return;
                             if (e.key === "Enter") {
                               e.preventDefault();
@@ -1010,144 +946,14 @@ export function AppModals({
                             padding: "8px 12px",
                             marginBottom: 6,
                             fontSize: 12,
-                            outline: "1px dashed rgba(58, 125, 68, 0.3)",
-                            outlineOffset: "-3px",
+                            outline: "none",
                           }}
                         />
 
 
                       {/* ── SECCIÓN A: SI RECONOCE A LA CLIENTA -> TURNOS QUE SUELE PEDIR ── */}
-                      {clientAnalysis.isRecognized && clientAnalysis.usualServices.length > 0 ? (
-                        <div style={{
-                          background: "linear-gradient(135deg, #fffef9, #fff9ed)",
-                          borderRadius: 12,
-                          padding: "10px 12px",
-                          border: "1.5px solid #e8d697",
-                          outline: "1.5px dashed rgba(195, 150, 45, 0.55)",
-                          outlineOffset: "-4px",
-                          boxShadow: "0 2px 8px rgba(212,175,55,0.12)",
-                        }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                            <div>
-                              <div style={{ fontSize: 11, fontWeight: "bold", color: "#996515", display: "flex", alignItems: "center", gap: 5 }}>
-                                <span>⭐</span> Lo que suele pedir {clientAnalysis.matchedClient?.name ? clientAnalysis.matchedClient.name.split(" ")[0] : clientName.split(" ")[0]}
-                              </div>
-                              <div style={{ fontSize: 9, color: C.textSoft }}>Frecuentes en sus turnos históricos</div>
-                            </div>
-                            {clientAnalysis.usualServices.length > 1 && (
-                              <button
-                                type="button"
-                                onClick={handleAddAllUsual}
-                                style={{
-                                  background: "linear-gradient(135deg, #d4af37, #b8860b)",
-                                  border: "none",
-                                  borderRadius: 8,
-                                  color: "#fff",
-                                  fontSize: 9,
-                                  fontWeight: "bold",
-                                  padding: "4px 8px",
-                                  cursor: "pointer",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: 4,
-                                  boxShadow: "0 2px 6px rgba(184,134,11,0.25)",
-                                }}
-                                title="Seleccionar todos sus turnos frecuentes de una vez"
-                              >
-                                ✨ Cargar habituales
-                              </button>
-                            )}
-                          </div>
-
-                          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(180px, 1fr))", gap: 6 }}>
-                            {clientAnalysis.usualServices.map(us => {
-                              const usCount = chosenServices.filter(x => (x.id || x.name) === (us.id || us.name)).length
-                              const isChosen = usCount > 0
-                              return (
-                                <div
-                                  key={us.id}
-                                  onClick={() => handleToggleService(us)}
-                                  style={{
-                                    display: "flex",
-                                    justifyContent: "space-between",
-                                    alignItems: "center",
-                                    padding: "7px 10px",
-                                    borderRadius: 9,
-                                    cursor: "pointer",
-                                    border: isChosen ? `1.5px solid ${C.green}` : "1.5px solid #ecdca0",
-                                    outline: isChosen ? "1px dashed rgba(58, 125, 68, 0.4)" : "1px dashed rgba(195, 150, 45, 0.4)",
-                                    outlineOffset: "-3px",
-                                    background: isChosen ? C.greenPale : C.white,
-                                    transition: "all .15s ease",
-                                    boxShadow: isChosen ? "0 2px 6px rgba(58,125,68,0.14)" : "none",
-                                  }}
-                                  onMouseEnter={e => {
-                                    if (!isChosen) e.currentTarget.style.background = "#fffdf7"
-                                  }}
-                                  onMouseLeave={e => {
-                                    if (!isChosen) e.currentTarget.style.background = C.white
-                                  }}
-                                >
-                                  <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
-                                    <div
-                                      style={{
-                                        width: 16,
-                                        height: 16,
-                                        borderRadius: 5,
-                                        border: isChosen ? `2px solid ${C.green}` : "1.5px solid #d1c7a7",
-                                        background: isChosen ? C.green : C.white,
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        flexShrink: 0,
-                                        transition: "all .15s",
-                                      }}
-                                    >
-                                      {isChosen && (
-                                        usCount > 1 ? (
-                                          <span style={{ fontSize: 9, color: "#fff", fontWeight: "bold", lineHeight: 1 }}>{usCount}</span>
-                                        ) : (
-                                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                                            <polyline points="20 6 9 17 4 12" />
-                                          </svg>
-                                        )
-                                      )}
-                                    </div>
-                                    <div style={{ overflow: "hidden" }}>
-                                      <div style={{ fontSize: 11, fontWeight: "bold", color: isChosen ? C.green : C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                                        {us.icon} {us.name}
-                                        {usCount > 1 && (
-                                          <span style={{ fontSize: 9, color: C.green, fontWeight: "bold", background: C.white, padding: "1px 5px", borderRadius: 6, border: `1px solid ${C.greenMint}`, marginLeft: 5 }}>
-                                            x{usCount}
-                                          </span>
-                                        )}
-                                      </div>
-                                      <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 1 }}>
-                                        <span style={{ fontSize: 8, color: "#996515", background: "#fef3c7", padding: "1px 5px", borderRadius: 6, fontWeight: "bold" }}>
-                                          x{us.count} {us.count === 1 ? "vez" : "veces"}
-                                        </span>
-                                        <span style={{ fontSize: 8, color: C.textSoft }}>{(us.duration || 30) * (usCount || 1)}m</span>
-                                      </div>
-                                    </div>
-                                  </div>
-                                  <span style={{ fontSize: 11, color: C.orange, fontWeight: "bold", marginLeft: 4 }}>
-                                    {fmt((us.price || 0) * (usCount || 1))}
-                                  </span>
-                                </div>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      ) : null}
-
                       {/* ── SECCIÓN B: LUEGO LOS SUGERIDOS (CATÁLOGO COMPLETO) ── */}
                       <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                          <span style={{ fontSize: 8, letterSpacing: "2px", color: C.textSoft, textTransform: "uppercase", fontWeight: "bold" }}>
-                            {clientAnalysis.isRecognized ? "🌿 Luego los sugeridos / Todos los servicios" : "🌿 Turnos y servicios sugeridos"}
-                          </span>
-                        </div>
-
                         {/* Filtros de Categoría */}
                         <div style={{ display: "flex", gap: 5, marginBottom: 8, flexWrap: "wrap" }}>
                           {["all", "manos", "pies", "combo"].map(cat => (
@@ -1180,19 +986,22 @@ export function AppModals({
                             display: "flex",
                             flexDirection: "column",
                             gap: 5,
-                            paddingRight: 4,
+                            padding: "10px 4px 10px 2px",
+                            maskImage: "linear-gradient(to bottom, transparent 0, #000 10px, #000 calc(100% - 10px), transparent 100%)",
+                            WebkitMaskImage: "linear-gradient(to bottom, transparent 0, #000 10px, #000 calc(100% - 10px), transparent 100%)",
                           }}
                         >
-                          {filteredServices.map((s, idx) => {
+                          {orderedServices.map((s, idx) => {
                             const chosenCount = chosenServices.filter(x => (x.id || x.name) === (s.id || s.name)).length
                             const isChosen = chosenCount > 0
+                            const isUsual = usualServiceCounts.has(s.id || s.name)
                             const isFirstMatch = idx === serviceHighlightIdx
                             const borderColor = isFirstMatch 
                               ? "#4a90e2" 
-                              : (isChosen ? C.green : C.border)
+                              : (isChosen ? C.green : isUsual ? "#d4af37" : C.border)
                             const bgColor = isChosen 
                               ? (isFirstMatch ? "rgba(58, 125, 68, 0.16)" : C.greenPale)
-                              : (isFirstMatch ? "#eef6ff" : C.white)
+                              : (isFirstMatch ? "#eef6ff" : isUsual ? "#fffdf5" : C.white)
 
                             return (
                               <div 
@@ -1211,10 +1020,10 @@ export function AppModals({
                                   display: "flex", justifyContent: "space-between", alignItems: "center",
                                   padding: "7px 11px", borderRadius: 9, cursor: "pointer",
                                   border: `1.5px solid ${borderColor}`,
-                                  outline: isChosen ? "1px dashed rgba(58, 125, 68, 0.35)" : (isFirstMatch ? "1px dashed rgba(74, 144, 226, 0.4)" : "1px dashed rgba(195, 205, 195, 0.4)"),
+                                  outline: isChosen ? "1px dashed rgba(58, 125, 68, 0.35)" : (isFirstMatch ? "1px dashed rgba(74, 144, 226, 0.4)" : isUsual ? "1px dashed rgba(195, 150, 45, 0.55)" : "1px dashed rgba(195, 205, 195, 0.4)"),
                                   outlineOffset: "-3px",
                                   background: bgColor,
-                                  boxShadow: isFirstMatch ? "0 0 0 1px #4a90e2" : "none",
+                                  boxShadow: isFirstMatch ? "0 0 0 1px #4a90e2" : isUsual && !isChosen ? "0 2px 6px rgba(184,134,11,0.12)" : "none",
                                   transition: "all .15s",
                                 }}
                               >
@@ -1244,8 +1053,9 @@ export function AppModals({
                                     )}
                                   </div>
                                   <div>
-                                    <span style={{ fontSize: 11, color: C.text, fontWeight: isChosen ? "bold" : "normal" }}>{s.icon} {s.name}</span>
-                                    <span style={{ fontSize: 9, color: C.textSoft, marginLeft: 6 }}>{(s.duration || 30) * (chosenCount || 1)} min</span>
+                                    <span style={{ fontSize: 13, color: C.text, fontWeight: isChosen ? "bold" : "normal" }}>{s.icon} {s.name}</span>
+                                    {usualServiceCounts.has(s.id || s.name) && <span style={{ fontSize: 10, color: "#996515", background: "#fef3c7", border: "1px solid #ecdca0", borderRadius: 6, padding: "1px 5px", marginLeft: 6, whiteSpace: "nowrap" }}>⭐ Habitual</span>}
+                                    <span style={{ fontSize: 11, color: C.textSoft, marginLeft: 6 }}>{(s.duration || 30) * (chosenCount || 1)} min</span>
                                     {chosenCount > 1 && (
                                       <span style={{
                                         fontSize: 9,
@@ -1268,19 +1078,68 @@ export function AppModals({
                           })}
                         </div>
                       </div>
+                      </section>
                     </div>
-                  </div>
-                )}
-              </div>
-            )}
+                    <aside className="appointment-summary no-scrollbar" aria-label="Resumen del turno" style={{ flex: isMobile ? "none" : "0.85 1 340px", minWidth: 0, overflowY: isMobile ? "visible" : "auto", padding: isMobile ? 0 : "8px 0 8px 18px", borderLeft: isMobile ? "none" : `1px solid ${C.borderLight}`, display: "flex", flexDirection: "column", gap: 14 }}>
+                      <div>
+                        <div style={{ fontSize: 11, letterSpacing: 2, color: C.green, marginBottom: 12 }}>RESUMEN DEL TURNO</div>
+                        <div style={{ fontSize: 20, color: C.text, overflowWrap: "anywhere" }}>{cleanClientName(clientName) || "Sin clienta seleccionada"}</div>
+                        {clientPhone && <div style={{ fontSize: 13, color: C.textSoft, marginTop: 5 }}>{clientPhone}</div>}
+                        {clientAnalysis.isRecognized && <div style={{ fontSize: 11, color: "#996515", marginTop: 8 }}>{clientAnalysis.visitCount} turnos históricos{clientAnalysis.lastVisit ? ` · Última visita: ${fmtDate(clientAnalysis.lastVisit)}` : ""}</div>}
+                        <div style={{ fontSize: 13, color: C.textSoft, marginTop: 12 }}>{fmtDate(currentDate)} · {(allProfessionals || professionals)?.find(p => p.id === modal.profId)?.name}</div>
+                      </div>
+                      {/* ── 5. RESUMEN DE SERVICIOS SELECCIONADOS ── */}
+                      <div style={{
+                        marginTop: 2,
+                        background: C.cream,
+                        borderRadius: 12,
+                        padding: "10px 12px",
+                        border: `1.5px solid ${C.borderLight}`,
+                        outline: "1.2px dashed rgba(184, 142, 60, 0.4)",
+                        outlineOffset: "-4px",
+                        display: "flex",
+                        flexDirection: "column",
+                        minHeight: 0,
+                      }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                          <span style={{ fontSize: 10, letterSpacing: "1.5px", color: C.textSoft, textTransform: "uppercase", fontWeight: "bold" }}>
+                            Servicios elegidos ({chosenServices.length})
+                          </span>
+                          <span style={{ fontSize: 11, color: C.orange, fontWeight: "bold" }}>
+                            {modalDuration} min · {fmt(modalSubtotal)}
+                          </span>
+                        </div>
 
-            {/* ═══ BARRA INFERIOR UNIFICADA DE ACCIONES ═══ */}
-            <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "center", flexShrink: 0, paddingTop: isMobile ? 16 : 10, background: "transparent", borderTop: `1px solid ${C.borderLight}` }}>
-              {modal.editKey && !isNoteMode && (
+                        {groupedChosenServices.length === 0 ? (
+                          <div style={{ fontSize: 11, color: C.textSoft, fontStyle: "italic", textAlign: "center", padding: "10px 0" }}>
+                            Elegí servicios en la lista para armar el turno.
+                          </div>
+                        ) : (
+                          <div className="chosen-services-scroll" style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: isMobile ? 250 : 330, overflowY: "auto", paddingRight: 4, paddingBottom: 2 }}>
+                            {groupedChosenServices.map(group => (
+                              <ChosenServiceRow
+                                key={group.id}
+                                group={group}
+                                onIncrease={handleIncreaseService}
+                                onDecrease={handleDecreaseService}
+                                isMobile={isMobile}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {apptNotes.trim() && <div style={{ padding: 12, borderRadius: 10, background: C.cream, color: C.textSoft, fontSize: 13, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}><strong>Observaciones</strong><div style={{ marginTop: 6 }}>{apptNotes}</div></div>}
+                      <div style={{ marginTop: "auto", padding: 16, borderRadius: 12, background: C.greenPale, border: `1.5px solid ${C.border}`, outline: "1.2px dashed rgba(58, 125, 68, 0.4)", outlineOffset: "-4px", display: "grid", gap: 12 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}><span>Duración total</span><strong>{modalDuration} min</strong></div>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}><span>Horario</span><strong>{modal.hour}–{(() => { const [h, m] = modal.hour.split(":").map(Number); const total = h * 60 + m + Number(modalDuration || 0); return `${String(Math.floor(total / 60) % 24).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}` })()}</strong></div>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 12, borderTop: `1px solid ${C.border}` }}><span style={{ fontSize: 15 }}>Total</span><strong style={{ fontSize: 24, color: C.orange }}>{fmt(modalSubtotal)}</strong></div>
+              {!isNoteMode && (modal.editKey || chosenServices.length > 0) && (
                 <button
                   type="button"
+                  disabled={!clientName.trim()}
                   onClick={() => {
-                    const currentAppt = appointments[modal.editKey] || { client: clientName, hour: modal.hour, services: chosenServices }
+                    const currentAppt = { client: clientName, clientPhone, hour: modal.hour, services: chosenServices }
                     const prof = (allProfessionals || professionals)?.find(p => p.id === modal.profId)
                     const { phone, cleanName } = getApptClientPhone(currentAppt, clientes)
 
@@ -1313,35 +1172,31 @@ export function AppModals({
                       template: config?.waReminderTemplate,
                       date: currentDate || todayKey(),
                     })
+                    if (!modal.editKey) handleSave(targetPhone)
                     openWhatsAppLink(formatted, msg, config?.waOpenMode || "app")
                   }}
-                  title="Enviar recordatorio por WhatsApp"
+                  title={modal.editKey ? "Enviar recordatorio por WhatsApp" : "Confirmar turno y abrir el recordatorio en WhatsApp"}
                   style={{
-                    width: 36,
-                    height: 36,
-                    border: "none",
-                    background: "transparent",
-                    color: "#6b7280",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    cursor: "pointer",
-                    padding: 0,
-                    flexShrink: 0,
-                    transition: "transform .15s ease, color .15s ease",
-                  }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.transform = "scale(1.15)"
-                    e.currentTarget.style.color = "#374151"
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.transform = "scale(1)"
-                    e.currentTarget.style.color = "#6b7280"
+                    width: "100%", minHeight: 38, border: `1px solid ${C.green}`,
+                    background: C.white, color: C.green, borderRadius: 9,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    gap: 8, cursor: "pointer", padding: "8px 12px", fontSize: 12,
+                    fontFamily: "inherit", fontWeight: "bold",
                   }}
                 >
-                  <WhatsAppIcon size={22} color="currentColor" />
+                  <WhatsAppIcon size={17} color="currentColor" />
+                  {modal.editKey ? "Enviar recordatorio" : "Confirmar y enviar recordatorio"}
                 </button>
               )}
+                      </div>
+                    </aside>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ═══ BARRA INFERIOR UNIFICADA DE ACCIONES ═══ */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "center", flexShrink: 0, paddingTop: isMobile ? 16 : 10, background: "transparent", borderTop: `1px solid ${C.borderLight}` }}>
               {modal.editKey && (
                 <button
                   type="button"
