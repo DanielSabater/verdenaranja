@@ -42,8 +42,9 @@ export function DailySummaryModal({
           borderRadius: isMobile ? 18 : 22,
           padding: 0,
           boxSizing: "border-box",
-          width: "100%",
-          maxWidth: 980,
+          width: "min(960px, calc(100vw - 24px))",
+          maxWidth: 960,
+          height: isMobile ? "100%" : "min(710px, calc(100dvh - 40px))",
           minHeight: 0,
           maxHeight: "100%",
           display: "flex",
@@ -86,8 +87,9 @@ export function DailySummaryModal({
         </button>
 
         <div style={{
+          flex: 1,
           minHeight: 0,
-          overflowY: "auto",
+          overflowY: isMobile ? "auto" : "hidden",
           overflowX: "hidden",
           overscrollBehavior: "contain",
           scrollbarGutter: "stable",
@@ -160,7 +162,7 @@ export function DailySummaryModal({
         {/* 3 Columnas: Efectivo, Débito, Mercado Pago */}
         <div style={{
           display: "grid",
-          gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(min(100%, 280px), 1fr))",
+          gridTemplateColumns: isMobile ? "1fr" : "repeat(3, minmax(0, 1fr))",
           gap: 12,
           flex: isMobile ? "0 0 auto" : 1,
           minHeight: 0
@@ -172,6 +174,8 @@ export function DailySummaryModal({
             border: `1.5px solid ${C.greenMint}`,
             display: "flex",
             flexDirection: "column",
+            minHeight: isMobile ? 180 : 0,
+            minWidth: 0,
             overflow: "hidden"
           }}>
             {/* Header columna */}
@@ -197,9 +201,9 @@ export function DailySummaryModal({
             </div>
 
             {/* Lista scrolleable */}
-            <div style={{ flex: 1, overflowY: "auto", padding: "8px 10px", minHeight: 0, maxHeight: isMobile ? 180 : 440, display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ flex: 1, overflowY: "auto", padding: "8px 10px", minHeight: 0, maxHeight: isMobile ? 240 : "none", display: "flex", flexDirection: "column", gap: 6 }}>
               {cashAppts.length === 0 ? (
-                <div style={{ fontSize: 11, color: C.textSoft, textAlign: "center", padding: "24px 0", fontStyle: "italic" }}>
+                <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: C.textSoft, textAlign: "center", padding: "24px 0", fontStyle: "italic" }}>
                   Sin cobros en efectivo
                 </div>
               ) : (
@@ -256,6 +260,8 @@ export function DailySummaryModal({
             border: `1.5px solid ${C.amberMid}`,
             display: "flex",
             flexDirection: "column",
+            minHeight: isMobile ? 180 : 0,
+            minWidth: 0,
             overflow: "hidden"
           }}>
             {/* Header columna */}
@@ -281,9 +287,9 @@ export function DailySummaryModal({
             </div>
 
             {/* Lista scrolleable */}
-            <div style={{ flex: 1, overflowY: "auto", padding: "8px 10px", minHeight: 0, maxHeight: isMobile ? 180 : 440, display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ flex: 1, overflowY: "auto", padding: "8px 10px", minHeight: 0, maxHeight: isMobile ? 240 : "none", display: "flex", flexDirection: "column", gap: 6 }}>
               {debitAppts.length === 0 ? (
-                <div style={{ fontSize: 11, color: C.textSoft, textAlign: "center", padding: "24px 0", fontStyle: "italic" }}>
+                <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: C.textSoft, textAlign: "center", padding: "24px 0", fontStyle: "italic" }}>
                   Sin cobros en débito
                 </div>
               ) : (
@@ -340,6 +346,8 @@ export function DailySummaryModal({
             border: `1.5px solid ${C.mpMid}`,
             display: "flex",
             flexDirection: "column",
+            minHeight: isMobile ? 180 : 0,
+            minWidth: 0,
             overflow: "hidden"
           }}>
             {/* Header columna */}
@@ -365,9 +373,9 @@ export function DailySummaryModal({
             </div>
 
             {/* Lista scrolleable */}
-            <div style={{ flex: 1, overflowY: "auto", padding: "8px 10px", minHeight: 0, maxHeight: isMobile ? 180 : 440, display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ flex: 1, overflowY: "auto", padding: "8px 10px", minHeight: 0, maxHeight: isMobile ? 240 : "none", display: "flex", flexDirection: "column", gap: 6 }}>
               {mpAppts.length === 0 ? (
-                <div style={{ fontSize: 11, color: C.textSoft, textAlign: "center", padding: "24px 0", fontStyle: "italic" }}>
+                <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: C.textSoft, textAlign: "center", padding: "24px 0", fontStyle: "italic" }}>
                   Sin cobros en Mercado Pago
                 </div>
               ) : (

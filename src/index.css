@@ -1309,3 +1309,10 @@ select {
   cursor: pointer;
 }
 .update-notice .update-notice-primary { background: #3a7d44; color: white; border-color: #3a7d44; }
+
+@media (max-width: 640px) {
+  .modal-overlay:has(> .daily-summary-modal) {
+    padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom)) !important;
+    height: 100dvh;
+  }
+}

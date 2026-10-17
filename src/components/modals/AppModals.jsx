@@ -665,7 +665,7 @@ export function AppModals({
                     <div
                       className="no-scrollbar"
                       style={{
-                        flex: isMobile ? "none" : "1.3 1 480px",
+                        flex: isMobile ? "none" : "1 1 0",
                         minWidth: 0,
                         display: "flex",
                         flexDirection: "column",
@@ -990,16 +990,12 @@ export function AppModals({
                           }}
                         >
                           {orderedServices.map((s, idx) => {
-                            const chosenCount = chosenServices.filter(x => (x.id || x.name) === (s.id || s.name)).length
-                            const isChosen = chosenCount > 0
                             const isUsual = usualServiceCounts.has(s.id || s.name)
                             const isFirstMatch = idx === serviceHighlightIdx
                             const borderColor = isFirstMatch 
-                              ? "#4a90e2" 
-                              : (isChosen ? C.green : isUsual ? "#d4af37" : C.border)
-                            const bgColor = isChosen 
-                              ? (isFirstMatch ? "rgba(58, 125, 68, 0.16)" : C.greenPale)
-                              : (isFirstMatch ? "#eef6ff" : isUsual ? "#fffdf5" : C.white)
+                              ? "#8eae91"
+                              : (isUsual ? "#d4af37" : C.border)
+                            const bgColor = isFirstMatch ? "#edf4ed" : isUsual ? "#fffdf5" : C.white
 
                             return (
                               <div 
@@ -1007,7 +1003,17 @@ export function AppModals({
                                 id={`service-item-${idx}`}
                                 onMouseEnter={() => setServiceHighlightIdx(idx)}
                                 onMouseLeave={() => setServiceHighlightIdx(-1)}
-                                onClick={() => { 
+                                onClick={e => {
+                                  const removing = chosenServices.some(item => (item.id || item.name) === (s.id || s.name))
+                                  if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+                                    // La capa se desvanece hasta transparencia sin cambiar el fondo de la fila.
+                                    const feedback = e.currentTarget.querySelector("[data-service-feedback]")
+                                    feedback.getAnimations().forEach(animation => animation.cancel())
+                                    feedback.animate([
+                                      { backgroundColor: removing ? "#fff0df" : "#d9efdb", boxShadow: removing ? "0 0 0 2px rgba(215, 139, 61, .35)" : "0 0 0 2px rgba(58, 125, 68, .4), 0 0 12px rgba(58, 125, 68, .2)", opacity: 1 },
+                                      { backgroundColor: removing ? "#fff0df" : "#d9efdb", boxShadow: removing ? "0 0 0 2px rgba(215, 139, 61, .35)" : "0 0 0 2px rgba(58, 125, 68, .4), 0 0 12px rgba(58, 125, 68, .2)", opacity: 0 },
+                                    ], { duration: 1500, easing: "cubic-bezier(0.22, 1, 0.36, 1)" })
+                                  }
                                   handleToggleService(s); 
                                   setSearchTerm(""); 
                                   setServiceHighlightIdx(-1);
@@ -1015,62 +1021,28 @@ export function AppModals({
                                 }} 
                                 style={{
                                   width: "100%",
+                                  position: "relative",
+                                  isolation: "isolate",
                                   display: "flex", justifyContent: "space-between", alignItems: "center",
                                   padding: "7px 11px", borderRadius: 9, cursor: "pointer",
                                   border: `1.5px solid ${borderColor}`,
-                                  outline: isChosen ? "1px dashed rgba(58, 125, 68, 0.35)" : (isFirstMatch ? "1px dashed rgba(74, 144, 226, 0.4)" : isUsual ? "1px dashed rgba(195, 150, 45, 0.55)" : "1px dashed rgba(195, 205, 195, 0.4)"),
+                                  outline: (isFirstMatch ? "1px dashed rgba(98, 139, 102, 0.4)" : isUsual ? "1px dashed rgba(195, 150, 45, 0.55)" : "1px dashed rgba(195, 205, 195, 0.4)"),
                                   outlineOffset: "-3px",
                                   background: bgColor,
-                                  boxShadow: isFirstMatch ? "0 0 0 1px #4a90e2" : isUsual && !isChosen ? "0 2px 6px rgba(184,134,11,0.12)" : "none",
+                                  boxShadow: isFirstMatch ? "0 0 0 1px #8eae91" : isUsual ? "0 2px 6px rgba(184,134,11,0.12)" : "none",
                                   transition: "all .15s",
                                 }}
                               >
-                                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                  <div
-                                    style={{
-                                      width: 17,
-                                      height: 17,
-                                      borderRadius: 5,
-                                      border: isChosen ? `2px solid ${C.green}` : `1.5px solid ${C.border}`,
-                                      background: isChosen ? C.green : C.white,
-                                      display: "flex",
-                                      alignItems: "center",
-                                      justifyContent: "center",
-                                      flexShrink: 0,
-                                      transition: "all .15s",
-                                    }}
-                                  >
-                                    {isChosen && (
-                                      chosenCount > 1 ? (
-                                        <span style={{ fontSize: 10, color: "#fff", fontWeight: "bold", lineHeight: 1 }}>{chosenCount}</span>
-                                      ) : (
-                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round">
-                                          <polyline points="20 6 9 17 4 12" />
-                                        </svg>
-                                      )
-                                    )}
-                                  </div>
+                                <span data-service-feedback aria-hidden="true" style={{ position: "absolute", inset: 0, borderRadius: "inherit", pointerEvents: "none", opacity: 0, zIndex: 0 }} />
+                                <div style={{ position: "relative", zIndex: 1, display: "flex", alignItems: "center", gap: 8 }}>
                                   <div>
-                                    <span style={{ fontSize: 13, color: C.text, fontWeight: isChosen ? "bold" : "normal" }}>{s.icon} {s.name}</span>
+                                    <span style={{ fontSize: 13, color: C.text, fontWeight: "normal" }}>{s.icon} {s.name}</span>
                                     {usualServiceCounts.has(s.id || s.name) && <span style={{ fontSize: 10, color: "#996515", background: "#fef3c7", border: "1px solid #ecdca0", borderRadius: 6, padding: "1px 5px", marginLeft: 6, whiteSpace: "nowrap" }}>⭐ Habitual</span>}
-                                    <span style={{ fontSize: 11, color: C.textSoft, marginLeft: 6 }}>{(s.duration || 30) * (chosenCount || 1)} min</span>
-                                    {chosenCount > 1 && (
-                                      <span style={{
-                                        fontSize: 9,
-                                        color: C.green,
-                                        fontWeight: "bold",
-                                        background: C.white,
-                                        padding: "1px 5px",
-                                        borderRadius: 6,
-                                        border: `1px solid ${C.greenMint}`,
-                                        marginLeft: 6,
-                                      }}>
-                                        x{chosenCount}
-                                      </span>
-                                    )}
+                                    <span style={{ fontSize: 11, color: C.textSoft, marginLeft: 6 }}>{s.duration || 30} min</span>
+
                                   </div>
                                 </div>
-                                <span style={{ fontSize: 11, color: C.orange, fontWeight: "bold" }}>{fmt((s.price || 0) * (chosenCount || 1))}</span>
+                                <span style={{ position: "relative", zIndex: 1, fontSize: 11, color: C.orange, fontWeight: "bold" }}>{fmt(s.price || 0)}</span>
                               </div>
                             )
                           })}
@@ -1078,7 +1050,7 @@ export function AppModals({
                       </div>
                       </section>
                     </div>
-                    <aside className="appointment-summary no-scrollbar" aria-label="Resumen del turno" style={{ flex: isMobile ? "none" : "0.85 1 340px", minWidth: 0, overflowY: isMobile ? "visible" : "auto", padding: isMobile ? 0 : "8px 0 8px 18px", borderLeft: isMobile ? "none" : `1px solid ${C.borderLight}`, display: "flex", flexDirection: "column", gap: 14 }}>
+                    <aside className="appointment-summary no-scrollbar" aria-label="Resumen del turno" style={{ flex: isMobile ? "none" : "1 1 0", minWidth: 0, overflowY: isMobile ? "visible" : "auto", padding: isMobile ? 0 : "8px 0 8px 6px", borderLeft: isMobile ? "none" : `1px solid ${C.borderLight}`, display: "flex", flexDirection: "column", gap: 14 }}>
                       <div>
                         <div style={{ fontSize: 11, letterSpacing: 2, color: C.green, marginBottom: 12 }}>RESUMEN DEL TURNO</div>
                         <div style={{ fontSize: 20, color: C.text, overflowWrap: "anywhere" }}>{cleanClientName(clientName) || "Sin clienta seleccionada"}</div>
