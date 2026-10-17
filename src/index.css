@@ -1259,7 +1259,20 @@ select {
 }
 
 @media (max-width: 640px) {
+  .modal-overlay:has(> .appointment-modal) {
+    padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom)) !important;
+    height: 100dvh;
+    align-items: stretch !important;
+  }
+
   .modal-sheet.appointment-modal {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: var(--appointment-sheet-height, 100%) !important;
+    max-height: 100% !important;
+    align-self: center;
+    box-sizing: border-box;
+    overflow: hidden !important;
     padding-bottom: 16px !important;
   }
 }

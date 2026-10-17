@@ -521,7 +521,7 @@ export function AppModals({
     <>
       {/* ── MODAL NUEVO / EDITAR ── */}
       {modal && (
-        <Overlay onClose={() => setModal(null)}>
+        <Overlay onClose={() => setModal(null)} style={{ "--appointment-sheet-height": isNoteMode ? "auto" : "100%" }}>
           <div
             className="modal-sheet appointment-modal"
             style={{
@@ -614,7 +614,6 @@ export function AppModals({
 
                     <Field label="Texto de la anotación">
                       <textarea
-                        autoFocus
                         value={clientName}
                         onChange={e => setClientName(e.target.value)}
                         placeholder="Ej: Almuerzo, Reunión de equipo, Traer reposición de insumos..."
@@ -766,7 +765,6 @@ export function AppModals({
                               {clientAnalysis.isRecognized ? "👑" : "✨"}
                             </span>
                             <input
-                              autoFocus
                               value={clientName}
                               autoComplete="off"
                               autoCorrect="off"
@@ -798,7 +796,7 @@ export function AppModals({
                                 color: "#996515", // Dorado elegante y cálido
                                 fontFamily: "Georgia, serif",
                                 letterSpacing: "0.5px",
-                                padding: "8px 112px 8px 0",
+                                padding: isMobile ? `8px ${clientName ? (isNewCliente ? 112 : 30) : 0}px 8px 0` : "8px 112px 8px 0",
                               }}
                               onFocus={() => setShowSug(true)}
                               onBlur={() => setTimeout(() => setShowSug(false), 200)}
@@ -1013,7 +1011,7 @@ export function AppModals({
                                   handleToggleService(s); 
                                   setSearchTerm(""); 
                                   setServiceHighlightIdx(-1);
-                                  document.getElementById("search-services-input")?.focus(); 
+                                  if (!isMobile) document.getElementById("search-services-input")?.focus();
                                 }} 
                                 style={{
                                   width: "100%",
