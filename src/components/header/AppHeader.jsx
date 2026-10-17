@@ -419,7 +419,7 @@ export const AppHeader = memo(function AppHeader({
                 {ramas.map(rama => {
                   const normRama = String(rama).trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
                   const isActive = String(activeRama).trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") === normRama
-                  const emoji = getRamaEmoji(rama)
+                  const emoji = config?.ramaIcons?.[String(rama).trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")] || getRamaEmoji(rama)
                   const displayName = rama.charAt(0).toUpperCase() + rama.slice(1)
                   const pendingCount = pendingByRama[normRama] || 0
                   const hasPending = pendingCount > 0 && !isActive

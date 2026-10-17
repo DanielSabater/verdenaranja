@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react"
 import { C } from "../../constants/colors.js"
-import { PAYMENT_METHODS } from "../../constants/data.js"
+import { CAT_OPTIONS, PAYMENT_METHODS } from "../../constants/data.js"
 import { fmt, apptTotal } from "../../utils/appointments.js"
 import { Overlay, ModalHeader, Field, GhostBtn, SolidBtn, inputStyle, modalBox } from "../ui/index.jsx"
 import { getApptClientPhone, formatWaNumber, generateReminderMessage, openWhatsAppLink, cleanClientName, normalizeStr, extractPhoneFromString, extractClientPhone, ensurePhoneInName } from "../../utils/whatsapp.js"
@@ -265,6 +265,13 @@ export function AppModals({
   activeRama,
   onConfirmReschedule,
 }) {
+  // Usar las mismas categorías configurables que el catálogo de servicios.
+  const serviceCategories = useMemo(() => {
+    const categories = [...CAT_OPTIONS, ...(config?.customCategories || [])]
+    return [{ id: "all", label: "Todos", icon: "" }, ...categories.filter((category, index) =>
+      category.id !== "all" && categories.findIndex(item => item.id === category.id) === index
+    )]
+  }, [config?.customCategories])
   const [showSug, setShowSug] = useState(false)
   const [serviceHighlightIdx, setServiceHighlightIdx] = useState(-1)
   const [isNoteMode, setIsNoteMode] = useState(false)
@@ -954,7 +961,9 @@ export function AppModals({
                       <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
                         {/* Filtros de Categoría */}
                         <div style={{ display: "flex", gap: 5, marginBottom: 8, flexWrap: "wrap" }}>
-                          {["all", "manos", "pies", "combo"].map(cat => (
+                          {serviceCategories.map(category => {
+                            const cat = category.id
+                            return (
                             <button
                               key={cat}
                               type="button"
@@ -968,9 +977,10 @@ export function AppModals({
                                 fontFamily: "Georgia,serif", transition: "all .15s",
                               }}
                             >
-                              {cat === "all" ? "Todos" : cat === "manos" ? "💅 Manos" : cat === "pies" ? "🦶 Pies" : "🌸 Combo"}
+                              {category.icon} {category.label}
                             </button>
-                          ))}
+                            )
+                          })}
                         </div>
 
                         {/* Lista scrolleable de servicios sugeridos */}

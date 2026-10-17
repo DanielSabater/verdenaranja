@@ -7,7 +7,7 @@ import { DEFAULT_WA_REMINDER_TEMPLATE, generateReminderMessage } from "../../uti
 
 // ─── Config View ──────────────────────────────────────────────────────────────
 
-export default function ConfigView({ config, setConfig, allData, gastos, sueldos, clientes, todoTasks = [], todoHistory = [], onLogout, restoreBackup }) {
+export default function ConfigView({ planillaRamas = ["manos"], config, setConfig, allData, gastos, sueldos, clientes, todoTasks = [], todoHistory = [], onLogout, restoreBackup }) {
   const [seccion, setSeccion] = useState("empresa");
   const [waPreviewDay, setWaPreviewDay] = useState("manana")
   const [emojiPicker,  setEmojiPicker]  = useState(null)
@@ -17,8 +17,9 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
   const [newCatModal,  setNewCatModal]  = useState(false)
   const [newCat,       setNewCat]       = useState({ label: "", icon: "🌟" })
   const [newRamaModal, setNewRamaModal] = useState(false)
-  const [newRama,      setNewRama]      = useState({ label: "" })
+  const [newRama,      setNewRama]      = useState({ label: "", icon: "🌿" })
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [categoryMenuOpen, setCategoryMenuOpen] = useState(false)
   const [excViewDate,  setExcViewDate]  = useState(() => {
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
@@ -120,7 +121,7 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
     setConfig(p => ({ ...p, services: p.services.filter(s => s.id!==id) }));
 
   const addCustomRama = () => {
-    setNewRama({ label: "" })
+    setNewRama({ label: "", icon: "🌿" })
     setNewRamaModal(true)
   }
 
@@ -133,7 +134,8 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
     }
     setConfig(p => ({
       ...p,
-      customRamas: [...(p.customRamas || []), cleanName]
+      customRamas: [...(p.customRamas || []), cleanName],
+      ramaIcons: { ...(p.ramaIcons || {}), [cleanName]: newRama.icon }
     }))
     setNewRamaModal(false)
   }
@@ -163,17 +165,21 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
     ...svcs.map(s => String(s.rama || "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")).filter(Boolean)
   ]))
 
+  const serviceRamas = Array.from(new Set(planillaRamas))
+  const serviceRamaOptions = current => Array.from(new Set([...serviceRamas, current || "manos"]))
+
   const getDatalistLabel = (r) => {
     const clean = String(r || "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    if (config.ramaIcons?.[clean]) return `${config.ramaIcons[clean]} ${r.charAt(0).toUpperCase() + r.slice(1)}`
     if (clean === "manos") return "💅 Manos"
     if (clean === "peluqueria") return "💇‍♀️ Peluquería"
     if (clean === "estetica") return "🧴 Estética"
     if (clean === "pestanas") return "👁️ Pestañas"
-    return r.charAt(0).toUpperCase() + r.slice(1)
+    return `✨ ${r.charAt(0).toUpperCase() + r.slice(1)}`
   }
 
   return (
-    <div style={{ maxWidth: seccion === "servicios" ? "96%" : 860, margin:"0 auto", padding:"16px 12px 100px", transition: "max-width 0.3s ease" }}>
+    <div style={{ maxWidth: 860, margin:"0 auto", padding:"16px 12px 100px" }}>
 
 
       {/* Section tabs */}
@@ -711,6 +717,22 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
                 font-size: 11px !important;
               }
             }
+            /* Tabla compacta: ancho completo y filas continuas en escritorio. */
+            @media (min-width: 769px) {
+              .branches-grid-container { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+              .branches-grid-container .services-grid-header,
+              .branches-grid-container .service-row-card {
+                grid-template-columns: 32px minmax(120px, 1fr) 68px 78px 90px 90px 54px 30px 30px !important;
+                gap: 6px !important;
+                padding: 4px 10px !important;
+              }
+              .services-compact-list { border: 1px solid ${C.border}; border-radius: 12px; overflow: hidden; }
+              .branches-grid-container .service-row-card { border: none; border-bottom: 1px solid ${C.border}; border-radius: 0; box-shadow: none; }
+              .branches-grid-container .service-row-card:last-child { border-bottom: none; }
+              .branches-grid-container .service-row-card:hover { background: ${C.greenPale}; box-shadow: none; }
+              .branches-grid-container .service-row-card input,
+              .branches-grid-container .service-row-card select { height: 30px !important; }
+            }
           `}</style>
 
           {/* Add button + filters at the top */}
@@ -718,7 +740,7 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
             display: "flex", 
             gap: 12, 
             flexWrap: "wrap", 
-            alignItems: "center", 
+            alignItems: "center",
             background: C.white, 
             padding: "12px 16px", 
             borderRadius: 14, 
@@ -748,40 +770,39 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
               />
             </div>
 
-            {/* Category Filter */}
-            <select 
-              value={svcFilter.cat} 
-              onChange={e => setSvcFilter(p => ({...p, cat: e.target.value}))}
-              style={{
-                ...cfgInput,
-                width: 170,
-                height: 38,
-                fontSize: 12,
-                borderRadius: 11,
-                padding: "0 10px",
-                borderColor: C.border,
-                background: C.cream,
-                cursor: "pointer",
-                transition: "all 0.2s"
-              }}
-              onFocus={e => e.currentTarget.style.borderColor = C.greenMint}
-              onBlur={e => e.currentTarget.style.borderColor = C.border}
-            >
-              <option value="all">Todas las categorías</option>
-              {CAT_OPTIONS.map(cat => (
-                <option key={cat.id} value={cat.id}>{cat.icon} {cat.label}</option>
-              ))}
-            </select>
+            {/* Categorías: mismo botón y desplegable que la administración de ramas. */}
+            <div style={{ position: "relative" }}>
+              <button onClick={() => { setCategoryMenuOpen(!categoryMenuOpen); setDropdownOpen(false) }} style={actionBtnStyle}>
+                {svcFilter.cat === "all" ? "Todas las categorías" : `${CAT_OPTIONS.find(cat => cat.id === svcFilter.cat)?.icon || ""} ${CAT_OPTIONS.find(cat => cat.id === svcFilter.cat)?.label || "Categoría"}`} ▾
+              </button>
+              {categoryMenuOpen && <>
+                <div onClick={() => setCategoryMenuOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 99 }} />
+                <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 100, background: C.white, border: `1.5px solid ${C.greenMint}`, borderRadius: 12, boxShadow: `0 8px 24px ${C.shadow}`, padding: 6, width: "max-content", minWidth: 190, maxWidth: "calc(100vw - 40px)", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: 4 }}>
+                  <div style={{ padding: "8px 12px", fontSize: 11, color: C.green, fontWeight: "bold" }}>Categorías</div>
+                  <div style={{ maxHeight: 260, overflowY: "auto" }}>
+                    {[{ id: "all", label: "Todas las categorías", icon: "" }, ...CAT_OPTIONS].map(cat => (
+                      <div key={cat.id} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <button onClick={() => { setSvcFilter(p => ({ ...p, cat: cat.id })); setCategoryMenuOpen(false) }} style={{ flex: 1, padding: "9px 12px", textAlign: "left", fontFamily: "inherit", fontSize: 12, border: "none", borderRadius: 8, cursor: "pointer", background: svcFilter.cat === cat.id ? C.greenPale : "transparent", color: C.text }}>
+                          {cat.icon} {cat.label}
+                        </button>
+                        {(config?.customCategories || []).some(cc => cc.id === cat.id) && <button title={`Eliminar categoría ${cat.label}`} onClick={() => removeCustomCategory(cat.id)} style={{ border: "none", background: "transparent", color: "#c04040", cursor: "pointer", padding: "8px 10px" }}>✕</button>}
+                      </div>
+                    ))}
+                  </div>
+                  <button onClick={() => { addCustomCategory(); setCategoryMenuOpen(false) }} style={{ ...actionBtnStyle, border: "none", borderTop: `1px solid ${C.border}`, borderRadius: 0, justifyContent: "flex-start", width: "100%" }}>＋ Nueva categoría</button>
+                </div>
+              </>}
+            </div>
 
-            {/* Dropdown Menu for Nueva Rama / Nueva Categoría */}
+            {/* Administración exclusiva de ramas. */}
             <div style={{ position: "relative" }}>
               <button 
-                onClick={() => setDropdownOpen(!dropdownOpen)} 
+                onClick={() => { setDropdownOpen(!dropdownOpen); setCategoryMenuOpen(false) }}
                 style={actionBtnStyle}
                 onMouseEnter={e => { e.currentTarget.style.borderColor = C.greenMint; e.currentTarget.style.background = C.greenPale; e.currentTarget.style.color = C.green }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.background = C.white; e.currentTarget.style.color = C.textSoft }}
               >
-                🌿 Nueva Rama / Categoría ▾
+                🌿 Administrar ramas ▾
               </button>
               {dropdownOpen && (
                 <>
@@ -799,50 +820,28 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
                     borderRadius: 12,
                     boxShadow: `0 8px 24px ${C.shadow}`,
                     padding: "6px",
-                    minWidth: 170,
+                    width: "max-content", minWidth: 190, maxWidth: "calc(100vw - 40px)",
+                    boxSizing: "border-box",
                     display: "flex",
                     flexDirection: "column",
                     gap: 4
                   }}>
-                    <button 
-                      onClick={() => { addCustomCategory(); setDropdownOpen(false); }}
-                      style={{
-                        padding: "8px 12px",
-                        background: "transparent",
-                        border: "none",
-                        borderRadius: 8,
-                        textAlign: "left",
-                        fontSize: 11,
-                        fontWeight: "bold",
-                        color: C.textSoft,
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 8,
-                        transition: "all .12s"
-                      }}
-                      onMouseEnter={e => { e.currentTarget.style.background = C.greenPale; e.currentTarget.style.color = C.green }}
-                      onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = C.textSoft }}
-                    >
-                      ➕ Nueva Categoría
-                    </button>
+                    <div style={{ padding: "8px 12px", fontSize: 11, color: C.green, fontWeight: "bold" }}>Ramas</div>
+                    <div style={{ maxHeight: 260, overflowY: "auto" }}>
+                      {serviceRamas.map(r => (
+                        <div key={r}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, minHeight: 38 }}>
+                            <button title={`Editar ícono de ${r}`} aria-label={`Editar ícono de ${r}`} onClick={() => setEmojiPicker(emojiPicker === `rama-${r}` ? null : `rama-${r}`)} style={{ width: 34, height: 32, border: `1px solid ${C.border}`, borderRadius: 8, background: C.cream, cursor: "pointer", fontSize: 18 }}>{config.ramaIcons?.[r] || (r === "manos" ? "💅" : "✨")}</button>
+                            <span style={{ flex: 1, padding: "9px 6px", fontSize: 12, color: C.text }}>{r.charAt(0).toUpperCase() + r.slice(1)}</span>
+                            {(config.customRamas || []).includes(r) && <button title={`Eliminar rama ${r}`} onClick={() => removeCustomRama(r)} style={{ border: "none", background: "transparent", color: "#c04040", cursor: "pointer", padding: "8px 10px" }}>✕</button>}
+                          </div>
+                          {emojiPicker === `rama-${r}` && <EmojiPicker current={config.ramaIcons?.[r] || (r === "manos" ? "💅" : "✨")} onSelect={icon => { setConfig(p => ({ ...p, ramaIcons: { ...(p.ramaIcons || {}), [r]: icon } })); setEmojiPicker(null) }} />}
+                        </div>
+                      ))}
+                    </div>
                     <button 
                       onClick={() => { addCustomRama(); setDropdownOpen(false); }}
-                      style={{
-                        padding: "8px 12px",
-                        background: "transparent",
-                        border: "none",
-                        borderRadius: 8,
-                        textAlign: "left",
-                        fontSize: 11,
-                        fontWeight: "bold",
-                        color: C.textSoft,
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 8,
-                        transition: "all .12s"
-                      }}
+                      style={{ ...actionBtnStyle, border: "none", borderTop: `1px solid ${C.border}`, borderRadius: 0, justifyContent: "flex-start", width: "100%" }}
                       onMouseEnter={e => { e.currentTarget.style.background = C.greenPale; e.currentTarget.style.color = C.green }}
                       onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = C.textSoft }}
                     >
@@ -863,27 +862,6 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
               ✨ Agregar Servicio
             </button>
           </div>
-
-          {/* Custom categories & custom ramas tags */}
-          {((config?.customCategories||[]).length > 0 || (config?.customRamas||[]).length > 0) && (
-            <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom: 6, padding: "0 4px" }}>
-              {/* Custom categories */}
-              {(config?.customCategories||[]).map(cc => (
-                <div key={cc.id} style={{ display:"flex", alignItems:"center", gap:6, background:C.cream, border:`1px solid ${C.border}`, borderRadius:20, padding:"4px 12px", boxShadow: "0 1px 4px rgba(0,0,0,0.02)" }}>
-                  <span style={{ fontSize:11, color: C.text, fontWeight: "bold" }}>{cc.icon} {cc.label}</span>
-                  <button onClick={() => removeCustomCategory(cc.id)} style={{ border:"none", background:"transparent", color:"#c04040", cursor:"pointer", fontSize:11, padding:0, display: "flex", alignItems: "center" }}>✕</button>
-                </div>
-              ))}
-              
-              {/* Custom ramas */}
-              {Array.from(new Set((config?.customRamas||[]).map(r => String(r || "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")))).map(r => (
-                <div key={r} style={{ display:"flex", alignItems:"center", gap:6, background:C.greenPale, border:`1px solid ${C.greenMint}`, borderRadius:20, padding:"4px 12px", boxShadow: "0 1px 4px rgba(0,0,0,0.02)" }}>
-                  <span style={{ fontSize:11, color: C.green, fontWeight: "bold" }}>🌿 {getDatalistLabel(r)}</span>
-                  <button onClick={() => removeCustomRama(r)} style={{ border:"none", background:"transparent", color:"#c04040", cursor:"pointer", fontSize:11, padding:0, display: "flex", alignItems: "center" }}>✕</button>
-                </div>
-              ))}
-            </div>
-          )}
 
           {/* Grouped Services List */}
           {(() => {
@@ -968,7 +946,7 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
                       </div>
 
                       {/* Services List */}
-                      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      <div className="services-compact-list" style={{ display: "flex", flexDirection: "column", gap: 0 }}>
                         {ramaServices.map(svc => (
                           <div key={svc.id} className="service-row-card">
                             
@@ -1080,7 +1058,7 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
                                   cursor: "pointer"
                                 }}
                               >
-                                {uniqueRamas.map(r => (
+                                {serviceRamaOptions(svc.rama).map(r => (
                                   <option key={r} value={r}>{getDatalistLabel(r)}</option>
                                 ))}
                               </select>
@@ -1182,7 +1160,7 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
                     onChange={e=>setNewSvc(p=>({...p,rama:e.target.value}))}
                     style={{...cfgInput, width:"100%", boxSizing:"border-box", cursor: "pointer"}}
                   >
-                    {uniqueRamas.map(r => (
+                    {serviceRamaOptions(newSvc.rama).map(r => (
                       <option key={r} value={r}>{getDatalistLabel(r)}</option>
                     ))}
                   </select>
@@ -1272,31 +1250,52 @@ export default function ConfigView({ config, setConfig, allData, gastos, sueldos
             </Overlay>
           )}
 
-          {/* New Rama modal */}
+          {/* Formulario de nueva rama */}
           {newRamaModal && (
             <Overlay onClose={() => setNewRamaModal(false)}>
               <div onClick={e => e.stopPropagation()} style={{ background:C.white, borderRadius:20, padding:"24px 28px", width:"min(400px,calc(100vw-32px))", boxShadow:"0 20px 60px rgba(0,0,0,.2)" }}>
-                <div style={{ fontSize:14, fontWeight:"bold", color:C.green, marginBottom:18 }}>🌿 Nueva Rama / Especialidad</div>
+                <div style={{ fontSize:14, fontWeight:"bold", color:C.green, marginBottom:18 }}>🌿 Nueva Rama</div>
+
+                <div style={{ marginBottom:16 }}>
+                  <div style={{ fontSize:8, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase", marginBottom:6 }}>Nombre</div>
+                  <input
+                    value={newRama.label}
+                    onChange={e => setNewRama(p => ({ ...p, label: e.target.value }))}
+                    placeholder="Ej: Masajes, Barbería..."
+                    style={{ ...cfgInput, width:"100%", boxSizing:"border-box" }}
+                    autoFocus
+                  />
+                </div>
 
                 <div style={{ marginBottom:20 }}>
-                  <div style={{ fontSize:8, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase", marginBottom:6 }}>Nombre de la Rama</div>
-                  <input 
-                    value={newRama.label} 
-                    onChange={e => setNewRama(p => ({ ...p, label: e.target.value }))} 
-                    placeholder="Ej: Masajes, Barbería, Depilación..." 
-                    style={{ ...cfgInput, width:"100%", boxSizing:"border-box" }} 
-                    autoFocus 
+                  <div style={{ fontSize:8, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase", marginBottom:6 }}>Ícono (emoji)</div>
+                  <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:10 }}>
+                    {["💅","🦶","🌸","✨","💆","💇","🧖","🪷","🌿","🫧","🌟","👁️"].map(e => (
+                      <button
+                        key={e}
+                        onClick={() => setNewRama(p => ({ ...p, icon: e }))}
+                        style={{ width:36, height:36, borderRadius:10, border:`2px solid ${newRama.icon===e?C.green:C.border}`, background:newRama.icon===e?C.greenPale:"transparent", fontSize:18, cursor:"pointer" }}
+                      >
+                        {e}
+                      </button>
+                    ))}
+                  </div>
+                  <input
+                    value={newRama.icon}
+                    onChange={e => setNewRama(p => ({ ...p, icon: e.target.value }))}
+                    placeholder="O escribí un emoji custom..."
+                    style={{ ...cfgInput, width:"100%", boxSizing:"border-box" }}
                   />
-                  <div style={{ fontSize:9, color: C.textSoft, marginTop:6 }}>Esta especialidad se sumará como planilla al calendario y sugerencia para los profesionales y servicios.</div>
                 </div>
 
                 <div style={{ display:"flex", gap:10 }}>
                   <button onClick={() => setNewRamaModal(false)} style={{ flex:1, padding:"10px", borderRadius:12, border:`1.5px solid ${C.border}`, background:C.white, color:C.textSoft, fontSize:12, cursor:"pointer", fontFamily:"Georgia,serif" }}>Cancelar</button>
-                  <button onClick={saveNewRama} disabled={!newRama.label.trim()} style={{ flex:2, padding:"10px", borderRadius:12, border:"none", background:newRama.label.trim()?`linear-gradient(135deg,${C.green},${C.greenLight})`:"#e8e8e8", color:newRama.label.trim()?"#fff":"#bbb", fontSize:12, cursor:newRama.label.trim()?"pointer":"not-allowed", fontFamily:"Georgia,serif" }}>🌿 Crear Rama</button>
+                  <button onClick={saveNewRama} disabled={!newRama.label.trim()} style={{ flex:2, padding:"10px", borderRadius:12, border:"none", background:newRama.label.trim()?`linear-gradient(135deg,${C.green},${C.greenLight})`:"#e8e8e8", color:newRama.label.trim()?"#fff":"#bbb", fontSize:12, cursor:newRama.label.trim()?"pointer":"not-allowed", fontFamily:"Georgia,serif" }}>✅ Guardar Rama</button>
                 </div>
               </div>
             </Overlay>
           )}
+
 
         </div>
       )}
