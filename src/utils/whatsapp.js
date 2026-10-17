@@ -42,6 +42,16 @@ export function extractPhoneFromString(text) {
   return ""
 }
 
+/** Detecta teléfonos completos en la entrada de Turnos, sin aceptar números cortos. */
+export function extractClientPhone(text) {
+  if (typeof text !== "string") return ""
+  const candidates = text.match(/\+?\(?\d[\d\s().-]*\d\)?/g) || []
+  return candidates.find(candidate => {
+    const length = cleanDigits(candidate).length
+    return length >= 8 && length <= 15
+  })?.trim() || ""
+}
+
 /**
  * Extrae cualquier número o secuencia telefónica presente en el texto
  * (soporta desde 1 dígito mientras se tipea hasta números con formato completo)

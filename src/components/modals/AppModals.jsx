@@ -1,9 +1,9 @@
-import { useState, useEffect, useMemo, useRef } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { C } from "../../constants/colors.js"
 import { PAYMENT_METHODS } from "../../constants/data.js"
 import { fmt, apptTotal } from "../../utils/appointments.js"
 import { Overlay, ModalHeader, Field, GhostBtn, SolidBtn, inputStyle, modalBox } from "../ui/index.jsx"
-import { getApptClientPhone, formatWaNumber, generateReminderMessage, openWhatsAppLink, cleanClientName, normalizeStr, extractPhoneFromString, extractNumberFromText, ensurePhoneInName } from "../../utils/whatsapp.js"
+import { getApptClientPhone, formatWaNumber, generateReminderMessage, openWhatsAppLink, cleanClientName, normalizeStr, extractPhoneFromString, extractClientPhone, ensurePhoneInName } from "../../utils/whatsapp.js"
 import { fmtDate, todayKey } from "../../utils/dates.js"
 import { useIsMobile } from "../../hooks/useIsMobile.js"
 import { RescheduleContent } from "./RescheduleModal.jsx"
@@ -272,9 +272,15 @@ export function AppModals({
   const [modalMode, setModalMode] = useState("form") // "form" | "reschedule"
 
 
-  // Teléfono del cliente gestionado en el formulario
-  const [clientPhone, setClientPhone] = useState("")
-  const lastExtractedFromNameRef = useRef("")
+  // Una sola entrada visible; conservar el teléfono estructurado para WhatsApp.
+  const embeddedPhone = extractClientPhone(clientName)
+  const matchedPhone = !/\d/.test(clientName || "")
+    ? (clientes || []).find(c => c && normalizeStr(cleanClientName(c.name)) === normalizeStr(cleanClientName(clientName)))?.phone
+    : ""
+  const originalAppt = modal?.editKey ? appointments[modal.editKey] : null
+  const originalPhone = originalAppt?.clientPhone || originalAppt?.phone || ""
+  const preservedPhone = originalPhone && clientName === ensurePhoneInName(originalAppt.client, originalPhone) ? originalPhone : ""
+  const clientPhone = embeddedPhone || matchedPhone || preservedPhone || ""
   const isMobile = useIsMobile(820)
 
   useEffect(() => {
@@ -283,12 +289,10 @@ export function AppModals({
       setIsNoteMode(appt?.isNote || false)
       setNoteDuration(appt?.manualDur || 30)
       setModalMode("form")
-      lastExtractedFromNameRef.current = ""
 
       // Cargar teléfono si ya existía en el turno o en la clienta
       if (modal.editKey && appt) {
         const ph = appt.clientPhone || appt.phone || getApptClientPhone(appt, clientes).phone || ""
-        setClientPhone(ph)
         if (ph && appt.client) {
           const withPhone = ensurePhoneInName(appt.client, ph)
           if (withPhone !== clientName) {
@@ -296,28 +300,21 @@ export function AppModals({
           }
         }
       } else if (clientName) {
-        const extracted = extractNumberFromText(clientName)
+        const extracted = extractClientPhone(clientName)
         const norm = normalizeStr(cleanClientName(clientName))
         const found = (clientes || []).find(c => c && normalizeStr(c.name) === norm)
         const initialPh = extracted || found?.phone || ""
-        setClientPhone(initialPh)
-        if (extracted) {
-          lastExtractedFromNameRef.current = extracted
-        }
         if (initialPh) {
           const withPhone = ensurePhoneInName(clientName, initialPh)
           if (withPhone !== clientName) {
             setClientName(withPhone)
           }
         }
-      } else {
-        setClientPhone("")
       }
     }
   }, [modal, appointments])
 
   const safeClientes = clientes || []
-  const [showPhoneSug, setShowPhoneSug] = useState(false)
 
   // Sugerencias para el nombre de la clienta (desde la primera letra o número)
   const suggestions = useMemo(() => {
@@ -337,22 +334,6 @@ export function AppModals({
       return (matchName || matchPhone) && clName !== raw
     }).slice(0, 8)
   }, [clientName, safeClientes])
-
-  // Sugerencias para el campo de teléfono (desde el primer número o letra)
-  const phoneSuggestions = useMemo(() => {
-    const raw = (clientPhone || "").trim()
-    const digits = raw.replace(/\D/g, "")
-    if (!digits && raw.length < 1) return []
-
-    return safeClientes.filter(cl => {
-      if (!cl) return false
-      const clPhoneDigits = (cl.phone || "").replace(/\D/g, "")
-      if (digits.length >= 1) {
-        return clPhoneDigits.includes(digits)
-      }
-      return raw.length >= 1 && cl.name && cl.name.toLowerCase().includes(raw.toLowerCase()) && Boolean(clPhoneDigits)
-    }).slice(0, 8)
-  }, [clientPhone, safeClientes])
 
   // Análisis inteligente de reconocimiento de la clienta y lo que suele pedir
   const clientAnalysis = useMemo(() => {
@@ -428,16 +409,6 @@ export function AppModals({
   }, [clientName, clientPhone, safeClientes, allData, services])
 
   const isNewCliente = !clientAnalysis.isRecognized && clientName.trim().length >= 1
-
-  // Si reconoce a la clienta y no hay teléfono ingresado, auto-completar el teléfono guardado
-  useEffect(() => {
-    if (!clientPhone && clientAnalysis.isRecognized) {
-      const ph = clientAnalysis.matchedClient?.phone
-      if (ph) {
-        setClientPhone(ph)
-      }
-    }
-  }, [clientAnalysis.isRecognized, clientAnalysis.matchedClient, clientPhone])
 
   const saveNewCliente = () => {
     if (!clientName.trim()) return
@@ -812,18 +783,10 @@ export function AppModals({
                                 const capitalized = raw.split(' ').map(word => word ? word.charAt(0).toUpperCase() + word.slice(1) : '').join(' ')
                                 setClientName(capitalized)
 
-                                // Si contiene números, por defecto se agrega automáticamente al input de teléfono
-                                const extracted = extractNumberFromText(raw)
-                                if (extracted) {
-                                  setClientPhone(extracted)
-                                  lastExtractedFromNameRef.current = extracted
-                                } else if (lastExtractedFromNameRef.current && clientPhone === lastExtractedFromNameRef.current) {
-                                  setClientPhone("")
-                                  lastExtractedFromNameRef.current = ""
-                                }
                                 setShowSug(true)
                               }}
-                              placeholder="Ej: María González"
+                              placeholder="Ej: María González 11 4523-8890"
+                              aria-label="Nombre de la clienta y WhatsApp"
                               style={{
                                 width: "100%",
                                 border: "none",
@@ -837,19 +800,7 @@ export function AppModals({
                                 padding: "8px 0",
                               }}
                               onFocus={() => setShowSug(true)}
-                              onBlur={() => {
-                                setTimeout(() => setShowSug(false), 200)
-                                if (clientPhone.trim()) {
-                                  const updated = ensurePhoneInName(clientName, clientPhone.trim())
-                                  if (updated && updated !== clientName) setClientName(updated)
-                                }
-                              }}
-                              onKeyDown={e => {
-                                if (e.key === 'Enter') {
-                                  e.preventDefault();
-                                  document.getElementById('client-phone-input')?.focus();
-                                }
-                              }}
+                              onBlur={() => setTimeout(() => setShowSug(false), 200)}
                             />
                             {isNewCliente && (
                               <button
@@ -885,10 +836,6 @@ export function AppModals({
                                     key={cl.id}
                                     onMouseDown={() => {
                                       setClientName(nameWithPhone);
-                                      if (ph) {
-                                        setClientPhone(ph);
-                                        lastExtractedFromNameRef.current = ph;
-                                      }
                                       setShowSug(false);
                                     }}
                                     style={{ padding: "8px 12px", cursor: "pointer", borderBottom: `1px solid ${C.greenPale}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}
@@ -908,93 +855,11 @@ export function AppModals({
                         </div>
                       </div>
 
-                      {/* ── 2. NÚMERO DE TELÉFONO POR SEPARADO ── */}
-                      <div style={{ marginBottom: 4 }}>
-                        <label style={{ fontSize: 8, letterSpacing: "2.5px", color: C.textSoft, textTransform: "uppercase", display: "block", marginBottom: 5 }}>
-                          Número de teléfono / WhatsApp
-                        </label>
-                        <div style={{ position: "relative" }}>
-                          <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
-                            <input
-                              id="client-phone-input"
-                              type="tel"
-                              value={clientPhone}
-                              autoComplete="off"
-                              autoCorrect="off"
-                              autoCapitalize="off"
-                              spellCheck={false}
-                              data-lpignore="true"
-                              data-form-type="other"
-                              aria-autocomplete="none"
-                              onChange={e => {
-                                setClientPhone(e.target.value)
-                                lastExtractedFromNameRef.current = ""
-                                setShowPhoneSug(true)
-                              }}
-                              onFocus={() => setShowPhoneSug(true)}
-                              onBlur={() => {
-                                setTimeout(() => setShowPhoneSug(false), 200)
-                                if (clientPhone.trim()) {
-                                  const updated = ensurePhoneInName(clientName, clientPhone.trim())
-                                  if (updated && updated !== clientName) setClientName(updated)
-                                }
-                              }}
-                              placeholder="Ej: 11 4523-8890"
-                              style={{
-                                ...inputStyle,
-                                paddingLeft: 36,
-                                paddingRight: clientPhone ? 80 : 12,
-                                fontSize: 13,
-                                border: clientPhone ? `1.5px solid ${C.green}` : `1.5px solid ${C.border}`,
-                                background: clientPhone ? "rgba(58, 125, 68, 0.04)" : C.cream,
-                                outline: clientPhone ? "1px dashed rgba(58, 125, 68, 0.35)" : "1px dashed rgba(180, 170, 150, 0.35)",
-                                outlineOffset: "-3px",
-                              }}
-                            />
-                            <div style={{ position: "absolute", left: 11, pointerEvents: "none", display: "flex", alignItems: "center" }}>
-                              <WhatsAppIcon size={16} color={clientPhone ? "#25D366" : C.textSoft} />
-                            </div>
-                            {clientPhone && (
-                              <div style={{ position: "absolute", right: 8, display: "flex", alignItems: "center", gap: 4 }}>
-                                <span style={{ fontSize: 9, color: C.green, fontWeight: "bold", background: C.greenPale, padding: "2px 6px", borderRadius: 6 }}>
-                                  ✓ WhatsApp
-                                </span>
-                              </div>
-                            )}
-                          </div>
-
-                          {showPhoneSug && phoneSuggestions.length > 0 && (
-                            <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 999, background: C.white, borderRadius: 12, border: `1.5px solid ${C.green}`, boxShadow: "0 8px 24px rgba(58,125,68,.18)", overflowY: "auto", maxHeight: 200 }}>
-                              {phoneSuggestions.map(cl => {
-                                const ph = cl.phone || extractPhoneFromString(cl.name)
-                                const nameWithPhone = ensurePhoneInName(cl.name, ph)
-                                return (
-                                  <div
-                                    key={cl.id}
-                                    onMouseDown={() => {
-                                      if (nameWithPhone) setClientName(nameWithPhone);
-                                      if (ph) {
-                                        setClientPhone(ph);
-                                        lastExtractedFromNameRef.current = ph;
-                                      }
-                                      setShowPhoneSug(false);
-                                    }}
-                                    style={{ padding: "8px 12px", cursor: "pointer", borderBottom: `1px solid ${C.greenPale}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}
-                                    onMouseEnter={e => e.currentTarget.style.background = C.greenPale}
-                                    onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-                                  >
-                                    <div>
-                                      <div style={{ fontSize: 12, fontWeight: "bold", color: C.green }}>📱 {ph || "Sin teléfono"}</div>
-                                      <div style={{ fontSize: 10, color: C.textSoft }}>{clean || cl.name}</div>
-                                    </div>
-                                    <span style={{ fontSize: 10, color: C.green, fontWeight: "bold" }}>Asignar →</span>
-                                  </div>
-                                )
-                              })}
-                            </div>
-                          )}
+                      {clientPhone && (
+                        <div style={{ fontSize: 10, color: C.green, marginBottom: 6 }}>
+                          ✓ WhatsApp detectado: {clientPhone}
                         </div>
-                      </div>
+                      )}
 
                       {/* ── 3. RESUMEN DE RECONOCIMIENTO / HISTORIAL DE LA CLIENTA ── */}
                       {clientAnalysis.isRecognized && (
@@ -1103,6 +968,54 @@ export function AppModals({
                         outlineOffset: "-6px",
                       }}
                     >
+                        {/* Buscador de servicios */}
+                        <input
+                          id="search-services-input"
+                          type="text"
+                          placeholder="Buscar servicios por nombre o duración..."
+                          value={searchTerm}
+                          autoComplete="off"
+                          autoCorrect="off"
+                          autoCapitalize="off"
+                          spellCheck={false}
+                          data-lpignore="true"
+                          data-form-type="other"
+                          aria-autocomplete="none"
+                          onChange={e => { setSearchTerm(e.target.value); setServiceHighlightIdx(-1); }}
+                          onKeyDown={e => {
+                            const list = filteredServices;
+                            if (list.length === 0) return;
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              const targetIdx = serviceHighlightIdx >= 0 ? serviceHighlightIdx : 0;
+                              if (list[targetIdx]) {
+                                handleToggleService(list[targetIdx]);
+                                setSearchTerm("");
+                                setServiceHighlightIdx(-1);
+                              }
+                            } else if (e.key === "ArrowDown" || (e.key === "Tab" && !e.shiftKey)) {
+                              e.preventDefault();
+                              const nextIdx = serviceHighlightIdx < 0 ? 0 : (serviceHighlightIdx + 1) % list.length;
+                              setServiceHighlightIdx(nextIdx);
+                              document.getElementById(`service-item-${nextIdx}`)?.scrollIntoView({ block: 'nearest' });
+                            } else if (e.key === "ArrowUp" || (e.key === "Tab" && e.shiftKey)) {
+                              e.preventDefault();
+                              const prevIdx = serviceHighlightIdx <= 0 ? list.length - 1 : serviceHighlightIdx - 1;
+                              setServiceHighlightIdx(prevIdx);
+                              document.getElementById(`service-item-${prevIdx}`)?.scrollIntoView({ block: 'nearest' });
+                            }
+                          }}
+                          style={{
+                            ...inputStyle,
+                            padding: "8px 12px",
+                            marginBottom: 6,
+                            fontSize: 12,
+                            outline: "1px dashed rgba(58, 125, 68, 0.3)",
+                            outlineOffset: "-3px",
+                          }}
+                        />
+
+
                       {/* ── SECCIÓN A: SI RECONOCE A LA CLIENTA -> TURNOS QUE SUELE PEDIR ── */}
                       {clientAnalysis.isRecognized && clientAnalysis.usualServices.length > 0 ? (
                         <div style={{
@@ -1234,53 +1147,6 @@ export function AppModals({
                             {clientAnalysis.isRecognized ? "🌿 Luego los sugeridos / Todos los servicios" : "🌿 Turnos y servicios sugeridos"}
                           </span>
                         </div>
-
-                        {/* Buscador de servicios */}
-                        <input
-                          id="search-services-input"
-                          type="text"
-                          placeholder="Buscar servicios por nombre o duración..."
-                          value={searchTerm}
-                          autoComplete="off"
-                          autoCorrect="off"
-                          autoCapitalize="off"
-                          spellCheck={false}
-                          data-lpignore="true"
-                          data-form-type="other"
-                          aria-autocomplete="none"
-                          onChange={e => { setSearchTerm(e.target.value); setServiceHighlightIdx(-1); }}
-                          onKeyDown={e => {
-                            const list = filteredServices;
-                            if (list.length === 0) return;
-                            if (e.key === "Enter") {
-                              e.preventDefault();
-                              const targetIdx = serviceHighlightIdx >= 0 ? serviceHighlightIdx : 0;
-                              if (list[targetIdx]) {
-                                handleToggleService(list[targetIdx]);
-                                setSearchTerm("");
-                                setServiceHighlightIdx(-1);
-                              }
-                            } else if (e.key === "ArrowDown" || (e.key === "Tab" && !e.shiftKey)) {
-                              e.preventDefault();
-                              const nextIdx = serviceHighlightIdx < 0 ? 0 : (serviceHighlightIdx + 1) % list.length;
-                              setServiceHighlightIdx(nextIdx);
-                              document.getElementById(`service-item-${nextIdx}`)?.scrollIntoView({ block: 'nearest' });
-                            } else if (e.key === "ArrowUp" || (e.key === "Tab" && e.shiftKey)) {
-                              e.preventDefault();
-                              const prevIdx = serviceHighlightIdx <= 0 ? list.length - 1 : serviceHighlightIdx - 1;
-                              setServiceHighlightIdx(prevIdx);
-                              document.getElementById(`service-item-${prevIdx}`)?.scrollIntoView({ block: 'nearest' });
-                            }
-                          }}
-                          style={{
-                            ...inputStyle,
-                            padding: "8px 12px",
-                            marginBottom: 6,
-                            fontSize: 12,
-                            outline: "1px dashed rgba(58, 125, 68, 0.3)",
-                            outlineOffset: "-3px",
-                          }}
-                        />
 
                         {/* Filtros de Categoría */}
                         <div style={{ display: "flex", gap: 5, marginBottom: 8, flexWrap: "wrap" }}>
@@ -1423,7 +1289,7 @@ export function AppModals({
                       const input = window.prompt(`Ingresá el celular de ${cleanName || clientName}:`)
                       if (!input || !input.trim()) return
                       targetPhone = input.trim()
-                      setClientPhone(targetPhone)
+                      setClientName(ensurePhoneInName(clientName, targetPhone))
                       if (setClientes && (cleanName || clientName)) {
                         const cName = (cleanName || clientName).trim()
                         setClientes(prev => {
