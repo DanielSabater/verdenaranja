@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react"
 import { C } from "../../constants/colors.js"
 import { PAYMENT_METHODS, HOURS, BLOCKED_COLORS, getBlockedAlphas } from "../../constants/data.js"
-import { fmt, cellKey, apptTotal, apptDur, apptPaidTotal, apptComisionableTotal, apptComisionTotal, getApptSlots, isServiceExcluido, hasCommissionableServices } from "../../utils/appointments.js"
+import { fmt, cellKey, apptTotal, apptDur, apptPaidTotal, apptComisionableTotal, apptComisionTotal, getApptSlots, commissionServicesFor, isServiceExcluido, hasCommissionableServices } from "../../utils/appointments.js"
 import { Overlay, ModalHeader, GhostBtn, SolidBtn, modalBox } from "../ui/index.jsx"
 import { todayKey, fmtDate } from "../../utils/dates.js"
 import html2canvas from "html2canvas"
@@ -1970,7 +1970,7 @@ export function AppGrid({
               sortedAppts.forEach(a => {
                 const comiTotal = apptComisionableTotal(a, services)
                 const comiEarned = apptComisionTotal(a, comisionPct, services, config?.dateExceptions || {}, currentDate, professionals)
-                const visibleServices = (a.services || []).filter(sv => !isServiceExcluido(sv, services))
+                const visibleServices = (a.services || []).filter(sv => !isServiceExcluido(sv, commissionServicesFor(a, services)))
                 const svNames = visibleServices.map(sv => sv.name).join(" + ")
 
                 lines.push(`• *${a.hour || "--:--"}* · *${cleanClientName(a.client) || "Clienta"}*`)
@@ -2226,7 +2226,7 @@ export function AppGrid({
                       {sortedAppts.map((a, index) => {
                         const comiTotal = apptComisionableTotal(a, services)
                         const comiEarned = apptComisionTotal(a, comisionPct, services, config?.dateExceptions || {}, currentDate, professionals)
-                        const visibleServices = (a.services || []).filter(sv => !isServiceExcluido(sv, services))
+                        const visibleServices = (a.services || []).filter(sv => !isServiceExcluido(sv, commissionServicesFor(a, services)))
 
                         return (
                           <div
@@ -2454,7 +2454,7 @@ export function AppGrid({
                     sortedAppts.map((a, idx) => {
                       const comiTotal = apptComisionableTotal(a, services)
                       const comiEarned = apptComisionTotal(a, comisionPct, services, config?.dateExceptions || {}, currentDate, professionals)
-                      const visibleServices = (a.services || []).filter(sv => !isServiceExcluido(sv, services))
+                      const visibleServices = (a.services || []).filter(sv => !isServiceExcluido(sv, commissionServicesFor(a, services)))
 
                       return (
                         <div key={idx} style={{ paddingBottom: "10px", borderBottom: idx === sortedAppts.length - 1 ? "none" : "1px solid #e8f5eb" }}>

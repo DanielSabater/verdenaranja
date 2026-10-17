@@ -60,12 +60,43 @@ export const isServiceExcluido = (sv, activeServices = []) => {
   return false
 }
 
+/** Condiciones de comisión fijadas al cobrar; los pagos antiguos conservan su cálculo anterior. */
+export const getCommissionSnapshot = a => a?.paid && a.commissionSnapshot?.version === 1
+  && Number.isFinite(a.commissionSnapshot.defaultPct) && Array.isArray(a.commissionSnapshot.services)
+  ? a.commissionSnapshot : null
+
+export const commissionServicesFor = (a, activeServices = []) => getCommissionSnapshot(a)?.services || activeServices
+
+const effectiveCommissionPct = (a, globalPct, dateExceptions, apptDate, professionals) => {
+  const prof = professionals.find(p => String(p.id) === String(a?.profId))
+  const profPct = prof?.comisionPct
+  let pct = profPct !== undefined && profPct !== null && profPct !== "" ? Number(profPct) : Number(globalPct)
+  if (apptDate && dateExceptions[apptDate] !== undefined) pct = Number(dateExceptions[apptDate])
+  return Number.isFinite(pct) ? pct : 0
+}
+
+/** Crear una copia de las reglas aplicadas, sin modificar el turno ni el catálogo. */
+export const createCommissionSnapshot = (a, globalPct, activeServices = [], dateExceptions = {}, apptDate = null, professionals = []) => {
+  const existing = getCommissionSnapshot(a)
+  if (existing) return existing
+  const defaultPct = effectiveCommissionPct(a, globalPct, dateExceptions, apptDate, professionals)
+  return {
+    version: 1,
+    defaultPct,
+    services: (a?.services || []).map(sv => {
+      const liveSvc = findActiveService(sv, activeServices)
+      const pct = liveSvc?.comisionPct ?? sv.comisionPct ?? defaultPct
+      return { id: sv.id, name: sv.name, comisionPct: Number(pct), excluidoComision: isServiceExcluido(sv, activeServices) }
+    }),
+  }
+}
+
 /** Determina si un turno contiene servicios comisionables (o si es turno manual sin servicios registrados) */
 export const hasCommissionableServices = (a, activeServices = []) => {
   if (!a || a.isBlocked || a.isNote) return false
   const services = Array.isArray(a.services) ? a.services : []
   if (services.length === 0) return true
-  return services.some(sv => !isServiceExcluido(sv, activeServices))
+  return services.some(sv => !isServiceExcluido(sv, commissionServicesFor(a, activeServices)))
 }
 
 /** Total comisionable base for an appointment (excluding services marked as no commission, prorating discounts) */
@@ -80,7 +111,7 @@ export const apptComisionableTotal = (a, activeServices = []) => {
     return paidTotal > 0 ? Math.round(paidTotal) : 0
   }
   
-  const comiSvc = services.filter(sv => !isServiceExcluido(sv, activeServices))
+  const comiSvc = services.filter(sv => !isServiceExcluido(sv, commissionServicesFor(a, activeServices)))
     .reduce((s, sv) => s + (sv?.price || 0), 0)
 
   const ratio = totalSvc > 0 ? (paidTotal / totalSvc) : 1
@@ -89,6 +120,10 @@ export const apptComisionableTotal = (a, activeServices = []) => {
 
 export const apptComisionTotal = (a, globalComisionPct, activeServices = [], dateExceptions = {}, apptDate = null, professionals = []) => {
   if (a?.isBlocked || a?.isNote) return 0
+  const snapshot = getCommissionSnapshot(a)
+  if (snapshot) {
+    return apptComisionTotal({ ...a, commissionSnapshot: undefined }, snapshot.defaultPct, snapshot.services)
+  }
   const services = Array.isArray(a?.services) ? a.services : []
   const totalSvc = services.reduce((s, sv) => s + (sv?.price || 0), 0)
 

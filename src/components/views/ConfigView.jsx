@@ -543,6 +543,12 @@ export default function ConfigView({ planillaRamas = ["manos"], config, setConfi
             .svc-col-excluido { order: 8; display: flex; align-items: center; justify-content: center; }
             .svc-col-remove { order: 9; }
             .svc-excluido-lbl { display: none; }
+            .service-commission-input { appearance: textfield; -moz-appearance: textfield; }
+            .service-commission-input::-webkit-inner-spin-button,
+            .service-commission-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+            .service-commission-input::placeholder { color: ${C.green}; opacity: 1; }
+            .service-commission-input:focus { color: ${C.green}; background: transparent; }
+
             @media (max-width: 768px) {
               .services-grid-header {
                 display: none;
@@ -1064,19 +1070,22 @@ export default function ConfigView({ planillaRamas = ["manos"], config, setConfi
                               </select>
                               
                               {/* % Comisión */}
-                              <div className="svc-col-comisionPct" style={{ display: "flex", alignItems: "center", border: `1.5px solid ${C.border}`, borderRadius: 9, background: C.cream, height: 34, padding: "0 8px", width: "100%" }}>
+                              <div className="svc-col-comisionPct" style={{ display: "flex", alignItems: "center", border: `1.5px solid ${C.border}`, borderRadius: 9, background: C.cream, height: 34, padding: "0 5px", width: "100%", boxSizing: "border-box", gap: 2 }}>
                                 <input
+                                  className="service-commission-input"
+                                  aria-label={`Porcentaje de comisión de ${svc.name}`}
                                   type="number"
                                   min={0}
                                   max={100}
-                                  placeholder={`${config.comisionPct}%`}
+                                  placeholder={`${config.comisionPct}`}
                                   value={svc.comisionPct !== undefined && svc.comisionPct !== null ? svc.comisionPct : ""}
                                   onChange={e => {
                                     const val = e.target.value === "" ? null : parseInt(e.target.value)
                                     updateSvc(svc.id, "comisionPct", isNaN(val) ? null : val)
                                   }}
-                                  style={{ border: "none", width: "100%", height: "100%", fontSize: 11, textAlign: "center", color: C.green, fontWeight: "bold", background: "transparent", outline: "none", padding: 0 }}
+                                  style={{ border: "none", width: "100%", minWidth: 0, height: "100%", fontSize: 11, textAlign: "center", color: C.green, fontWeight: "bold", background: "transparent", outline: "none", padding: 0 }}
                                 />
+                                <span aria-hidden="true" style={{ fontSize: 10, color: C.green, fontWeight: "bold", pointerEvents: "none" }}>%</span>
                               </div>
 
                               {/* Sin Comisión Toggle */}

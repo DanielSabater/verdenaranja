@@ -2,7 +2,7 @@ import { useMobileNavigation } from "./hooks/useMobileBack.js"
 import { useState, useRef, useCallback, useMemo, useEffect } from "react"
 import { C } from "./constants/colors.js"
 import { PAYMENT_METHODS, HOURS, APP_VERSION, getModalOverlayStyle } from "./constants/data.js"
-import { cellKey, apptTotal, apptDur, apptPaidTotal, apptComisionableTotal, apptComisionTotal, getApptSlots } from "./utils/appointments.js"
+import { cellKey, apptTotal, apptDur, apptPaidTotal, apptComisionableTotal, apptComisionTotal, createCommissionSnapshot, getApptSlots } from "./utils/appointments.js"
 import { toDateKey, todayKey, isWorkDay, nextWorkDay, addMonths, DIAS_ES, MESES_ES } from "./utils/dates.js"
 import { normalizeStr, formatWaNumber, generateRescheduleMessage, openWhatsAppLink } from "./utils/whatsapp.js"
 import { useIsMobile } from "./hooks/useIsMobile.js"
@@ -1439,7 +1439,8 @@ export default function App() {
             payMethod: undefined,
             paymentSplits: undefined,
             tip: undefined,
-            discount: undefined
+            discount: undefined,
+            commissionSnapshot: undefined
           }
           return
         }
@@ -1457,7 +1458,8 @@ export default function App() {
           payMethod: validSplits[0]?.methodId || "efectivo",
           paymentSplits: validSplits.map(s => ({ ...s, amount: Math.round((parseFloat(s.amount) || 0) * expectedRatio) })),
           tip: parseFloat(apptTip[k]) || 0,
-          discount: Math.round(discountAmount * ratio)
+          discount: Math.round(discountAmount * ratio),
+          commissionSnapshot: createCommissionSnapshot(appt, comisionPct, services, config.dateExceptions || {}, currentDate, config.professionals || [])
         }
       })
       return next
