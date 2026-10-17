@@ -289,7 +289,7 @@ export default function App() {
 
   const [activeView, setActiveView] = useState("turnos")
   const { exitOpen, cancelExit, confirmExit } = useMobileNavigation(activeView, setActiveView, Boolean(session))
-  const [contPeriod, setContPeriod] = useState("mes")
+  const [contPeriod, setContPeriod] = useState("anual")
   const [contFrom, setContFrom] = useState("")
   const [contTo, setContTo] = useState("")
   const [gastoModal, setGastoModal] = useState(false)

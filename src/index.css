@@ -1042,7 +1042,7 @@ select {
 /* ── Chart Entry Animations (3 segundos pausados) ── */
 @keyframes drawChartLine {
   from {
-    stroke-dashoffset: 1800;
+    stroke-dashoffset: 1;
   }
 
   to {
@@ -1063,8 +1063,8 @@ select {
 }
 
 .chart-line-animated {
-  stroke-dasharray: 1800;
-  stroke-dashoffset: 1800;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
   animation: drawChartLine 3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
@@ -1334,4 +1334,19 @@ select {
     padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom)) !important;
     height: 100dvh;
   }
+}
+
+/* Halo del período en curso: el punto y su importe permanecen quietos. */
+@keyframes comparisonInProgressPulse {
+  0% { transform: scale(.75); opacity: .25; }
+  75%, 100% { transform: scale(1.8); opacity: 0; }
+}
+.comparison-in-progress-pulse {
+  transform-box: fill-box;
+  transform-origin: center;
+  pointer-events: none;
+  animation: comparisonInProgressPulse 2.2s ease-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .comparison-in-progress-pulse { animation: none; opacity: .12; }
 }

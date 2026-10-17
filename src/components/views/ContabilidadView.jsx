@@ -1,3 +1,4 @@
+import { aggregateBillingComparison, comparisonBucketAvailable, comparisonBucketInProgress } from "../../utils/billingComparison.js"
 import { useMobileBackLayer } from "../../hooks/useMobileBack.js"
 import React, { useState, useMemo, useEffect } from "react"
 import { createPortal } from "react-dom"
@@ -62,38 +63,19 @@ export default function ContabilidadView({
   const [compYear1, setCompYear1] = useState(() => new Date().getFullYear())
   const [compYear2, setCompYear2] = useState(() => new Date().getFullYear() - 1)
   const [compCurrency, setCompCurrency] = useState("ARS")
+  const [comparisonNow, setComparisonNow] = useState(() => new Date())
+  const comparisonToday = toDateKey(comparisonNow)
+  useEffect(() => {
+    const refresh = () => setComparisonNow(new Date())
+    const timer = window.setInterval(refresh, 60000)
+    window.addEventListener("focus", refresh)
+    return () => { window.clearInterval(timer); window.removeEventListener("focus", refresh) }
+  }, [])
+
   const [showCompGastos, setShowCompGastos] = useState(true)
   const [showCompSueldos, setShowCompSueldos] = useState(true)
   const [stackCompBars, setStackCompBars] = useState(true)
   const [showCompLabels, setShowCompLabels] = useState(true)
-  const [selectedCompMonth, setSelectedCompMonth] = useState(null)
-  const [chartProgress, setChartProgress] = useState(0)
-
-  useEffect(() => {
-    setChartProgress(0)
-    let startTime = null
-    let animId = null
-    const duration = 3000 // 3 seconds smooth animation
-
-    const step = (timestamp) => {
-      if (!startTime) startTime = timestamp
-      const elapsed = timestamp - startTime
-      const progress = Math.min(1, elapsed / duration)
-      // Smooth cubic ease-out
-      const easedProgress = 1 - Math.pow(1 - progress, 3)
-      setChartProgress(easedProgress)
-
-      if (progress < 1) {
-        animId = requestAnimationFrame(step)
-      }
-    }
-
-    animId = requestAnimationFrame(step)
-    return () => {
-      if (animId) cancelAnimationFrame(animId)
-    }
-  }, [compYear1, compYear2, compCurrency, activeZoomedChart, showCompGastos, showCompSueldos, stackCompBars, selectedCompMonth])
-
   const [gastoSortBy, setGastoSortBy] = useState("fecha-desc")
   const [gastoCategoryFilter, setGastoCategoryFilter] = useState("todas")
   const [gastoStatusFilter, setGastoStatusFilter] = useState("todos")
@@ -389,7 +371,7 @@ export default function ContabilidadView({
       rangeTo: "2099-12-31", 
       periodLabel: "Historial completo" 
     }
-  }, [contPeriod, contFrom, contTo, contOffset])
+  }, [contPeriod, contFrom, contTo, contOffset, comparisonToday])
 
   const inRange = (k) => k >= rangeFrom && k <= rangeTo
 
@@ -763,83 +745,55 @@ export default function ContabilidadView({
     })
   }, [chartRange, safeAllData, isMonthlyView])
 
-  // ── Year over Year monthly billing comparison data ────────────────────────
-  const comparisonData = useMemo(() => {
-    const monthlyIncome = {}
-    Object.entries(safeAllData).forEach(([dk, dayData]) => {
-      const match = dk.match(/^(\d{4})-(\d{2})-\d{2}$/)
-      if (!match) return
-      const year = parseInt(match[1])
-      const monthIdx = parseInt(match[2]) - 1 // 0-11
-      
-      let dayTotal = 0
-      Object.values(dayData || {}).forEach(appt => {
-        if (appt?.paid) {
-          dayTotal += apptPaidTotal(appt)
-        }
-      })
-      
-      if (!monthlyIncome[year]) {
-        monthlyIncome[year] = Array(12).fill(0)
-      }
-      monthlyIncome[year][monthIdx] += dayTotal
-    })
-    return monthlyIncome
-  }, [safeAllData])
+  // La comparativa usa unidades propias del período, tanto en tarjeta como ampliada.
+  const comparison = useMemo(() => aggregateBillingComparison({
+    period: contPeriod, from: rangeFrom, to: rangeTo, allData: safeAllData, gastos: safeGastos,
+    years: [compYear1, compYear2],
+    convertAmount: (value, date) => convertValue(value, Number(date.slice(0, 4)), Number(date.slice(5, 7)) - 1, compCurrency, dollarRate),
+    commissionFor: (appt, date) => apptComisionTotal(appt, comisionPct, safeServices, config?.dateExceptions || {}, date, professionals),
+  }), [contPeriod, rangeFrom, rangeTo, safeAllData, safeGastos, compYear1, compYear2, comisionPct, safeServices, config?.dateExceptions, professionals, compCurrency, dollarRate])
+  const comparisonData = comparison.income
+  const comparisonGastos = comparison.expenses
+  const comparisonSueldos = comparison.commissions
+  const comparisonLabels = comparison.buckets.map(bucket => bucket.label)
+  const comparisonAvailable = (year, index) => comparisonBucketAvailable(comparison, index, year, contPeriod, comparisonToday, comparisonNow)
+  const comparisonInProgress = (year, index) => comparisonBucketInProgress(comparison, index, year, comparisonNow)
+  const comparisonIncomeAvailable = (year, index) => comparisonAvailable(year, index) && comparison.incomeAvailable[year]?.[index] !== false
+  const formatComparisonIncome = (year, amount) => comparison.monthlySummaries[year]?.length
+    ? (comparison.incomeAvailable[year]?.some(Boolean) ? `${fmtComp(amount, compCurrency)} (detalle parcial)` : "Sin detalle diario")
+    : fmtComp(amount, compCurrency)
+  const comparisonPlotValues = (values, year) => values.map((value, index) => comparisonIncomeAvailable(year, index) ? value : null)
+  const renderInProgressPoint = (x, y, value, index, expanded = false) => {
+    const atRight = index >= comparisonLabels.length - 2
+    const textX = atRight ? x - 8 : x
+    const textAnchor = atRight ? "end" : "middle"
+    const labelY = y < 55 ? y + 23 : y - (expanded && showCompLabels ? 32 : 17)
+    return <g key={`in-progress-${index}`}>
+      <title>{`En curso · acumulado parcial: ${fmtComp(value, compCurrency)}`}</title>
+      <circle className="comparison-in-progress-pulse" cx={x} cy={y} r={expanded ? 13 : 10} fill="#b58a35" opacity=".12" />
+      <circle cx={x} cy={y} r={expanded ? 6.5 : 4.5} fill={C.white} stroke="#b58a35" strokeWidth={expanded ? 2.5 : 2} />
+      <text x={textX} y={labelY} textAnchor={textAnchor} fill="#98722d" fontSize={expanded ? 11 : 10} fontWeight="bold" style={{ paintOrder: "stroke", stroke: C.white, strokeWidth: 3 }}>En curso</text>
+      {expanded && showCompLabels && <text x={textX} y={labelY + 15} textAnchor={textAnchor} fill="#98722d" fontSize="10" fontWeight="bold" style={{ paintOrder: "stroke", stroke: C.white, strokeWidth: 3 }}>{fmtComp(value, compCurrency)}</text>}
+    </g>
+  }
+  const comparisonTitle = `Comparativa de facturación · ${{ dia: "diaria", semana: "semanal", mes: "mensual", anual: "anual", todo: "histórico", custom: "rango" }[contPeriod] || "período"}`
+  const comparisonSubtitle = `${periodLabel} · por ${comparison.unit}`
 
-  const comparisonGastos = useMemo(() => {
-    const monthlyGastos = {}
-    safeGastos.forEach(g => {
-      if (!g?.fecha) return
-      if (g.tipo === "ingreso") return // Ignore ingresos stored in gastos array
-      const match = g.fecha.match(/^(\d{4})-(\d{2})-\d{2}$/)
-      if (!match) return
-      const year = parseInt(match[1])
-      const monthIdx = parseInt(match[2]) - 1
-      if (monthIdx < 0 || monthIdx > 11) return
-
-      const monto = Math.max(0, parseFloat(g.monto) || 0)
-      if (monto <= 0) return
-
-      if (!monthlyGastos[year]) {
-        monthlyGastos[year] = Array(12).fill(0)
-      }
-      monthlyGastos[year][monthIdx] += monto
-    })
-    return monthlyGastos
-  }, [safeGastos])
-
-  const comparisonSueldos = useMemo(() => {
-    const monthlySueldos = {}
-    Object.entries(safeAllData).forEach(([dk, dayData]) => {
-      const match = dk.match(/^(\d{4})-(\d{2})-\d{2}$/)
-      if (!match) return
-      const year = parseInt(match[1])
-      const monthIdx = parseInt(match[2]) - 1
-      if (monthIdx < 0 || monthIdx > 11) return
-
-      let dayComisionTotal = 0
-      Object.values(dayData || {}).forEach(appt => {
-        if (appt?.paid) {
-          dayComisionTotal += apptComisionTotal(appt, comisionPct, safeServices, config?.dateExceptions || {}, dk, professionals)
-        }
-      })
-
-      if (!monthlySueldos[year]) {
-        monthlySueldos[year] = Array(12).fill(0)
-      }
-      monthlySueldos[year][monthIdx] += dayComisionTotal
-    })
-    return monthlySueldos
-  }, [safeAllData, safeServices, comisionPct, config?.dateExceptions])
+  useEffect(() => {
+    if (contPeriod === "todo" || !rangeFrom) return
+    const year = Number(rangeFrom.slice(0, 4))
+    if (!Number.isFinite(year)) return
+    setCompYear1(year)
+    setCompYear2(year - 1)
+  }, [contPeriod, rangeFrom])
 
   const availableYears = useMemo(() => {
-    const years = Object.keys(comparisonData).map(Number).sort((a, b) => b - a)
+    const years = [...new Set([...Object.keys(safeAllData).map(k => Number(k.slice(0, 4))), compYear1, compYear2])].filter(Number.isFinite).sort((a, b) => b - a)
     if (years.length === 0) {
       years.push(new Date().getFullYear())
     }
     return years
-  }, [comparisonData])
+  }, [safeAllData, compYear1, compYear2])
 
   useEffect(() => {
     if (availableYears.length > 0) {
@@ -1098,6 +1052,31 @@ export default function ContabilidadView({
   return (
     <div style={{ width:"100%", maxWidth:1440, margin:"0 auto", padding: isDesktop ? "20px 24px 160px" : "14px 12px 140px", boxSizing:"border-box", overflowX: "hidden" }}>
       <style dangerouslySetInnerHTML={{ __html: `
+        .accounting-toolbar {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) minmax(0, 360px) minmax(0, 1fr);
+          align-items: center;
+          gap: 14px;
+          margin-bottom: 24px;
+        }
+        .accounting-section-tabs { grid-column: 1; min-width: 0; }
+        .accounting-section-tabs button { padding: 7px 12px !important; white-space: nowrap; }
+        .accounting-period-controls { grid-column: 2; justify-content: center; min-width: 0; }
+        .accounting-period-controls button { padding: 5px 10px !important; white-space: nowrap; }
+        .accounting-date-nav { grid-column: 3; justify-self: end; }
+        @media (max-width: 1199px) {
+          .accounting-toolbar { grid-template-columns: minmax(0, 1fr) auto; row-gap: 12px; }
+          .accounting-section-tabs { grid-column: 1 / -1; }
+          .accounting-period-controls { grid-column: 1; justify-content: flex-start; }
+          .accounting-date-nav { grid-column: 2; }
+        }
+        @media (max-width: 600px) {
+          .accounting-toolbar { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+          .accounting-section-tabs { flex-wrap: nowrap !important; overflow-x: auto; padding-bottom: 3px; }
+          .accounting-section-tabs button { flex-shrink: 0; }
+          .accounting-period-controls, .accounting-date-nav { grid-column: 1; }
+          .accounting-date-nav { justify-self: center; }
+        }
         .chart-card-zoom {
           transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
           cursor: zoom-in;
@@ -1146,10 +1125,15 @@ export default function ContabilidadView({
         }
       ` }} />
 
-      {/* Period selector & Nav */}
-      <div style={{ display:"flex", gap:12, marginBottom:20, flexWrap:"wrap", alignItems:"center", justifyContent: "space-between" }}>
-        <div style={{ display:"flex", gap:6, flexWrap:"wrap", alignItems:"center" }}>
-          <div style={{ fontSize:7, letterSpacing:"3px", color:C.orange, textTransform:"uppercase", marginRight:4 }}>Período</div>
+      {/* Sección, período y fecha comparten una barra adaptable. */}
+      <div className="accounting-toolbar">
+      <div className="accounting-section-tabs" style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+        {TABS.map(t => (
+          <button key={t.id} onClick={()=>setSeccion(t.id)} style={{ padding:"7px 18px", borderRadius:20, border:`1.5px solid ${seccion===t.id?C.green:C.border}`, background:seccion===t.id?`linear-gradient(135deg,${C.green},${C.greenLight})`:C.white, color:seccion===t.id?"#fff":C.textSoft, fontSize:11, cursor:"pointer", fontFamily:"Georgia,serif", transition:"all .18s", boxShadow:seccion===t.id?`0 4px 12px rgba(58,125,68,.25)`:"none" }}>{t.label}</button>
+        ))}
+      </div>
+
+        <div className="accounting-period-controls" style={{ display:"flex", gap:6, flexWrap:"wrap", alignItems:"center" }}>
           {[["dia","Hoy"],["semana","Semana"],["mes","Mes"],["anual","Anual"],["todo","Todo"],["custom","Custom"]].map(([id,label]) => (
             <button key={id} onClick={()=>setContPeriod(id)} style={{ padding:"5px 14px", borderRadius:20, border:`1.5px solid ${contPeriod===id?C.green:C.border}`, background:contPeriod===id?`linear-gradient(135deg,${C.green},${C.greenLight})`:C.white, color:contPeriod===id?"#fff":C.textSoft, fontSize:10, cursor:"pointer", fontFamily:"Georgia,serif", transition:"all .15s" }}>{label}</button>
           ))}
@@ -1162,7 +1146,7 @@ export default function ContabilidadView({
 
         {/* Date Navigator Pill */}
         {["dia", "semana", "mes", "anual"].includes(contPeriod) && (
-          <div style={{ display: "flex", alignItems: "center", gap: 10, background: C.cream, borderRadius: 20, padding: "3px 12px", border: `1px solid ${C.border}`, boxShadow: "0 2px 6px rgba(0,0,0,0.02)" }}>
+          <div className="accounting-date-nav" style={{ display: "flex", alignItems: "center", gap: 10, background: C.cream, borderRadius: 20, padding: "3px 12px", border: `1px solid ${C.border}`, boxShadow: "0 2px 6px rgba(0,0,0,0.02)" }}>
             <button onClick={() => { setContOffset(p => p - 1); playClickSound(); }} style={{ background: "transparent", border: "none", color: C.green, fontSize: 14, fontWeight: "bold", cursor: "pointer", padding: "0 4px", fontFamily: "Georgia,serif" }}>‹</button>
             <span style={{ display: "inline-block", width: 130, fontSize: 11, color: C.text, fontWeight: "bold", textAlign: "center", fontFamily: "Georgia,serif", whiteSpace: "nowrap" }}>
               {periodLabel}
@@ -1173,13 +1157,6 @@ export default function ContabilidadView({
             )}
           </div>
         )}
-      </div>
-
-      {/* Section pills */}
-      <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:24 }}>
-        {TABS.map(t => (
-          <button key={t.id} onClick={()=>setSeccion(t.id)} style={{ padding:"7px 18px", borderRadius:20, border:`1.5px solid ${seccion===t.id?C.green:C.border}`, background:seccion===t.id?`linear-gradient(135deg,${C.green},${C.greenLight})`:C.white, color:seccion===t.id?"#fff":C.textSoft, fontSize:11, cursor:"pointer", fontFamily:"Georgia,serif", transition:"all .18s", boxShadow:seccion===t.id?`0 4px 12px rgba(58,125,68,.25)`:"none" }}>{t.label}</button>
-        ))}
       </div>
 
       {/* ── RESUMEN ── */}
@@ -1455,110 +1432,11 @@ export default function ContabilidadView({
                       <div style={{ display: "flex", alignItems: "center" }}>
                         {isDesktop && <span style={{ color: C.textSoft, marginRight: 6, fontSize: 11, cursor: "grab", fontWeight: "bold" }}>⋮⋮</span>}
                         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                          <div style={{ fontSize:8, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase" }}>Comparativa de Facturación Mensual</div>
-                          <div style={{ fontSize:10, color:C.textSoft }}>Ene - Dic</div>
+                          <div style={{ fontSize:8, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase" }}>{comparisonTitle}</div>
+                          <div style={{ fontSize:10, color:C.textSoft }}>{comparisonSubtitle}</div>
                         </div>
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                        {/* Column Bar Toggles */}
-                        <div style={{ display: "flex", gap: 3, background: "#f1f5f3", padding: 3, borderRadius: 10, border: "1px solid #e2e8f0" }}>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); setStackCompBars(v => !v); }}
-                            title="Alternar entre columnas apiladas (Egresos Totales) o independientes"
-                            style={{
-                              padding: "3px 8px",
-                              fontSize: 10,
-                              border: "none",
-                              borderRadius: 7,
-                              background: stackCompBars ? C.green : "transparent",
-                              color: stackCompBars ? "#fff" : "#64748b",
-                              cursor: "pointer",
-                              fontWeight: stackCompBars ? "600" : "500",
-                              boxShadow: stackCompBars ? "0 2px 4px rgba(45,122,77,0.2)" : "none",
-                              transition: "all 0.15s ease"
-                            }}
-                          >
-                            {stackCompBars ? "🧱 Apilados" : "📊 Separados"}
-                          </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); setShowCompGastos(v => !v); }}
-                            style={{
-                              padding: "3px 8px",
-                              fontSize: 10,
-                              border: "none",
-                              borderRadius: 7,
-                              background: showCompGastos ? "#e8793a" : "transparent",
-                              color: showCompGastos ? "#fff" : "#64748b",
-                              cursor: "pointer",
-                              fontWeight: showCompGastos ? "600" : "500",
-                              boxShadow: showCompGastos ? "0 2px 4px rgba(232,121,58,0.2)" : "none",
-                              transition: "all 0.15s ease"
-                            }}
-                          >
-                            💸 Gastos
-                          </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); setShowCompSueldos(v => !v); }}
-                            style={{
-                              padding: "3px 8px",
-                              fontSize: 10,
-                              border: "none",
-                              borderRadius: 7,
-                              background: showCompSueldos ? "#7c3aed" : "transparent",
-                              color: showCompSueldos ? "#fff" : "#64748b",
-                              cursor: "pointer",
-                              fontWeight: showCompSueldos ? "600" : "500",
-                              boxShadow: showCompSueldos ? "0 2px 4px rgba(124,58,237,0.2)" : "none",
-                              transition: "all 0.15s ease"
-                            }}
-                          >
-                            👩 Sueldos
-                          </button>
-                        </div>
-
-                        {/* Currency Selector Pills */}
-                        <div style={{ display: "flex", gap: 3, background: "#f1f5f3", padding: 3, borderRadius: 10, border: "1px solid #e2e8f0" }}>
-                          {[["ARS", "ARS"], ["USD_OFICIAL", "USD Of."], ["USD_BLUE", "USD Blue"]].map(([id, label]) => (
-                            <button
-                              key={id}
-                              onClick={(e) => { e.stopPropagation(); setCompCurrency(id); }}
-                              style={{
-                                padding: "3px 8px",
-                                fontSize: 10,
-                                border: "none",
-                                borderRadius: 7,
-                                background: compCurrency === id ? C.green : "transparent",
-                                color: compCurrency === id ? "#fff" : "#64748b",
-                                cursor: "pointer",
-                                fontWeight: compCurrency === id ? "600" : "500",
-                                boxShadow: compCurrency === id ? "0 2px 4px rgba(45,122,77,0.2)" : "none",
-                                transition: "all 0.15s ease"
-                              }}
-                            >
-                              {label}
-                            </button>
-                          ))}
-                        </div>
-
-                        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                          <select 
-                            value={compYear1} 
-                            onChange={e => setCompYear1(Number(e.target.value))} 
-                            style={{ fontSize: 10, fontWeight: "600", padding: "3px 6px", borderRadius: 8, border: "1px solid #cbd5e1", background: C.white, outline: "none", color: C.text, cursor: "pointer", boxShadow: "0 1px 2px rgba(0,0,0,0.04)" }}
-                          >
-                            {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
-                            {!availableYears.includes(compYear1) && <option value={compYear1}>{compYear1}</option>}
-                          </select>
-                          <span style={{ fontSize: 10, color: "#64748b", fontWeight: "500" }}>vs</span>
-                          <select 
-                            value={compYear2} 
-                            onChange={e => setCompYear2(Number(e.target.value))} 
-                            style={{ fontSize: 10, fontWeight: "600", padding: "3px 6px", borderRadius: 8, border: "1px solid #cbd5e1", background: C.white, outline: "none", color: C.text, cursor: "pointer", boxShadow: "0 1px 2px rgba(0,0,0,0.04)" }}
-                          >
-                            {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
-                            {!availableYears.includes(compYear2) && <option value={compYear2}>{compYear2}</option>}
-                          </select>
-                        </div>
                         <div 
                           className="zoom-badge" 
                           onClick={(e) => { e.stopPropagation(); setActiveZoomedChart("comparison"); }}
@@ -1571,22 +1449,22 @@ export default function ContabilidadView({
 
                     <div style={{ width:"100%", display:"flex", justifyContent:"center" }}>
                       {(() => {
-                        const isSameYear = compYear1 === compYear2
-                        const rawValues1 = comparisonData[compYear1] || Array(12).fill(0)
-                        const rawValues2 = isSameYear ? Array(12).fill(0) : (comparisonData[compYear2] || Array(12).fill(0))
-                        const rawGastos1 = comparisonGastos[compYear1] || Array(12).fill(0)
-                        const rawSueldos1 = comparisonSueldos[compYear1] || Array(12).fill(0)
+                        const isSameYear = contPeriod === "todo" || compYear1 === compYear2
+                        const rawValues1 = comparisonData[compYear1] || Array(comparisonLabels.length).fill(0)
+                        const rawValues2 = isSameYear ? Array(comparisonLabels.length).fill(0) : (comparisonData[compYear2] || Array(comparisonLabels.length).fill(0))
+                        const rawGastos1 = comparisonGastos[compYear1] || Array(comparisonLabels.length).fill(0)
+                        const rawSueldos1 = comparisonSueldos[compYear1] || Array(comparisonLabels.length).fill(0)
 
-                        const unanimatedValues1 = rawValues1.map((v, i) => convertValue(v, compYear1, i, compCurrency, dollarRate))
-                        const unanimatedValues2 = isSameYear ? Array(12).fill(0) : rawValues2.map((v, i) => convertValue(v, compYear2, i, compCurrency, dollarRate))
-                        const unanimatedGastos1 = rawGastos1.map((v, i) => convertValue(v, compYear1, i, compCurrency, dollarRate))
-                        const unanimatedSueldos1 = rawSueldos1.map((v, i) => convertValue(v, compYear1, i, compCurrency, dollarRate))
+                        const unanimatedValues1 = rawValues1
+                        const unanimatedValues2 = isSameYear ? Array(comparisonLabels.length).fill(0) : rawValues2
+                        const unanimatedGastos1 = rawGastos1
+                        const unanimatedSueldos1 = rawSueldos1
 
                         const allVals = [...unanimatedValues1]
                         if (!isSameYear) allVals.push(...unanimatedValues2)
 
                         if (stackCompBars) {
-                          MESES_ES.forEach((_, i) => {
+                          comparisonLabels.forEach((_, i) => {
                             const tot = (showCompGastos ? unanimatedGastos1[i] : 0) + (showCompSueldos ? unanimatedSueldos1[i] : 0)
                             allVals.push(tot)
                           })
@@ -1597,43 +1475,43 @@ export default function ContabilidadView({
 
                         const maxVal = Math.max(1, ...allVals)
 
-                        const isCurrentYear1 = compYear1 === new Date().getFullYear()
-                        const isCurrentYear2 = compYear2 === new Date().getFullYear()
-                        const currentMonthIdx = new Date().getMonth()
-
-                        const values1 = unanimatedValues1.map((v, i) => (isCurrentYear1 && i === currentMonthIdx ? v * chartProgress : v))
-                        const values2 = unanimatedValues2.map((v, i) => (isCurrentYear2 && i === currentMonthIdx ? v * chartProgress : v))
-                        const gastos1 = unanimatedGastos1.map((v, i) => (isCurrentYear1 && i === currentMonthIdx ? v * chartProgress : v))
-                        const sueldos1 = unanimatedSueldos1.map((v, i) => (isCurrentYear1 && i === currentMonthIdx ? v * chartProgress : v))
-
+                        const values1 = unanimatedValues1
+                        const values2 = unanimatedValues2
+                        const gastos1 = unanimatedGastos1
+                        const sueldos1 = unanimatedSueldos1
+                        const pointIntervals = Math.max(comparisonLabels.length - 1, 1)
+                        const labelStep = Math.max(1, Math.ceil(comparisonLabels.length / 12))
+                        const chartWidth = 720
                         const innerW = chartWidth - 48
+                        const plotValues1 = comparisonPlotValues(values1, compYear1)
+                        const closedValues1 = plotValues1.map((value, i) => comparisonInProgress(compYear1, i) ? null : value)
+                        const plotValues2 = isSameYear ? [] : comparisonPlotValues(values2, compYear2)
+                        const closedValues2 = plotValues2.map((value, i) => comparisonInProgress(compYear2, i) ? null : value)
 
-                        const plotValues1 = isCurrentYear1 ? values1.slice(0, currentMonthIdx + 1) : values1
-                        const plotValues2 = !isSameYear ? (isCurrentYear2 ? values2.slice(0, currentMonthIdx + 1) : values2) : []
-
-                        const points1 = plotValues1.map((value, i) => {
-                          const x = 24 + (innerW / 11) * i
+                        const points1 = closedValues1.map((value, i) => {
+                          if (value === null) return ""
+                          const x = 24 + (innerW / pointIntervals) * i
                           const y = 200 - (value / maxVal) * 160
-                          return `${i === 0 ? "M" : "L"} ${x} ${y}`
+                          return `${i === 0 || closedValues1[i - 1] === null ? "M" : "L"} ${x} ${y}`
                         }).join(" ")
                         
-                        const points2 = plotValues2.map((value, i) => {
-                          const x = 24 + (innerW / 11) * i
+                        const points2 = closedValues2.map((value, i) => {
+                          if (value === null) return ""
+                          const x = 24 + (innerW / pointIntervals) * i
                           const y = 200 - (value / maxVal) * 160
-                          return `${i === 0 ? "M" : "L"} ${x} ${y}`
+                          return `${i === 0 || closedValues2[i - 1] === null ? "M" : "L"} ${x} ${y}`
                         }).join(" ")
 
                         const totalYear1 = unanimatedValues1.reduce((a, b) => a + b, 0)
                         const totalYear2 = unanimatedValues2.reduce((a, b) => a + b, 0)
-                        const totalGastos1 = unanimatedGastos1.reduce((a, b) => a + b, 0)
+                        const totalGastos1 = unanimatedGastos1.reduce((a, b) => a + b, 0) + (comparison.expensesWithoutTime[compYear1] || 0)
                         const totalSueldos1 = unanimatedSueldos1.reduce((a, b) => a + b, 0)
-                        const totalEgresos1 = totalGastos1 + totalSueldos1
+                        const totalEgresos1 = totalGastos1 + (comparison.fixedExpenses[compYear1] || 0) + totalSueldos1
                         
-                        const commonMonthsCount = isCurrentYear1 || isCurrentYear2 ? currentMonthIdx + 1 : 12
-                        const commonSum1 = values1.slice(0, commonMonthsCount).reduce((a, b) => a + b, 0)
-                        const commonSum2 = values2.slice(0, commonMonthsCount).reduce((a, b) => a + b, 0)
+                        const commonSum1 = values1.filter((_, i) => comparisonIncomeAvailable(compYear1, i) && comparisonIncomeAvailable(compYear2, i) && !comparisonInProgress(compYear1, i) && !comparisonInProgress(compYear2, i)).reduce((a, b) => a + b, 0)
+                        const commonSum2 = values2.filter((_, i) => comparisonIncomeAvailable(compYear1, i) && comparisonIncomeAvailable(compYear2, i) && !comparisonInProgress(compYear1, i) && !comparisonInProgress(compYear2, i)).reduce((a, b) => a + b, 0)
                         const diffPct = (!isSameYear && commonSum2 > 0) ? ((commonSum1 - commonSum2) / commonSum2) * 100 : 0
-                        const labelPeriod = isCurrentYear1 || isCurrentYear2 ? ` (Ene-${MESES_ES[currentMonthIdx].slice(0,3)})` : ""
+                        const labelPeriod = ""
                         
                         return (
                           <div style={{ width: "100%" }}>
@@ -1645,8 +1523,8 @@ export default function ContabilidadView({
                               <path d={`M24 200 L${chartWidth - 24} 200`} stroke="#ddd" strokeWidth="1" />
                               
                               {/* Gastos & Sueldos Column Bars */}
-                              {MESES_ES.map((_, i) => {
-                                const x = 24 + (innerW / 11) * i
+                              {comparisonLabels.map((_, i) => {
+                                const x = 24 + (innerW / pointIntervals) * i
                                 const gVal = showCompGastos ? (gastos1[i] || 0) : 0
                                 const sVal = showCompSueldos ? (sueldos1[i] || 0) : 0
                                 const totEgresos = gVal + sVal
@@ -1670,7 +1548,7 @@ export default function ContabilidadView({
                                           rx={sVal > 0 ? 0 : 2}
                                           opacity={0.75}
                                         >
-                                          <title>{`Gastos ${MESES_ES[i]}: ${fmtComp(gVal, compCurrency)}`}</title>
+                                          <title>{`Gastos ${comparisonLabels[i]}: ${fmtComp(gVal, compCurrency)}`}</title>
                                         </rect>
                                       )}
                                       {/* Sueldos (Top - Purple) */}
@@ -1684,7 +1562,7 @@ export default function ContabilidadView({
                                           rx="2"
                                           opacity={0.75}
                                         >
-                                          <title>{`Sueldos ${MESES_ES[i]}: ${fmtComp(sVal, compCurrency)} (Egresos Totales: ${fmtComp(totEgresos, compCurrency)})`}</title>
+                                          <title>{`Sueldos ${comparisonLabels[i]}: ${fmtComp(sVal, compCurrency)} (Egresos Totales: ${fmtComp(totEgresos, compCurrency)})`}</title>
                                         </rect>
                                       )}
                                     </g>
@@ -1717,7 +1595,7 @@ export default function ContabilidadView({
                                           rx="2"
                                           opacity={0.7}
                                         >
-                                          <title>{`Gastos ${MESES_ES[i]}: ${fmtComp(gVal, compCurrency)}`}</title>
+                                          <title>{`Gastos ${comparisonLabels[i]}: ${fmtComp(gVal, compCurrency)}`}</title>
                                         </rect>
                                       )}
                                       {hasSueldos && (
@@ -1732,7 +1610,7 @@ export default function ContabilidadView({
                                           className="chart-bar-animated"
                                           style={{ animationDelay: `${i * 0.04 + 0.02}s` }}
                                         >
-                                          <title>{`Sueldos ${MESES_ES[i]}: ${fmtComp(sVal, compCurrency)}`}</title>
+                                          <title>{`Sueldos ${comparisonLabels[i]}: ${fmtComp(sVal, compCurrency)}`}</title>
                                         </rect>
                                       )}
                                     </g>
@@ -1741,31 +1619,35 @@ export default function ContabilidadView({
                               })}
 
                               {/* Year 2 Line (Orange) - only if different year */}
-                              {!isSameYear && points2 && (
+                              {!isSameYear && (
                                 <>
-                                  <path d={points2} fill="none" stroke={C.orange} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" opacity={0.65} className="chart-line-animated" />
+                                  <path d={points2} fill="none" stroke={C.orange} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" opacity={0.65} pathLength="1" className="chart-line-animated" />
                                   {plotValues2.map((value, i) => {
-                                    const x = 24 + (innerW / 11) * i
+                          if (value === null) return null
+                                    const x = 24 + (innerW / pointIntervals) * i
                                     const y = 200 - (value / maxVal) * 160
+                                    if (comparisonInProgress(compYear2, i)) return renderInProgressPoint(x, y, value, i)
                                     return <circle key={`y2-${i}`} cx={x} cy={y} r="3" fill={C.orange} opacity={0.8} />
                                   })}
                                 </>
                               )}
 
                               {/* Year 1 Line (Green) */}
-                              <path d={points1} fill="none" stroke={C.green} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="chart-line-animated" />
+                              <path d={points1} fill="none" stroke={C.green} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" pathLength="1" className="chart-line-animated" />
                               {plotValues1.map((value, i) => {
-                                const x = 24 + (innerW / 11) * i
+                          if (value === null) return null
+                                const x = 24 + (innerW / pointIntervals) * i
                                 const y = 200 - (value / maxVal) * 160
+                                if (comparisonInProgress(compYear1, i)) return renderInProgressPoint(x, y, value, i)
                                 return <circle key={`y1-${i}`} cx={x} cy={y} r="3.5" fill={C.green} />
                               })}
 
                               {/* X-axis labels for months */}
-                              {["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"].map((m, i) => {
-                                const x = 24 + (innerW / 11) * i
+                              {comparisonLabels.map((m, i) => {
+                                const x = 24 + (innerW / pointIntervals) * i
                                 return (
                                   <text key={i} x={x} y={212} fill={C.textSoft} fontSize="7" textAnchor="middle">
-                                    {m}
+                                    {i % labelStep === 0 || i === comparisonLabels.length - 1 ? m : ""}
                                   </text>
                                 )
                               })}
@@ -1774,24 +1656,24 @@ export default function ContabilidadView({
                             <div style={{ display:"flex", justifyContent: "center", gap:14, marginTop:8, flexWrap: "wrap", alignItems: "center" }}>
                               <div style={{ display:"flex", alignItems:"center", gap:5, fontSize:9, color:C.textSoft }}>
                                 <span style={{ width:8, height:8, borderRadius:99, background:C.green }}></span>
-                                <span>Fact. {compYear1}: <strong>{fmtComp(totalYear1, compCurrency)}</strong></span>
+                                <span>Fact. {contPeriod === "todo" ? "histórica" : compYear1}: <strong>{formatComparisonIncome(compYear1, totalYear1)}</strong></span>
                               </div>
                               {!isSameYear && (
                                 <div style={{ display:"flex", alignItems:"center", gap:5, fontSize:9, color:C.textSoft }}>
                                   <span style={{ width:8, height:8, borderRadius:99, background:C.orange }}></span>
-                                  <span>Fact. {compYear2}: <strong>{fmtComp(totalYear2, compCurrency)}</strong></span>
+                                  <span>Fact. {compYear2}: <strong>{formatComparisonIncome(compYear2, totalYear2)}</strong></span>
                                 </div>
                               )}
                               {showCompGastos && (
                                 <div style={{ display:"flex", alignItems:"center", gap:5, fontSize:9, color:"#e8793a" }}>
                                   <span style={{ width:8, height:8, borderRadius:2, background:"#e8793a" }}></span>
-                                  <span>Gastos {compYear1}: <strong>{fmtComp(totalGastos1, compCurrency)}</strong></span>
+                                  <span>Gastos {contPeriod === "dia" ? "del día" : contPeriod === "todo" ? "históricos" : compYear1}: <strong>{fmtComp(totalGastos1 + (comparison.fixedExpenses[compYear1] || 0), compCurrency)}</strong></span>
                                 </div>
                               )}
                               {showCompSueldos && (
                                 <div style={{ display:"flex", alignItems:"center", gap:5, fontSize:9, color:"#7c3aed" }}>
                                   <span style={{ width:8, height:8, borderRadius:2, background:"#7c3aed" }}></span>
-                                  <span>Sueldos {compYear1}: <strong>{fmtComp(totalSueldos1, compCurrency)}</strong></span>
+                                  <span>Sueldos {contPeriod === "todo" ? "históricos" : compYear1}: <strong>{fmtComp(totalSueldos1, compCurrency)}</strong></span>
                                 </div>
                               )}
                               {stackCompBars && (showCompGastos || showCompSueldos) && (
@@ -3434,7 +3316,7 @@ export default function ContabilidadView({
             >
               {activeZoomedChart === "prof" ? "Ingresos por Profesional" :
                activeZoomedChart === "daily" ? "Actividad Diaria Detallada" :
-               activeZoomedChart === "comparison" ? "Comparativa de Facturación Mensual" :
+               activeZoomedChart === "comparison" ? comparisonTitle :
                "Rendimiento por Día de Semana"}
             </ModalHeader>
 
@@ -3690,21 +3572,21 @@ export default function ContabilidadView({
               })()}
 
               {activeZoomedChart === "comparison" && (() => {
-                const isSameYear = compYear1 === compYear2
-                const rawValues1 = comparisonData[compYear1] || Array(12).fill(0)
-                const rawValues2 = isSameYear ? Array(12).fill(0) : (comparisonData[compYear2] || Array(12).fill(0))
-                const rawGastos1 = comparisonGastos[compYear1] || Array(12).fill(0)
-                const rawSueldos1 = comparisonSueldos[compYear1] || Array(12).fill(0)
+                const isSameYear = contPeriod === "todo" || compYear1 === compYear2
+                const rawValues1 = comparisonData[compYear1] || Array(comparisonLabels.length).fill(0)
+                const rawValues2 = isSameYear ? Array(comparisonLabels.length).fill(0) : (comparisonData[compYear2] || Array(comparisonLabels.length).fill(0))
+                const rawGastos1 = comparisonGastos[compYear1] || Array(comparisonLabels.length).fill(0)
+                const rawSueldos1 = comparisonSueldos[compYear1] || Array(comparisonLabels.length).fill(0)
 
-                const unanimatedValues1 = rawValues1.map((v, i) => convertValue(v, compYear1, i, compCurrency, dollarRate))
-                const unanimatedValues2 = isSameYear ? Array(12).fill(0) : rawValues2.map((v, i) => convertValue(v, compYear2, i, compCurrency, dollarRate))
-                const unanimatedGastos1 = rawGastos1.map((v, i) => convertValue(v, compYear1, i, compCurrency, dollarRate))
-                const unanimatedSueldos1 = rawSueldos1.map((v, i) => convertValue(v, compYear1, i, compCurrency, dollarRate))
+                const unanimatedValues1 = rawValues1
+                const unanimatedValues2 = isSameYear ? Array(comparisonLabels.length).fill(0) : rawValues2
+                const unanimatedGastos1 = rawGastos1
+                const unanimatedSueldos1 = rawSueldos1
 
                 const allVals = [...unanimatedValues1]
                 if (!isSameYear) allVals.push(...unanimatedValues2)
                 if (stackCompBars) {
-                  MESES_ES.forEach((_, i) => {
+                  comparisonLabels.forEach((_, i) => {
                     const tot = (showCompGastos ? unanimatedGastos1[i] : 0) + (showCompSueldos ? unanimatedSueldos1[i] : 0)
                     allVals.push(tot)
                   })
@@ -3715,48 +3597,47 @@ export default function ContabilidadView({
 
                 const maxVal = Math.max(1, ...allVals)
 
-                const isCurrentYear1 = compYear1 === new Date().getFullYear()
-                const isCurrentYear2 = compYear2 === new Date().getFullYear()
-                const currentMonthIdx = new Date().getMonth()
-
-                const values1 = unanimatedValues1.map((v, i) => (isCurrentYear1 && i === currentMonthIdx ? v * chartProgress : v))
-                const values2 = unanimatedValues2.map((v, i) => (isCurrentYear2 && i === currentMonthIdx ? v * chartProgress : v))
-                const gastos1 = unanimatedGastos1.map((v, i) => (isCurrentYear1 && i === currentMonthIdx ? v * chartProgress : v))
-                const sueldos1 = unanimatedSueldos1.map((v, i) => (isCurrentYear1 && i === currentMonthIdx ? v * chartProgress : v))
-
+                const values1 = unanimatedValues1
+                const values2 = unanimatedValues2
+                const gastos1 = unanimatedGastos1
+                const sueldos1 = unanimatedSueldos1
+                const pointIntervals = Math.max(comparisonLabels.length - 1, 1)
+                const labelStep = Math.max(1, Math.ceil(comparisonLabels.length / 12))
                 const zoomWidth = 960
                 const zoomInnerWidth = 865
                 const zoomHeight = 360
                 const gridPoints = [...Array(6)].map((_, idx) => 30 + idx * 60)
+                const plotValues1 = comparisonPlotValues(values1, compYear1)
+                const closedValues1 = plotValues1.map((value, i) => comparisonInProgress(compYear1, i) ? null : value)
+                const plotValues2 = isSameYear ? [] : comparisonPlotValues(values2, compYear2)
+                const closedValues2 = plotValues2.map((value, i) => comparisonInProgress(compYear2, i) ? null : value)
 
-                const plotValues1 = isCurrentYear1 ? values1.slice(0, currentMonthIdx + 1) : values1
-                const plotValues2 = !isSameYear ? (isCurrentYear2 ? values2.slice(0, currentMonthIdx + 1) : values2) : []
-
-                const points1 = plotValues1.map((value, i) => {
-                  const x = 80 + (zoomInnerWidth / 11) * i
+                const points1 = closedValues1.map((value, i) => {
+                          if (value === null) return ""
+                  const x = 80 + (zoomInnerWidth / pointIntervals) * i
                   const y = 330 - (value / maxVal) * 300
-                  return `${i === 0 ? "M" : "L"} ${x} ${y}`
+                  return `${i === 0 || closedValues1[i - 1] === null ? "M" : "L"} ${x} ${y}`
                 }).join(" ")
 
-                const points2 = !isSameYear ? plotValues2.map((value, i) => {
-                  const x = 80 + (zoomInnerWidth / 11) * i
+                const points2 = !isSameYear ? closedValues2.map((value, i) => {
+                          if (value === null) return ""
+                  const x = 80 + (zoomInnerWidth / pointIntervals) * i
                   const y = 330 - (value / maxVal) * 300
-                  return `${i === 0 ? "M" : "L"} ${x} ${y}`
+                  return `${i === 0 || closedValues2[i - 1] === null ? "M" : "L"} ${x} ${y}`
                 }).join(" ") : null
 
                 const totalYear1 = unanimatedValues1.reduce((a, b) => a + b, 0)
                 const totalYear2 = unanimatedValues2.reduce((a, b) => a + b, 0)
-                const totalGastos1 = unanimatedGastos1.reduce((a, b) => a + b, 0)
+                const totalGastos1 = unanimatedGastos1.reduce((a, b) => a + b, 0) + (comparison.expensesWithoutTime[compYear1] || 0) + (comparison.fixedExpenses[compYear1] || 0)
                 const totalSueldos1 = unanimatedSueldos1.reduce((a, b) => a + b, 0)
                 const totalEgresos1 = totalGastos1 + totalSueldos1
 
-                const commonMonthsCount = isCurrentYear1 || isCurrentYear2 ? currentMonthIdx + 1 : 12
-                const commonSum1 = values1.slice(0, commonMonthsCount).reduce((a, b) => a + b, 0)
-                const commonSum2 = values2.slice(0, commonMonthsCount).reduce((a, b) => a + b, 0)
+                const commonSum1 = values1.filter((_, i) => comparisonIncomeAvailable(compYear1, i) && comparisonIncomeAvailable(compYear2, i) && !comparisonInProgress(compYear1, i) && !comparisonInProgress(compYear2, i)).reduce((a, b) => a + b, 0)
+                const commonSum2 = values2.filter((_, i) => comparisonIncomeAvailable(compYear1, i) && comparisonIncomeAvailable(compYear2, i) && !comparisonInProgress(compYear1, i) && !comparisonInProgress(compYear2, i)).reduce((a, b) => a + b, 0)
 
                 const diffTotal = commonSum1 - commonSum2
                 const diffTotalPct = commonSum2 > 0 ? (diffTotal / commonSum2) * 100 : 0
-                const labelPeriod = isCurrentYear1 || isCurrentYear2 ? ` (Ene-${MESES_ES[currentMonthIdx].slice(0,3)})` : ""
+                const labelPeriod = ""
 
                 return (
                   <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
@@ -3897,8 +3778,8 @@ export default function ContabilidadView({
 
                         <line x1={80} y1={330} x2={zoomWidth - 15} y2={330} stroke="#cbd5ce" strokeWidth="1.5" />
 
-                        {MESES_ES.map((_, i) => {
-                          const x = 80 + (zoomInnerWidth / 11) * i
+                        {comparisonLabels.map((_, i) => {
+                          const x = 80 + (zoomInnerWidth / pointIntervals) * i
                           const gVal = showCompGastos ? (gastos1[i] || 0) : 0
                           const sVal = showCompSueldos ? (sueldos1[i] || 0) : 0
                           const totEgresos = gVal + sVal
@@ -3922,7 +3803,7 @@ export default function ContabilidadView({
                               <g key={`z-bars-${i}`}>
                                 {gVal > 0 && hGasto > 0 && <rect x={xPos} y={330 - hGasto} width={barW} height={hGasto} fill="#e8793a" rx={sVal > 0 ? 0 : 3} opacity={0.75} />}
                                 {sVal > 0 && hSueldo > 0 && <rect x={xPos} y={330 - hGasto - hSueldo} width={barW} height={hSueldo} fill="#7c3aed" rx="3" opacity={0.75} />}
-                                {showCompLabels && hTotal > 15 && (
+                                {showCompLabels && !comparisonInProgress(compYear1, i) && hTotal > 15 && (
                                   <text x={x} y={labelYEg} fill="#475569" fontSize="7.5" fontWeight="bold" textAnchor="middle" style={{ paintOrder: "stroke", stroke: "#ffffff", strokeWidth: "3px" }}>
                                     {fmtComp(totEgresos, compCurrency)}
                                   </text>
@@ -3941,13 +3822,13 @@ export default function ContabilidadView({
                                 {hasGastos && (
                                   <g key={`z-gasto-${i}`}>
                                     <rect x={xGasto} y={330 - hGasto} width={barW} height={hGasto} fill="#e8793a" rx="3" opacity={0.75} />
-                                    {showCompLabels && hGasto > 20 && <text x={xGasto + barW / 2} y={330 - hGasto - 4} fill="#d97706" fontSize="7.5" fontWeight="bold" textAnchor="middle" style={{ paintOrder: "stroke", stroke: "#ffffff", strokeWidth: "3px" }}>{fmtComp(gVal, compCurrency)}</text>}
+                                    {showCompLabels && !comparisonInProgress(compYear1, i) && hGasto > 20 && <text x={xGasto + barW / 2} y={330 - hGasto - 4} fill="#d97706" fontSize="7.5" fontWeight="bold" textAnchor="middle" style={{ paintOrder: "stroke", stroke: "#ffffff", strokeWidth: "3px" }}>{fmtComp(gVal, compCurrency)}</text>}
                                   </g>
                                 )}
                                 {hasSueldos && (
                                   <g key={`z-sueldo-${i}`}>
                                     <rect x={xSueldo} y={330 - hSueldo} width={barW} height={hSueldo} fill="#7c3aed" rx="3" opacity={0.75} />
-                                    {showCompLabels && hSueldo > 20 && <text x={xSueldo + barW / 2} y={330 - hSueldo - 4} fill="#6d28d9" fontSize="7.5" fontWeight="bold" textAnchor="middle" style={{ paintOrder: "stroke", stroke: "#ffffff", strokeWidth: "3px" }}>{fmtComp(sVal, compCurrency)}</text>}
+                                    {showCompLabels && !comparisonInProgress(compYear1, i) && hSueldo > 20 && <text x={xSueldo + barW / 2} y={330 - hSueldo - 4} fill="#6d28d9" fontSize="7.5" fontWeight="bold" textAnchor="middle" style={{ paintOrder: "stroke", stroke: "#ffffff", strokeWidth: "3px" }}>{fmtComp(sVal, compCurrency)}</text>}
                                   </g>
                                 )}
                               </g>
@@ -3955,13 +3836,15 @@ export default function ContabilidadView({
                           }
                         })}
 
-                        {!isSameYear && points2 && (
+                        {!isSameYear && (
                           <>
-                            <path d={points2} fill="none" stroke={C.orange} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" opacity={0.6} className="chart-line-animated" />
+                            <path d={points2} fill="none" stroke={C.orange} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" opacity={0.6} pathLength="1" className="chart-line-animated" />
                             {plotValues2.map((value, i) => {
-                              const x = 80 + (zoomInnerWidth / 11) * i
+                          if (value === null) return null
+                              const x = 80 + (zoomInnerWidth / pointIntervals) * i
                               const y1 = 330 - ((plotValues1[i] || 0) / maxVal) * 300
                               const y2 = 330 - (value / maxVal) * 300
+                              if (comparisonInProgress(compYear2, i)) return renderInProgressPoint(x, y2, value, i, true)
                               const hasValue1 = (plotValues1[i] || 0) > 0
                               let labelY2 = y2 - 10
                               if (hasValue1 && Math.abs(y1 - y2) < 22) labelY2 = y1 <= y2 ? y2 + 18 : y2 - 12
@@ -3975,10 +3858,12 @@ export default function ContabilidadView({
                           </>
                         )}
 
-                        <path d={points1} fill="none" stroke={C.green} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" className="chart-line-animated" />
+                        <path d={points1} fill="none" stroke={C.green} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" pathLength="1" className="chart-line-animated" />
                         {plotValues1.map((value, i) => {
-                          const x = 80 + (zoomInnerWidth / 11) * i
+                          if (value === null) return null
+                          const x = 80 + (zoomInnerWidth / pointIntervals) * i
                           const y1 = 330 - (value / maxVal) * 300
+                          if (comparisonInProgress(compYear1, i)) return renderInProgressPoint(x, y1, value, i, true)
                           const y2 = !isSameYear ? 330 - ((plotValues2[i] || 0) / maxVal) * 300 : -999
                           const hasValue2 = !isSameYear && (plotValues2[i] || 0) > 0
                           let labelY1 = y1 - 10
@@ -3991,11 +3876,11 @@ export default function ContabilidadView({
                           )
                         })}
 
-                        {MESES_ES.map((m, i) => {
-                          const x = 80 + (zoomInnerWidth / 11) * i
+                        {comparisonLabels.map((m, i) => {
+                          const x = 80 + (zoomInnerWidth / pointIntervals) * i
                           return (
                             <g key={i}>
-                              <text x={x} y={352} fill={C.textSoft} fontSize="9.5" textAnchor="middle" fontWeight="bold">{m.charAt(0).toUpperCase() + m.slice(1)}</text>
+                              <text x={x} y={352} fill={C.textSoft} fontSize="9.5" textAnchor="middle" fontWeight="bold">{i % labelStep === 0 || i === comparisonLabels.length - 1 ? m : ""}</text>
                               <line x1={x} y1={330} x2={x} y2={334} stroke="#cbd5ce" strokeWidth="1" />
                             </g>
                           )
@@ -4003,11 +3888,15 @@ export default function ContabilidadView({
                       </svg>
                     </div>
 
+                    {contPeriod === "dia" && showCompGastos && <div style={{ display: "flex", justifyContent: "center", gap: 5, alignItems: "center", fontSize: 11, color: C.textSoft }}>
+                      <span style={{ width: 8, height: 8, borderRadius: 2, background: C.orange }} />
+                      Gastos del día: <strong>{fmtComp(totalGastos1, compCurrency)}</strong>
+                    </div>}
                     <div style={{ background: C.white, borderRadius: 14, border: `1.5px solid ${C.border}`, padding: "20px", overflowX: "auto" }}>
                       <table style={{ width: "100%", borderCollapse: "collapse" }}>
                         <thead>
                           <tr style={{ borderBottom: `2px solid ${C.border}`, textAlign: "left" }}>
-                            <th style={{ padding: "10px 8px", fontSize: 11, color: C.textSoft }}>Mes</th>
+                            <th style={{ padding: "10px 8px", fontSize: 11, color: C.textSoft }}>{comparison.unit === "hora" ? "Hora" : comparison.unit === "día" ? "Día" : comparison.unit === "mes" ? "Mes" : "Año"}</th>
                             <th style={{ padding: "10px 8px", fontSize: 11, color: C.green }}>Facturado {compYear1}</th>
                             {showCompGastos && <th style={{ padding: "10px 8px", fontSize: 11, color: "#e8793a" }}>Gastos {compYear1}</th>}
                             {showCompSueldos && <th style={{ padding: "10px 8px", fontSize: 11, color: "#7c3aed" }}>Sueldos {compYear1}</th>}
@@ -4018,27 +3907,26 @@ export default function ContabilidadView({
                           </tr>
                         </thead>
                         <tbody>
-                          {MESES_ES.map((monthName, idx) => {
+                          {comparisonLabels.map((monthName, idx) => {
                             const val1 = values1[idx]
                             const val2 = values2[idx]
                             const gastoVal1 = gastos1[idx]
                             const sueldoVal1 = sueldos1[idx]
                             const egresoVal1 = (showCompGastos ? gastoVal1 : 0) + (showCompSueldos ? sueldoVal1 : 0)
-                            const isFuture1 = isCurrentYear1 && idx > currentMonthIdx
-                            const isFuture2 = isCurrentYear2 && idx > currentMonthIdx
-                            const displayVal1 = isFuture1 ? null : val1
-                            const displayVal2 = isFuture2 ? null : val2
+                            const displayVal1 = comparisonIncomeAvailable(compYear1, idx) ? val1 : null
+                            const displayVal2 = comparisonIncomeAvailable(compYear2, idx) ? val2 : null
                             const hasData1 = displayVal1 !== null
                             const hasData2 = displayVal2 !== null
-                            const diff = !isSameYear && hasData1 && hasData2 ? displayVal1 - displayVal2 : null
+                            const diff = !isSameYear && hasData1 && hasData2 && !comparisonInProgress(compYear1, idx) && !comparisonInProgress(compYear2, idx) ? displayVal1 - displayVal2 : null
                             const pct = !isSameYear && hasData1 && hasData2 && displayVal2 > 0 ? (diff / displayVal2) * 100 : 0
                             return (
                               <tr key={idx} style={{ borderBottom: `1.5px solid #f9f9f9` }}>
                                 <td style={{ padding: "10px 8px", fontSize: 12, fontWeight: "bold", color: C.text }}>
                                   {monthName.charAt(0).toUpperCase() + monthName.slice(1)}
+                                  {comparisonInProgress(compYear1, idx) && <span style={{ display: "block", color: "#98722d", fontSize: 10, marginTop: 3 }}>En curso</span>}
                                 </td>
                                 <td style={{ padding: "10px 8px", fontSize: 12, color: C.green, fontWeight: "bold" }}>
-                                  {hasData1 ? (displayVal1 > 0 ? fmtComp(displayVal1, compCurrency) : "—") : <span style={{ color: C.textSoft }}>—</span>}
+                                  {hasData1 ? (displayVal1 > 0 ? fmtComp(displayVal1, compCurrency) : "—") : <span style={{ color: C.textSoft }}>{comparison.incomeAvailable[compYear1]?.[idx] === false ? "Sin detalle" : "—"}</span>}
                                 </td>
                                 {showCompGastos && (
                                   <td style={{ padding: "10px 8px", fontSize: 12, color: "#e8793a" }}>
@@ -4057,7 +3945,7 @@ export default function ContabilidadView({
                                 )}
                                 {!isSameYear && (
                                   <td style={{ padding: "10px 8px", fontSize: 12, color: C.orange }}>
-                                    {hasData2 ? (displayVal2 > 0 ? fmtComp(displayVal2, compCurrency) : "—") : <span style={{ color: C.textSoft }}>—</span>}
+                                    {hasData2 ? (displayVal2 > 0 ? fmtComp(displayVal2, compCurrency) : "—") : <span style={{ color: C.textSoft }}>{comparison.incomeAvailable[compYear2]?.[idx] === false ? "Sin detalle" : "—"}</span>}
                                   </td>
                                 )}
                                 {!isSameYear && (
@@ -4067,7 +3955,7 @@ export default function ContabilidadView({
                                 )}
                                 {!isSameYear && (
                                   <td style={{ padding: "10px 8px", fontSize: 12, textAlign: "right" }}>
-                                    {hasData1 && hasData2 && displayVal2 > 0 ? (
+                                    {diff !== null && hasData1 && hasData2 && displayVal2 > 0 ? (
                                       <span style={{ 
                                         display: "inline-block", 
                                         padding: "3px 8px", 
@@ -4086,17 +3974,20 @@ export default function ContabilidadView({
                             )
                           })}
                           <tr style={{ borderTop: `2px solid ${C.border}`, background: C.cream, fontWeight: "bold" }}>
-                            <td style={{ padding: "12px 8px", fontSize: 12, color: C.text }}>Total Anual</td>
-                            <td style={{ padding: "12px 8px", fontSize: 12, color: C.green }}>{fmtComp(totalYear1, compCurrency)}</td>
+                            <td style={{ padding: "12px 8px", fontSize: 12, color: C.text }}>Total del período</td>
+                            <td style={{ padding: "12px 8px", fontSize: 12, color: C.green }}>{formatComparisonIncome(compYear1, totalYear1)}</td>
                             {showCompGastos && <td style={{ padding: "12px 8px", fontSize: 12, color: "#e8793a" }}>{fmtComp(totalGastos1, compCurrency)}</td>}
                             {showCompSueldos && <td style={{ padding: "12px 8px", fontSize: 12, color: "#7c3aed" }}>{fmtComp(totalSueldos1, compCurrency)}</td>}
-                            <td style={{ padding: "12px 8px", fontSize: 12, color: C.orange }}>{fmtComp(totalYear2, compCurrency)}</td>
+                            {stackCompBars && (showCompGastos || showCompSueldos) && <td style={{ padding: "12px 8px", fontSize: 12 }}>{fmtComp((showCompGastos ? totalGastos1 : 0) + (showCompSueldos ? totalSueldos1 : 0), compCurrency)}</td>}
+                            {!isSameYear && <>
+                            <td style={{ padding: "12px 8px", fontSize: 12, color: C.orange }}>{formatComparisonIncome(compYear2, totalYear2)}</td>
                             <td style={{ padding: "12px 8px", fontSize: 12, color: diffTotal >= 0 ? C.green : "#c04040" }}>
                               {diffTotal > 0 ? `+${fmtComp(diffTotal, compCurrency)}` : diffTotal < 0 ? fmtComp(diffTotal, compCurrency) : "—"}
                             </td>
                             <td style={{ padding: "12px 8px", fontSize: 12, textAlign: "right", color: diffTotal >= 0 ? C.green : "#c04040" }}>
                               {commonSum2 > 0 ? (diffTotalPct >= 0 ? `+${diffTotalPct.toFixed(1)}%` : `${diffTotalPct.toFixed(1)}%`) : "—"}{labelPeriod}
                             </td>
+                            </>}
                           </tr>
                         </tbody>
                       </table>
