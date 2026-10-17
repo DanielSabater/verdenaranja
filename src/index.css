@@ -160,13 +160,14 @@ select {
   cursor: pointer;
   white-space: nowrap;
   font-family: inherit;
+  transition: background .22s ease, box-shadow .22s ease;
 }
 
 .payment-method-summary:hover,
 .payment-method-summary:focus-visible {
-  background: #edf7ef;
-  outline: 2px solid var(--method-color);
-  outline-offset: 1px;
+  outline: none;
+  background: color-mix(in srgb, var(--method-color) 14%, white);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--method-color) 32%, transparent), 0 4px 12px color-mix(in srgb, var(--method-color) 18%, transparent);
 }
 
 .payment-method-label { font-size: 9px; }
@@ -306,11 +307,29 @@ select {
   }
 }
 
-/* Prevent date carousel overlapping with calendar/actions island on desktop */
+/* Cada isla ocupa su propia columna; solo el carrusel cede ancho. */
 @media (min-width: 1101px) {
-  .date-carousel-island {
-    max-width: calc(100% - 380px) !important;
+  .date-strip {
+    display: grid !important;
+    grid-template-columns: minmax(220px, 1fr) minmax(0, var(--date-carousel-width)) minmax(220px, 1fr);
+    gap: 16px;
   }
+
+  .date-carousel-island {
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .date-notebook-island,
+  .date-actions-island {
+    position: static !important;
+    grid-row: 1;
+  }
+
+  .date-notebook-island { grid-column: 1; justify-self: start; }
+  .date-actions-island { grid-column: 3; justify-self: end; }
 }
 
 /* Hide scrollbar for date carousel */
@@ -1231,16 +1250,16 @@ select {
 
 .daily-summary-btn:hover,
 .daily-summary-btn.force-hover {
-  transform: scale(1.005) !important;
-  box-shadow: 0 0 0 2px #3a7d44, 0 4px 20px rgba(58, 125, 68, .35), 0 0 24px rgba(58, 125, 68, .20) !important;
+  box-shadow: 0 0 20px rgba(58, 125, 68, .3), 0 4px 14px rgba(58, 125, 68, .18) !important;
 }
 
 .daily-summary-btn.paid:hover {
-  box-shadow: 0 0 0 2px #3a7d44, 0 4px 20px rgba(58, 125, 68, .35), 0 0 24px rgba(58, 125, 68, .20) !important;
+  box-shadow: 0 0 22px rgba(58, 125, 68, .38), 0 4px 14px rgba(58, 125, 68, .22) !important;
 }
 
 .daily-summary-btn.unpaid:hover {
-  box-shadow: 0 0 0 2px #e8793a, 0 4px 20px rgba(232, 121, 58, .35), 0 0 24px rgba(232, 121, 58, .20) !important;
+  background: #fff0e5 !important;
+  box-shadow: 0 0 22px rgba(232, 121, 58, .32), 0 4px 14px rgba(232, 121, 58, .18) !important;
 }
 
 .daily-summary-btn:active {

@@ -567,12 +567,6 @@ export const AppHeader = memo(function AppHeader({
                         {scheduledStats.pctCount}%
                       </span>
 
-                      {scheduledStats.isFullyPaid && (
-                        <span style={{ fontSize: 7, color: "#ffffff", fontWeight: "bold", background: "rgba(255,255,255,0.25)", padding: "1px 3px", borderRadius: 3, letterSpacing: "0.5px" }}>
-                          COMPLETO
-                        </span>
-                      )}
-
                       {pastUnpaidAppts.length > 0 && (
                         <span
                           style={{
@@ -736,8 +730,8 @@ export const AppHeader = memo(function AppHeader({
                 </div>
 
                 {/* Porcentaje y Conteo (SIN MONTOS DE DINERO) */}
-                <div style={{ display: "flex", flexDirection: "row-reverse", alignItems: "center", gap: 8, textAlign: "left", lineHeight: 1.15 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", position: "relative", height: 26, minWidth: 48, textAlign: "center", lineHeight: 1.15 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4, visibility: isDailySummaryHovered ? "hidden" : "visible" }}>
                     <span
                       style={{
                         fontSize: 16,
@@ -749,12 +743,6 @@ export const AppHeader = memo(function AppHeader({
                     >
                       {scheduledStats.pctCount}%
                     </span>
-
-                    {scheduledStats.isFullyPaid && (
-                      <span style={{ fontSize: 7.5, color: "#ffffff", fontWeight: "bold", background: "rgba(255,255,255,0.25)", padding: "1px 4px", borderRadius: 4, letterSpacing: "0.5px" }}>
-                        COMPLETO
-                      </span>
-                    )}
 
                     {pastUnpaidAppts.length > 0 && (
                       <span
@@ -780,6 +768,7 @@ export const AppHeader = memo(function AppHeader({
                   </div>
 
                   {isDailySummaryHovered && (
+                    <span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
                     <span
                       className="payment-count-diagonal"
                       aria-label={`${scheduledStats.paidCount} de ${scheduledStats.totalCount} turnos cobrados`}
@@ -788,6 +777,7 @@ export const AppHeader = memo(function AppHeader({
                       <span className="payment-count-paid">{scheduledStats.paidCount}</span>
                       <span className="payment-count-slash" aria-hidden="true">/</span>
                       <span className="payment-count-total">{scheduledStats.totalCount}</span>
+                    </span>
                     </span>
                   )}
                 </div>
@@ -1313,6 +1303,7 @@ export const AppHeader = memo(function AppHeader({
             onDragOver={(e) => { e.preventDefault() }}
             style={{
             position: "fixed", bottom: 8, left: 16, right: 16,
+            "--date-carousel-width": `${daysInMonth * 38 + 228}px`,
             zIndex: 98,
             display: "flex", alignItems: "center", justifyContent: "center",
             pointerEvents: "none",
@@ -1340,13 +1331,11 @@ export const AppHeader = memo(function AppHeader({
                 setCurrentDate(dk)
               }} style={{...btnNav, border: "none", background: C.cream, width: 34, height: 34}}>‹</button>
 
-              <div ref={dateStripRef} className="date-carousel-scroll" style={{ flex: 1, overflowX: "auto", WebkitOverflowScrolling: "touch", display: "flex", alignItems: "center", gap: 2 }}>
+              <div ref={dateStripRef} className="date-carousel-scroll" style={{ flex: 1, minWidth: 0, overflowX: "auto", WebkitOverflowScrolling: "touch", display: "flex", alignItems: "center", gap: 2 }}>
                 <div style={{ flex: 1, minWidth: 0 }} />
                 {Array.from({ length: 31 }, (_, i) => {
                   const day = i + 1
-                  if (day > daysInMonth) {
-                    return <div key={`placeholder-${i}`} style={{ minWidth: 36, height: 46, flexShrink: 0 }} />
-                  }
+                  if (day > daysInMonth) return null
                   const dk = `${y}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`
                   const d = new Date(dk + "T12:00:00")
                   const dow = d.getDay()
@@ -1411,7 +1400,7 @@ export const AppHeader = memo(function AppHeader({
             </div>
 
             {/* Island 3: Notepad (Bottom Left) */}
-            <div style={{
+            <div className="date-notebook-island" style={{
               position: "absolute", left: 0,
               background: isLiquid ? "rgba(255, 255, 255, 0.45)" : C.white,
               backdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none",
@@ -1455,7 +1444,7 @@ export const AppHeader = memo(function AppHeader({
             </div>
 
             {/* Island 2: Actions */}
-            <div style={{
+            <div className="date-actions-island" style={{
               position: "absolute", right: 0,
               background: isLiquid ? "rgba(255, 255, 255, 0.45)" : C.white,
               backdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none",

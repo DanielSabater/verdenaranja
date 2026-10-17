@@ -1,5 +1,5 @@
 import { useMobileBackLayer } from "../../hooks/useMobileBack.js"
-import { useState, useEffect, useRef, useMemo, useCallback } from "react"
+import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from "react"
 import { createPortal } from "react-dom"
 import { C } from "../../constants/colors.js"
 import { formatRelativeTime } from "../../utils/history.js"
@@ -63,7 +63,20 @@ export function NotebookModal({
   const [toast, setToast] = useState(null) // { message, onUndo }
 
   // Animación de pase de página: "forward" | "backward" | null
-  const [pageTurnAnim, setPageTurnAnim] = useState(null)
+  const bookRef = useRef(null)
+  const leftSheetRef = useRef(null)
+  const rightSheetRef = useRef(null)
+  const mobileSheetRef = useRef(null)
+  const turnLayerRef = useRef(null)
+  const turnAnimationRef = useRef(null)
+  const pendingPageTurnRef = useRef(null)
+
+  useEffect(() => () => {
+    pendingPageTurnRef.current = null
+    turnAnimationRef.current?.cancel()
+    turnLayerRef.current?.remove()
+    turnLayerRef.current = null
+  }, [isOpen, isMobile])
 
   // Cantidad de hojas de notas normales (mínimo 2 en escritorio, 1 en móvil)
   // El Historial es la página final ubicada después de todas las hojas de notas
@@ -103,6 +116,14 @@ export function NotebookModal({
 
   // Refs a inputs de cada renglón: key = `${pageIndex}-${lineIndex}`
   const inputRefs = useRef({})
+
+  // React ya colocó el contenido nuevo: preparar ambas caras antes de pintar.
+  useLayoutEffect(() => {
+    const startTurn = pendingPageTurnRef.current
+    pendingPageTurnRef.current = null
+    startTurn?.()
+  }, [currentDesktopPage, currentMobilePage, userNotePages])
+
 
   // Guardar páginas, títulos y pies en localStorage
   useEffect(() => {
@@ -169,11 +190,81 @@ export function NotebookModal({
 
   const triggerPageAnim = useCallback((direction) => {
     playPageSound()
-    setPageTurnAnim(direction)
-    setTimeout(() => setPageTurnAnim(null), 360)
-  }, [])
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
+    const book = bookRef.current
+    const source = isMobile ? mobileSheetRef.current : direction === "forward" ? rightSheetRef.current : leftSheetRef.current
+    if (!book || !source || turnLayerRef.current) return
+    const bounds = book.getBoundingClientRect()
+    const page = source.getBoundingClientRect()
+    // Evitar que la proyección 3D crezca por fuera del alto visible.
+    const viewportHeight = window.visualViewport?.height || window.innerHeight
+    const verticalRoom = Math.max(8, Math.min(page.top, viewportHeight - page.bottom) - 12)
+    const maxProjection = (page.height + verticalRoom * 2) / page.height
+    const perspective = Math.max(1800, page.width / (1 - 1 / maxProjection))
+    const layer = document.createElement("div")
+    Object.assign(layer.style, { position: "absolute", inset: "0", zIndex: "35", perspective: `${perspective}px`, pointerEvents: "auto", borderRadius: "inherit" })
+    layer.setAttribute("aria-hidden", "true")
+    layer.inert = true
+    const snapshot = (sheet) => {
+      const copy = sheet.cloneNode(true)
+      copy.querySelectorAll("[id]").forEach(el => el.removeAttribute("id"))
+      const originals = sheet.querySelectorAll("input, textarea")
+      // Pintar texto normal en la copia: los campos nativos pueden recomponerse
+      // recién al terminar una transformación 3D y hacer aparecer las letras tarde.
+      copy.querySelectorAll("input, textarea").forEach((el, i) => {
+        const original = originals[i]
+        const computed = window.getComputedStyle(original)
+        const printed = document.createElement("span")
+        printed.style.cssText = el.style.cssText
+        Object.assign(printed.style, {
+          display: "flex", alignItems: "center", justifyContent: computed.textAlign === "right" ? "flex-end" : computed.textAlign === "center" ? "center" : "flex-start", boxSizing: computed.boxSizing,
+          width: `${original.offsetWidth}px`, height: `${original.offsetHeight}px`,
+          font: computed.font, lineHeight: computed.lineHeight,
+          letterSpacing: computed.letterSpacing, textAlign: computed.textAlign,
+          whiteSpace: "pre", overflow: "hidden", textOverflow: "clip",
+          color: original.value ? computed.color : "#b0c8b4",
+          userSelect: "none",
+        })
+        printed.textContent = original.value || original.placeholder || ""
+        el.replaceWith(printed)
+      })
+      Object.assign(copy.style, { position: "absolute", inset: "0", width: "100%", height: "100%", margin: "0", transform: "none", transformOrigin: "center center", animation: "none", transition: "none", backfaceVisibility: "hidden", pointerEvents: "none" })
+      return copy
+    }
+    const opposite = direction === "forward" ? leftSheetRef.current : rightSheetRef.current
+    // Las páginas de destino quedan visibles desde el inicio, sin una copia
+    // estática de la página anterior que oculte sus notas hasta terminar el giro.
+    const leaf = document.createElement("div")
+    Object.assign(leaf.style, { position: "absolute", left: `${page.left - bounds.left}px`, top: `${page.top - bounds.top}px`, width: `${page.width}px`, height: `${page.height}px`, transformStyle: "preserve-3d", transformOrigin: direction === "forward" || isMobile ? "left center" : "right center" })
+    leaf.appendChild(snapshot(source))
+    layer.appendChild(leaf)
+    book.appendChild(layer)
+    turnLayerRef.current = layer
+    pendingPageTurnRef.current = () => {
+      if (turnLayerRef.current !== layer) return
+      if (!isMobile && opposite) {
+        const reverse = snapshot(opposite)
+        reverse.style.transform = "rotateY(180deg)"
+        leaf.appendChild(reverse)
+      }
+      const sign = direction === "forward" ? -1 : 1
+      const otherBounds = opposite?.getBoundingClientRect()
+      const spineWidth = isMobile || !otherBounds ? 0 : direction === "forward" ? page.left - otherBounds.right : otherBounds.left - page.right
+      const animation = leaf.animate([
+        { transform: "rotateY(0deg)", boxShadow: "0 2px 6px rgba(40,30,10,.1)" },
+        { transform: `translateX(${sign * spineWidth / 2}px) rotateY(${sign * 85}deg) rotateZ(${sign * 1.5}deg)`, boxShadow: "18px 12px 36px rgba(40,30,10,.3)", offset: .5 },
+        { transform: `translateX(${sign * spineWidth}px) rotateY(${sign * (isMobile ? 140 : 180)}deg)`, boxShadow: "0 1px 3px rgba(40,30,10,.08)", opacity: isMobile ? 0 : 1 },
+      ], { duration: 850, easing: "cubic-bezier(.42, 0, .2, 1)", fill: "forwards" })
+      turnAnimationRef.current = animation
+      animation.finished.catch(() => {}).finally(() => {
+        layer.remove()
+        if (turnLayerRef.current === layer) turnLayerRef.current = null
+      })
+    }
+  }, [isMobile])
 
   const handlePrevPage = useCallback(() => {
+    if (turnLayerRef.current) return
     if (isMobile) {
       if (currentMobilePage > 0) {
         triggerPageAnim("backward")
@@ -188,6 +279,7 @@ export function NotebookModal({
   }, [isMobile, currentMobilePage, currentDesktopPage, triggerPageAnim])
 
   const handleNextPage = useCallback(() => {
+    if (turnLayerRef.current) return
     if (isMobile) {
       if (currentMobilePage < mobileHistoryPageIndex) {
         triggerPageAnim("forward")
@@ -203,6 +295,7 @@ export function NotebookModal({
 
   // Acceso directo para saltar hasta la Hoja del Historial al final de todas las hojas
   const handleToggleHistoryShortcut = useCallback(() => {
+    if (turnLayerRef.current) return
     if (isMobile) {
       if (currentMobilePage === mobileHistoryPageIndex) {
         triggerPageAnim("backward")
@@ -223,6 +316,7 @@ export function NotebookModal({
   }, [isMobile, currentMobilePage, mobileHistoryPageIndex, currentDesktopPage, desktopHistoryPairIndex, triggerPageAnim])
 
   const handleAddPage = useCallback(() => {
+    if (turnLayerRef.current) return
     triggerPageAnim("forward")
     if (isMobile) {
       const newPageIdx = userNotePages
@@ -354,7 +448,9 @@ export function NotebookModal({
 
       // Desplazamiento entre hojas con flechas izquierda y derecha del teclado
       if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || e.isComposing) return
         const activeEl = document.activeElement
+        if (activeEl?.isContentEditable) return
         const isInput = activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA")
 
         if (isInput) {
@@ -373,7 +469,10 @@ export function NotebookModal({
         }
 
         e.preventDefault()
-        e.stopPropagation() // Evita que se propague al cambio de días de la planilla
+        e.stopPropagation()
+        e.stopImmediatePropagation() // La agenda no debe recibir estas mismas flechas.
+        if (turnLayerRef.current) return
+        bookRef.current?.focus({ preventScroll: true })
 
         if (e.key === "ArrowLeft") {
           handlePrevPage()
@@ -1100,7 +1199,7 @@ export function NotebookModal({
             }
           `}</style>
 
-          <div style={{ position: "relative", width: "100%", paddingLeft: 22, boxSizing: "border-box" }}>
+          <div ref={bookRef} tabIndex={-1} style={{ position: "relative", width: "100%", paddingLeft: 22, boxSizing: "border-box" }}>
             
             {/* Anillos laterales */}
             <div style={{
@@ -1122,7 +1221,7 @@ export function NotebookModal({
             </div>
 
             {/* Hoja única de la libreta con margen rojo vertical a la izquierda */}
-            <div style={{
+            <div ref={mobileSheetRef} style={{
               position: "relative",
               background: "#fef6c5",
               backgroundImage: "linear-gradient(90deg, transparent 44px, #f4b0b0 44px, #f4b0b0 46px, transparent 46px)",
@@ -1138,9 +1237,7 @@ export function NotebookModal({
               fontFamily: "'Georgia', serif",
               boxSizing: "border-box",
               overflow: "hidden",
-              transition: "transform 0.25s ease, filter 0.25s ease",
-              transform: pageTurnAnim ? "scale(0.98)" : "scale(1)",
-              filter: pageTurnAnim ? "brightness(0.94)" : "brightness(1)"
+              transform: "none"
             }}>
               
               {/* Cabecera Móvil con título editable en naranja */}
@@ -1553,56 +1650,10 @@ export function NotebookModal({
           opacity: 1;
         }
 
-        /* Animación suave de hoja que se dobla y pasa hacia adelante (la hoja derecha gira sobre el lomo) */
-        @keyframes turnSheetForwardAnim {
-          0% {
-            transform: perspective(1400px) rotateY(0deg);
-            filter: brightness(1);
-            box-shadow: inset 16px 0 18px -10px rgba(0,0,0,0.14);
-          }
-          40% {
-            transform: perspective(1400px) rotateY(-22deg) scale(0.985);
-            filter: brightness(0.94);
-            box-shadow: inset -25px 0 25px -8px rgba(0,0,0,0.22);
-          }
-          100% {
-            transform: perspective(1400px) rotateY(0deg) scale(1);
-            filter: brightness(1);
-            box-shadow: inset 16px 0 18px -10px rgba(0,0,0,0.14);
-          }
-        }
-
-        /* Animación suave de hoja que se dobla y pasa hacia atrás (la hoja izquierda gira sobre el lomo) */
-        @keyframes turnSheetBackwardAnim {
-          0% {
-            transform: perspective(1400px) rotateY(0deg);
-            filter: brightness(1);
-            box-shadow: inset -16px 0 18px -10px rgba(0,0,0,0.14);
-          }
-          40% {
-            transform: perspective(1400px) rotateY(22deg) scale(0.985);
-            filter: brightness(0.94);
-            box-shadow: inset 25px 0 25px -8px rgba(0,0,0,0.22);
-          }
-          100% {
-            transform: perspective(1400px) rotateY(0deg) scale(1);
-            filter: brightness(1);
-            box-shadow: inset -16px 0 18px -10px rgba(0,0,0,0.14);
-          }
-        }
-
-        @keyframes sheetContentFade {
-          0% {
-            opacity: 0.2;
-          }
-          100% {
-            opacity: 1;
-          }
-        }
       `}</style>
 
       {/* Cuaderno Abierto de Dos Hojas (Solo el anotador de papel, sin marco de cuero ni barra superior) */}
-      <div 
+      <div ref={bookRef} tabIndex={-1}
         style={{
           width: "min(1060px, 94vw)",
           height: "min(660px, 88vh)",
@@ -1610,7 +1661,7 @@ export function NotebookModal({
           display: "flex",
           position: "relative",
           borderRadius: 12,
-          overflow: "hidden",
+          overflow: "visible",
           boxShadow: "0 28px 75px -12px rgba(0,0,0,0.45), 0 10px 25px -5px rgba(0,0,0,0.25)",
           boxSizing: "border-box",
           perspective: 1600,
@@ -1685,7 +1736,7 @@ export function NotebookModal({
           {/* HOJA IZQUIERDA                                                */}
           {/* Margen rojo a la DERECHA (lado de los ganchitos centrales)   */}
           {/* ───────────────────────────────────────────────────────────── */}
-          <div style={{
+          <div ref={leftSheetRef} style={{
             flex: 1,
             background: "#fef6c5",
             backgroundImage: "linear-gradient(90deg, transparent calc(100% - 46px), #f4b0b0 calc(100% - 46px), #f4b0b0 calc(100% - 44px), transparent calc(100% - 44px))",
@@ -1701,7 +1752,7 @@ export function NotebookModal({
             position: "relative",
             boxSizing: "border-box",
             transformOrigin: "right center",
-            animation: pageTurnAnim === "backward" ? "turnSheetBackwardAnim 0.35s cubic-bezier(0.2, 0.8, 0.4, 1)" : "none"
+            animation: "none"
           }}>
             {/* Encabezado Hoja Izquierda con título editable en naranja */}
             <div className="notebook-title-row" style={{
@@ -1782,7 +1833,7 @@ export function NotebookModal({
                 display: "flex",
                 flexDirection: "column",
                 overflowY: "auto",
-                animation: pageTurnAnim === "backward" ? "sheetContentFade 0.35s ease" : "none"
+                animation: "none"
               }}
             >
               {renderSheetLines(leftPageIdx, true)}
@@ -1882,7 +1933,7 @@ export function NotebookModal({
           {/* Si estamos en la apertura final, renderiza la HOJA DEL HISTORIAL */}
           {/* Margen rojo a la IZQUIERDA (lado de los ganchitos centrales) */}
           {/* ───────────────────────────────────────────────────────────── */}
-          <div style={{
+          <div ref={rightSheetRef} style={{
             flex: 1,
             background: "#fef6c5",
             backgroundImage: "linear-gradient(90deg, transparent 44px, #f4b0b0 44px, #f4b0b0 46px, transparent 46px)",
@@ -1898,7 +1949,7 @@ export function NotebookModal({
             position: "relative",
             boxSizing: "border-box",
             transformOrigin: "left center",
-            animation: pageTurnAnim === "forward" ? "turnSheetForwardAnim 0.35s cubic-bezier(0.2, 0.8, 0.4, 1)" : "none"
+            animation: "none"
           }}>
             {isDesktopShowingHistory ? (
               renderHistoryPageContent()
@@ -1983,7 +2034,7 @@ export function NotebookModal({
                     display: "flex",
                     flexDirection: "column",
                     overflowY: "auto",
-                    animation: pageTurnAnim === "forward" ? "sheetContentFade 0.35s ease" : "none"
+                    animation: "none"
                   }}
                 >
                   {renderSheetLines(rightPageIdx, false)}
