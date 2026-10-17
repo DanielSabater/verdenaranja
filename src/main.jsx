@@ -1,6 +1,7 @@
 import React, { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App.jsx'
+import UpdateNotice from './components/UpdateNotice.jsx'
 import './index.css'
 
 class ErrorBoundary extends React.Component {
@@ -40,6 +41,7 @@ createRoot(rootEl).render(
   <StrictMode>
     <ErrorBoundary>
       <App />
+      <UpdateNotice />
     </ErrorBoundary>
   </StrictMode>,
 )
