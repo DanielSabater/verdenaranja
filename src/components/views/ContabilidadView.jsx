@@ -1,5 +1,7 @@
+import SalaryPanel from "./SalaryPanel.jsx"
+import { paidSalary } from "../../utils/salaryPayments.js"
 import { incrementalAccountingIndex, incrementalBillingComparison, incrementalDayDetail } from "../../utils/incrementalAccounting.js"
-import { reuseAccountingCalculation } from "../../utils/accountingCache.js"
+import { reuseAccountingCalculation, memoizeAppointmentCommission } from "../../utils/accountingCache.js"
 import { comparisonBucketAvailable, comparisonBucketInProgress } from "../../utils/billingComparison.js"
 import { useMobileBackLayer } from "../../hooks/useMobileBack.js"
 import React, { useState, useMemo, useEffect } from "react"
@@ -300,6 +302,11 @@ export default function ContabilidadView({
   const safeSueldos       = sueldos && typeof sueldos === "object" && !Array.isArray(sueldos) ? sueldos : {}
   const safeProfessionals = Array.isArray(professionals) ? professionals : []
 
+  // Comparativa, liquidación y recibo reutilizan la misma comisión sin cambiar su fórmula.
+  const commissionFor = useAccountingMemo(safeAllData, "appointmentCommissions", () =>
+    memoizeAppointmentCommission((appt, date) => apptComisionTotal(appt, comisionPct, safeServices, config?.dateExceptions || {}, date, safeProfessionals)),
+    [safeAllData, safeProfessionals, safeServices, comisionPct, config?.dateExceptions])
+
   // ── period filter ──────────────────────────────────────────────────────────
   const { rangeFrom, rangeTo, periodLabel } = useMemo(() => {
     const today = new Date()
@@ -567,7 +574,7 @@ export default function ContabilidadView({
             const apptTotalPaid = apptPaidTotal(appt)
             profMap[profId].total += apptTotalPaid
             profMap[profId].comisionable += apptComisionableTotal(appt, safeServices)
-            profMap[profId].comision += apptComisionTotal(appt, comisionPct, safeServices, config?.dateExceptions || {}, dk, professionals)
+            profMap[profId].comision += commissionFor(appt, dk)
             
             if (appt.paymentSplits?.length) {
               appt.paymentSplits.forEach(s => {
@@ -720,7 +727,7 @@ export default function ContabilidadView({
     period: contPeriod, from: rangeFrom, to: rangeTo, allData: safeAllData, gastos: safeGastos,
     years: [compYear1, compYear2],
     convertAmount: (value, date) => convertValue(value, Number(date.slice(0, 4)), Number(date.slice(5, 7)) - 1, compCurrency, dollarRate),
-    commissionFor: (appt, date) => apptComisionTotal(appt, comisionPct, safeServices, config?.dateExceptions || {}, date, professionals),
+    commissionFor,
   }, [comisionPct, safeServices, config?.dateExceptions, professionals, compCurrency, dollarRate]), [contPeriod, rangeFrom, rangeTo, safeAllData, safeGastos, compYear1, compYear2, comisionPct, safeServices, config?.dateExceptions, professionals, compCurrency, dollarRate])
   const comparisonData = comparison.income
   const comparisonGastos = comparison.expenses
@@ -840,8 +847,10 @@ export default function ContabilidadView({
       const safeDayData = dayData || {}
       Object.values(safeDayData).forEach(appt => {
         if (appt?.paid && appt.profId === profId) {
-          dayFacturado += apptPaidTotal(appt)
-          dayComision += apptComisionTotal(appt, comisionPct, safeServices, config?.dateExceptions || {}, dk, professionals)
+          const amount = apptPaidTotal(appt)
+          const commission = commissionFor(appt, dk)
+          dayFacturado += amount
+          dayComision += commission
           dayPropinas  += appt.tip || 0
           dayTurnos++
           
@@ -851,8 +860,8 @@ export default function ContabilidadView({
             clientPhone: parsed.phone,
             hour: appt.hour || "--:--",
             services: appt.services || [],
-            amount: apptPaidTotal(appt),
-            comision: apptComisionTotal(appt, comisionPct, safeServices, config?.dateExceptions || {}, dk, professionals)
+            amount,
+            comision: commission
           })
         }
       })
@@ -877,18 +886,18 @@ export default function ContabilidadView({
     return days.sort((a, b) => a.dk.localeCompare(b.dk))
   }
 
-  const profStats = (profId, diasFilter) => {
+  const profStats = (profId, diasFilter, period = sueldoPeriod) => {
     let facturado=0, turnos=0, propinas=0, comision=0
     const diasSet = new Set()
     Object.entries(safeAllData).forEach(([dk, dayData]) => {
-      if (!dk.startsWith(sueldoPeriod)) return
+      if (!dk.startsWith(period)) return
       // If diasFilter is set (not "all"), only count selected days
       if (diasFilter && diasFilter !== "all" && !diasFilter.includes(dk)) return
       const safeDayData = dayData || {}
       Object.values(safeDayData).forEach(appt => {
         if (appt?.paid && appt.profId === profId) {
           facturado += apptPaidTotal(appt)
-          comision += apptComisionTotal(appt, comisionPct, safeServices, config?.dateExceptions || {}, dk, professionals)
+          comision += commissionFor(appt, dk)
           propinas  += appt.tip || 0
           turnos++
           diasSet.add(dk)
@@ -903,6 +912,24 @@ export default function ContabilidadView({
     const d = new Date(y, m-1+delta, 1)
     setSueldoPeriod(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`)
   }
+
+  useEffect(() => {
+    if (seccion !== "sueldos") return
+    const navegarMes = e => {
+      if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return
+      if (document.activeElement?.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])')) return
+      if (document.querySelector('[role="dialog"], [aria-modal="true"], .modal-overlay, .zoom-modal-overlay')) return
+      const volverAlMesActual = e.key === " " || e.code === "Space"
+      if (!volverAlMesActual && e.key !== "ArrowLeft" && e.key !== "ArrowRight") return
+      e.preventDefault()
+      // Evita que el atajo global de Planillas también procese este evento.
+      e.stopPropagation()
+      if (volverAlMesActual) setSueldoPeriod(todayKey().slice(0, 7))
+      else changeSueldoMonth(e.key === "ArrowLeft" ? -1 : 1)
+    }
+    window.addEventListener("keydown", navegarMes, true)
+    return () => window.removeEventListener("keydown", navegarMes, true)
+  }, [seccion, sueldoPeriod, setSueldoPeriod])
 
   // ── gasto handlers ─────────────────────────────────────────────────────────
   const saveGasto = () => {
@@ -981,8 +1008,6 @@ export default function ContabilidadView({
     setGastos(p => p.map(g => instanceIds.has(g.id) ? { ...g, saldado: newStatus } : g))
   }
 
-  const pagarSueldo    = (profId) => setSueldos(p => ({ ...p, [sueldoKey(profId)]: { pagado:true, monto:profSueldo(profId).monto, fecha:todayKey() } }))
-  const desmarcarSueldo= (profId) => setSueldos(p => { const n={...p}; delete n[sueldoKey(profId)]; return n })
 
   const TABS = [{ id:"resumen", label:"📊 Resumen" }, { id:"diario", label:"📅 Detalle Diario" }, { id:"gastos", label:"💸 Gastos" }, { id:"sueldos", label:"👩 Sueldos" }]
 
@@ -1081,8 +1106,18 @@ export default function ContabilidadView({
           </>}
         </div>
 
+        {seccion === "sueldos" && (
+          <div className="accounting-date-nav" role="group" aria-label="Mes de sueldos" tabIndex={0}
+
+            style={{ display: "flex", alignItems: "center", gap: 10, background: C.cream, borderRadius: 20, padding: "3px 12px", border: `1px solid ${C.border}`, boxShadow: "0 2px 6px rgba(0,0,0,0.02)" }}>
+            <button aria-label="Mes anterior de sueldos" onClick={() => changeSueldoMonth(-1)} style={{ background: "transparent", border: "none", color: C.green, fontSize: 14, fontWeight: "bold", cursor: "pointer", padding: "0 4px", fontFamily: "Georgia,serif" }}>‹</button>
+            <span aria-live="polite" style={{ minWidth: 130, fontSize: 11, color: C.text, fontWeight: "bold", textAlign: "center", fontFamily: "Georgia,serif", whiteSpace: "nowrap" }}>{MESES_ES[Number(sueldoPeriod.slice(5)) - 1]} {sueldoPeriod.slice(0, 4)}</span>
+            <button aria-label="Mes siguiente de sueldos" onClick={() => changeSueldoMonth(1)} style={{ background: "transparent", border: "none", color: C.green, fontSize: 14, fontWeight: "bold", cursor: "pointer", padding: "0 4px", fontFamily: "Georgia,serif" }}>›</button>
+          </div>
+        )}
+
         {/* Date Navigator Pill */}
-        {["dia", "semana", "mes", "anual"].includes(contPeriod) && (
+        {seccion !== "sueldos" && ["dia", "semana", "mes", "anual"].includes(contPeriod) && (
           <div className="accounting-date-nav" style={{ display: "flex", alignItems: "center", gap: 10, background: C.cream, borderRadius: 20, padding: "3px 12px", border: `1px solid ${C.border}`, boxShadow: "0 2px 6px rgba(0,0,0,0.02)" }}>
             <button onClick={() => { setContOffset(p => p - 1); playClickSound(); }} style={{ background: "transparent", border: "none", color: C.green, fontSize: 14, fontWeight: "bold", cursor: "pointer", padding: "0 4px", fontFamily: "Georgia,serif" }}>‹</button>
             <span style={{ display: "inline-block", width: 130, fontSize: 11, color: C.text, fontWeight: "bold", textAlign: "center", fontFamily: "Georgia,serif", whiteSpace: "nowrap" }}>
@@ -2301,151 +2336,8 @@ export default function ContabilidadView({
       {/* ── SUELDOS ── */}
       {seccion==="sueldos" && (
         <div>
-          {/* Month nav */}
-          <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:20 }}>
-            <button onClick={()=>changeSueldoMonth(-1)} style={{ padding:"6px 14px", borderRadius:20, border:`1.5px solid ${C.border}`, background:C.white, cursor:"pointer", fontFamily:"Georgia,serif" }}>‹</button>
-            <div style={{ fontSize:16, color:C.text, fontWeight:"bold" }}>{MESES_ES[parseInt(sueldoPeriod.split("-")[1])-1]} {sueldoPeriod.split("-")[0]}</div>
-            <button onClick={()=>changeSueldoMonth(1)} style={{ padding:"6px 14px", borderRadius:20, border:`1.5px solid ${C.border}`, background:C.white, cursor:"pointer", fontFamily:"Georgia,serif" }}>›</button>
-          </div>
 
-          {/* Grid de profesionales */}
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(min(100%, 280px), 1fr))", gap:14 }}>
-            {safeProfessionals
-              .filter(p => {
-                const sueldoStartMonth = sueldoPeriod + "-01"
-                const hasActivityInMonth = Object.entries(safeAllData).some(([dk, dayData]) => {
-                  return dk.startsWith(sueldoPeriod) && Object.values(dayData || {}).some(appt => appt.profId === p.id && appt.paid)
-                })
-                const isSueldoPaid = profSueldo(p.id).pagado
-                const isActiveInMonth = !p.deletedAt || p.deletedAt >= sueldoStartMonth
-                return isActiveInMonth || hasActivityInMonth || isSueldoPaid
-              })
-              .map(p => {
-              const sd    = profSueldo(p.id)
-              const selectedDays = sd.dias || "all"
-              const stats = profStats(p.id, selectedDays)
-
-              // Days of this month for day selector
-              const [sy, sm] = sueldoPeriod.split("-").map(Number)
-              const daysInMonth = new Date(sy, sm, 0).getDate()
-              const allDays = Array.from({length: daysInMonth}, (_,i) => {
-                const day = i+1
-                const dk = `${sy}-${String(sm).padStart(2,"0")}-${String(day).padStart(2,"0")}`
-                const d  = new Date(dk+"T12:00:00")
-                return { day, dk, dow: d.getDay() }
-              }).filter(d => d.dow !== 0) // exclude sundays
-
-              const toggleDay = (dk) => {
-                const curr = sd.dias || "all"
-                let next
-                if (curr === "all") {
-                  next = allDays.map(d=>d.dk).filter(d=>d!==dk)
-                } else {
-                  next = curr.includes(dk) ? curr.filter(d=>d!==dk) : [...curr, dk]
-                  if (next.length === allDays.length) next = "all"
-                }
-                setSueldos(p2=>({...p2,[sueldoKey(p.id)]:{...profSueldo(p.id), dias:next}}))
-              }
-              const isAllDays = selectedDays === "all"
-              const activeDays = isAllDays ? allDays.length : (selectedDays?.length || 0)
-
-              return (
-                <div key={p.id} style={{ background:sd.pagado?C.greenPale:C.white, border:`2px solid ${sd.pagado?C.green:C.border}`, borderRadius:16, overflow:"hidden" }}>
-
-                  {/* Header */}
-                  <div style={{ padding:"14px 16px", borderBottom:`1px solid ${C.border}`, display:"flex", justifyContent:"space-between", alignItems:"center", background:sd.pagado?`linear-gradient(135deg,${C.green},${C.greenLight})`:"transparent" }}>
-                    <div style={{ display:"flex", flexDirection:"column" }}>
-                      <div style={{ fontSize:16, color:sd.pagado?"#fff":C.text, fontWeight:"bold" }}>{p.emoji} {p.name}</div>
-                      <div style={{ fontSize:9, color:sd.pagado?"rgba(255,255,255,.8)":C.textSoft, marginTop:2 }}>{comisionPct}% comisión</div>
-                    </div>
-                    <button 
-                      onClick={() => setReceiptProf(p)}
-                      title="Ver Comprobante de Sueldo"
-                      style={{
-                        background: sd.pagado ? "rgba(255,255,255,0.2)" : C.greenPale,
-                        color: sd.pagado ? "#fff" : C.green,
-                        border: sd.pagado ? "1px solid rgba(255,255,255,0.4)" : `1px solid ${C.border}`,
-                        borderRadius: 10,
-                        padding: "6px 12px",
-                        fontSize: 10,
-                        fontWeight: "bold",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 4,
-                        transition: "all 0.15s ease",
-                        fontFamily: "Georgia,serif"
-                      }}
-                    >
-                      🧾 Recibo
-                    </button>
-                  </div>
-
-                  <div style={{ padding:"14px 16px" }}>
-                    {/* Stats grid */}
-                    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:14 }}>
-                      {[
-                        ["📅 Días trab.", activeDays, C.textSoft],
-                        ["🎯 Turnos",     stats.turnos,  C.green],
-                        ["💰 Facturado",  fmt(stats.facturado), C.orange],
-                        ["🎁 Propinas",   fmt(stats.propinas),  C.gold],
-                        ["✨ Comisión",   fmt(stats.comision),  C.green, true],
-                      ].map(([label, val, col, wide]) => (
-                        <div key={label} style={{ background:C.cream, borderRadius:8, padding:"6px 10px", gridColumn: wide?"1/-1":"auto" }}>
-                          <div style={{ fontSize:8, color:C.textSoft, letterSpacing:"1px" }}>{label}</div>
-                          <div style={{ fontSize:wide?16:13, fontWeight:"bold", color:col }}>{val}</div>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Day selector */}
-                    <div style={{ marginBottom:12 }}>
-                      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
-                        <div style={{ fontSize:8, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase" }}>Días a pagar</div>
-                        <button onClick={() => setSueldos(p2=>({...p2,[sueldoKey(p.id)]:{...profSueldo(p.id), dias: isAllDays ? [] : "all"}}))} style={{ fontSize:8, color:isAllDays?C.green:C.textSoft, background:isAllDays?C.greenPale:"transparent", border:`1px solid ${isAllDays?C.green:C.border}`, borderRadius:6, padding:"2px 8px", cursor:"pointer", fontFamily:"Georgia,serif" }}>
-                          {isAllDays?"✓ Mes completo":"Mes completo"}
-                        </button>
-                      </div>
-                      <div style={{ display:"flex", flexWrap:"wrap", gap:3 }}>
-                        {allDays.map(({day, dk, dow}) => {
-                          const isSelected = isAllDays || (selectedDays?.includes(dk))
-                          const hasWork = Object.values(safeAllData[dk]||{}).some(a=>a.paid&&a.profId===p.id)
-                          return (
-                            <button key={dk} onClick={()=>toggleDay(dk)} style={{
-                              width:28, height:28, borderRadius:7, fontSize:9, fontFamily:"Georgia,serif",
-                              border:`1.5px solid ${isSelected?C.green:C.border}`,
-                              background: isSelected?(hasWork?`linear-gradient(135deg,${C.green},${C.greenLight})`:C.greenPale):"#f5f5f5",
-                              color: isSelected?"#fff":C.textSoft,
-                              cursor:"pointer", fontWeight:hasWork?"bold":"normal",
-                              position:"relative",
-                            }}>
-                              {day}
-                              {hasWork && isSelected && <div style={{ position:"absolute", bottom:1, left:"50%", transform:"translateX(-50%)", width:3, height:3, borderRadius:"50%", background:"rgba(255,255,255,.8)" }}/>}
-                            </button>
-                          )
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Pago */}
-                    {sd.pagado
-                      ? <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", background:C.greenPale, borderRadius:10, padding:"10px 12px" }}>
-                          <div style={{ fontSize:12, color:C.green }}>✅ Pagado {fmt(sd.monto)} — {sd.fecha}</div>
-                          <button onClick={()=>desmarcarSueldo(p.id)} style={{ fontSize:10, color:C.textSoft, background:"transparent", border:`1px solid ${C.border}`, borderRadius:8, padding:"4px 10px", cursor:"pointer", fontFamily:"Georgia,serif" }}>Desmarcar</button>
-                        </div>
-                      : <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-                          <div style={{ position:"relative", flex:1 }}>
-                            <span style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", color:C.textSoft, fontSize:13 }}>$</span>
-                            <input type="number" value={sd.monto} onChange={e=>setSueldos(p2=>({...p2,[sueldoKey(p.id)]:{...profSueldo(p.id),monto:e.target.value}}))} placeholder={String(Math.round(stats.comision))} style={{...inputStyle, paddingLeft:24, fontSize:13}}/>
-                          </div>
-                          <button onClick={()=>pagarSueldo(p.id)} disabled={sd.monto === ""} style={{ padding:"9px 14px", borderRadius:10, border:"none", background:sd.monto !== ""?`linear-gradient(135deg,${C.green},${C.greenLight})` : "#e8e8e8", color:sd.monto !== ""?"#fff":"#bbb", fontSize:10, cursor:sd.monto !== ""?"pointer":"not-allowed", fontFamily:"Georgia,serif", whiteSpace:"nowrap", flexShrink:0 }}>✅ Pagar</button>
-                        </div>
-                    }
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+          <SalaryPanel key={sueldoPeriod} professionals={safeProfessionals.filter(p => !p.deletedAt || p.deletedAt >= sueldoPeriod + "-01" || Object.keys(safeSueldos).some(key => key.startsWith(`${p.id}||`)) || profStats(p.id, "all").turnos > 0)} sueldos={safeSueldos} setSueldos={setSueldos} period={sueldoPeriod} statsFor={profStats} breakdownFor={getDailyBreakdown} onReceipt={setReceiptProf} />
         </div>
       )}
       {/* ── DETALLE DIARIO ── */}
@@ -2904,10 +2796,10 @@ export default function ContabilidadView({
                       </span>
                     </div>
                     
-                    {sd.monto !== "" && (
+                    {paidSalary(sd, p.id, sueldoPeriod) > 0 && (
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 10px 16px" }}>
                         <span style={{ fontSize: 10, color: C.textSoft }}>Monto Liquidado / Pagado:</span>
-                        <span style={{ fontSize: 14, fontWeight: "bold", color: C.orange }}>{fmt(parseFloat(sd.monto) || 0)}</span>
+                        <span style={{ fontSize: 14, fontWeight: "bold", color: C.orange }}>{fmt(paidSalary(sd, p.id, sueldoPeriod))}</span>
                       </div>
                     )}
                   </div>

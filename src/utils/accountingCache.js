@@ -17,3 +17,14 @@ export function reuseAccountingCalculation(scope, key, calculate, dependencies) 
   entries.set(key, { dependencies: [...dependencies], value })
   return value
 }
+
+// Memoria de trabajo por turno y fecha; las reglas se invalidan desde el llamador.
+export function memoizeAppointmentCommission(calculate) {
+  const values = new WeakMap()
+  return (appointment, date) => {
+    let dates = values.get(appointment)
+    if (!dates) { dates = new Map(); values.set(appointment, dates) }
+    if (!dates.has(date)) dates.set(date, calculate(appointment, date))
+    return dates.get(date)
+  }
+}

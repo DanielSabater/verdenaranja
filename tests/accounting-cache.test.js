@@ -44,3 +44,27 @@ test('conserva el resultado correcto tras cambiar y restaurar un filtro', () => 
   assert.equal(total(2), 60)
   assert.equal(total(1), 30)
 })
+
+test('reutiliza comisión cero, separa fechas y recalcula al cambiar turno o reglas', async () => {
+  const { memoizeAppointmentCommission } = await import('../src/utils/accountingCache.js')
+  const data = {}, professional = {}, services = [], exceptions = {}
+  let calls = 0
+  const getCalculator = (scope, deps) => reuseAccountingCalculation(scope, 'appointmentCommissions', () => memoizeAppointmentCommission((appt, date) => { calls++; return date === '2026-10-18' ? 0 : appt.price }), deps)
+  const deps = [data, professional, services, 40, exceptions]
+  const appt = { price: 100 }
+  const calculate = getCalculator(data, deps)
+  assert.equal(calculate(appt, '2026-10-18'), 0)
+  assert.equal(calculate(appt, '2026-10-18'), 0)
+  assert.equal(calls, 1)
+  assert.equal(getCalculator(data, deps), calculate)
+  assert.equal(calculate(appt, '2026-10-19'), 100)
+  assert.equal(calculate({ ...appt, price: 200 }, '2026-10-19'), 200)
+  assert.equal(calls, 3)
+  for (let index = 0; index < deps.length; index++) {
+    const changed = [...deps]; changed[index] = typeof deps[index] === 'number' ? 50 : {}
+    const updated = getCalculator(data, changed)
+    updated(appt, '2026-10-18')
+    assert.equal(calls, 4 + index)
+  }
+  assert.notEqual(getCalculator({}, deps), calculate)
+})
