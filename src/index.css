@@ -332,6 +332,27 @@ select {
   .date-actions-island { grid-column: 3; justify-self: end; }
 }
 
+/* Las fechas se desvanecen bajo las flechas, sin desenfoque. */
+.date-carousel-fade-track {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+.date-carousel-fade-track .date-carousel-scroll {
+  padding-inline: 40px;
+  scroll-padding-inline: 40px;
+  mask-image: linear-gradient(to right, transparent, #000 40px, #000 calc(100% - 40px), transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 40px, #000 calc(100% - 40px), transparent);
+}
+.date-carousel-fade-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
+}
+.date-carousel-fade-prev { left: 0; }
+.date-carousel-fade-next { right: 0; }
+
 /* Hide scrollbar for date carousel */
 .date-carousel-scroll {
   scrollbar-width: none;

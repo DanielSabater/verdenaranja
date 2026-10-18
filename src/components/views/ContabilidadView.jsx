@@ -1,4 +1,6 @@
-import { aggregateBillingComparison, comparisonBucketAvailable, comparisonBucketInProgress } from "../../utils/billingComparison.js"
+import { incrementalAccountingIndex, incrementalBillingComparison, incrementalDayDetail } from "../../utils/incrementalAccounting.js"
+import { reuseAccountingCalculation } from "../../utils/accountingCache.js"
+import { comparisonBucketAvailable, comparisonBucketInProgress } from "../../utils/billingComparison.js"
 import { useMobileBackLayer } from "../../hooks/useMobileBack.js"
 import React, { useState, useMemo, useEffect } from "react"
 import { createPortal } from "react-dom"
@@ -43,6 +45,11 @@ const convertValue = (val, year, idx, currency, fallbackRate) => {
 const fmtComp = (v, currency) => {
   if (currency === "ARS") return `$${Math.round(v).toLocaleString("es-AR")}`
   return "US$ " + Math.round(v).toLocaleString("es-AR")
+}
+
+// Conserva resultados entre entradas sin mantener pantallas ocultas ni sus efectos activos.
+function useAccountingMemo(scope, key, calculate, dependencies) {
+  return useMemo(() => reuseAccountingCalculation(scope, key, calculate, dependencies), [scope, key, ...dependencies])
 }
 
 export default function ContabilidadView({
@@ -375,52 +382,13 @@ export default function ContabilidadView({
 
   const inRange = (k) => k >= rangeFrom && k <= rangeTo
 
-  // ── calculations ───────────────────────────────────────────────────────────
-  const { totalIncome, incomeByProf, comisionByProf, incomeByMethod, totalTurns, turnsByProf, incomeByService, countByService, incomeByDOW } = useMemo(() => {
-    const byProf = {}, byComiProf = {}, byMethod = {}, turnsByProf = {}, byService = {}, countService = {}, byDOW = {}
-    safeProfessionals.forEach(p => { byProf[p.id] = 0; byComiProf[p.id] = 0; turnsByProf[p.id] = 0 })
-    // Initialize DOW (0-6)
-    for (let i=0; i<7; i++) byDOW[i] = 0
-
-    let total = 0
-    let turns = 0
-    Object.entries(safeAllData).forEach(([dk, dayData]) => {
-      if (!inRange(dk)) return
-      const safeDayData = dayData || {}
-      
-      // DOW calculation
-      const dateObj = new Date(dk + "T12:00:00")
-      const dow = dateObj.getDay()
-
-      Object.values(safeDayData).forEach(appt => {
-        if (!appt?.paid) return
-        const t = apptPaidTotal(appt)
-        const comi = apptComisionTotal(appt, comisionPct, safeServices, config?.dateExceptions || {}, dk, professionals)
-        total += t
-        turns += 1
-        byProf[appt.profId] = (byProf[appt.profId] || 0) + t
-        byComiProf[appt.profId] = (byComiProf[appt.profId] || 0) + comi
-        turnsByProf[appt.profId] = (turnsByProf[appt.profId] || 0) + 1
-        byDOW[dow] = (byDOW[dow] || 0) + t
-
-        // Service stats
-        if (appt.services?.length) {
-          appt.services.forEach(s => {
-            const price = parseFloat(s.price) || 0
-            byService[s.name] = (byService[s.name] || 0) + price
-            countService[s.name] = (countService[s.name] || 0) + 1
-          })
-        }
-
-        if (appt.paymentSplits?.length) {
-          appt.paymentSplits.forEach(s => { byMethod[s.methodId] = (byMethod[s.methodId]||0) + (parseFloat(s.amount)||0) })
-        } else if (appt.payMethod) {
-          byMethod[appt.payMethod] = (byMethod[appt.payMethod]||0) + t
-        }
-      })
-    })
-    return { totalIncome: total, incomeByProf: byProf, comisionByProf: byComiProf, turnsByProf, incomeByMethod: byMethod, totalTurns: turns, incomeByService: byService, countByService: countService, incomeByDOW: byDOW }
-  }, [safeAllData, safeProfessionals, rangeFrom, rangeTo, comisionPct, config?.dateExceptions])
+  // Solo se vuelven a resumir los objetos de día reemplazados por una edición.
+  const dayIndex = useMemo(() => incrementalAccountingIndex(safeAllData, {
+    professionals: safeProfessionals, services: safeServices, comisionPct, dateExceptions: config?.dateExceptions,
+  }, rangeFrom, rangeTo), [safeAllData, safeProfessionals, safeServices, comisionPct, config?.dateExceptions, rangeFrom, rangeTo])
+  const { totalIncome, incomeByProf, comisionByProf, incomeByMethod, totalTurns, turnsByProf, incomeByService, countByService, incomeByDOW } = useAccountingMemo(safeAllData, "totals", () =>
+    dayIndex.totals,
+    [safeAllData, safeProfessionals, safeServices, rangeFrom, rangeTo, comisionPct, config?.dateExceptions])
 
   const avgTicket = totalTurns > 0 ? totalIncome / totalTurns : 0
 
@@ -532,6 +500,8 @@ export default function ContabilidadView({
 
   // ── daily summary logic ──────────────────────────────────────────────────
   const dailySummary = useMemo(() => {
+    if (seccion !== "diario") return []
+    return reuseAccountingCalculation(safeAllData, "dailySummary", () => {
     if (!rangeFrom || !rangeTo) return []
     
     // Collect all date keys that have actual activity
@@ -560,6 +530,9 @@ export default function ContabilidadView({
       const parts = dk.split("-").map(Number)
       const dateObj = new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0)
       const dayData = safeAllData[dk] || {}
+      const dayGastos = safeGastos.filter(g => g.fecha === dk)
+      return incrementalDayDetail(safeProfessionals, dk, dayData, dayGastos,
+        [safeServices, comisionPct, config?.dateExceptions], () => {
       
       let totalFacturado = 0
       let efectivo = 0
@@ -636,7 +609,6 @@ export default function ContabilidadView({
       })
       efectivo = Math.max(0, efectivo - dayReleasedTips)
       
-      const dayGastos = safeGastos.filter(g => g.fecha === dk)
       const totalGastos = dayGastos.reduce((s, g) => s + (parseFloat(g.monto) || 0), 0)
       const neto = totalFacturado - totalGastos
       
@@ -656,8 +628,10 @@ export default function ContabilidadView({
         closed: !!dayData.closed,
         profBreakdown: Object.values(profMap).filter(p => p.turnsCount > 0)
       }
+      })
     })
-  }, [rangeFrom, rangeTo, safeAllData, safeGastos, safeProfessionals, config?.dateExceptions])
+    }, [rangeFrom, rangeTo, safeGastos, safeProfessionals, safeServices, comisionPct, config?.dateExceptions])
+  }, [seccion, rangeFrom, rangeTo, safeAllData, safeGastos, safeProfessionals, safeServices, comisionPct, config?.dateExceptions])
 
   // ── period-based chart data ──────────────────────────────────────────────
   const isMonthlyView = useMemo(() => {
@@ -673,7 +647,7 @@ export default function ContabilidadView({
     return false
   }, [contPeriod, rangeFrom, rangeTo])
 
-  const chartRange = useMemo(() => {
+  const chartRange = useAccountingMemo(safeAllData, "chartRange", () => {
     if (!rangeFrom || !rangeTo) return []
     
     if (isMonthlyView) {
@@ -728,30 +702,29 @@ export default function ContabilidadView({
     }
   }, [rangeFrom, rangeTo, isMonthlyView, contPeriod, safeAllData])
 
-  const dailyData = useMemo(() => {
-    return chartRange.map(({ k, label }) => {
-      if (isMonthlyView) {
-        const income = Object.entries(safeAllData)
-          .filter(([dk]) => dk.startsWith(k))
-          .flatMap(([, dayData]) => Object.values(dayData || {}))
-          .filter(a => a?.paid)
-          .reduce((s, a) => s + apptPaidTotal(a), 0)
-        return { k, label, income }
-      } else {
-        const dayData = safeAllData[k] || {}
-        const income = Object.values(dayData).filter(a => a?.paid).reduce((s, a) => s + apptPaidTotal(a), 0)
-        return { k, label, income }
+  const chartSummaries = useAccountingMemo(safeAllData, "chartSummaries", () => {
+    const summaries = new Map(chartRange.map(({ k }) => [k, { income: 0, incomeByProf: {}, turnsByProf: {} }]))
+    for (const [date, day] of dayIndex.days()) {
+      const bucket = summaries.get(isMonthlyView ? date.slice(0, 7) : date)
+      if (!bucket) continue
+      bucket.income += day.totalIncome
+      for (const field of ["incomeByProf", "turnsByProf"]) for (const [id, value] of Object.entries(day[field])) {
+        bucket[field][id] = (bucket[field][id] || 0) + value
       }
-    })
-  }, [chartRange, safeAllData, isMonthlyView])
+    }
+    return summaries
+  }, [safeAllData, safeProfessionals, safeServices, comisionPct, config?.dateExceptions, chartRange, isMonthlyView])
+  const dailyData = useAccountingMemo(safeAllData, "dailyData", () =>
+    chartRange.map(({ k, label }) => ({ k, label, income: chartSummaries.get(k).income })),
+    [chartRange, chartSummaries])
 
   // La comparativa usa unidades propias del período, tanto en tarjeta como ampliada.
-  const comparison = useMemo(() => aggregateBillingComparison({
+  const comparison = useAccountingMemo(safeAllData, "comparison", () => incrementalBillingComparison(safeProfessionals, {
     period: contPeriod, from: rangeFrom, to: rangeTo, allData: safeAllData, gastos: safeGastos,
     years: [compYear1, compYear2],
     convertAmount: (value, date) => convertValue(value, Number(date.slice(0, 4)), Number(date.slice(5, 7)) - 1, compCurrency, dollarRate),
     commissionFor: (appt, date) => apptComisionTotal(appt, comisionPct, safeServices, config?.dateExceptions || {}, date, professionals),
-  }), [contPeriod, rangeFrom, rangeTo, safeAllData, safeGastos, compYear1, compYear2, comisionPct, safeServices, config?.dateExceptions, professionals, compCurrency, dollarRate])
+  }, [comisionPct, safeServices, config?.dateExceptions, professionals, compCurrency, dollarRate]), [contPeriod, rangeFrom, rangeTo, safeAllData, safeGastos, compYear1, compYear2, comisionPct, safeServices, config?.dateExceptions, professionals, compCurrency, dollarRate])
   const comparisonData = comparison.income
   const comparisonGastos = comparison.expenses
   const comparisonSueldos = comparison.commissions
@@ -813,38 +786,10 @@ export default function ContabilidadView({
 
   const maxDay = Math.max(...dailyData.map(d => d.income), 1)
 
-  const turnosChart = useMemo(() => {
-    return safeProfessionals
-      .filter(prof => {
-        if (!prof.deletedAt) return true
-        return chartRange.some(({ k }) => {
-          if (isMonthlyView) {
-            return Object.entries(safeAllData)
-              .filter(([dk]) => dk.startsWith(k))
-              .flatMap(([, dayData]) => Object.values(dayData || {}))
-              .some(a => a?.paid && a.profId === prof.id)
-          } else {
-            const dayData = safeAllData[k] || {}
-            return Object.values(dayData).some(a => a?.paid && a.profId === prof.id)
-          }
-        })
-      })
-      .map((prof) => ({
-        ...prof,
-        values: chartRange.map(({ k }) => {
-          if (isMonthlyView) {
-            return Object.entries(safeAllData)
-              .filter(([dk]) => dk.startsWith(k))
-              .flatMap(([, dayData]) => Object.values(dayData || {}))
-              .filter(a => a?.paid && a.profId === prof.id)
-              .reduce((s, a) => s + apptPaidTotal(a), 0)
-          } else {
-            const dayData = safeAllData[k] || {}
-            return Object.values(dayData).filter(a => a?.paid && a.profId === prof.id).reduce((s, a) => s + apptPaidTotal(a), 0)
-          }
-        }),
-      }))
-  }, [safeProfessionals, safeAllData, chartRange, isMonthlyView])
+  const turnosChart = useAccountingMemo(safeAllData, "turnosChart", () => safeProfessionals
+    .filter(prof => !prof.deletedAt || chartRange.some(({ k }) => chartSummaries.get(k).turnsByProf[prof.id] > 0))
+    .map(prof => ({ ...prof, values: chartRange.map(({ k }) => chartSummaries.get(k).incomeByProf[prof.id] || 0) })),
+    [safeProfessionals, chartRange, chartSummaries])
 
   const maxTurns = Math.max(1, ...turnosChart.flatMap(p => p.values))
   const chartWidth = Math.max(320, chartRange.length * 24 + 48)
@@ -854,11 +799,12 @@ export default function ContabilidadView({
     if (!winner) return prof
     return (incomeByProf[prof.id] || 0) > (incomeByProf[winner.id] || 0) ? prof : winner
   }, safeProfessionals[0] || null)
-  const busiestDay = useMemo(() => {
+  const busiestDay = useAccountingMemo(safeAllData, "busiestDay", () => {
+    const summaries = dayIndex.days()
     return Object.entries(safeAllData)
       .filter(([dk]) => inRange(dk))
       .reduce((best, [dk, dayData]) => {
-        const count = Object.values(dayData || {}).filter(a => a?.paid).length
+        const count = summaries.get(dk)?.totalTurns || 0
         const label = fmtDate(dk)
         if (!best || count > best.count) return { k: dk, label, count }
         return best

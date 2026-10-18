@@ -36,9 +36,9 @@ export function buildComparisonBuckets(period, from, to, dataDates = []) {
 }
 
 /** Comparar las mismas fechas en los años elegidos; el historial usa años reales. */
-export function aggregateBillingComparison({ period, from, to, allData = {}, gastos = [], years, commissionFor = () => 0, convertAmount = value => value }) {
+export function aggregateBillingComparison({ period, from, to, allData = {}, gastos = [], years, commissionFor = () => 0, convertAmount = value => value, comparisonDates, keepUntimedBucket = false }) {
   const dates = [...Object.keys(allData), ...gastos.map(g => g.fecha).filter(Boolean)]
-  const spec = buildComparisonBuckets(period, from, to, dates)
+  const spec = buildComparisonBuckets(period, from, to, comparisonDates || dates)
   const income = {}, expenses = {}, commissions = {}, fixedExpenses = {}, expensesWithoutTime = {}, monthlySummaries = {}, incomeAvailable = {}
   for (const year of new Set(years)) {
     const empty = () => spec.buckets.map(() => 0)
@@ -100,7 +100,7 @@ export function aggregateBillingComparison({ period, from, to, allData = {}, gas
     })
   }
   // No mostrar una columna final vacía cuando no hay cobros sin horario.
-  if (spec.unit === 'hora' && [...new Set(years)].every(year => income[year].at(-1) === 0 && commissions[year].at(-1) === 0)) {
+  if (!keepUntimedBucket && spec.unit === 'hora' && [...new Set(years)].every(year => income[year].at(-1) === 0 && commissions[year].at(-1) === 0)) {
     spec.buckets.pop()
     for (const year of new Set(years)) {
       income[year].pop(); expenses[year].pop(); commissions[year].pop(); incomeAvailable[year].pop()

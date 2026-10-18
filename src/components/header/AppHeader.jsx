@@ -1322,7 +1322,8 @@ export const AppHeader = memo(function AppHeader({
               padding: "6px 12px", gap: 6,
               pointerEvents: "auto",
             }}>
-              <button onClick={(e) => {
+              <div className="date-carousel-fade-track">
+              <button className="date-carousel-fade-arrow date-carousel-fade-prev" onClick={(e) => {
                 e.stopPropagation()
                 const prev = new Date(y, m - 2, 1)
                 const lastDay = new Date(prev.getFullYear(), prev.getMonth() + 1, 0).getDate()
@@ -1384,7 +1385,7 @@ export const AppHeader = memo(function AppHeader({
                 <div style={{ flex: 1, minWidth: 0 }} />
               </div>
 
-              <button onClick={(e) => {
+              <button className="date-carousel-fade-arrow date-carousel-fade-next" onClick={(e) => {
                 e.stopPropagation()
                 const next = new Date(y, m, 1)
                 const lastDay = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate()
@@ -1392,6 +1393,8 @@ export const AppHeader = memo(function AppHeader({
                 const dk = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`
                 setCurrentDate(dk)
               }} style={{...btnNav, border: "none", background: C.cream, width: 34, height: 34}}>›</button>
+
+              </div>
 
               <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", marginLeft: 8, marginRight: 4, width: 95, flexShrink: 0 }}>
                 <div style={{ fontSize: 11, color: isDiffMonth ? "#e63946" : C.green, fontWeight: "bold", textTransform: "uppercase", letterSpacing: ".8px" }}>{monthName}</div>
