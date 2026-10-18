@@ -299,20 +299,28 @@ export default function MergeClientsModal({
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
-                    padding: "8px 12px",
+                    padding: "9px 12px",
                     borderRadius: 12,
                     background: "#fffaf0",
                     border: "1px solid #fed7aa",
-                    marginBottom: 14
+                    marginBottom: 14,
+                    gap: 10
                   }}
                 >
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ fontSize: 13, background: "#f97316", color: "#fff", padding: "2px 7px", borderRadius: 8, fontWeight: "bold" }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 9, minWidth: 0, flex: 1 }}>
+                    <span style={{ fontSize: 11.5, background: "#f97316", color: "#fff", padding: "3px 8px", borderRadius: 8, fontWeight: "bold", whiteSpace: "nowrap", flexShrink: 0, marginTop: 1 }}>
                       {currentSug.confidence === "alta" ? "Coincidencia alta" : "Posible coincidencia"}
                     </span>
-                    <span style={{ fontSize: 11.5, color: "#9a3412", fontWeight: "600" }}>
-                      Motivo: {currentSug.reason}
-                    </span>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
+                      <span style={{ fontSize: 11.5, color: "#9a3412", fontWeight: "600" }}>
+                        Motivo: {currentSug.reason}
+                      </span>
+                      {currentSug.difference && (
+                        <span style={{ fontSize: 11, color: "#c2410c", background: "#ffedd5", padding: "2px 7px", borderRadius: 6, display: "inline-block", width: "fit-content" }}>
+                          🔍 <strong>Diferencia detectada:</strong> {currentSug.difference}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>

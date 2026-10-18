@@ -100,13 +100,13 @@ export default function ContabilidadView({
       const stored = localStorage.getItem("pv:contabilidad_charts_order")
       if (stored) {
         const parsed = JSON.parse(stored)
-        const required = ["prof", "comparison", "consolidated", "daily", "dow"]
+        const required = ["prof", "comparison"]
         if (Array.isArray(parsed) && parsed.length === required.length && required.every(x => parsed.includes(x))) {
           return parsed
         }
       }
     } catch (e) {}
-    return ["prof", "comparison", "consolidated", "daily", "dow"]
+    return ["prof", "comparison"]
   })
   const [draggedId, setDraggedId] = useState(null)
 
@@ -386,7 +386,7 @@ export default function ContabilidadView({
   const dayIndex = useMemo(() => incrementalAccountingIndex(safeAllData, {
     professionals: safeProfessionals, services: safeServices, comisionPct, dateExceptions: config?.dateExceptions,
   }, rangeFrom, rangeTo), [safeAllData, safeProfessionals, safeServices, comisionPct, config?.dateExceptions, rangeFrom, rangeTo])
-  const { totalIncome, incomeByProf, comisionByProf, incomeByMethod, totalTurns, turnsByProf, incomeByService, countByService, incomeByDOW } = useAccountingMemo(safeAllData, "totals", () =>
+  const { totalIncome, incomeByProf, comisionByProf, incomeByMethod, totalTurns, turnsByProf, incomeByService, countByService } = useAccountingMemo(safeAllData, "totals", () =>
     dayIndex.totals,
     [safeAllData, safeProfessionals, safeServices, rangeFrom, rangeTo, comisionPct, config?.dateExceptions])
 
@@ -714,9 +714,6 @@ export default function ContabilidadView({
     }
     return summaries
   }, [safeAllData, safeProfessionals, safeServices, comisionPct, config?.dateExceptions, chartRange, isMonthlyView])
-  const dailyData = useAccountingMemo(safeAllData, "dailyData", () =>
-    chartRange.map(({ k, label }) => ({ k, label, income: chartSummaries.get(k).income })),
-    [chartRange, chartSummaries])
 
   // La comparativa usa unidades propias del período, tanto en tarjeta como ampliada.
   const comparison = useAccountingMemo(safeAllData, "comparison", () => incrementalBillingComparison(safeProfessionals, {
@@ -780,19 +777,13 @@ export default function ContabilidadView({
     }
   }, [availableYears])
 
-  const dailyDataWorked = useMemo(() => {
-    return dailyData.filter(d => d.income > 0)
-  }, [dailyData])
-
-  const maxDay = Math.max(...dailyData.map(d => d.income), 1)
-
   const turnosChart = useAccountingMemo(safeAllData, "turnosChart", () => safeProfessionals
     .filter(prof => !prof.deletedAt || chartRange.some(({ k }) => chartSummaries.get(k).turnsByProf[prof.id] > 0))
     .map(prof => ({ ...prof, values: chartRange.map(({ k }) => chartSummaries.get(k).incomeByProf[prof.id] || 0) })),
     [safeProfessionals, chartRange, chartSummaries])
 
   const maxTurns = Math.max(1, ...turnosChart.flatMap(p => p.values))
-  const chartWidth = Math.max(320, chartRange.length * 24 + 48)
+  const chartWidth = Math.max(600, chartRange.length * 24 + 48)
   const chartInnerWidth = chartWidth - 48
   const labelEvery = Math.max(1, Math.ceil(chartRange.length / 12))
   const topWorker = safeProfessionals.reduce((winner, prof) => {
@@ -1315,7 +1306,7 @@ export default function ContabilidadView({
                       </div>
                     </div>
                     <div style={{ width:"100%", display:"flex", justifyContent:"center" }}>
-                      <svg viewBox={`0 0 ${chartWidth} 220`} style={{ width:"100%", maxWidth:"100%", height:220, display:"block" }}>
+                      <svg viewBox={`0 0 ${chartWidth} 220`} style={{ width:"100%", maxWidth:"100%", height:"auto", display:"block" }}>
                         {[...Array(6)].map((_, idx) => {
                           const y = 20 + idx * 36
                           return <line key={idx} x1={24} y1={y} x2={chartWidth - 24} y2={y} stroke="#f2f2f2" strokeWidth="1" />
@@ -1337,6 +1328,14 @@ export default function ContabilidadView({
                                 return <circle key={i} cx={x} cy={y} r="3.5" fill={color} />
                               })}
                             </g>
+                          )
+                        })}
+                        {chartRange.map((d, i) => {
+                          const x = 24 + (chartInnerWidth / Math.max(chartRange.length - 1, 1)) * i
+                          return (
+                            <text key={i} x={x} y={213} fill={C.textSoft} fontSize="8" textAnchor="middle">
+                              {i % labelEvery === 0 || i === chartRange.length - 1 ? d.label : ""}
+                            </text>
                           )
                         })}
                       </svg>
@@ -1461,7 +1460,7 @@ export default function ContabilidadView({
                         
                         return (
                           <div style={{ width: "100%" }}>
-                            <svg viewBox={`0 0 ${chartWidth} 220`} style={{ width:"100%", maxWidth:"100%", height:220, display:"block" }}>
+                            <svg viewBox={`0 0 ${chartWidth} 220`} style={{ width:"100%", maxWidth:"100%", height:"auto", display:"block" }}>
                               {[...Array(6)].map((_, idx) => {
                                 const y = 20 + idx * 36
                                 return <line key={idx} x1={24} y1={y} x2={chartWidth - 24} y2={y} stroke="#f2f2f2" strokeWidth="1" />
@@ -1636,196 +1635,6 @@ export default function ContabilidadView({
                           </div>
                         )
                       })()}
-                    </div>
-                  </div>
-                );
-              }
-
-              if (chartId === "consolidated") {
-                return (
-                  <div 
-                    key="consolidated"
-                    draggable={isDesktop}
-                    onDragStart={(e) => handleDragStart(e, "consolidated")}
-                    onDragOver={(e) => handleDragOver(e, "consolidated")}
-                    onDrop={(e) => handleDrop(e, "consolidated")}
-                    onDragEnd={handleDragEnd}
-                    style={{ 
-                      background:C.white, 
-                      borderRadius:16, 
-                      padding:"18px 20px", 
-                      border:`1px solid ${C.border}`,
-                      cursor: isDesktop ? (draggedId === "consolidated" ? "grabbing" : "grab") : "default",
-                      opacity: draggedId === "consolidated" ? 0.4 : 1,
-                      transition: "opacity 0.2s ease"
-                    }}
-                  >
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                      <div style={{ display: "flex", alignItems: "center" }}>
-                        {isDesktop && <span style={{ color: C.textSoft, marginRight: 6, fontSize: 11, cursor: "grab", fontWeight: "bold" }}>⋮⋮</span>}
-                        <div style={{ fontSize:8, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase" }}>Evolución de Ingresos Consolidados (ARS vs USD)</div>
-                      </div>
-                      <div style={{ fontSize:8, color:C.green, background:"#f3faf5", padding:"2px 8px", borderRadius:8, fontWeight:"bold" }}>Sin días vacíos</div>
-                    </div>
-                    <div style={{ width:"100%", display:"flex", justifyContent:"center" }}>
-                      {dailyDataWorked.length === 0 ? (
-                        <div style={{ fontSize:11, color:C.textSoft, padding: "40px 0", textAlign: "center" }}>Sin datos facturados en este período</div>
-                      ) : (() => {
-                        const maxARS = Math.max(...dailyDataWorked.map(d => d.income), 1)
-                        const maxUSD = Math.max(...dailyDataWorked.map(d => d.income / dollarRate), 1)
-                        const innerW = chartWidth - 48
-                        
-                        // Generate points for ARS (Green line)
-                        const pointsARS = dailyDataWorked.map((d, i) => {
-                          const x = 24 + (innerW / Math.max(dailyDataWorked.length - 1, 1)) * i
-                          const y = 200 - (d.income / maxARS) * 160
-                          return `${i === 0 ? "M" : "L"} ${x} ${y}`
-                        }).join(" ")
-                        
-                        // Generate points for USD (Blue line)
-                        const pointsUSD = dailyDataWorked.map((d, i) => {
-                          const x = 24 + (innerW / Math.max(dailyDataWorked.length - 1, 1)) * i
-                          const y = 200 - ((d.income / dollarRate) / maxUSD) * 160
-                          return `${i === 0 ? "M" : "L"} ${x} ${y}`
-                        }).join(" ")
-                        
-                        return (
-                          <div style={{ width: "100%" }}>
-                            <svg viewBox={`0 0 ${chartWidth} 220`} style={{ width:"100%", maxWidth:"100%", height:220, display:"block" }}>
-                              {[...Array(6)].map((_, idx) => {
-                                const y = 20 + idx * 36
-                                return <line key={idx} x1={24} y1={y} x2={chartWidth - 24} y2={y} stroke="#f2f2f2" strokeWidth="1" />
-                              })}
-                              <path d={`M24 200 L${chartWidth - 24} 200`} stroke="#ddd" strokeWidth="1" />
-                              
-                              {/* ARS Line (Green) */}
-                              <path d={pointsARS} fill="none" stroke={C.green} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                              {dailyDataWorked.map((d, i) => {
-                                const x = 24 + (innerW / Math.max(dailyDataWorked.length - 1, 1)) * i
-                                const y = 200 - (d.income / maxARS) * 160
-                                return <circle key={`ars-${i}`} cx={x} cy={y} r="3" fill={C.green} />
-                              })}
-                              
-                              {/* USD Line (Blue) */}
-                              <path d={pointsUSD} fill="none" stroke="#1d4ed8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                              {dailyDataWorked.map((d, i) => {
-                                const x = 24 + (innerW / Math.max(dailyDataWorked.length - 1, 1)) * i
-                                const y = 200 - ((d.income / dollarRate) / maxUSD) * 160
-                                return <circle key={`usd-${i}`} cx={x} cy={y} r="3" fill="#1d4ed8" />
-                              })}
-                            </svg>
-                            
-                            <div style={{ display:"flex", justifyContent: "center", gap:16, marginTop:12, flexWrap: "wrap" }}>
-                              <div style={{ display:"flex", alignItems:"center", gap:5, fontSize:9, color:C.textSoft }}>
-                                <span style={{ width:8, height:8, borderRadius:99, background:C.green }}></span>
-                                <span>ARS (Máx: {fmt(maxARS)})</span>
-                              </div>
-                              <div style={{ display:"flex", alignItems:"center", gap:5, fontSize:9, color:C.textSoft }}>
-                                <span style={{ width:8, height:8, borderRadius:99, background:"#1d4ed8" }}></span>
-                                <span>USD (Máx: US$ {Math.round(maxUSD).toLocaleString("es-AR")})</span>
-                              </div>
-                            </div>
-                          </div>
-                        )
-                      })()}
-                    </div>
-                  </div>
-                );
-              }
-
-              if (chartId === "daily") {
-                return (
-                  <div 
-                    key="daily"
-                    className="chart-card-zoom"
-                    onClick={() => setActiveZoomedChart("daily")}
-                    draggable={isDesktop}
-                    onDragStart={(e) => handleDragStart(e, "daily")}
-                    onDragOver={(e) => handleDragOver(e, "daily")}
-                    onDrop={(e) => handleDrop(e, "daily")}
-                    onDragEnd={handleDragEnd}
-                    style={{ 
-                      background:C.white, 
-                      borderRadius:16, 
-                      padding:"18px 20px", 
-                      border:`1px solid ${C.border}`,
-                      boxShadow:`0 2px 12px ${C.shadow}`, 
-                      overflow:"hidden",
-                      cursor: isDesktop ? (draggedId === "daily" ? "grabbing" : "grab") : "default",
-                      opacity: draggedId === "daily" ? 0.4 : 1,
-                      transition: "opacity 0.2s ease"
-                    }}
-                  >
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                      <div style={{ display: "flex", alignItems: "center" }}>
-                        {isDesktop && <span style={{ color: C.textSoft, marginRight: 6, fontSize: 11, cursor: "grab", fontWeight: "bold" }}>⋮⋮</span>}
-                        <div style={{ fontSize:8, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase" }}>Actividad diaria ({dailyData.length} d)</div>
-                      </div>
-                      <div className="zoom-badge" style={{ fontSize: 9, color: C.green, background: "#f3faf5", padding: "2px 8px", borderRadius: 8, display: "flex", alignItems: "center", gap: 3, fontWeight: "bold" }}>
-                        <span>🔍</span> Ampliar
-                      </div>
-                    </div>
-                    <div style={{ display:"flex", alignItems:"flex-end", gap:2, height:140, paddingBottom:20, position:"relative" }}>
-                      {dailyData.map((d, i) => {
-                        const h = Math.max(2, (d.income / maxDay) * 120)
-                        const isToday = d.k === todayKey()
-                        const showLabel = dailyData.length <= 14 || i % Math.ceil(dailyData.length / 10) === 0 || i === dailyData.length - 1
-                        return (
-                          <div key={i} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", height:"100%", justifyContent:"flex-end", position:"relative" }}>
-                            <div style={{ width:"100%", height:h, borderRadius:"2px 2px 0 0", background:isToday?`linear-gradient(180deg,${C.orange},${C.orangeLight})`:d.income>0?`linear-gradient(180deg,${C.green},${C.greenLight})`:"#f5f5f5", transition:"height .3s ease" }}/>
-                            {showLabel && (
-                              <div style={{ position:"absolute", bottom:-16, fontSize:7, color:isToday?C.orange:C.textSoft, fontWeight:isToday?"bold":"normal", whiteSpace:"nowrap" }}>{d.label}</div>
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                );
-              }
-
-              if (chartId === "dow") {
-                return (
-                  <div 
-                    key="dow"
-                    className="chart-card-zoom"
-                    onClick={() => setActiveZoomedChart("dow")}
-                    draggable={isDesktop}
-                    onDragStart={(e) => handleDragStart(e, "dow")}
-                    onDragOver={(e) => handleDragOver(e, "dow")}
-                    onDrop={(e) => handleDrop(e, "dow")}
-                    onDragEnd={handleDragEnd}
-                    style={{ 
-                      background:C.white, 
-                      borderRadius:16, 
-                      padding:"18px 20px", 
-                      border:`1px solid ${C.border}`,
-                      cursor: isDesktop ? (draggedId === "dow" ? "grabbing" : "grab") : "default",
-                      opacity: draggedId === "dow" ? 0.4 : 1,
-                      transition: "opacity 0.2s ease"
-                    }}
-                  >
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                      <div style={{ display: "flex", alignItems: "center" }}>
-                        {isDesktop && <span style={{ color: C.textSoft, marginRight: 6, fontSize: 11, cursor: "grab", fontWeight: "bold" }}>⋮⋮</span>}
-                        <div style={{ fontSize:8, letterSpacing:"2px", color:C.textSoft, textTransform:"uppercase" }}>Rendimiento por día de semana</div>
-                      </div>
-                      <div className="zoom-badge" style={{ fontSize: 9, color: C.green, background: "#f3faf5", padding: "2px 8px", borderRadius: 8, display: "flex", alignItems: "center", gap: 3, fontWeight: "bold" }}>
-                        <span>🔍</span> Ampliar
-                      </div>
-                    </div>
-                    <div style={{ display:"flex", alignItems:"flex-end", justifyContent:"space-between", height:120, gap:8, paddingBottom:20 }}>
-                      {["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"].map((label, dow) => {
-                        const val = incomeByDOW[dow] || 0
-                        const maxDOW = Math.max(...Object.values(incomeByDOW), 1)
-                        const h = (val / maxDOW) * 80
-                        return (
-                          <div key={label} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:6 }}>
-                            <div style={{ width:"100%", height:h, borderRadius:4, background:val>0?`linear-gradient(180deg,${C.green},${C.greenLight})`:"#f0f0f0", transition:"height .4s" }}/>
-                            <div style={{ fontSize:8, color:C.textSoft }}>{label}</div>
-                          </div>
-                        )
-                      })}
                     </div>
                   </div>
                 );
@@ -3260,10 +3069,7 @@ export default function ContabilidadView({
               emoji="📊" 
               sub="Visualización detallada y ampliada"
             >
-              {activeZoomedChart === "prof" ? "Ingresos por Profesional" :
-               activeZoomedChart === "daily" ? "Actividad Diaria Detallada" :
-               activeZoomedChart === "comparison" ? comparisonTitle :
-               "Rendimiento por Día de Semana"}
+              {activeZoomedChart === "prof" ? "Ingresos por Profesional" : comparisonTitle}
             </ModalHeader>
 
             <div className="no-scrollbar" style={{ margin: "20px 0", width: "100%", overflowX: "auto" }}>
@@ -3411,106 +3217,6 @@ export default function ContabilidadView({
                             </div>
                           )
                         })}
-                      </div>
-                    </div>
-                  </div>
-                )
-              })()}
-
-              {activeZoomedChart === "daily" && (() => {
-                // Expanded Daily Activity chart
-                return (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                    <div className="no-scrollbar" style={{ 
-                      background: C.cream, 
-                      borderRadius: 14, 
-                      padding: "24px 20px 30px", 
-                      border: `1.5px solid ${C.border}`,
-                      overflowX: "auto"
-                    }}>
-                      <div style={{ 
-                        display: "flex", 
-                        alignItems: "flex-end", 
-                        justifyContent: dailyData.length > 20 ? "flex-start" : "center",
-                        gap: dailyData.length > 20 ? 4 : 12, 
-                        height: 300, 
-                        paddingBottom: 24, 
-                        position: "relative",
-                        minWidth: dailyData.length * 28 + 40,
-                        margin: "0 auto"
-                      }}>
-                        {dailyData.map((d, i) => {
-                          const h = Math.max(4, (d.income / maxDay) * 250)
-                          const isToday = d.k === todayKey()
-                          const hasIncome = d.income > 0
-                          const labelEveryN = Math.ceil(dailyData.length / 15)
-                          const showLabel = dailyData.length <= 15 || i % labelEveryN === 0 || i === dailyData.length - 1
-                          
-                          return (
-                            <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", height: "100%", justifyContent: "flex-end", position: "relative" }}>
-                              {/* Income Value Indicator */}
-                              {hasIncome && (
-                                <div style={{ 
-                                  position: "absolute", 
-                                  bottom: h + 28, 
-                                  fontSize: 8, 
-                                  color: isToday ? C.orange : C.green, 
-                                  fontWeight: "bold",
-                                  background: isToday ? "#fdf0e8" : "#f0f8f2",
-                                  padding: "2px 5px",
-                                  borderRadius: 6,
-                                  whiteSpace: "nowrap",
-                                  boxShadow: "0 2px 5px rgba(0,0,0,0.03)",
-                                  border: `1px solid ${isToday ? C.orangeLight : C.greenMint}`
-                                }}>
-                                  {fmt(d.income)}
-                                </div>
-                              )}
-                              {/* Bar */}
-                              <div style={{ 
-                                width: "100%", 
-                                height: h, 
-                                borderRadius: "4px 4px 0 0", 
-                                background: isToday 
-                                  ? `linear-gradient(180deg, ${C.orange}, ${C.orangeLight})` 
-                                  : hasIncome 
-                                    ? `linear-gradient(180deg, ${C.green}, ${C.greenLight})` 
-                                    : "#e4ebe6", 
-                                transition: "height .3s ease",
-                                boxShadow: hasIncome ? "0 2px 6px rgba(58,125,68,0.1)" : "none"
-                              }}/>
-                              {/* Bottom labels */}
-                              {showLabel && (
-                                <div style={{ 
-                                  position: "absolute", 
-                                  bottom: -22, 
-                                  fontSize: 9, 
-                                  color: isToday ? C.orange : C.textSoft, 
-                                  fontWeight: isToday ? "bold" : "600", 
-                                  whiteSpace: "nowrap" 
-                                }}>
-                                  {d.label}
-                                  {isToday && <span style={{ fontSize: 7, marginLeft: 2, background: C.orange, color: "#fff", padding: "1px 3px", borderRadius: 4 }}>Hoy</span>}
-                                </div>
-                              )}
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </div>
-
-                    <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-                      <div style={{ background: "#fdf8f4", border: `1px solid ${C.orangeLight}`, flex: 1, padding: "12px 16px", borderRadius: 12 }}>
-                        <span style={{ fontSize: 9, textTransform: "uppercase", color: C.orange, fontWeight: "bold", letterSpacing: "1px" }}>Día más productivo</span>
-                        <div style={{ fontSize: 16, fontWeight: "bold", color: C.text, marginTop: 4 }}>
-                          {busiestDay ? `${busiestDay.label} · ${busiestDay.count} turnos` : "Sin datos"}
-                        </div>
-                      </div>
-                      <div style={{ background: "#f4fcf7", border: `1px solid ${C.greenMint}`, flex: 1, padding: "12px 16px", borderRadius: 12 }}>
-                        <span style={{ fontSize: 9, textTransform: "uppercase", color: C.green, fontWeight: "bold", letterSpacing: "1px" }}>Total del Período</span>
-                        <div style={{ fontSize: 16, fontWeight: "bold", color: C.green, marginTop: 4 }}>
-                          {fmt(totalIncome)}
-                        </div>
                       </div>
                     </div>
                   </div>
@@ -3937,72 +3643,6 @@ export default function ContabilidadView({
                           </tr>
                         </tbody>
                       </table>
-                    </div>
-                  </div>
-                )
-              })()}
-
-              {activeZoomedChart === "dow" && (() => {
-                // Expanded Day of Week Performance chart
-                const daysMap = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"]
-                const maxDOW = Math.max(...Object.values(incomeByDOW), 1)
-
-                return (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                    <div style={{ 
-                      background: C.cream, 
-                      borderRadius: 14, 
-                      padding: "36px 24px 30px", 
-                      border: `1.5px solid ${C.border}`,
-                      display: "flex",
-                      justifyContent: "center"
-                    }}>
-                      <div style={{ 
-                        display: "flex", 
-                        alignItems: "flex-end", 
-                        justifyContent: "center", 
-                        height: 260, 
-                        gap: 32, // premium spacing
-                        paddingBottom: 24,
-                        width: "100%",
-                        maxWidth: 760
-                      }}>
-                        {["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"].map((label, dow) => {
-                          const val = incomeByDOW[dow] || 0
-                          const h = (val / maxDOW) * 190
-                          const pct = totalIncome > 0 ? (val / totalIncome) * 100 : 0
-                          
-                          return (
-                            <div key={label} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 8, height: "100%", justifyContent: "flex-end", position: "relative" }}>
-                              {val > 0 && (
-                                <div style={{ 
-                                  position: "absolute", 
-                                  bottom: h + 28, 
-                                  textAlign: "center", 
-                                  display: "flex", 
-                                  flexDirection: "column", 
-                                  alignItems: "center" 
-                                }}>
-                                  <span style={{ fontSize: 10, fontWeight: "bold", color: C.green }}>{fmt(val)}</span>
-                                  <span style={{ fontSize: 8, color: C.textSoft, background: "#f0f8f2", padding: "1px 4px", borderRadius: 4, marginTop: 2 }}>{pct.toFixed(1)}%</span>
-                                </div>
-                              )}
-                              <div style={{ 
-                                width: "100%", 
-                                maxWidth: 50, 
-                                height: Math.max(4, h), 
-                                borderRadius: "6px 6px 0 0", 
-                                background: val > 0 
-                                  ? `linear-gradient(180deg, ${C.green}, ${C.greenLight})` 
-                                  : "#e4ebe6", 
-                                transition: "height .4s",
-                                boxShadow: val > 0 ? "0 4px 10px rgba(58,125,68,0.15)" : "none"
-                              }}/>
-                              <div style={{ fontSize: 10, color: C.text, fontWeight: "bold" }}>{daysMap[dow]}</div>
-                            </div>
-                          )
-                        })}
-                      </div>
                     </div>
                   </div>
                 )

@@ -64,6 +64,174 @@ export function getPairKey(idA, idB) {
   return [String(idA), String(idB)].sort().join("::")
 }
 
+// Explicación detallada de la diferencia entre dos palabras similares
+function explainWordDiff(rawW1, rawW2) {
+  const w1 = normalizeClientName(rawW1)
+  const w2 = normalizeClientName(rawW2)
+  if (!w1 || !w2) return `"${rawW1}" ↔ "${rawW2}"`
+
+  if (w1 === w2) {
+    return `Diferencia de acento o mayúsculas en "${rawW1}" ↔ "${rawW2}"`
+  }
+
+  // Inicial vs palabra completa
+  if ((w1.length <= 2 || w2.length <= 2) && (w1.startsWith(w2) || w2.startsWith(w1))) {
+    return `Inicial/abreviatura: "${rawW1}" ↔ "${rawW2}"`
+  }
+
+  // Abreviatura por prefijo ("Romina" vs "Romi")
+  if (w1.startsWith(w2) || w2.startsWith(w1)) {
+    const longer = rawW1.length >= rawW2.length ? rawW1 : rawW2
+    const shorter = rawW1.length >= rawW2.length ? rawW2 : rawW1
+    const extra = longer.slice(shorter.length)
+    return `Abreviatura en "${rawW1}" ↔ "${rawW2}" (agrega/omite "${extra}")`
+  }
+
+  // Mismo largo y cambia 1 sola letra
+  if (w1.length === w2.length) {
+    const diffs = []
+    for (let i = 0; i < w1.length; i++) {
+      if (w1[i] !== w2[i]) diffs.push({ i, c1: rawW1[i] || w1[i], c2: rawW2[i] || w2[i] })
+    }
+    if (diffs.length === 1) {
+      return `Cambia la letra "${diffs[0].c1}" por "${diffs[0].c2}" en "${rawW1}" ↔ "${rawW2}"`
+    }
+    if (diffs.length === 2 && diffs[0].i + 1 === diffs[1].i && w1[diffs[0].i] === w2[diffs[1].i] && w1[diffs[1].i] === w2[diffs[0].i]) {
+      return `Letras invertidas en "${rawW1}" ↔ "${rawW2}"`
+    }
+  }
+
+  // Diferencia de 1 letra de largo (inserción u omisión de 1 caracter)
+  if (Math.abs(w1.length - w2.length) === 1) {
+    const longerNorm = w1.length > w2.length ? w1 : w2
+    const shorterNorm = w1.length > w2.length ? w2 : w1
+    const longerRaw = rawW1.length > rawW2.length ? rawW1 : rawW2
+
+    let i = 0
+    let j = 0
+    let extraChar = null
+    let mismatches = 0
+    while (i < longerNorm.length && j < shorterNorm.length) {
+      if (longerNorm[i] === shorterNorm[j]) {
+        i++
+        j++
+      } else {
+        extraChar = longerRaw[i] || longerNorm[i]
+        mismatches++
+        i++
+      }
+    }
+    if (mismatches === 0) {
+      extraChar = longerRaw[longerRaw.length - 1] || longerNorm[longerNorm.length - 1]
+      mismatches = 1
+    }
+    if (mismatches === 1 && extraChar) {
+      return `Falta/sobra la letra "${extraChar}" en "${rawW1}" ↔ "${rawW2}"`
+    }
+  }
+
+  return `Variación en "${rawW1}" ↔ "${rawW2}"`
+}
+
+// Describe con precisión cuál es la diferencia encontrada entre dos perfiles
+export function describeClientDifference(clientA, clientB) {
+  const nameA = (clientA?.name || "").trim()
+  const nameB = (clientB?.name || "").trim()
+  const phoneA = (clientA?.effectivePhone || clientA?.phone || "").trim()
+  const phoneB = (clientB?.effectivePhone || clientB?.phone || "").trim()
+
+  if (!nameA || !nameB) return ""
+
+  // 1. Nombres exactamente iguales caracter por caracter
+  if (nameA === nameB) {
+    if (phoneA && !phoneB) return `Mismo nombre exacto ("${nameA}"), pero solo una ficha tiene teléfono (${phoneA})`
+    if (!phoneA && phoneB) return `Mismo nombre exacto ("${nameA}"), pero solo una ficha tiene teléfono (${phoneB})`
+    if (phoneA && phoneB && phoneA !== phoneB) return `Mismo nombre exacto ("${nameA}"), con teléfonos escritos distinto (${phoneA} vs ${phoneB})`
+    return `Dos fichas separadas con el mismo nombre exacto ("${nameA}")`
+  }
+
+  // 2. Solo cambian mayúsculas/minúsculas
+  if (nameA.toLowerCase() === nameB.toLowerCase()) {
+    return `Cambian mayúsculas/minúsculas: "${nameA}" ↔ "${nameB}"`
+  }
+
+  const rawWordsA = nameA.split(/\s+/).filter(Boolean)
+  const rawWordsB = nameB.split(/\s+/).filter(Boolean)
+  const normA = normalizeClientName(nameA)
+  const normB = normalizeClientName(nameB)
+  const normWordsA = normA.split(" ").filter(Boolean)
+  const normWordsB = normB.split(" ").filter(Boolean)
+
+  // 3. Mismo nombre normalizado (difieren en tildes, puntuación o espacios)
+  if (normA === normB) {
+    if (rawWordsA.length === rawWordsB.length) {
+      const wordDiffs = []
+      for (let i = 0; i < rawWordsA.length; i++) {
+        if (rawWordsA[i] !== rawWordsB[i]) {
+          wordDiffs.push(`"${rawWordsA[i]}" ↔ "${rawWordsB[i]}"`)
+        }
+      }
+      if (wordDiffs.length > 0) {
+        return `Diferencia de tilde o escritura en ${wordDiffs.join(", ")}`
+      }
+    }
+    return `Diferencia de formato/espacios: "${nameA}" ↔ "${nameB}"`
+  }
+
+  // 4. Mismas palabras en distinto orden
+  if (
+    normWordsA.length > 1 &&
+    normWordsA.length === normWordsB.length &&
+    normWordsA.slice().sort().join(" ") === normWordsB.slice().sort().join(" ")
+  ) {
+    return `Orden invertido: "${nameA}" ↔ "${nameB}"`
+  }
+
+  // 5. Uno contiene todas las palabras del otro (segundo nombre o apellido extra)
+  if (normWordsA.length !== normWordsB.length) {
+    const [longerRaw, shorterRaw, longerNorm, shorterNorm] =
+      normWordsA.length > normWordsB.length
+        ? [rawWordsA, rawWordsB, normWordsA, normWordsB]
+        : [rawWordsB, rawWordsA, normWordsB, normWordsA]
+
+    const allShorterPresent = shorterNorm.every(sw => longerNorm.includes(sw))
+    if (allShorterPresent) {
+      const extraWords = longerRaw.filter((_, idx) => !shorterNorm.includes(longerNorm[idx]))
+      if (extraWords.length > 0) {
+        return `Una ficha agrega "${extraWords.join(" ")}" y la otra lo omite ("${nameA}" ↔ "${nameB}")`
+      }
+    }
+  }
+
+  // 6. Misma cantidad de palabras y cambia una palabra específica
+  if (rawWordsA.length === rawWordsB.length && rawWordsA.length >= 1) {
+    const diffPairs = []
+    for (let i = 0; i < rawWordsA.length; i++) {
+      if (normWordsA[i] !== normWordsB[i]) {
+        diffPairs.push([rawWordsA[i], rawWordsB[i]])
+      }
+    }
+    if (diffPairs.length === 1) {
+      return explainWordDiff(diffPairs[0][0], diffPairs[0][1])
+    }
+  }
+
+  // 7. Si comparten primera o última palabra pero difieren en el resto
+  if (normWordsA[0] === normWordsB[0] && rawWordsA.length >= 2 && rawWordsB.length >= 2) {
+    return explainWordDiff(rawWordsA.slice(1).join(" "), rawWordsB.slice(1).join(" "))
+  }
+  if (
+    normWordsA[normWordsA.length - 1] === normWordsB[normWordsB.length - 1] &&
+    rawWordsA.length >= 2 &&
+    rawWordsB.length >= 2
+  ) {
+    return explainWordDiff(rawWordsA[0], rawWordsB[0])
+  }
+
+  // 8. Comparación general (ej. coincidencia por teléfono con nombres distintos)
+  return `Registradas como "${nameA}" y "${nameB}"`
+}
+
 // 5. Motor de detección de sugerencias de unificación (Optimizado O(N) pre-pass + poda rápida)
 export function findDuplicateSuggestions(enrichedClients = [], ignoredPairs = new Set()) {
   const suggestions = []
@@ -226,11 +394,14 @@ export function findDuplicateSuggestions(enrichedClients = [], ignoredPairs = ne
           secundaria = p1.c
         }
 
+        const difference = describeClientDifference(principal, secundaria)
+
         suggestions.push({
           id: pairKey,
           clientA: principal,
           clientB: secundaria,
           reason: matchReason,
+          difference,
           confidence,
           score
         })

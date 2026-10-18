@@ -433,9 +433,8 @@ export default function ClientesView({ clientes, setClientes, allData, updateCli
         })
     })
 
-    // 3. Mantener seleccionada la ficha unificada
+    // 3. Mantener seleccionada la ficha unificada y pasar a la siguiente coincidencia sin cerrar el modal
     setSelectedId(targetClient.id)
-    setMergeModalOpen(false)
     setMergeModalInitialClient(null)
 
     // 4. Feedback visual
@@ -1066,6 +1065,11 @@ export default function ClientesView({ clientes, setClientes, allData, updateCli
                           <div style={{ fontSize: 10.5, color: "#9a3412" }}>
                             Motivo: {selectedDuplicateSuggestion.reason} ({otherClient.visits || 0} turnos, {fmt(otherClient.totalSpent)})
                           </div>
+                          {selectedDuplicateSuggestion.difference && (
+                            <div style={{ fontSize: 10, color: "#c2410c", marginTop: 2 }}>
+                              🔍 <strong>Diferencia:</strong> {selectedDuplicateSuggestion.difference}
+                            </div>
+                          )}
                         </div>
                       </div>
 
