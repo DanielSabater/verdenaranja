@@ -28,7 +28,7 @@ export default function ClientesView({ clientes, setClientes, allData, updateCli
   const [search, setSearch] = useState("")
   const searchResultsRef = useRef(null)
   const [activeTab, setActiveTab] = useState("all") // all, vip, frecuentes, nuevas, inactivas
-  const [sortBy, setSortBy] = useState("alpha") // alpha, freq, spent, recent
+  const [sortBy, setSortBy] = useState("recent") // alpha, freq, spent, recent
   const [filterSvc, setFilterSvc] = useState("all") // all o nombre del servicio
   const [selectedId, setSelectedId] = useState(null)
   const [showMobileDetail, setShowMobileDetail] = useState(false)
