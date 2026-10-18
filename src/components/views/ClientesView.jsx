@@ -1,4 +1,5 @@
-import { useState, useMemo, useEffect } from "react"
+import { clientSearchRank, normalizeClientQuery } from "../../utils/clientSearch.js"
+import { useState, useMemo, useEffect, useRef } from "react"
 import { C } from "../../constants/colors.js"
 import { PAYMENT_METHODS } from "../../constants/data.js"
 import { GhostBtn, SolidBtn, Field, inputStyle, Overlay } from "../ui/index.jsx"
@@ -25,6 +26,7 @@ function WhatsAppIcon({ size = 15, color = "currentColor", style = {} }) {
 
 export default function ClientesView({ clientes, setClientes, allData, updateClientNameInAppointments }) {
   const [search, setSearch] = useState("")
+  const searchResultsRef = useRef(null)
   const [activeTab, setActiveTab] = useState("all") // all, vip, frecuentes, nuevas, inactivas
   const [sortBy, setSortBy] = useState("alpha") // alpha, freq, spent, recent
   const [filterSvc, setFilterSvc] = useState("all") // all o nombre del servicio
@@ -199,25 +201,12 @@ export default function ClientesView({ clientes, setClientes, allData, updateCli
 
   // ── Filtrado y ordenamiento ──
   const filteredClientes = useMemo(() => {
-    const rawQuery = search.trim()
-    const query = rawQuery.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    const query = normalizeClientQuery(search)
+    const ranks = new Map(enriched.map(client => [client.id, clientSearchRank(client, query)]))
 
     let list = enriched.filter(c => {
-      const normName = (c.name || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-      const normPhone = (c.effectivePhone || c.phone || "").toLowerCase()
-      const normNotes = (c.notes || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-      const matchesServices = (c.topServices || []).some(s =>
-        (s.name || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(query)
-      )
+      if (!Number.isFinite(ranks.get(c.id))) return false
 
-      const matchesSearch =
-        !query ||
-        normName.includes(query) ||
-        normPhone.includes(query) ||
-        normNotes.includes(query) ||
-        matchesServices
-
-      if (!matchesSearch) return false
 
       if (activeTab === "vip") return c.isVIP
       if (activeTab === "frecuentes") return c.isRecurrente
@@ -232,13 +221,23 @@ export default function ClientesView({ clientes, setClientes, allData, updateCli
       return true
     })
 
-    if (sortBy === "alpha") list.sort((a, b) => a.name.localeCompare(b.name))
-    else if (sortBy === "freq") list.sort((a, b) => b.visits - a.visits)
-    else if (sortBy === "spent") list.sort((a, b) => b.totalSpent - a.totalSpent)
-    else if (sortBy === "recent") list.sort((a, b) => (b.lastVisit || "").localeCompare(a.lastVisit || ""))
+    const compareSelectedOrder = (a, b) => {
+      if (sortBy === "freq") return b.visits - a.visits
+      if (sortBy === "spent") return b.totalSpent - a.totalSpent
+      if (sortBy === "recent") return (b.lastVisit || "").localeCompare(a.lastVisit || "")
+      return a.name.localeCompare(b.name)
+    }
+    list.sort((a, b) => query
+      ? ranks.get(a.id) - ranks.get(b.id) || a.name.localeCompare(b.name)
+      : compareSelectedOrder(a, b))
 
     return list
   }, [enriched, search, activeTab, filterSvc, sortBy])
+
+  // Una búsqueda nueva muestra los primeros resultados, aunque la lista estuviera desplazada.
+  useEffect(() => {
+    if (searchResultsRef.current) searchResultsRef.current.scrollTop = 0
+  }, [search, activeTab, filterSvc, sortBy])
 
   // Clienta seleccionada actual
   const selected = useMemo(() => {
@@ -709,7 +708,7 @@ export default function ClientesView({ clientes, setClientes, allData, updateCli
             </div>
 
             {/* Lista con scroll */}
-            <div className="clientes-scrollable-list">
+            <div ref={searchResultsRef} className="clientes-scrollable-list">
               {filteredClientes.length === 0 ? (
                 <div style={{ textAlign: "center", padding: "40px 10px", color: C.textSoft }}>
                   <div style={{ fontSize: 28, marginBottom: 8 }}>🔍</div>
