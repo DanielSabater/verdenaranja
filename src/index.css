@@ -1324,7 +1324,7 @@ select {
   right: max(16px, env(safe-area-inset-right));
   bottom: calc(84px + env(safe-area-inset-bottom));
   z-index: 100000;
-  width: min(360px, calc(100vw - 32px));
+  width: min(370px, calc(100vw - 32px));
   padding: 16px;
   border: 1px solid #aec9ad;
   outline: 1px dashed rgba(58, 125, 68, .4);
@@ -1336,19 +1336,71 @@ select {
   font-family: Georgia, serif;
   font-size: 14px;
 }
-.update-notice p { margin: 8px 0 14px; font-size: 12px; line-height: 1.5; }
-.update-notice-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.update-notice p { margin: 8px 0 12px; font-size: 12px; line-height: 1.5; }
+.update-notice-details {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f3faf5;
+  border: 1px solid #cfe3d1;
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+.update-notice-details-title {
+  font-weight: bold;
+  color: #254f2d;
+  margin-bottom: 6px;
+  font-size: 11.5px;
+}
+.update-notice-details-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  color: #2e5936;
+}
+.update-notice-details-safe {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px dashed #cfe3d1;
+  font-size: 10.5px;
+  color: #557a5c;
+  font-style: italic;
+}
+.update-notice-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.update-notice-actions-right {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
 .update-notice button {
-  padding: 8px 12px;
+  padding: 7px 11px;
   border: 1px solid #aec9ad;
   border-radius: 8px;
   background: transparent;
   color: #254f2d;
   font: inherit;
-  font-size: 12px;
+  font-size: 11.5px;
   cursor: pointer;
+  transition: all 0.15s ease;
 }
-.update-notice .update-notice-primary { background: #3a7d44; color: white; border-color: #3a7d44; }
+.update-notice .update-notice-details-btn {
+  background: #f3faf5;
+  border-color: #c2dbc5;
+  font-weight: 600;
+}
+.update-notice .update-notice-details-btn:hover {
+  background: #e6f4ea;
+}
+.update-notice .update-notice-primary { background: #3a7d44; color: white; border-color: #3a7d44; font-weight: bold; }
 
 @media (max-width: 640px) {
   .modal-overlay:has(> .daily-summary-modal) {
