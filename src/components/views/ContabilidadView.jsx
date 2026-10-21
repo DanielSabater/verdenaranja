@@ -2337,7 +2337,7 @@ export default function ContabilidadView({
       {seccion==="sueldos" && (
         <div>
 
-          <SalaryPanel key={sueldoPeriod} professionals={safeProfessionals.filter(p => !p.deletedAt)} sueldos={safeSueldos} setSueldos={setSueldos} period={sueldoPeriod} statsFor={profStats} breakdownFor={getDailyBreakdown} onReceipt={setReceiptProf} />
+          <SalaryPanel key={sueldoPeriod} professionals={safeProfessionals.filter(p => !p.deletedAt)} sueldos={safeSueldos} setSueldos={setSueldos} period={sueldoPeriod} statsFor={profStats} breakdownFor={getDailyBreakdown} onReceipt={setReceiptProf} receiptOpen={Boolean(receiptProf)} waOpenMode={config?.waOpenMode || "app"} />
         </div>
       )}
       {/* ── DETALLE DIARIO ── */}
@@ -2614,10 +2614,26 @@ export default function ContabilidadView({
           const element = document.getElementById("salary-receipt-card")
           if (!element) return
           html2canvas(element, {
-            scale: 3,
+            scale: 4,
             backgroundColor: "#ffffff",
             useCORS: true,
             onclone: (clonedDoc) => {
+              const receipt = clonedDoc.getElementById('salary-receipt-card')
+              receipt.style.width = '720px'
+              receipt.style.boxSizing = 'border-box'
+              let ancestor = receipt.parentElement
+              while (ancestor && ancestor !== clonedDoc.body) {
+                ancestor.style.overflow = 'visible'
+                ancestor.style.maxHeight = 'none'
+                ancestor.style.maxWidth = 'none'
+                ancestor.style.flexShrink = '0'
+                ancestor = ancestor.parentElement
+              }
+              const sourceNodes = element.querySelectorAll('*')
+              receipt.querySelectorAll('*').forEach((node, index) => {
+                const size = parseFloat(getComputedStyle(sourceNodes[index]).fontSize)
+                if (size) node.style.fontSize = `${Math.max(12, size)}px`
+              })
               const elms = clonedDoc.querySelectorAll(".phone-suffix")
               elms.forEach(el => el.style.display = "none")
             }
@@ -2636,31 +2652,39 @@ export default function ContabilidadView({
         }
 
         const exportAsPdf = () => {
-          const element = document.getElementById("salary-receipt-card")
-          if (!element) return
-          html2canvas(element, {
-            scale: 3,
-            backgroundColor: "#ffffff",
-            useCORS: true,
-            onclone: (clonedDoc) => {
-              const elms = clonedDoc.querySelectorAll(".phone-suffix")
-              elms.forEach(el => el.style.display = "none")
+          const doc = new jsPDF({ unit: 'mm', format: 'a4' })
+          let y = 20
+          const line = (text, size = 11, bold = false) => {
+            doc.setFont('times', bold ? 'bold' : 'normal')
+            doc.setFontSize(size)
+            for (const row of doc.splitTextToSize(String(text), 170)) {
+              if (y > 275) { doc.addPage(); y = 20 }
+              doc.text(row, 20, y)
+              y += size * .45 + 2
             }
-          }).then(canvas => {
-            const imgData = canvas.toDataURL("image/png")
-            const imgWidth = 150
-            const imgHeight = (canvas.height * imgWidth) / canvas.width
-            const doc = new jsPDF({
-              orientation: "portrait",
-              unit: "mm",
-              format: [imgWidth, imgHeight]
-            })
-            doc.addImage(imgData, "PNG", 0, 0, imgWidth, imgHeight, undefined, "FAST")
-            doc.save(`Recibo_${p.name}_${periodLabel.replace(/\s+/g, "_")}.pdf`)
-          }).catch(err => {
-            console.error("Error exporting PDF:", err)
-            alert("Error al exportar a PDF")
-          })
+          }
+          doc.setTextColor(58, 125, 68)
+          line('Verde Naranja', 20, true)
+          line('Comprobante de sueldo', 15, true)
+          doc.setTextColor(45, 55, 45)
+          line(`${p.name} · ${periodLabel}`, 12)
+          y += 5
+          for (const day of dailyBreakdown) {
+            doc.setTextColor(58, 125, 68)
+            line(`${day.dateLabel} · ${day.turnos} turnos · Comisión ${fmt(day.comision)}`, 12, true)
+            doc.setTextColor(45, 55, 45)
+            for (const appt of day.appts) {
+              line(`${appt.hour || ''} · ${appt.clientName} · Cobrado: ${fmt(appt.amount)}`)
+              const servicesText = (appt.services || []).map(service => service.name).join(', ')
+              if (servicesText) line(servicesText, 10)
+            }
+            y += 4
+          }
+          if (!dailyBreakdown.length) line('Sin actividad registrada')
+          y += 5
+          line(`Comisión de los días incluidos: ${fmt(stats.comision)}`, 13, true)
+          line(`Pagos registrados del período: ${fmt(paidSalary(sd, p.id, sueldoPeriod))}`, 12, true)
+          doc.save(`Recibo_${p.name}_${periodLabel.replace(/\s+/g, '_')}.pdf`)
         }
         
         return createPortal(
@@ -2679,6 +2703,7 @@ export default function ContabilidadView({
             <Overlay 
               onClose={() => setReceiptProf(null)}
               style={{
+                zIndex: 2100,
                 top: "56px",
                 bottom: "0",
                 alignItems: "flex-start",

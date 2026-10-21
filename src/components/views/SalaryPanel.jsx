@@ -1,3 +1,4 @@
+import { formatWaNumber, openWhatsAppLink } from "../../utils/whatsapp.js"
 import { salaryDayBalances } from "../../utils/salaryDayBalances.js"
 import MoneyInput from "../ui/MoneyInput.jsx"
 import { parseArgentineMoney, formatArgentineMoney } from "../../utils/argentineMoney.js"
@@ -11,7 +12,7 @@ import { useMobileBackLayer } from '../../hooks/useMobileBack.js'
 
 const button = { border: `1px solid ${C.border}`, borderRadius: 12, padding: '10px 16px', background: C.white, color: C.green, cursor: 'pointer', fontFamily: 'Georgia,serif' }
 const field = { width: '100%', boxSizing: 'border-box', padding: 12, border: `1px solid ${C.border}`, borderRadius: 10, font: 'inherit', background: C.white }
-export default function SalaryPanel({ professionals, sueldos, setSueldos, period, statsFor, breakdownFor, onReceipt }) {
+export default function SalaryPanel({ professionals, sueldos, setSueldos, period, statsFor, breakdownFor, onReceipt, receiptOpen = false, waOpenMode = "app" }) {
   const [selected, select] = useState(null)
   const [bannerBottom, setBannerBottom] = useState(56)
   const [navigationBottom, setNavigationBottom] = useState(0)
@@ -24,17 +25,17 @@ export default function SalaryPanel({ professionals, sueldos, setSueldos, period
   const [cancelReason, setCancelReason] = useState('')
   const operation = useRef(null)
   const backButton = useRef(null)
-  useMobileBackLayer(Boolean(selected), () => select(null))
+  useMobileBackLayer(Boolean(selected) && !receiptOpen, () => select(null))
   useEffect(() => {
     if (!selected) return
     const previous = document.activeElement
     const overflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
-    backButton.current?.focus()
-    const escape = e => { if (e.key === 'Escape') select(null) }
+    if (!receiptOpen) backButton.current?.focus()
+    const escape = e => { if (e.key === 'Escape' && !receiptOpen) select(null) }
     window.addEventListener('keydown', escape)
     return () => { document.body.style.overflow = overflow; window.removeEventListener('keydown', escape); previous?.focus() }
-  }, [selected])
+  }, [selected, receiptOpen])
   useEffect(() => {
     if (!selected) return
     const banner = document.querySelector('.app-header-main')
@@ -66,6 +67,34 @@ export default function SalaryPanel({ professionals, sueldos, setSueldos, period
       setSueldos(previous => ({ ...previous, [`${p.id}||${period}`]: { ...previous[`${p.id}||${period}`], pagos: salaryPayments(previous[`${p.id}||${period}`], p.id, period), dias: pending } }))
     }
     select(p); setCancelling(null); setCancelReason(''); setAmount(''); setDate(todayKey()); setNote(''); setError(''); setNotice(''); operation.current = crypto.randomUUID() }
+  const sharePayment = (professional, payment) => {
+    const phone = formatWaNumber(professional.phone || '')
+    if (!phone) {
+      setError('Cargá el teléfono de la profesional en Configuración para abrir su chat de WhatsApp.')
+      return
+    }
+    const dateLabel = date => /^\d{4}-\d{2}-\d{2}$/.test(date || '') ? `${date.slice(8, 10)}/${date.slice(5, 7)}/${date.slice(0, 4)}` : 'No registrada'
+    const [year, month] = payment.periodo.split('-').map(Number)
+    const periodLabel = new Date(year, month - 1, 1).toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })
+    const days = !payment.dias || payment.dias === 'all' ? 'Mes completo' : [...payment.dias].sort().map(day => `${day.slice(8, 10)}/${day.slice(5, 7)}`).join(', ')
+    const lines = [
+      '🌿 *VERDE NARANJA*',
+      '🧾 *RESUMEN DE PAGO*',
+      `👤 *${professional.name}*`,
+      `📅 Período: ${periodLabel}`,
+      '─────────────────────────',
+      `Fecha de pago: ${dateLabel(payment.fecha)}`,
+      `Días incluidos: ${days || 'Sin días especificados'}`,
+      '',
+      `💰 *Importe abonado: ${fmt(payment.monto)}*`,
+      ...(payment.nota ? ['', `Nota: ${payment.nota}`] : []),
+      '',
+      'Este resumen corresponde al pago indicado.'
+    ]
+    setError('')
+    const opened = openWhatsAppLink(phone, lines.join('\n'), waOpenMode)
+    setNotice(opened ? 'Resumen preparado en WhatsApp. Revisalo antes de enviarlo.' : 'No se pudo abrir WhatsApp. Revisá el teléfono y la configuración.')
+  }
   const rows = professionals.map(p => ({ p, ...summary(p, true) }))
   const totals = rows.reduce((a, r) => [a[0] + r.stats.comision, a[1] + r.paid, a[2] + Math.max(0, r.balance)], [0, 0, 0])
   const metrics = values => <div className="salary-metrics" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 12, margin: '20px 0' }}>{values.map(([label, value]) => <div key={label} style={{ background: C.cream, borderRadius: 14, padding: 18, border: `1px dashed ${C.border}` }}><div style={{ color: C.textSoft, fontSize: 12 }}>{label}</div><strong style={{ display: 'block', marginTop: 8, color: label.includes('pendiente') ? C.orange : C.green, fontSize: 24 }}>{fmt(value)}</strong></div>)}</div>
@@ -136,7 +165,7 @@ export default function SalaryPanel({ professionals, sueldos, setSueldos, period
         `}</style><div className="salary-sheet-content"><div className="salary-first-screen">
         <div className="salary-sheet-actions"><button ref={backButton} style={button} onClick={() => select(null)}>← Volver a sueldos</button></div>
         <div className="salary-primary-columns"><div className="salary-account-summary">
-        <div className="salary-account-heading" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, flexWrap: 'wrap', marginTop: 28 }}><div><div style={{ color: C.orange }}>CUENTA DEL PROFESIONAL · {period}</div><h1>{selected.emoji} {selected.name}</h1></div><button style={button} onClick={() => { select(null); onReceipt(selected) }}>Ver comprobante</button></div>
+        <div className="salary-account-heading" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, flexWrap: 'wrap', marginTop: 28 }}><div><div style={{ color: C.orange }}>CUENTA DEL PROFESIONAL · {period}</div><h1>{selected.emoji} {selected.name}</h1></div><button style={button} onClick={() => onReceipt(selected)}>Ver comprobante</button></div>
         {metrics([['Comisión a liquidar', stats.comision], ['Pagos aplicados a estos días', paid], [balance < 0 ? 'Saldo a favor' : 'Saldo pendiente', Math.abs(balance)]])}
         <p style={{ color: C.textSoft }}>{stats.turnos} turnos · {stats.dias} días trabajados · Facturado: {fmt(stats.facturado)} · Propinas: {fmt(stats.propinas)} (por separado)</p>
         {record.dias && record.dias !== 'all' && <p>Liquidación de días seleccionados: {record.dias.map(d => d.slice(-2)).join(', ') || 'ninguno'}. Se conserva la selección anterior.</p>}
@@ -153,7 +182,8 @@ export default function SalaryPanel({ professionals, sueldos, setSueldos, period
         <h2 style={{ marginTop: 32 }}>Historial de pagos · todos los períodos</h2>
         {!history.length && <p>Todavía no hay pagos registrados.</p>}
         {history.map(payment => <div key={`${payment.periodo}:${payment.id}`} style={{ padding: 18, background: C.white, borderRadius: 12, marginBottom: 10, border: `1px solid ${C.border}` }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}><div><strong>{payment.fecha || 'Fecha no registrada'} · {payment.periodo}</strong><div style={{ color: C.textSoft, fontSize: 12, marginTop: 6 }}>{payment.anterior ? 'Pago anterior conservado' : 'Pago registrado'}{payment.nota ? ` · ${payment.nota}` : ''}</div></div><strong style={{ color: payment.anulado ? C.textSoft : C.green, textDecoration: payment.anulado ? 'line-through' : 'none' }}>{fmt(payment.monto)}</strong></div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}><div><strong>{payment.fecha ? `Pago del ${payment.fecha.slice(8, 10)}/${payment.fecha.slice(5, 7)}/${payment.fecha.slice(0, 4)}` : 'Fecha no registrada'}</strong><div style={{ color: C.textSoft, fontSize: 12, marginTop: 6 }}>Período: {new Date(`${payment.periodo}-01T12:00:00`).toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })}</div><div style={{ color: C.textSoft, fontSize: 12, marginTop: 6 }}>{payment.anterior ? 'Pago anterior conservado' : 'Pago registrado'}{payment.nota ? ` · ${payment.nota}` : ''}</div></div><strong style={{ color: payment.anulado ? C.textSoft : C.green, textDecoration: payment.anulado ? 'line-through' : 'none' }}>{fmt(payment.monto)}</strong></div>
+          {!payment.anulado && <button type="button" onClick={() => sharePayment(selected, payment)} style={{ ...button, marginTop: 12, marginRight: 8, fontSize: 12, padding: '8px 12px' }} title="Abrir WhatsApp con el resumen de este pago">WhatsApp ↗</button>}
           {payment.anulado ? <p style={{ color: C.textSoft, fontSize: 12 }}>Anulado · {payment.motivoAnulacion} · {payment.anuladoEn ? new Date(payment.anuladoEn).toLocaleString('es-AR') : 'Fecha no registrada'}</p> : cancelling?.id === payment.id && cancelling?.periodo === payment.periodo ?
             <form onSubmit={event => {
               event.preventDefault()
