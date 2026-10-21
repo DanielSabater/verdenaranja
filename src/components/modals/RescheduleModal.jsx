@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react"
 import { C } from "../../constants/colors.js"
 import { fmtDate, toDateKey, todayKey, nextWorkDay, DIAS_ES, MESES_ES } from "../../utils/dates.js"
-import { fmt, apptTotal, apptDur, getApptSlots, getAvailableHoursForDay } from "../../utils/appointments.js"
+import { fmt, apptTotal, apptDur, getApptSlots, getAvailableHoursForDay, hasRealAppointments } from "../../utils/appointments.js"
 import { Overlay, ModalHeader, Field, GhostBtn, modalBox } from "../ui/index.jsx"
 import { getApptClientPhone, formatWaNumber, generateRescheduleMessage, openWhatsAppLink } from "../../utils/whatsapp.js"
 
@@ -117,8 +117,8 @@ export function RescheduleContent({
   // Disponibilidad de horarios para la profesional y fecha elegida
   const ignoreKey = fromDate === targetDate ? fromKey : null
   const hoursAvailability = useMemo(() => {
-    return getAvailableHoursForDay(targetDayAppts, targetProfId, neededSlots, ignoreKey)
-  }, [targetDayAppts, targetProfId, neededSlots, ignoreKey])
+    return getAvailableHoursForDay(targetDayAppts, targetProfId, neededSlots, ignoreKey, curTargetProf, targetDate)
+  }, [targetDayAppts, targetProfId, neededSlots, ignoreKey, curTargetProf, targetDate])
 
   // Auto-seleccionar horario válido si el seleccionado queda inválido
   useEffect(() => {
@@ -430,7 +430,7 @@ export function RescheduleContent({
                     const dk = `${vy}-${String(vm).padStart(2, "0")}-${String(day).padStart(2, "0")}`
                     const isSelected = dk === targetDate
                     const isToday = dk === todayKey()
-                    const hasAppts = Object.keys(allData[dk] || {}).length > 0
+                    const hasAppts = hasRealAppointments(allData[dk])
 
                     return (
                       <button

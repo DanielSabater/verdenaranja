@@ -194,16 +194,80 @@ export const getApptSlots = (a) => {
   return Math.max(1, Math.ceil(apptDur(a) / 30))
 }
 
+export const SCHEDULE_DAYS = ["Do", "Lu", "Ma", "Mi", "Ju", "Vi", "Sá"]
+
+export const WORK_DAYS_META = [
+  { id: "Lu", label: "Lunes", short: "Lun" },
+  { id: "Ma", label: "Martes", short: "Mar" },
+  { id: "Mi", label: "Miércoles", short: "Mié" },
+  { id: "Ju", label: "Jueves", short: "Jue" },
+  { id: "Vi", label: "Viernes", short: "Vie" },
+  { id: "Sá", label: "Sábado", short: "Sáb" },
+]
+
+/**
+ * Determina si un objeto de día tiene al menos un turno real (excluye bloqueos de horario, notas y metadatos).
+ */
+export const hasRealAppointments = (dayObj) => {
+  if (!dayObj || typeof dayObj !== "object") return false
+  return Object.values(dayObj).some(
+    a => a && typeof a === "object" && !a.isBlocked && !a.isNote && !a.isUnblockOverride && Boolean(a.client)
+  )
+}
+
+/**
+ * Obtiene la configuración de horario de una profesional para una fecha dada ("YYYY-MM-DD").
+ */
+export const getProfDaySchedule = (prof, dateStr) => {
+  if (!prof?.schedule) return null
+  const d = dateStr ? new Date(dateStr + "T12:00:00") : new Date()
+  const dayName = SCHEDULE_DAYS[d.getDay()]
+  return prof.schedule[dayName] || null
+}
+
+/**
+ * Determina si una hora ("HH:MM") está fuera del horario laboral de la profesional en la fecha dada.
+ */
+export const isHourOutsideSchedule = (prof, hour, dateStr, dayAppointments = null) => {
+  if (!prof?.schedule) return false
+  if (dayAppointments && dayAppointments[`unblock||${prof.id}||${hour}`]) return false
+  const daySchedule = getProfDaySchedule(prof, dateStr)
+  if (!daySchedule) return false
+  if (daySchedule.active === false) return true
+  const from = daySchedule.from || "09:00"
+  const to = daySchedule.to || "20:00"
+  if (hour < from || hour >= to) return true
+  if (daySchedule.breakActive && daySchedule.breakFrom && daySchedule.breakTo) {
+    if (hour >= daySchedule.breakFrom && hour < daySchedule.breakTo) return true
+  }
+  return false
+}
+
+/**
+ * Determina si una hora fuera de horario debe mostrarse bloqueada en la grilla.
+ */
+export const isHourScheduleBlocked = (prof, hour, dateStr, dayAppointments = null) => {
+  if (!prof?.schedule) return false
+  if (prof.blockNonWorking === false) return false
+  const daySchedule = getProfDaySchedule(prof, dateStr)
+  if (!daySchedule || daySchedule.blockNonWorking === false) return false
+  return isHourOutsideSchedule(prof, hour, dateStr, dayAppointments)
+}
+
 /**
  * Comprueba si un horario/slot específico está ocupado por otro turno o bloqueo en ese día.
  */
-export const isSlotOccupied = (dayAppointments = {}, profId, hour, ignoreKey = null) => {
+export const isSlotOccupied = (dayAppointments = {}, profId, hour, ignoreKey = null, prof = null, dateStr = null) => {
+  if (prof && isHourScheduleBlocked(prof, hour, dateStr, dayAppointments)) {
+    const directAppt = dayAppointments?.[cellKey(profId, hour)]
+    if (!directAppt) return true
+  }
   if (!dayAppointments) return false
   const directKey = cellKey(profId, hour)
   if (dayAppointments[directKey] && directKey !== ignoreKey) return true
 
   for (const [k, a] of Object.entries(dayAppointments)) {
-    if (k === ignoreKey || !a) continue
+    if (k === ignoreKey || !a || typeof a !== "object" || a.isUnblockOverride) continue
     const [pid, h] = k.split("||")
     if (String(pid) !== String(profId)) continue
 
@@ -233,16 +297,21 @@ export const isSlotOccupied = (dayAppointments = {}, profId, hour, ignoreKey = n
 /**
  * Comprueba si un rango de horarios (a partir de startHour) está completamente libre para la duración en slots requerida.
  */
-export const checkSlotAvailability = (dayAppointments = {}, profId, startHour, neededSlots = 1, ignoreKey = null) => {
+export const checkSlotAvailability = (dayAppointments = {}, profId, startHour, neededSlots = 1, ignoreKey = null, prof = null, dateStr = null) => {
   const startIdx = HOURS.indexOf(startHour)
   if (startIdx < 0) return { available: false, reason: "Horario inválido" }
   if (startIdx + neededSlots > HOURS.length) return { available: false, reason: "Excede horario de cierre" }
 
   for (let s = 0; s < neededSlots; s++) {
     const checkHour = HOURS[startIdx + s]
+    if (prof && isHourOutsideSchedule(prof, checkHour, dateStr, dayAppointments) && !dayAppointments?.[cellKey(profId, checkHour)]) {
+      const daySched = getProfDaySchedule(prof, dateStr)
+      const label = daySched?.active === false ? "No trabaja este día" : "Fuera de horario"
+      return { available: false, reason: label, conflictHour: checkHour }
+    }
     if (isSlotOccupied(dayAppointments, profId, checkHour, ignoreKey)) {
       const occupyingAppt = dayAppointments[cellKey(profId, checkHour)]
-      const label = occupyingAppt?.isBlocked ? "Bloqueado" : (occupyingAppt?.client ? `Ocupado (${occupyingAppt.client})` : "Ocupado")
+      const label = occupyingAppt?.isBlocked ? "Horario bloqueado" : (occupyingAppt?.client ? `Ocupado (${occupyingAppt.client})` : "Ocupado")
       return { available: false, reason: label, conflictHour: checkHour }
     }
   }
@@ -253,9 +322,9 @@ export const checkSlotAvailability = (dayAppointments = {}, profId, startHour, n
 /**
  * Obtiene la lista completa de horarios del día con su estado de disponibilidad para la duración requerida.
  */
-export const getAvailableHoursForDay = (dayAppointments = {}, profId, neededSlots = 1, ignoreKey = null) => {
+export const getAvailableHoursForDay = (dayAppointments = {}, profId, neededSlots = 1, ignoreKey = null, prof = null, dateStr = null) => {
   return HOURS.map(hour => {
-    const check = checkSlotAvailability(dayAppointments, profId, hour, neededSlots, ignoreKey)
+    const check = checkSlotAvailability(dayAppointments, profId, hour, neededSlots, ignoreKey, prof, dateStr)
     return {
       hour,
       available: check.available,
@@ -264,3 +333,4 @@ export const getAvailableHoursForDay = (dayAppointments = {}, profId, neededSlot
     }
   })
 }
+

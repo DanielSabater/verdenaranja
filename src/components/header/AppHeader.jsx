@@ -1,7 +1,7 @@
 import { memo, useState, useRef, useEffect, useMemo } from "react"
 import { C } from "../../constants/colors.js"
 import { PAYMENT_METHODS } from "../../constants/data.js"
-import { fmt, apptTotal, apptPaidTotal, apptComisionTotal } from "../../utils/appointments.js"
+import { fmt, apptTotal, apptPaidTotal, apptComisionTotal, hasRealAppointments } from "../../utils/appointments.js"
 import { AnimatedNumber } from "../ui/index.jsx"
 import { MESES_ES, todayKey, fmtDate, fmtShort, nextWorkDay } from "../../utils/dates.js"
 import { formatWaNumber, openWhatsAppLink, cleanClientName } from "../../utils/whatsapp.js"
@@ -1024,7 +1024,7 @@ export const AppHeader = memo(function AppHeader({
             <div style={{ display: "grid", gridTemplateColumns: "repeat(7,36px)", gap: 4 }}>
               {cells.map((day, idx) => {
                 if (!day) return <div key={idx} style={{ width: 36, height: 36 }} />
-                const dow = idx % 7, isSun = dow === 6, dk = `${vy}-${String(vm).padStart(2, "0")}-${String(day).padStart(2, "0")}`, isCur = dk === currentDate, isToday = dk === tKey, hasAppts = Object.keys((allData || {})[dk] || {}).length > 0
+                const dow = idx % 7, isSun = dow === 6, dk = `${vy}-${String(vm).padStart(2, "0")}-${String(day).padStart(2, "0")}`, isCur = dk === currentDate, isToday = dk === tKey, hasAppts = hasRealAppointments((allData || {})[dk])
                 return (
                   <button key={idx} disabled={isSun} onClick={() => { setCurrentDate(dk); setCalendarOpen(false) }} style={{ width: 36, height: 36, borderRadius: 10, position: "relative", border: `1.5px solid ${isCur ? C.green : isToday ? C.greenMint : (isLiquid ? "rgba(255,255,255,0.4)" : C.border)}`, background: isCur ? `linear-gradient(135deg,${C.green},${C.greenLight})` : isToday ? C.greenPale : hasAppts ? (isLiquid ? "rgba(255,255,255,0.6)" : "#f5faf5") : (isLiquid ? "rgba(255,255,255,0.25)" : C.white), color: isCur ? "#fff" : isSun ? "#e0cece" : isToday ? C.green : C.text, fontSize: 12, fontWeight: isCur || isToday ? "bold" : "normal", cursor: isSun ? "not-allowed" : "pointer", fontFamily: "Georgia,serif", transition: "all .12s", boxShadow: isLiquid ? "inset 0 1px 1px rgba(255,255,255,0.3)" : "none" }}>
                     {day}
@@ -1344,7 +1344,7 @@ export const AppHeader = memo(function AppHeader({
                   const isCur = dk === currentDate
                   const isT = dk === tKey
                   const dayRaw = (allData || {})[dk] || {}
-                  const dayAppts = Object.values(dayRaw).filter(v => typeof v === "object" && v !== null)
+                  const dayAppts = Object.values(dayRaw).filter(v => typeof v === "object" && v !== null && !v.isBlocked && !v.isNote && !v.isUnblockOverride && Boolean(v.client))
                   const totalCount = dayAppts.length
                   const paidCount = dayAppts.filter(a => a.paid).length
                   const ratio = totalCount > 0 ? paidCount / totalCount : 0

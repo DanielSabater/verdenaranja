@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { C } from "../../constants/colors.js"
 import { DIAS_ES, MESES_ES, todayKey, fmtDate, getWeekDays, nextWorkDay, toDateKey } from "../../utils/dates.js"
+import { hasRealAppointments } from "../../utils/appointments.js"
 
 export function DateNav({ currentDate, setCurrentDate, calendarOpen, setCalendarOpen, calViewDate, setCalViewDate, allData }) {
   const weekDays = getWeekDays(currentDate)
@@ -51,7 +52,7 @@ export function DateNav({ currentDate, setCurrentDate, calendarOpen, setCalendar
               const d     = new Date(dk + "T12:00:00")
               const isCur = dk === currentDate
               const isT   = dk === tKey
-              const has   = Object.keys(allData[dk] || {}).length > 0
+              const has   = hasRealAppointments(allData[dk])
               return (
                 <button key={dk} onClick={() => setCurrentDate(dk)} style={{
                   padding: "5px 8px", borderRadius: 12, cursor: "pointer", flexShrink: 0,
@@ -151,7 +152,7 @@ export function DateNav({ currentDate, setCurrentDate, calendarOpen, setCalendar
               const dk       = `${vy}-${String(vm).padStart(2, "0")}-${String(day).padStart(2, "0")}`
               const isCur    = dk === currentDate
               const isToday  = dk === tKey
-              const hasAppts = Object.keys(allData[dk] || {}).length > 0
+              const hasAppts = hasRealAppointments(allData[dk])
               return (
                 <button key={idx} disabled={isSun} onClick={() => { setCurrentDate(dk); setCalendarOpen(false) }} style={{
                   width: 36, height: 36, borderRadius: 10, position: "relative",

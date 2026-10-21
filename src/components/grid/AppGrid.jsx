@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react"
 import { C } from "../../constants/colors.js"
 import { PAYMENT_METHODS, HOURS, BLOCKED_COLORS, getBlockedAlphas } from "../../constants/data.js"
-import { fmt, cellKey, apptTotal, apptDur, apptPaidTotal, apptComisionableTotal, apptComisionTotal, getApptSlots, commissionServicesFor, isServiceExcluido, hasCommissionableServices } from "../../utils/appointments.js"
+import { fmt, cellKey, apptTotal, apptDur, apptPaidTotal, apptComisionableTotal, apptComisionTotal, getApptSlots, commissionServicesFor, isServiceExcluido, hasCommissionableServices, getProfDaySchedule, isHourOutsideSchedule, isHourScheduleBlocked } from "../../utils/appointments.js"
 import { Overlay, ModalHeader, GhostBtn, SolidBtn, modalBox } from "../ui/index.jsx"
 import { todayKey, fmtDate } from "../../utils/dates.js"
 import html2canvas from "html2canvas"
@@ -365,7 +365,7 @@ function ApptCard({
         )}
       </div>
 
-      {!appt.isBlocked && (
+      {!appt.isBlocked ? (
         <div style={{ position: "absolute", bottom: isMobile ? 4 : 6, right: isMobile ? 4 : 6, display: "flex", alignItems: "center", gap: isMobile ? 3 : 4, zIndex: 12 }}>
           <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); onDelete(k) }} style={{ width: 22, height: 22, borderRadius: 6, border: `1px solid ${C.border}`, background: "rgba(255,255,255,.9)", color: "#c0a0a0", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>✕</button>
           {appt.isNote ? (
@@ -380,6 +380,32 @@ function ApptCard({
                 ? <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); onToggleArrived && onToggleArrived(k) }} style={{ ...smallBtn("transparent", isMobile), background: "rgba(232, 121, 58, 0.12)", border: "1px solid rgba(232, 121, 58, 0.4)", color: C.orange }} title="Tocar cuando la clienta llegue al local">{isMobile ? "📍" : "📍 Llegó"}</button>
                 : <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); onPay(k) }} style={smallBtn(C.orange, isMobile)}>{isMobile ? "💰" : "💰 Abonar"}</button>
           )}
+        </div>
+      ) : (
+        <div style={{ position: "absolute", bottom: isMobile ? 4 : 6, right: isMobile ? 4 : 6, display: "flex", alignItems: "center", gap: 4, zIndex: 12 }}>
+          <button
+            type="button"
+            onMouseDown={e => e.stopPropagation()}
+            onClick={e => { e.stopPropagation(); onDelete(k) }}
+            title="Desbloquear horario"
+            style={{
+              padding: "3px 7px",
+              borderRadius: 6,
+              border: `1px solid ${C.border}`,
+              background: "rgba(255,255,255,.92)",
+              color: C.textSoft,
+              fontSize: 9,
+              fontWeight: "bold",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 3,
+              fontFamily: "Georgia, serif"
+            }}
+          >
+            <span>🔓</span>
+            {!isMobile && <span>Desbloquear</span>}
+          </button>
         </div>
       )}
       <div onMouseDown={e => { e.stopPropagation(); onResizeStart(e, k, "bottom") }}
@@ -402,6 +428,7 @@ export function AppGrid({
   CELL_H,
   currentDate,
   quickBlock,
+  onToggleScheduleUnblock,
   onToggleTipsRelease,
   activeRama,
   selectedMultiPayKeys = [],
@@ -723,12 +750,14 @@ export function AppGrid({
       const hovered = hoveredCellRef.current
 
       if (key === "c") {
-        if (hovered?.key && appointmentsRef.current?.[hovered.key] && onCopyApptRef.current) {
+        const targetAppt = hovered?.key ? appointmentsRef.current?.[hovered.key] : null
+        if (targetAppt && !targetAppt.isBlocked && !targetAppt.isUnblockOverride && onCopyApptRef.current) {
           e.preventDefault()
           onCopyApptRef.current(hovered.key)
         }
       } else if (key === "x") {
-        if (hovered?.key && appointmentsRef.current?.[hovered.key] && onCutApptRef.current) {
+        const targetAppt = hovered?.key ? appointmentsRef.current?.[hovered.key] : null
+        if (targetAppt && !targetAppt.isBlocked && !targetAppt.isUnblockOverride && onCutApptRef.current) {
           e.preventDefault()
           onCutApptRef.current(hovered.key)
         }
@@ -959,15 +988,17 @@ export function AppGrid({
 
   // Check if an hour is outside a professional's schedule for the current date
   const isOutsideSchedule = (prof, hour) => {
-    if (!prof.schedule) return false
-    const DAYS = ["Do", "Lu", "Ma", "Mi", "Ju", "Vi", "Sá"]
-    // currentDate format: "2026-05-03"
-    const d = currentDate ? new Date(currentDate + "T12:00:00") : new Date()
-    const dayName = DAYS[d.getDay()]
-    const daySchedule = prof.schedule?.[dayName]
-    if (!daySchedule) return false
-    if (!daySchedule.active) return true // doesn't work this day
-    return hour < daySchedule.from || hour >= daySchedule.to
+    return isHourOutsideSchedule(prof, hour, currentDate, appointments)
+  }
+
+  // Verifica si una celda está libre de turnos y bloqueada por horario no laboral de la profesional
+  const isFreeSchedBlocked = (prof, h) => {
+    const cellK = cellKey(prof.id, h)
+    const cellAppt = appointments[cellK]
+    if (cellAppt && !cellAppt.isUnblockOverride) return false
+    if (isOccupied(prof.id, h, resizePreview?.key)) return false
+    if (remoteEdits?.[cellK]) return false
+    return isHourScheduleBlocked(prof, h, currentDate, appointments)
   }
 
   const onColDragStart = (profId) => {
@@ -999,7 +1030,7 @@ export function AppGrid({
   const currentTurnKeys = (() => {
     const keys = new Set()
     orderedProfessionals.forEach(p => {
-      const pAppts = Object.values(appointments).filter(a => a.profId === p.id && !a.isBlocked)
+      const pAppts = Object.values(appointments).filter(a => a && typeof a === "object" && a.profId === p.id && !a.isBlocked && !a.isNote && !a.isUnblockOverride)
       // Ordenamos de arriba hacia abajo (temprano a tarde)
       pAppts.sort((a, b) => (a.hour || "").localeCompare(b.hour || ""))
 
@@ -1024,9 +1055,11 @@ export function AppGrid({
 
     // Excluir bloqueos, notas y turnos que SOLO contengan servicios no comisionables (ej: café)
     const appts = Object.values(appointments).filter(a =>
+      a && typeof a === "object" &&
       a.profId === profId &&
       !a.isBlocked &&
       !a.isNote &&
+      !a.isUnblockOverride &&
       hasCommissionableServices(a, services)
     )
     const paid = appts.filter(a => a.paid)
@@ -1071,12 +1104,12 @@ export function AppGrid({
     return pm ? `${pm.icon} ${pm.label}` : "Pago"
   }
 
-  const handleContextMenu = (e, profId, hour, hasAppt) => {
+  const handleContextMenu = (e, profId, hour, hasAppt, extra = {}) => {
     e.preventDefault()
     e.stopPropagation()
     const x = Math.max(10, Math.min(e.clientX, window.innerWidth - 230))
     const y = Math.max(10, Math.min(e.clientY, window.innerHeight - 300))
-    setMenuPos({ x, y, profId, hour, hasAppt })
+    setMenuPos({ x, y, profId, hour, hasAppt, ...extra })
   }
 
   const blockedColorConfig = config?.blockedColor || "rojo"
@@ -1302,7 +1335,8 @@ export function AppGrid({
                 const isResizeStart = resizePreview && resizePreview.profId === prof.id && HOURS[resizePreview.hourIdx] === hour
                 const isResizeOriginal = resizePreview && resizePreview.key === k
 
-                const appt = isResizeStart ? appointments[resizePreview.key] : (isResizeOriginal ? null : appointments[k])
+                const rawAppt = isResizeStart ? appointments[resizePreview.key] : (isResizeOriginal ? null : appointments[k])
+                const appt = rawAppt && !rawAppt.isUnblockOverride ? rawAppt : null
                 const isDragging = draggingKey === k
                 const span = isResizeStart ? resizePreview.slots : (isResizeOriginal ? null : spanOf(prof.id, hour))
 
@@ -1316,6 +1350,21 @@ export function AppGrid({
                 const isEditingRemote = !appt && remoteEdits?.[k]
                 const isBlocked = (!appt && isOccupied(prof.id, hour, resizePreview?.key)) || isCoveredByResize || isEditingRemote
                 if (isBlocked && !isEditingRemote) return null
+
+                // Bloqueo automático de horario por día/franja no laboral de la profesional
+                const isSchedBlocked = !appt && !isEditingRemote && !draggingKey && !resizePreview && isFreeSchedBlocked(prof, hour)
+                if (isSchedBlocked && hIdx > 0 && isFreeSchedBlocked(prof, HOURS[hIdx - 1])) {
+                  return null
+                }
+
+                let schedBlockSlots = 1
+                let schedBlockHours = [hour]
+                if (isSchedBlocked) {
+                  while (hIdx + schedBlockSlots < HOURS.length && isFreeSchedBlocked(prof, HOURS[hIdx + schedBlockSlots])) {
+                    schedBlockSlots++
+                  }
+                  schedBlockHours = HOURS.slice(hIdx, hIdx + schedBlockSlots)
+                }
 
                 const isTarget = dropTarget?.profId === prof.id && dropTarget?.hour === hour
                 const isTargetSlot = Boolean(
@@ -1383,24 +1432,26 @@ export function AppGrid({
                   onDrop(e, prof.id, targetHour)
                 }
 
+                const effectiveSpan = appt ? (span || 1) : (isSchedBlocked ? schedBlockSlots : 1)
+
                 return (
-                  <td key={prof.id} data-prof-id={prof.id} data-hour={hour} rowSpan={span || 1}
+                  <td key={prof.id} data-prof-id={prof.id} data-hour={hour} rowSpan={effectiveSpan}
                     style={{
                       padding: config.gridStyle === "classic" ? 3 : "5px 6px",
-                      height: appt ? `${(span || 1) * 100}px` : 100,
+                      height: (appt || isSchedBlocked) ? `${effectiveSpan * 100}px` : 100,
                       verticalAlign: "middle",
                       border: config.gridStyle === "classic" ? `1px solid ${C.border}` : "none",
                       background: config.gridStyle === "classic" ? cellBg : (cellBg || "transparent"),
                       transition: "background .12s",
-                      cursor: appt ? "grab" : (draggingKey ? "default" : (isEditingRemote ? "not-allowed" : "pointer")),
+                      cursor: appt ? "grab" : (isSchedBlocked ? "default" : (draggingKey ? "default" : (isEditingRemote ? "not-allowed" : "pointer"))),
                       position: "relative",
                       zIndex: (isResizeStart || isDragging) ? 200 : 1,
                     }}
-                    onClick={() => !appt && !draggingKey && onCellClick(prof.id, hour)}
+                    onClick={() => !appt && !isSchedBlocked && !draggingKey && onCellClick(prof.id, hour)}
                     onMouseEnter={e => {
                       hoveredCellRef.current = { profId: prof.id, hour, key: k, hasAppt: !!appt }
-                      if (!appt && !draggingKey && !resizePreview) e.currentTarget.style.background = C.greenPale
-                      if (appt && appt.client) setHoveredClientName(appt.client)
+                      if (!appt && !isSchedBlocked && !draggingKey && !resizePreview) e.currentTarget.style.background = C.greenPale
+                      if (appt && !appt.isBlocked && appt.client) setHoveredClientName(appt.client)
                     }}
                     onMouseMove={() => {
                       if (!hoveredCellRef.current || hoveredCellRef.current.key !== k) {
@@ -1411,10 +1462,10 @@ export function AppGrid({
                       if (hoveredCellRef.current?.key === k) {
                         hoveredCellRef.current = null
                       }
-                      if (!appt && !draggingKey && !resizePreview) e.currentTarget.style.background = ""
-                      if (appt && appt.client) setHoveredClientName(null)
+                      if (!appt && !isSchedBlocked && !draggingKey && !resizePreview) e.currentTarget.style.background = ""
+                      if (appt && !appt.isBlocked && appt.client) setHoveredClientName(null)
                     }}
-                    onContextMenu={e => handleContextMenu(e, prof.id, hour, !!appt)}
+                    onContextMenu={e => handleContextMenu(e, prof.id, hour, !!appt, { isScheduleBlocked: isSchedBlocked, schedBlockHours })}
                     onDragOver={e => {
                       if (!appt) {
                         onDragOver(e, prof.id, hour)
@@ -1477,16 +1528,16 @@ export function AppGrid({
                           }}
                           onDragEnd={onDragEnd}
                           onClick={e => {
-                            if (e.ctrlKey || e.metaKey || (selectedMultiPayKeys && selectedMultiPayKeys.length > 0)) {
+                            if (!appt.isBlocked && (e.ctrlKey || e.metaKey || (selectedMultiPayKeys && selectedMultiPayKeys.length > 0))) {
                               e.stopPropagation()
                               e.preventDefault()
                               if (onToggleSelectMultiPay) onToggleSelectMultiPay(k)
                             }
                           }}
-                          onDoubleClick={e => { if (!resizePreview && !isSelectedForMultiPay) { e.stopPropagation(); onEdit(k, appointments[k]); } }}
+                          onDoubleClick={e => { if (!appt.isBlocked && !resizePreview && !isSelectedForMultiPay) { e.stopPropagation(); onEdit(k, appointments[k]); } }}
                           onDragOver={handleApptDragOver}
                           onDrop={handleApptDrop}
-                          className={`appt-card${appt.isBlocked ? " blocked" : (appt.isNote ? " note" : (appt.paid ? " paid" : " unpaid"))}${appt.arrived && !appt.paid && !isDragging && !isResizeStart ? " current" : ""}${hoveredClientName && appt.client === hoveredClientName ? " force-hover" : ""}${isSelectedForMultiPay ? " selected-multipay" : ""}${isOverdueAlert ? " overdue-alert-card" : ""}`}
+                          className={`appt-card${appt.isBlocked ? " blocked" : (appt.isNote ? " note" : (appt.paid ? " paid" : " unpaid"))}${appt.arrived && !appt.paid && !isDragging && !isResizeStart ? " current" : ""}${hoveredClientName && !appt.isBlocked && appt.client === hoveredClientName ? " force-hover" : ""}${isSelectedForMultiPay ? " selected-multipay" : ""}${isOverdueAlert ? " overdue-alert-card" : ""}`}
                           style={{
                             height: "100%", borderRadius: 9,
                             background: isSelectedForMultiPay
@@ -1541,7 +1592,7 @@ export function AppGrid({
                             opacity: isDragging ? 0.45 : (isCutAppt ? 0.45 : 1),
                             transform: isDragging ? "scale(0.97)" : (isSelectedForMultiPay ? "scale(1.02)" : "scale(1)"),
                             transition: isResizing ? "none" : "opacity .15s, box-shadow .15s, transform .15s",
-                            cursor: (selectedMultiPayKeys && selectedMultiPayKeys.length > 0) ? "pointer" : "grab",
+                            cursor: (selectedMultiPayKeys && selectedMultiPayKeys.length > 0 && !appt.isBlocked) ? "pointer" : "grab",
                             position: "relative",
                             overflow: "hidden",
                             zIndex: isSelectedForMultiPay ? 15 : (isOverdueAlert ? 6 : 1),
@@ -1697,22 +1748,37 @@ export function AppGrid({
                                    </span>
                                  </div>
                                 </div>
+                             ) : appt.isBlocked ? (
+                               <div>
+                                 <div style={{ fontSize: 10, fontWeight: "bold", color: `rgba(${rgbString}, 0.9)`, display: "flex", alignItems: "center", gap: 4, marginBottom: 2, paddingRight: 16 }}>
+                                   <span>🚫</span>
+                                   <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                     {appt.client && appt.client !== "BLOQUEADO" ? appt.client : "Horario bloqueado"}
+                                   </span>
+                                 </div>
+                                 <div style={{ fontSize: 9, color: C.textSoft, fontWeight: "600" }}>
+                                   {liveHour} – {liveEndHour} · {liveSlots === HOURS.length ? "Todo el día" : `${liveDurMins} min`}
+                                 </div>
+                                 {appt.notes && (
+                                   <div style={{ fontSize: 9, color: `rgba(${rgbString}, 0.85)`, fontStyle: "italic", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>📝 {appt.notes}</div>
+                                 )}
+                               </div>
                              ) : (
                                <>
-                                 <div style={{ fontSize: 11, fontWeight: "bold", color: appt.isBlocked ? C.red : C.text, marginBottom: 1, paddingRight: cd ? (isMobile ? 50 : 58) : 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                   {appt.isBlocked ? "" : appt.client}
+                                 <div style={{ fontSize: 11, fontWeight: "bold", color: C.text, marginBottom: 1, paddingRight: cd ? (isMobile ? 50 : 58) : 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                   {appt.client}
                                  </div>
-                                 {!appt.isBlocked && (appt.services || []).map((sv, i) => (
+                                 {(appt.services || []).map((sv, i) => (
                                    <div key={i} style={{ fontSize: 9, color: appt.paid ? C.green : C.orange, lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sv.icon} {sv.name}</div>
                                  ))}
                                  {appt.notes && (
-                                   <div style={{ fontSize: 9, color: appt.isBlocked ? C.red : C.textSoft, fontStyle: "italic", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", opacity: appt.isBlocked ? 0.8 : 1 }}>📝 {appt.notes}</div>
+                                   <div style={{ fontSize: 9, color: C.textSoft, fontStyle: "italic", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>📝 {appt.notes}</div>
                                  )}
                                  <div style={{ fontSize: 9, color: C.textSoft, marginTop: 2 }}>
                                     <span style={{ color: isResizing ? C.green : C.textSoft, fontWeight: isResizing ? "bold" : "normal", transition: "color .15s" }}>
                                       {isResizing ? `${liveHour} – ${liveEndHour}` : `${apptDur(appt)} min`}
                                     </span>
-                                    {!appt.isBlocked && <>{" · "}<span style={{ color: C.orange, fontWeight: "bold" }}>{fmt(appt.paid ? apptPaidTotal(appt) : apptTotal(appt))}</span></>}
+                                    {" · "}<span style={{ color: C.orange, fontWeight: "bold" }}>{fmt(appt.paid ? apptPaidTotal(appt) : apptTotal(appt))}</span>
                                  </div>
                                </>
                              )}
@@ -1732,7 +1798,7 @@ export function AppGrid({
                                 <span style={{ fontSize: 7, opacity: 0.6 }}>✕</span>
                               </div>
                             )}
-                            {appt.createdAt && (
+                            {!appt.isBlocked && appt.createdAt && (
                               <div style={{ fontSize: 8, color: C.textSoft, marginTop: 1, opacity: .7 }}>🕐 Tomado a las {appt.createdAt}</div>
                             )}
                             {!appt.isBlocked && appt.paid && (
@@ -1749,7 +1815,32 @@ export function AppGrid({
                           </div>
 
 
-                          {!appt.isBlocked && (
+                          {appt.isBlocked ? (
+                            <div style={{ position: "absolute", bottom: isMobile ? 4 : 6, right: isMobile ? 4 : 6, display: "flex", alignItems: "center", gap: 4, zIndex: 5 }}>
+                              <button
+                                type="button"
+                                onMouseDown={e => e.stopPropagation()}
+                                onClick={e => { e.stopPropagation(); onDelete(k) }}
+                                title="Desbloquear esta franja horaria"
+                                style={{
+                                  borderRadius: 6,
+                                  border: `1px solid rgba(${rgbString}, 0.35)`,
+                                  background: "rgba(255,255,255,.92)",
+                                  color: `rgba(${rgbString}, 0.95)`,
+                                  fontSize: 9,
+                                  fontWeight: "bold",
+                                  cursor: "pointer",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 3,
+                                  padding: "2px 7px",
+                                  boxShadow: "0 1px 3px rgba(0,0,0,0.06)"
+                                }}
+                              >
+                                🔓 {isMobile ? "" : "Desbloquear"}
+                              </button>
+                            </div>
+                          ) : (
                             <div style={{ position: "absolute", bottom: isMobile ? 4 : 6, right: isMobile ? 4 : 6, display: "flex", alignItems: "center", gap: isMobile ? 3 : 4, zIndex: 5 }}>
                               {!appt.isNote && !appt.paid && (
                                 <button
@@ -1810,6 +1901,88 @@ export function AppGrid({
 
                           <div onMouseDown={e => { e.stopPropagation(); onResizeStart(e, k, "bottom") }}
                             style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 10, cursor: "s-resize", zIndex: 10, borderRadius: "0 0 9px 9px" }} />
+                        </div>
+                      )
+                    })() : isSchedBlocked ? (() => {
+                      const daySched = getProfDaySchedule(prof, currentDate)
+                      const isFullDayOff = daySched && daySched.active === false
+                      const schedEndIdx = hIdx + schedBlockSlots
+                      const schedEndHour = schedEndIdx < HOURS.length ? HOURS[schedEndIdx] : "20:00"
+                      const schedDurMins = schedBlockSlots * 30
+                      return (
+                        <div
+                          className="appt-card blocked"
+                          style={{
+                            height: "100%",
+                            borderRadius: 9,
+                            background: `repeating-linear-gradient(
+                              45deg,
+                              rgba(${rgbString}, ${alphas.a1}),
+                              rgba(${rgbString}, ${alphas.a1}) 10px,
+                              rgba(${rgbString}, ${alphas.a2}) 10px,
+                              rgba(${rgbString}, ${alphas.a2}) 20px
+                            )`,
+                            border: config.gridStyle === "classic"
+                              ? `1px dashed rgba(${rgbString}, ${alphas.border})`
+                              : `1.5px dashed rgba(${rgbString}, ${alphas.border})`,
+                            padding: "6px 7px 6px",
+                            display: "flex",
+                            flexDirection: "column",
+                            justifyContent: "space-between",
+                            position: "relative",
+                            overflow: "hidden",
+                            cursor: "default"
+                          }}
+                        >
+                          <div style={{ overflow: "hidden", marginTop: 2 }}>
+                            <div style={{
+                              fontSize: 10,
+                              fontWeight: "bold",
+                              color: `rgba(${rgbString}, 0.9)`,
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 4,
+                              marginBottom: 2
+                            }}>
+                              <span>🚫</span>
+                              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {isFullDayOff ? "No trabaja · Día libre" : "Horario bloqueado · No trabaja"}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: 9, color: C.textSoft, fontWeight: "600" }}>
+                              {hour} – {schedEndHour} · {schedBlockSlots === HOURS.length ? "Todo el día" : `${schedDurMins} min`}
+                            </div>
+                          </div>
+
+                          <div style={{ position: "absolute", bottom: isMobile ? 4 : 6, right: isMobile ? 4 : 6, display: "flex", alignItems: "center", gap: 4, zIndex: 5 }}>
+                            {onToggleScheduleUnblock && (
+                              <button
+                                type="button"
+                                onMouseDown={e => e.stopPropagation()}
+                                onClick={e => {
+                                  e.stopPropagation()
+                                  onToggleScheduleUnblock(prof.id, schedBlockHours, true)
+                                }}
+                                title="Desbloquear esta franja para esta fecha"
+                                style={{
+                                  borderRadius: 6,
+                                  border: `1px solid rgba(${rgbString}, 0.35)`,
+                                  background: "rgba(255,255,255,.92)",
+                                  color: `rgba(${rgbString}, 0.95)`,
+                                  fontSize: 9,
+                                  fontWeight: "bold",
+                                  cursor: "pointer",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 3,
+                                  padding: "2px 7px",
+                                  boxShadow: "0 1px 3px rgba(0,0,0,0.06)"
+                                }}
+                              >
+                                🔓 {isMobile ? "" : "Desbloquear"}
+                              </button>
+                            )}
+                          </div>
                         </div>
                       )
                     })() : (
@@ -2638,6 +2811,87 @@ export function AppGrid({
                     <div style={{ borderTop: `1px solid ${C.border}`, margin: "3px 4px" }} />
                   </>
                 )}
+                {menuPos.isScheduleBlocked && onToggleScheduleUnblock && (
+                  <>
+                    <div style={{ fontSize: 9, color: C.red, fontWeight: "bold", padding: "6px 10px 4px", letterSpacing: "0.6px", textTransform: "uppercase", borderBottom: `1px solid ${C.border}`, marginBottom: 2 }}>
+                      🚫 Horario no laboral · {menuPos.hour} hs
+                    </div>
+                    <button
+                      onClick={() => {
+                        onToggleScheduleUnblock(menuPos.profId, menuPos.schedBlockHours || [menuPos.hour], true)
+                        setMenuPos(null)
+                      }}
+                      style={{
+                        padding: "8px 12px",
+                        background: "#f0fdf4",
+                        border: "1px solid #bbf7d0",
+                        borderRadius: 8,
+                        textAlign: "left",
+                        fontSize: 12,
+                        cursor: "pointer",
+                        color: C.green,
+                        fontWeight: "bold",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                      }}
+                    >
+                      <span>🔓</span>
+                      <span>Desbloquear franja por hoy</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        onCellClick(menuPos.profId, menuPos.hour)
+                        setMenuPos(null)
+                      }}
+                      style={{
+                        padding: "8px 12px",
+                        background: "transparent",
+                        border: "none",
+                        borderRadius: 8,
+                        textAlign: "left",
+                        fontSize: 12,
+                        cursor: "pointer",
+                        color: C.text,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                      }}
+                    >
+                      <span>＋</span>
+                      <span>Agendar turno en este horario</span>
+                    </button>
+                    <div style={{ borderTop: `1px solid ${C.border}`, margin: "3px 4px" }} />
+                  </>
+                )}
+                {!menuPos.isScheduleBlocked && appointments[`unblock||${menuPos.profId}||${menuPos.hour}`] && onToggleScheduleUnblock && (
+                  <>
+                    <button
+                      onClick={() => {
+                        onToggleScheduleUnblock(menuPos.profId, [menuPos.hour], false)
+                        setMenuPos(null)
+                      }}
+                      style={{
+                        padding: "8px 12px",
+                        background: "#fef2f2",
+                        border: "1px solid #fecaca",
+                        borderRadius: 8,
+                        textAlign: "left",
+                        fontSize: 11,
+                        cursor: "pointer",
+                        color: C.red,
+                        fontWeight: "bold",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                      }}
+                    >
+                      <span>🔒</span>
+                      <span>Restaurar bloqueo no laboral</span>
+                    </button>
+                    <div style={{ borderTop: `1px solid ${C.border}`, margin: "3px 4px" }} />
+                  </>
+                )}
                 <div style={{ fontSize: 9, color: C.textSoft, padding: "6px 10px", letterSpacing: "1px", textTransform: "uppercase" }}>Bloqueo Rápido</div>
                 <button onClick={() => { quickBlock(menuPos.profId, menuPos.hour, 1); setMenuPos(null) }} style={{ padding: "8px 12px", background: "transparent", border: "none", borderRadius: 8, textAlign: "left", fontSize: 12, cursor: "pointer", color: C.text }}>🔴 30 min</button>
                 <button onClick={() => { quickBlock(menuPos.profId, menuPos.hour, 2); setMenuPos(null) }} style={{ padding: "8px 12px", background: "transparent", border: "none", borderRadius: 8, textAlign: "left", fontSize: 12, cursor: "pointer", color: C.text }}>🔴 1 hora</button>
@@ -2649,6 +2903,57 @@ export function AppGrid({
             ) : (() => {
               const k = cellKey(menuPos.profId, menuPos.hour)
               const appt = appointments[k]
+              if (appt?.isBlocked) {
+                return (
+                  <>
+                    <div style={{
+                      fontSize: 10,
+                      fontWeight: "bold",
+                      color: C.red,
+                      padding: "6px 10px 4px",
+                      letterSpacing: "0.5px",
+                      textTransform: "uppercase",
+                      borderBottom: `1px solid ${C.border}`,
+                      marginBottom: 2,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis"
+                    }}>
+                      🚫 Horario bloqueado · {menuPos.hour} hs
+                    </div>
+                    <button
+                      onClick={() => {
+                        onDelete(k)
+                        setMenuPos(null)
+                      }}
+                      style={{
+                        padding: "8px 12px",
+                        background: "#f0fdf4",
+                        border: "1px solid #bbf7d0",
+                        borderRadius: 8,
+                        textAlign: "left",
+                        fontSize: 12,
+                        cursor: "pointer",
+                        color: C.green,
+                        fontWeight: "bold",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                      }}
+                    >
+                      <span style={{ fontSize: 14 }}>🔓</span>
+                      <span>Desbloquear horario</span>
+                    </button>
+                    <div style={{ borderTop: `1px solid ${C.border}`, margin: "2px 4px" }} />
+                    <div style={{ fontSize: 9, color: C.textSoft, padding: "4px 10px", letterSpacing: "1px", textTransform: "uppercase" }}>Cambiar duración</div>
+                    <button onClick={() => { quickBlock(menuPos.profId, menuPos.hour, 1); setMenuPos(null) }} style={{ padding: "7px 12px", background: "transparent", border: "none", borderRadius: 8, textAlign: "left", fontSize: 12, cursor: "pointer", color: C.text }}>🔴 30 min</button>
+                    <button onClick={() => { quickBlock(menuPos.profId, menuPos.hour, 2); setMenuPos(null) }} style={{ padding: "7px 12px", background: "transparent", border: "none", borderRadius: 8, textAlign: "left", fontSize: 12, cursor: "pointer", color: C.text }}>🔴 1 hora</button>
+                    <button onClick={() => { quickBlock(menuPos.profId, menuPos.hour, 4); setMenuPos(null) }} style={{ padding: "7px 12px", background: "transparent", border: "none", borderRadius: 8, textAlign: "left", fontSize: 12, cursor: "pointer", color: C.text }}>🔴 2 horas</button>
+                    <button onClick={() => { quickBlock(menuPos.profId, menuPos.hour, 6); setMenuPos(null) }} style={{ padding: "7px 12px", background: "transparent", border: "none", borderRadius: 8, textAlign: "left", fontSize: 12, cursor: "pointer", color: C.text }}>🔴 3 horas</button>
+                    <button onClick={() => { quickBlock(menuPos.profId, HOURS[0], HOURS.length); setMenuPos(null) }} style={{ padding: "7px 12px", background: "transparent", border: "none", borderRadius: 8, textAlign: "left", fontSize: 12, cursor: "pointer", color: C.red, fontWeight: "bold" }}>🚫 Todo el día</button>
+                  </>
+                )
+              }
               return (
                 <>
                   <div style={{

@@ -55,8 +55,9 @@ export default function ClientesView({ clientes, setClientes, allData, updateCli
     const map = new Map()
     Object.entries(safeD).forEach(([fecha, day]) => {
       Object.values(day || {}).forEach(a => {
+        if (!a || typeof a !== "object" || a.isBlocked || a.isNote || a.isUnblockOverride) return
         const clientName = (a.client || "").trim().toLowerCase()
-        if (!clientName) return
+        if (!clientName || clientName === "bloqueado") return
         let st = map.get(clientName)
         if (!st) {
           st = {

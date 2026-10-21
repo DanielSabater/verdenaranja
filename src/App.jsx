@@ -2,7 +2,7 @@ import { useMobileNavigation } from "./hooks/useMobileBack.js"
 import { useState, useRef, useCallback, useMemo, useEffect } from "react"
 import { C } from "./constants/colors.js"
 import { PAYMENT_METHODS, HOURS, APP_VERSION, getModalOverlayStyle } from "./constants/data.js"
-import { cellKey, apptTotal, apptDur, apptPaidTotal, apptComisionableTotal, apptComisionTotal, createCommissionSnapshot, getApptSlots } from "./utils/appointments.js"
+import { cellKey, apptTotal, apptDur, apptPaidTotal, apptComisionableTotal, apptComisionTotal, createCommissionSnapshot, getApptSlots, isHourScheduleBlocked } from "./utils/appointments.js"
 import { toDateKey, todayKey, isWorkDay, nextWorkDay, addMonths, DIAS_ES, MESES_ES } from "./utils/dates.js"
 import { normalizeStr, formatWaNumber, generateRescheduleMessage, openWhatsAppLink } from "./utils/whatsapp.js"
 import { useIsMobile } from "./hooks/useIsMobile.js"
@@ -695,7 +695,7 @@ export default function App() {
   // ── Memoized so drag state changes don't re-render header ──────────────────
   const allProfsMap = useMemo(() => new Set(config.professionals.map(p => p.id)), [config.professionals])
   const paidAppts = useMemo(
-    () => Object.values(appointments).filter(a => a.paid && allProfsMap.has(a.profId)),
+    () => Object.values(appointments).filter(a => a && typeof a === "object" && !a.isBlocked && !a.isNote && !a.isUnblockOverride && a.paid && allProfsMap.has(a.profId)),
     [appointments, allProfsMap]
   )
   const totalByProf = useCallback((pId) => paidAppts.filter(a => a.profId === pId).reduce((s, a) => s + apptPaidTotal(a), 0), [paidAppts])
@@ -726,7 +726,8 @@ export default function App() {
   const serviceCounts = useMemo(() => {
     const counts = {}
     Object.values(allData || {}).forEach(dayData => {
-      Object.values(dayData).forEach(appt => {
+      Object.values(dayData || {}).forEach(appt => {
+        if (!appt || typeof appt !== "object" || appt.isBlocked || appt.isNote || appt.isUnblockOverride) return
         ;(appt.services || []).forEach(sv => {
           counts[sv.id] = (counts[sv.id] || 0) + 1
         })
@@ -753,7 +754,7 @@ export default function App() {
 
   const openMultiPay = useCallback((keys) => {
     if (!keys || !keys.length) return
-    const validKeys = keys.filter(k => appointments[k] && !appointments[k].isBlocked && !appointments[k].isNote)
+    const validKeys = keys.filter(k => appointments[k] && !appointments[k].isBlocked && !appointments[k].isNote && !appointments[k].isUnblockOverride)
     if (!validKeys.length) return
 
     multiPayPreloadRef.current = validKeys
@@ -769,7 +770,7 @@ export default function App() {
 
   const handleToggleSelectMultiPay = useCallback((key) => {
     const appt = appointments[key]
-    if (!appt || appt.isBlocked || appt.isNote || appt.paid) return
+    if (!appt || appt.isBlocked || appt.isNote || appt.isUnblockOverride || appt.paid) return
 
     setSelectedMultiPayKeys(prev => {
       if (prev.includes(key)) {
@@ -818,7 +819,7 @@ export default function App() {
 
   const handleCutAppt = useCallback((key) => {
     const a = appointments[key]
-    if (!a) return
+    if (!a || a.isBlocked || a.isUnblockOverride) return
     setClipboardAppt({
       mode: "cut",
       appt: a,
@@ -831,7 +832,7 @@ export default function App() {
 
   const handleCopyAppt = useCallback((key) => {
     const a = appointments[key]
-    if (!a) return
+    if (!a || a.isBlocked || a.isUnblockOverride) return
     setClipboardAppt({
       mode: "copy",
       appt: a,
@@ -847,12 +848,14 @@ export default function App() {
   }, [])
 
   const isOccupied = useCallback((profId, hour, ignoreKey = null) => {
-    if (appointments[cellKey(profId, hour)] && cellKey(profId, hour) !== ignoreKey) return true
+    const directAppt = appointments[cellKey(profId, hour)]
+    if (directAppt && !directAppt.isUnblockOverride && cellKey(profId, hour) !== ignoreKey) return true
     for (const [k, a] of Object.entries(appointments)) {
-      if (k === ignoreKey) continue
+      if (k === ignoreKey || !a || typeof a !== "object" || a.isUnblockOverride) continue
       const [pid, h] = k.split("||")
       if (String(pid) !== String(profId)) continue
       const startIdx = HOURS.indexOf(h)
+      if (startIdx < 0) continue
       const requestedSlots = getApptSlots(a)
 
       let actualSlots = requestedSlots
@@ -860,7 +863,7 @@ export default function App() {
         const checkHour = HOURS[startIdx + s]
         if (!checkHour) { actualSlots = s; break }
         const checkKey = cellKey(profId, checkHour)
-        if (appointments[checkKey]) {
+        if (appointments[checkKey] && !appointments[checkKey].isUnblockOverride) {
           actualSlots = s
           break
         }
@@ -1110,7 +1113,7 @@ export default function App() {
     if (!status.canDrop) { setDropTarget(null); setDropValid(false); return }
 
     const originalAppt = appointments[key]
-    if (originalAppt) {
+    if (originalAppt && !originalAppt.isBlocked) {
       const fromProf = (config?.professionals || []).find(p => p.id === originalAppt.profId)?.name || "Profesional"
       const toProf = (config?.professionals || []).find(p => p.id === targetProfId)?.name || "Profesional"
       const destKey = cellKey(targetProfId, targetHour)
@@ -1173,7 +1176,7 @@ export default function App() {
       next[cellKey(targetProfId, targetHour)] = updatedAppt
       return next
     })
-    if (status.willTruncate) {
+    if (status.willTruncate && !originalAppt?.isBlocked) {
       setTruncateToast(`⚠️ Turno de ${status.requestedSlots * 30} min reubicado: se ajustó a ${status.durationMins} min para entrar en el hueco`)
       if (truncateToastTimerRef.current) clearTimeout(truncateToastTimerRef.current)
       truncateToastTimerRef.current = setTimeout(() => setTruncateToast(null), 3800)
@@ -1242,7 +1245,7 @@ export default function App() {
       
       if (!conflict) {
         const apptObj = appointments[r.key]
-        if (apptObj && (finalSlots !== r.origSlots || newHour !== HOURS[r.origHourIdx])) {
+        if (apptObj && !apptObj.isBlocked && (finalSlots !== r.origSlots || newHour !== HOURS[r.origHourIdx])) {
           const profName = (config?.professionals || []).find(p => p.id === r.profId)?.name || "Profesional"
           recordHistory({
             date: currentDate,
@@ -1380,9 +1383,16 @@ export default function App() {
 
   const quickBlock = (profId, hour, slots = 1, reason = "BLOQUEADO") => {
     const k = cellKey(profId, hour)
-    setAppointments(p => ({
-      ...p,
-      [k]: {
+    setAppointments(p => {
+      const next = { ...p }
+      const startIdx = HOURS.indexOf(hour)
+      if (startIdx >= 0) {
+        for (let s = 0; s < slots; s++) {
+          const h = HOURS[startIdx + s]
+          if (h) delete next[`unblock||${profId}||${h}`]
+        }
+      }
+      next[k] = {
         profId, hour,
         client: reason,
         services: [],
@@ -1392,8 +1402,25 @@ export default function App() {
         manualSlots: slots,
         manualDur: slots * 30
       }
-    }))
+      return next
+    })
   }
+
+  const toggleScheduleUnblock = useCallback((profId, hoursList = [], shouldUnblock = true) => {
+    if (!Array.isArray(hoursList) || hoursList.length === 0) return
+    setAppointments(p => {
+      const next = { ...p }
+      hoursList.forEach(h => {
+        const uk = `unblock||${profId}||${h}`
+        if (shouldUnblock) {
+          next[uk] = { isUnblockOverride: true, profId, hour: h }
+        } else {
+          delete next[uk]
+        }
+      })
+      return next
+    })
+  }, [setAppointments])
 
   const confirmPay = (forceUnpay = false) => {
     const keys = multiPayKeys
@@ -1842,12 +1869,23 @@ export default function App() {
                 onDragStart={onDragStart} onDragEnd={onDragEnd} onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}
                 onResizeStart={onResizeStart}
                 quickBlock={quickBlock}
+                onToggleScheduleUnblock={toggleScheduleUnblock}
                 paidAppts={paidAppts} totalByProf={totalByProf} earningsByProf={earningsByProf} comisionPct={comisionPct} services={services}
                 currentDate={currentDate}
                 onCellClick={(profId, hour) => { setModal({ profId, hour, editKey: null }); setChosenServices([]); setClientName(""); setFilterCat("all"); setApptNotes(""); setApptTip({}) }}
-                onEdit={(key, appt) => { setModal({ profId: appt.profId, hour: appt.hour, editKey: key }); setChosenServices([...(appt.services || [])]); setClientName(appt.client); setFilterCat("all"); setApptNotes(appt.notes || ""); setApptTip({ [key]: appt.tip ? appt.tip.toString() : "" }) }}
-                onPay={(key) => { const a = appointments[key]; if (a?.paymentSplits?.length) setPaymentSplits(a.paymentSplits.map(s => ({ ...s }))); else setPaymentSplits([{ methodId: "efectivo", amount: Math.max(0, apptTotal(a) + (a.tip || 0) - (a.discount || 0)) }]); setApptTip({ [key]: a.tip ? a.tip.toString() : "" }); setApptDiscount(a.discount || ""); setPayModal(key) }}
-                onDelete={(key) => setDeleteKey(key)}
+                onEdit={(key, appt) => { if (!appt || appt.isBlocked || appt.isUnblockOverride) return; setModal({ profId: appt.profId, hour: appt.hour, editKey: key }); setChosenServices([...(appt.services || [])]); setClientName(appt.client); setFilterCat("all"); setApptNotes(appt.notes || ""); setApptTip({ [key]: appt.tip ? appt.tip.toString() : "" }) }}
+                onPay={(key) => { const a = appointments[key]; if (!a || a.isBlocked || a.isUnblockOverride) return; if (a?.paymentSplits?.length) setPaymentSplits(a.paymentSplits.map(s => ({ ...s }))); else setPaymentSplits([{ methodId: "efectivo", amount: Math.max(0, apptTotal(a) + (a.tip || 0) - (a.discount || 0)) }]); setApptTip({ [key]: a.tip ? a.tip.toString() : "" }); setApptDiscount(a.discount || ""); setPayModal(key) }}
+                onDelete={(key) => {
+                  const a = appointments[key]
+                  if (a?.isBlocked) {
+                    setAppointments(p => { const n = { ...p }; delete n[key]; return n })
+                    showUndoToast("🔓 Bloqueo de horario eliminado", () => {
+                      restoreAppointment(currentDate, key, a)
+                    })
+                    return
+                  }
+                  setDeleteKey(key)
+                }}
                 onOpenReschedule={(data) => setRescheduleData(data)}
                 onToggleTipsRelease={onToggleTipsRelease}
                 onToggleArrived={handleToggleArrived}

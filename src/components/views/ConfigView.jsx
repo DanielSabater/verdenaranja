@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { C } from "../../constants/colors.js"
-import { CAT_OPTIONS as CAT_OPTIONS_DEFAULT, EMOJI_SUGGESTIONS, BLOCKED_COLORS, APP_VERSION, MODAL_TONES, MODAL_OPACITY_DEFAULT_LEVEL, MODAL_OPACITY_LEVELS, MODAL_BLUR_DEFAULT_LEVEL, MODAL_BLUR_LEVELS, getModalOverlayStyle } from "../../constants/data.js"
+import { HOURS, CAT_OPTIONS as CAT_OPTIONS_DEFAULT, EMOJI_SUGGESTIONS, BLOCKED_COLORS, APP_VERSION, MODAL_TONES, MODAL_OPACITY_DEFAULT_LEVEL, MODAL_OPACITY_LEVELS, MODAL_BLUR_DEFAULT_LEVEL, MODAL_BLUR_LEVELS, getModalOverlayStyle } from "../../constants/data.js"
+import { WORK_DAYS_META } from "../../utils/appointments.js"
 import { GhostBtn, SolidBtn, Overlay } from "../ui/index.jsx"
 import { MESES_ES, todayKey } from "../../utils/dates.js"
 import { DEFAULT_WA_REMINDER_TEMPLATE, generateReminderMessage } from "../../utils/whatsapp.js"
@@ -28,6 +29,7 @@ export default function ConfigView({ planillaRamas = ["manos"], config, setConfi
   const [selectedExcPct,  setSelectedExcPct]  = useState("")
   const [calOpen,         setCalOpen]         = useState(false)
   const [savedProfField,  setSavedProfField]  = useState(null)
+  const [openProfScheduleId, setOpenProfScheduleId] = useState(null)
 
   // Safety guard
   const profs    = config?.professionals || []
@@ -65,6 +67,84 @@ export default function ConfigView({ planillaRamas = ["manos"], config, setConfi
   const updateProf = (id, field, value) => {
     setConfig(p => ({ ...p, professionals: p.professionals.map(pr => pr.id===id ? {...pr,[field]:value} : pr) }))
     const fieldKey = `${id}-${field}`
+    setSavedProfField(fieldKey)
+    setTimeout(() => {
+      setSavedProfField(prev => prev === fieldKey ? null : prev)
+    }, 1800)
+  }
+
+  const END_HOURS = [...HOURS.slice(1), "20:00"]
+
+  const getDefaultDaySchedule = (existing) => ({
+    active: existing?.active !== undefined ? existing.active : true,
+    from: existing?.from || "09:00",
+    to: existing?.to || "20:00",
+    breakActive: Boolean(existing?.breakActive),
+    breakFrom: existing?.breakFrom || "13:00",
+    breakTo: existing?.breakTo || "15:00",
+    blockNonWorking: existing?.blockNonWorking !== undefined ? existing.blockNonWorking : true,
+  })
+
+  const updateProfDaySchedule = (profId, dayId, patch) => {
+    setConfig(p => ({
+      ...p,
+      professionals: p.professionals.map(pr => {
+        if (pr.id !== profId) return pr
+        const currentSched = pr.schedule || {}
+        const baseDay = getDefaultDaySchedule(currentSched[dayId])
+        const nextDay = { ...baseDay, ...patch }
+        if (nextDay.from >= nextDay.to) {
+          const fromIdx = HOURS.indexOf(nextDay.from)
+          nextDay.to = END_HOURS[Math.min(END_HOURS.length - 1, Math.max(0, fromIdx))] || "20:00"
+        }
+        if (nextDay.breakActive && nextDay.breakFrom >= nextDay.breakTo) {
+          const bIdx = HOURS.indexOf(nextDay.breakFrom)
+          nextDay.breakTo = END_HOURS[Math.min(END_HOURS.length - 1, Math.max(0, bIdx))] || "15:00"
+        }
+        return {
+          ...pr,
+          blockNonWorking: pr.blockNonWorking !== undefined ? pr.blockNonWorking : true,
+          schedule: {
+            ...currentSched,
+            [dayId]: nextDay,
+          }
+        }
+      })
+    }))
+    const fieldKey = `${profId}-schedule`
+    setSavedProfField(fieldKey)
+    setTimeout(() => {
+      setSavedProfField(prev => prev === fieldKey ? null : prev)
+    }, 1800)
+  }
+
+  const applyScheduleToAllActiveDays = (profId, sourceDayId) => {
+    setConfig(p => ({
+      ...p,
+      professionals: p.professionals.map(pr => {
+        if (pr.id !== profId) return pr
+        const currentSched = pr.schedule || {}
+        const src = getDefaultDaySchedule(currentSched[sourceDayId])
+        const nextSched = { ...currentSched }
+        WORK_DAYS_META.forEach(d => {
+          const existing = getDefaultDaySchedule(currentSched[d.id])
+          nextSched[d.id] = {
+            ...existing,
+            from: src.from,
+            to: src.to,
+            breakActive: src.breakActive,
+            breakFrom: src.breakFrom,
+            breakTo: src.breakTo,
+          }
+        })
+        return {
+          ...pr,
+          blockNonWorking: pr.blockNonWorking !== undefined ? pr.blockNonWorking : true,
+          schedule: nextSched,
+        }
+      })
+    }))
+    const fieldKey = `${profId}-schedule`
     setSavedProfField(fieldKey)
     setTimeout(() => {
       setSavedProfField(prev => prev === fieldKey ? null : prev)
@@ -437,6 +517,32 @@ export default function ConfigView({ planillaRamas = ["manos"], config, setConfi
                 </div>
 
                 <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                  <button
+                    type="button"
+                    onClick={() => setOpenProfScheduleId(openProfScheduleId === prof.id ? null : prof.id)}
+                    title="Configurar qué días trabaja, horarios y bloqueo de franjas no laborales"
+                    style={{
+                      height: 36,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      background: openProfScheduleId === prof.id ? C.green : C.cream,
+                      color: openProfScheduleId === prof.id ? "#fff" : C.text,
+                      border: `1.5px solid ${openProfScheduleId === prof.id ? C.green : C.border}`,
+                      borderRadius: 10,
+                      padding: "0 12px",
+                      fontSize: 11,
+                      fontWeight: "bold",
+                      cursor: "pointer",
+                      fontFamily: "Georgia, serif",
+                      transition: "all .18s",
+                      whiteSpace: "nowrap"
+                    }}
+                  >
+                    <span>🕒</span>
+                    <span>Horarios</span>
+                    <span style={{ fontSize: 9, opacity: 0.8 }}>{openProfScheduleId === prof.id ? "▴" : "▾"}</span>
+                  </button>
                   <div style={{ height: 36, display: "flex", alignItems: "center", justifyContent: "center", background: C.greenPale, border: `1px solid ${C.greenMint}`, borderRadius: 9, padding: "0 12px", fontSize: 11, fontWeight: "bold", color: C.green, boxSizing: "border-box" }}>
                     #{idx+1}
                   </div>
@@ -448,6 +554,386 @@ export default function ConfigView({ planillaRamas = ["manos"], config, setConfi
                   }}>✕</button>
                 </div>
               </div>
+
+              {/* Resumen compacto de días laborales (visible siempre) */}
+              {(() => {
+                const sched = prof.schedule || {}
+                const hasCustomSched = Object.keys(sched).length > 0
+                const blockEnabled = prof.blockNonWorking !== false
+                return (
+                  <div style={{
+                    marginTop: 10,
+                    paddingTop: 8,
+                    borderTop: `1px dashed ${C.border}`,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    flexWrap: "wrap",
+                    gap: 8
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                      <span style={{ fontSize: 10, color: C.textSoft, letterSpacing: "0.5px", marginRight: 2 }}>Días:</span>
+                      {WORK_DAYS_META.map(d => {
+                        const dayCfg = getDefaultDaySchedule(sched[d.id])
+                        const isPartial = dayCfg.active && (dayCfg.from !== "09:00" || dayCfg.to !== "20:00" || dayCfg.breakActive)
+                        return (
+                          <button
+                            key={d.id}
+                            type="button"
+                            onClick={() => setOpenProfScheduleId(openProfScheduleId === prof.id ? null : prof.id)}
+                            title={
+                              !dayCfg.active
+                                ? `${d.label}: No trabaja (Todo el día bloqueado)`
+                                : `${d.label}: ${dayCfg.from} a ${dayCfg.to}${dayCfg.breakActive ? ` (Pausa ${dayCfg.breakFrom}-${dayCfg.breakTo})` : ""}`
+                            }
+                            style={{
+                              padding: "3px 8px",
+                              borderRadius: 8,
+                              fontSize: 10,
+                              fontWeight: "bold",
+                              fontFamily: "Georgia, serif",
+                              cursor: "pointer",
+                              border: `1px solid ${!dayCfg.active ? "#f5c2c2" : isPartial ? "#fde68a" : C.greenMint}`,
+                              background: !dayCfg.active ? "#fef2f2" : isPartial ? "#fffbeb" : C.greenPale,
+                              color: !dayCfg.active ? "#b91c1c" : isPartial ? "#b45309" : C.green,
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 4,
+                              transition: "all .15s"
+                            }}
+                          >
+                            <span>{d.short}</span>
+                            {!dayCfg.active ? (
+                              <span style={{ fontSize: 8 }}>🚫</span>
+                            ) : isPartial ? (
+                              <span style={{ fontSize: 8, fontWeight: "normal" }}>{dayCfg.from.slice(0, 2)}-{dayCfg.to.slice(0, 2)}h</span>
+                            ) : null}
+                          </button>
+                        )
+                      })}
+                    </div>
+
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      {savedProfField === `${prof.id}-schedule` && (
+                        <span style={{ fontSize: 9, color: C.green, fontWeight: "bold", background: "#dcfce7", padding: "2px 7px", borderRadius: 5 }}>
+                          ✓ Horario guardado
+                        </span>
+                      )}
+                      {hasCustomSched && blockEnabled && (
+                        <span style={{ fontSize: 10, color: C.textSoft, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                          <span>🚫</span> Bloqueo automático en horas no laborales
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {/* Panel desplegable de configuración de días, horarios y bloqueo de franjas no laborales */}
+              {openProfScheduleId === prof.id && (() => {
+                const sched = prof.schedule || {}
+                const blockEnabled = prof.blockNonWorking !== false
+                const blockedColorObj = BLOCKED_COLORS.find(c => c.id === (config?.blockedColor || "rojo")) || BLOCKED_COLORS[0]
+                return (
+                  <div style={{
+                    marginTop: 12,
+                    padding: "14px 16px",
+                    borderRadius: 12,
+                    background: C.cream,
+                    border: `1.5px solid ${C.greenMint}`,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 12,
+                    animation: "fadeIn .18s ease"
+                  }}>
+                    {/* Cabecera y toggle de bloqueo automático */}
+                    <div style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      flexWrap: "wrap",
+                      gap: 10,
+                      paddingBottom: 10,
+                      borderBottom: `1px solid ${C.border}`
+                    }}>
+                      <div>
+                        <div style={{ fontSize: 12, fontWeight: "bold", color: C.green, display: "flex", alignItems: "center", gap: 6 }}>
+                          <span>🕒</span>
+                          <span>Días y horarios de trabajo de {prof.name}</span>
+                        </div>
+                        <div style={{ fontSize: 10.5, color: C.textSoft, marginTop: 2 }}>
+                          Configurá qué días trabaja, su horario de entrada/salida o pausas intermedias.
+                        </div>
+                      </div>
+
+                      <label style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        padding: "7px 12px",
+                        borderRadius: 10,
+                        background: blockEnabled ? C.white : "#f8f9fa",
+                        border: `1.5px solid ${blockEnabled ? C.greenMint : C.border}`,
+                        cursor: "pointer",
+                        userSelect: "none",
+                        boxShadow: "0 2px 6px rgba(0,0,0,0.03)"
+                      }}>
+                        <input
+                          type="checkbox"
+                          checked={blockEnabled}
+                          onChange={e => updateProf(prof.id, "blockNonWorking", e.target.checked)}
+                          style={{ width: 15, height: 15, accentColor: C.green, cursor: "pointer" }}
+                        />
+                        <div style={{ display: "flex", flexDirection: "column" }}>
+                          <span style={{ fontSize: 11, fontWeight: "bold", color: C.text }}>
+                            🚫 Bloquear franjas y días que no trabaja
+                          </span>
+                          <span style={{ fontSize: 9.5, color: C.textSoft }}>
+                            Se muestra como bloqueo de horario (no cuenta como turno)
+                          </span>
+                        </div>
+                        <div style={{
+                          width: 24,
+                          height: 24,
+                          borderRadius: 6,
+                          border: `1px dashed rgba(${blockedColorObj.rgb}, 0.55)`,
+                          background: `repeating-linear-gradient(45deg, rgba(${blockedColorObj.rgb}, 0.16), rgba(${blockedColorObj.rgb}, 0.16) 5px, rgba(${blockedColorObj.rgb}, 0.30) 5px, rgba(${blockedColorObj.rgb}, 0.30) 10px)`,
+                          flexShrink: 0
+                        }} title="Vista previa del bloqueo de horario" />
+                      </label>
+                    </div>
+
+                    {/* Grilla de días Lunes a Sábado */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      {WORK_DAYS_META.map(d => {
+                        const dayCfg = getDefaultDaySchedule(sched[d.id])
+                        const nonWorkingHoursCount = !dayCfg.active
+                          ? HOURS.length
+                          : HOURS.filter(h => h < dayCfg.from || h >= dayCfg.to || (dayCfg.breakActive && h >= dayCfg.breakFrom && h < dayCfg.breakTo)).length
+
+                        return (
+                          <div
+                            key={d.id}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              flexWrap: "wrap",
+                              gap: 10,
+                              padding: "9px 12px",
+                              borderRadius: 10,
+                              background: dayCfg.active ? C.white : "#fef9f9",
+                              border: `1px solid ${dayCfg.active ? C.border : "#f5c2c2"}`,
+                              transition: "all .15s"
+                            }}
+                          >
+                            {/* Día + Switch Trabaja / No trabaja */}
+                            <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 185 }}>
+                              <div style={{ width: 78, fontSize: 12, fontWeight: "bold", color: dayCfg.active ? C.text : "#b91c1c" }}>
+                                {d.label}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => updateProfDaySchedule(prof.id, d.id, { active: !dayCfg.active })}
+                                style={{
+                                  padding: "4px 10px",
+                                  borderRadius: 8,
+                                  fontSize: 10.5,
+                                  fontWeight: "bold",
+                                  fontFamily: "Georgia, serif",
+                                  cursor: "pointer",
+                                  border: `1px solid ${dayCfg.active ? C.greenMint : "#f5c2c2"}`,
+                                  background: dayCfg.active ? C.greenPale : "#fee2e2",
+                                  color: dayCfg.active ? C.green : "#b91c1c",
+                                  transition: "all .15s"
+                                }}
+                              >
+                                {dayCfg.active ? "✓ Trabaja" : "🚫 No trabaja"}
+                              </button>
+                            </div>
+
+                            {/* Controles de horario cuando trabaja, o aviso de día bloqueado cuando no trabaja */}
+                            {dayCfg.active ? (
+                              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", flex: 1, justifyContent: "flex-end" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                                  <span style={{ fontSize: 10, color: C.textSoft }}>De</span>
+                                  <select
+                                    value={dayCfg.from}
+                                    onChange={e => updateProfDaySchedule(prof.id, d.id, { from: e.target.value })}
+                                    style={{
+                                      ...cfgInput,
+                                      width: 78,
+                                      height: 30,
+                                      padding: "0 6px",
+                                      fontSize: 11,
+                                      fontWeight: "bold",
+                                      borderRadius: 8,
+                                      cursor: "pointer"
+                                    }}
+                                  >
+                                    {HOURS.map(h => (
+                                      <option key={h} value={h}>{h} hs</option>
+                                    ))}
+                                  </select>
+                                  <span style={{ fontSize: 10, color: C.textSoft }}>a</span>
+                                  <select
+                                    value={dayCfg.to}
+                                    onChange={e => updateProfDaySchedule(prof.id, d.id, { to: e.target.value })}
+                                    style={{
+                                      ...cfgInput,
+                                      width: 78,
+                                      height: 30,
+                                      padding: "0 6px",
+                                      fontSize: 11,
+                                      fontWeight: "bold",
+                                      borderRadius: 8,
+                                      cursor: "pointer"
+                                    }}
+                                  >
+                                    {END_HOURS.filter(h => h > dayCfg.from).map(h => (
+                                      <option key={h} value={h}>{h} hs</option>
+                                    ))}
+                                  </select>
+                                </div>
+
+                                {/* Pausa / Franja intermedia bloqueada */}
+                                {dayCfg.breakActive ? (
+                                  <div style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 4,
+                                    padding: "3px 8px",
+                                    borderRadius: 8,
+                                    background: "#fff5f5",
+                                    border: "1px dashed #f5c2c2"
+                                  }}>
+                                    <span style={{ fontSize: 10, color: "#b91c1c", fontWeight: "bold" }}>🚫 Bloqueo:</span>
+                                    <select
+                                      value={dayCfg.breakFrom}
+                                      onChange={e => updateProfDaySchedule(prof.id, d.id, { breakFrom: e.target.value })}
+                                      style={{
+                                        ...cfgInput,
+                                        width: 68,
+                                        height: 26,
+                                        padding: "0 4px",
+                                        fontSize: 10.5,
+                                        borderRadius: 6,
+                                        background: C.white,
+                                        cursor: "pointer"
+                                      }}
+                                    >
+                                      {HOURS.filter(h => h >= dayCfg.from && h < dayCfg.to).map(h => (
+                                        <option key={h} value={h}>{h}</option>
+                                      ))}
+                                    </select>
+                                    <span style={{ fontSize: 9.5, color: "#b91c1c" }}>a</span>
+                                    <select
+                                      value={dayCfg.breakTo}
+                                      onChange={e => updateProfDaySchedule(prof.id, d.id, { breakTo: e.target.value })}
+                                      style={{
+                                        ...cfgInput,
+                                        width: 68,
+                                        height: 26,
+                                        padding: "0 4px",
+                                        fontSize: 10.5,
+                                        borderRadius: 6,
+                                        background: C.white,
+                                        cursor: "pointer"
+                                      }}
+                                    >
+                                      {END_HOURS.filter(h => h > dayCfg.breakFrom && h <= dayCfg.to).map(h => (
+                                        <option key={h} value={h}>{h}</option>
+                                      ))}
+                                    </select>
+                                    <button
+                                      type="button"
+                                      onClick={() => updateProfDaySchedule(prof.id, d.id, { breakActive: false })}
+                                      title="Quitar franja bloqueada intermedia"
+                                      style={{
+                                        border: "none",
+                                        background: "transparent",
+                                        color: "#b91c1c",
+                                        cursor: "pointer",
+                                        fontSize: 11,
+                                        padding: "0 3px",
+                                        fontWeight: "bold"
+                                      }}
+                                    >
+                                      ✕
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => updateProfDaySchedule(prof.id, d.id, { breakActive: true, breakFrom: "13:00", breakTo: "15:00" })}
+                                    title="Bloquear un par de horas intermedias en las que no trabaja"
+                                    style={{
+                                      padding: "4px 8px",
+                                      borderRadius: 8,
+                                      border: `1px dashed ${C.border}`,
+                                      background: C.cream,
+                                      color: C.textSoft,
+                                      fontSize: 10,
+                                      cursor: "pointer",
+                                      fontFamily: "Georgia, serif"
+                                    }}
+                                  >
+                                    ＋ Bloquear franja intermedia
+                                  </button>
+                                )}
+
+                                {blockEnabled && nonWorkingHoursCount > 0 && (
+                                  <span style={{
+                                    fontSize: 9.5,
+                                    color: "#b91c1c",
+                                    background: "#fef2f2",
+                                    border: "1px solid #fecaca",
+                                    padding: "2px 7px",
+                                    borderRadius: 6,
+                                    whiteSpace: "nowrap"
+                                  }}>
+                                    🚫 {(nonWorkingHoursCount * 30) / 60}h bloqueadas
+                                  </span>
+                                )}
+
+                                <button
+                                  type="button"
+                                  onClick={() => applyScheduleToAllActiveDays(prof.id, d.id)}
+                                  title="Repetir este horario de entrada/salida en todos los días que trabaja"
+                                  style={{
+                                    padding: "4px 8px",
+                                    borderRadius: 7,
+                                    border: `1px solid ${C.border}`,
+                                    background: C.white,
+                                    color: C.green,
+                                    fontSize: 9.5,
+                                    cursor: "pointer",
+                                    fontFamily: "Georgia, serif",
+                                    whiteSpace: "nowrap"
+                                  }}
+                                >
+                                  ⇄ Aplicar a todos
+                                </button>
+                              </div>
+                            ) : (
+                              <div style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 8,
+                                fontSize: 10.5,
+                                color: "#b91c1c",
+                                fontWeight: "500"
+                              }}>
+                                <span>{blockEnabled ? "🚫 Todo el día bloqueado en la planilla (sin generar turno)" : "Día no laboral"}</span>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })()}
 
               {emojiPicker === prof.id && (
                 <EmojiPicker current={prof.emoji} onSelect={e=>{updateProf(prof.id,"emoji",e);setEmojiPicker(null);}} />
