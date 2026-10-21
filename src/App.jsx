@@ -1943,7 +1943,10 @@ export default function App() {
                 style={{ 
                   position: "fixed", 
                   inset: 0, 
-                  zIndex: 299 
+                  zIndex: 299,
+                  background: "var(--modal-overlay-bg, rgba(0,0,0,.18))",
+                  backdropFilter: "var(--modal-overlay-blur, blur(5px))",
+                  WebkitBackdropFilter: "var(--modal-overlay-blur, blur(5px))"
                 }} 
               />
               <div 

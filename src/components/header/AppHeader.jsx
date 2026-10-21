@@ -979,7 +979,7 @@ export const AppHeader = memo(function AppHeader({
       {/* Calendar popup */}
       {calendarOpen && activeView === "turnos" && (
         <>
-          <div onClick={() => setCalendarOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 299 }} />
+          <div onClick={() => setCalendarOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 299, background: "var(--modal-overlay-bg, rgba(0,0,0,.18))", backdropFilter: "var(--modal-overlay-blur, blur(5px))", WebkitBackdropFilter: "var(--modal-overlay-blur, blur(5px))" }} />
           <div onClick={e => e.stopPropagation()} style={{
             position: "fixed",
             bottom: isMobile ? "calc(76px + env(safe-area-inset-bottom))" : 76,
@@ -1039,8 +1039,8 @@ export const AppHeader = memo(function AppHeader({
                     inset: 0,
                     zIndex: 115,
                     background: "rgba(0,0,0,0.18)",
-                    backdropFilter: "blur(2px)",
-                    WebkitBackdropFilter: "blur(2px)"
+                    backdropFilter: "var(--modal-overlay-blur, blur(5px))",
+                    WebkitBackdropFilter: "var(--modal-overlay-blur, blur(5px))"
                   }}
                 />
               )}

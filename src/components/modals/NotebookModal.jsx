@@ -1134,7 +1134,9 @@ export function NotebookModal({
             position: "fixed",
             inset: 0,
             zIndex: 199,
-            background: "transparent",
+            background: "var(--modal-overlay-bg, rgba(0,0,0,.18))",
+            backdropFilter: "var(--modal-overlay-blur, blur(5px))",
+            WebkitBackdropFilter: "var(--modal-overlay-blur, blur(5px))",
             cursor: "default"
           }}
         />
@@ -1199,7 +1201,7 @@ export function NotebookModal({
             }
           `}</style>
 
-          <div ref={bookRef} tabIndex={-1} style={{ position: "relative", width: "100%", paddingLeft: 22, boxSizing: "border-box" }}>
+          <div ref={bookRef} tabIndex={-1} style={{ position: "relative", width: "100%", height: "100%", minHeight: 0, paddingLeft: 22, boxSizing: "border-box" }}>
             
             {/* Anillos laterales */}
             <div style={{
@@ -1230,8 +1232,9 @@ export function NotebookModal({
               border: `1.5px solid ${C.border}`,
               borderLeft: "8px solid #c0d8c4",
               boxShadow: "0 20px 50px rgba(40,60,45,.25), 4px 4px 15px rgba(0,0,0,0.06)",
-              minHeight: 480,
-              maxHeight: "82vh",
+              minHeight: 0,
+              height: "100%",
+              maxHeight: "100%",
               display: "flex",
               flexDirection: "column",
               fontFamily: "'Georgia', serif",
