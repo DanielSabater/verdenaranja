@@ -610,7 +610,7 @@ export const AppHeader = memo(function AppHeader({
         <div className="desktop-nav-container">
           <div className="desktop-nav" style={{ gap: 4 }}>
             {VIEWS.map(v => (
-              <button key={v.id} onClick={() => setActiveView(v.id)} style={{ padding: "6px 14px", borderRadius: 20, cursor: "pointer", border: `2px solid ${activeView === v.id ? C.green : C.border}`, background: activeView === v.id ? `linear-gradient(135deg,${C.green},${C.greenLight})` : C.white, color: activeView === v.id ? "#fff" : C.textSoft, fontSize: 10, letterSpacing: "1px", textTransform: "uppercase", fontFamily: "Georgia,serif", transition: "all .18s" }}>{v.icon} {v.label}</button>
+              <button key={v.id} onClick={() => setActiveView(v.id)} style={{ padding: "8px 20px", borderRadius: 20, cursor: "pointer", border: `2px solid ${activeView === v.id ? C.green : C.border}`, backgroundColor: activeView === v.id ? C.green : C.white, backgroundImage: "linear-gradient(135deg, transparent, rgba(255,255,255,.18))", color: activeView === v.id ? "#fff" : C.textSoft, fontSize: 10, letterSpacing: "1px", textTransform: "uppercase", fontFamily: "Georgia,serif", transition: "none" }}>{v.label}</button>
             ))}
           </div>
         </div>

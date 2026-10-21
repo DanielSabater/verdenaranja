@@ -8,6 +8,12 @@ import { todayKey, fmtDate } from "../../utils/dates.js"
 import html2canvas from "html2canvas"
 import { getApptClientPhone, formatWaNumber, generateReminderMessage, openWhatsAppLink, cleanClientName } from "../../utils/whatsapp.js"
 
+const formatBlockedDuration = minutes => {
+  const hours = Math.floor(minutes / 60)
+  const rest = minutes % 60
+  return [hours > 0 ? `${hours} h` : '', rest > 0 || hours === 0 ? `${rest} min` : ''].filter(Boolean).join(' ')
+}
+
 const smallBtn = (color, isMobile) => ({
   padding: isMobile ? "4px 8px" : "5px 8px", borderRadius: 8, border: "none",
   background: color, color: "#fff", fontSize: isMobile ? 12 : 10,
@@ -1380,7 +1386,7 @@ export function AppGrid({
                 )
 
                 const offSchedule = !appt && isOutsideSchedule(prof, hour)
-                let cellBg = offSchedule ? "rgba(220,60,60,.07)" : ""
+                let cellBg = offSchedule && !isSchedBlocked ? "rgba(220,60,60,.07)" : ""
                 if (draggingKey) {
                   if (isTargetSlot && !appt) {
                     if (!dropValid) {
@@ -1436,7 +1442,7 @@ export function AppGrid({
                 const effectiveSpan = appt ? (span || 1) : (isSchedBlocked ? schedBlockSlots : 1)
 
                 return (
-                  <td key={prof.id} data-prof-id={prof.id} data-hour={hour} rowSpan={effectiveSpan}
+                  <td key={`${currentDate}-${prof.id}`} className={!appt && !isSchedBlocked && !draggingKey && !resizePreview ? "grid-empty-cell" : undefined} data-prof-id={prof.id} data-hour={hour} rowSpan={effectiveSpan}
                     style={{
                       padding: config.gridStyle === "classic" ? 3 : "5px 6px",
                       height: (appt || isSchedBlocked) ? `${effectiveSpan * 100}px` : 100,
@@ -1451,7 +1457,6 @@ export function AppGrid({
                     onClick={() => !appt && !isSchedBlocked && !draggingKey && onCellClick(prof.id, hour)}
                     onMouseEnter={e => {
                       hoveredCellRef.current = { profId: prof.id, hour, key: k, hasAppt: !!appt }
-                      if (!appt && !isSchedBlocked && !draggingKey && !resizePreview) e.currentTarget.style.background = C.greenPale
                       if (appt && !appt.isBlocked && appt.client) setHoveredClientName(appt.client)
                     }}
                     onMouseMove={() => {
@@ -1463,7 +1468,6 @@ export function AppGrid({
                       if (hoveredCellRef.current?.key === k) {
                         hoveredCellRef.current = null
                       }
-                      if (!appt && !isSchedBlocked && !draggingKey && !resizePreview) e.currentTarget.style.background = ""
                       if (appt && !appt.isBlocked && appt.client) setHoveredClientName(null)
                     }}
                     onContextMenu={e => handleContextMenu(e, prof.id, hour, !!appt, { isScheduleBlocked: isSchedBlocked, schedBlockHours })}
@@ -1758,7 +1762,7 @@ export function AppGrid({
                                    </span>
                                  </div>
                                  <div style={{ fontSize: 9, color: C.textSoft, fontWeight: "600" }}>
-                                   {liveHour} – {liveEndHour} · {liveSlots === HOURS.length ? "Todo el día" : `${liveDurMins} min`}
+                                   {liveHour} – {liveEndHour} · {liveSlots === HOURS.length ? "Todo el día" : formatBlockedDuration(liveDurMins)}
                                  </div>
                                  {appt.notes && (
                                    <div style={{ fontSize: 9, color: `rgba(${rgbString}, 0.85)`, fontStyle: "italic", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>📝 {appt.notes}</div>
@@ -1951,7 +1955,7 @@ export function AppGrid({
                               </span>
                             </div>
                             <div style={{ fontSize: 9, color: C.textSoft, fontWeight: "600" }}>
-                              {hour} – {schedEndHour} · {schedBlockSlots === HOURS.length ? "Todo el día" : `${schedDurMins} min`}
+                              {hour} – {schedEndHour} · {schedBlockSlots === HOURS.length ? "Todo el día" : formatBlockedDuration(schedDurMins)}
                             </div>
                           </div>
 

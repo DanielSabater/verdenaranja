@@ -1423,3 +1423,6 @@ select {
 @media (prefers-reduced-motion: reduce) {
   .comparison-in-progress-pulse { animation: none; opacity: .12; }
 }
+
+/* El resaltado solo se aplica mientras la celda está libre y bajo el puntero. */
+.grid-empty-cell:hover { background: #e8f5eb !important; }
