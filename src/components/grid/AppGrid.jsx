@@ -1,3 +1,4 @@
+import ProfessionalName from "../ui/ProfessionalName.jsx"
 import { useState, useRef, useEffect } from "react"
 import { C } from "../../constants/colors.js"
 import { PAYMENT_METHODS, HOURS, BLOCKED_COLORS, getBlockedAlphas } from "../../constants/data.js"
@@ -1273,7 +1274,7 @@ export function AppGrid({
                       ) : (
                         <span style={{ fontSize: 11, lineHeight: 1, flexShrink: 0 }}>{p.emoji}</span>
                       )}
-                      <span style={{
+                      <ProfessionalName professional={p} style={{
                         fontSize: 11,
                         color: profPopup === p.id ? C.green : C.text,
                         fontWeight: (isMobile && isLandscape) ? "700" : (profPopup === p.id ? "bold" : "normal"),
@@ -1282,7 +1283,7 @@ export function AppGrid({
                         textOverflow: "ellipsis",
                         maxWidth: (isMobile && isLandscape) ? "calc(100% - 30px)" : "100%",
                         padding: (isMobile && isLandscape) ? "2px 0" : 0
-                      }}>{p.name}</span>
+                      }} />
                       {(isMobile && isLandscape) && (
                         <span style={{ fontSize: 11, lineHeight: 1, flexShrink: 0 }}>{p.emoji}</span>
                       )}

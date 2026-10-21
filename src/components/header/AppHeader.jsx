@@ -675,34 +675,21 @@ export const AppHeader = memo(function AppHeader({
                   setIsDailySummaryHovered(false)
                   setDailySummaryOpen(true)
                 }}
-                className={`daily-summary-btn ${scheduledStats.isFullyPaid ? "paid" : "unpaid"}`}
+                className="payment-method-summary daily-total-summary"
                 style={{
-                  display: "flex",
-                  alignItems: "center",
+                  "--method-color": C.green,
+                  flexDirection: "row",
+                  position: "relative",
                   gap: 8,
-                  height: 38,
-                  padding: "0 12px",
-                  borderRadius: 12,
-                  border: scheduledStats.isFullyPaid
-                    ? `1.5px solid ${C.green}`
-                    : (scheduledStats.totalCount > 0 ? `1.5px solid ${C.greenMint}` : `1.5px solid ${C.border}`),
-                  background: scheduledStats.isFullyPaid
-                    ? `linear-gradient(135deg, ${C.green}, ${C.greenLight})`
-                    : (isLiquid ? "rgba(255, 255, 255, 0.75)" : C.white),
-                  backdropFilter: isLiquid ? "blur(12px)" : "none",
-                  WebkitBackdropFilter: isLiquid ? "blur(12px)" : "none",
-                  boxShadow: scheduledStats.isFullyPaid
-                    ? `0 4px 14px ${C.green}44`
-                    : `0 2px 8px ${C.shadow}`,
-                  cursor: "pointer",
-                  userSelect: "none",
-                  transition: "all .2s cubic-bezier(0.16, 1, 0.3, 1)",
-                  outline: "none",
-                  flexShrink: 0
+                  flexShrink: 0,
+                  ...(!isDailySummaryHovered && scheduledStats.isFullyPaid ? {
+                    background: `linear-gradient(135deg, ${C.green}, ${C.greenLight})`,
+                    color: "#fff"
+                  } : {})
                 }}
               >
                 {/* Anillo de progreso circular SVG */}
-                <div style={{ position: "relative", width: 24, height: 24, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {!isDailySummaryHovered && <div style={{ position: "relative", width: 24, height: 24, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
                   <svg width="24" height="24" viewBox="0 0 36 36" style={{ transform: "rotate(-90deg)" }}>
                     <path
                       d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
@@ -727,11 +714,11 @@ export const AppHeader = memo(function AppHeader({
                       %
                     </span>
                   )}
-                </div>
+                </div>}
 
-                {/* Porcentaje y Conteo (SIN MONTOS DE DINERO) */}
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", position: "relative", height: 26, minWidth: 48, textAlign: "center", lineHeight: 1.15 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 4, visibility: isDailySummaryHovered ? "hidden" : "visible" }}>
+                {/* Progreso habitual y total cobrado al apoyar el puntero */}
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", position: "relative", height: 26, minWidth: isDailySummaryHovered ? 0 : 48, textAlign: "center", lineHeight: 1.15 }}>
+                  <div style={{ alignItems: "center", gap: 4, display: isDailySummaryHovered ? "none" : "flex" }}>
                     <span
                       style={{
                         fontSize: 16,
@@ -768,16 +755,14 @@ export const AppHeader = memo(function AppHeader({
                   </div>
 
                   {isDailySummaryHovered && (
-                    <span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <span
-                      className="payment-count-diagonal"
-                      aria-label={`${scheduledStats.paidCount} de ${scheduledStats.totalCount} turnos cobrados`}
-                      style={{ color: scheduledStats.isFullyPaid ? "#fff" : C.green }}
-                    >
-                      <span className="payment-count-paid">{scheduledStats.paidCount}</span>
-                      <span className="payment-count-slash" aria-hidden="true">/</span>
-                      <span className="payment-count-total">{scheduledStats.totalCount}</span>
-                    </span>
+                    <span style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <span
+                        aria-label={`Total cobrado del día: ${privacyMode ? "oculto" : fmt(grandTotal)}`}
+                        style={{ display: "flex", flexDirection: "column", gap: 2, whiteSpace: "nowrap", color: C.green }}
+                      >
+                        <span className="payment-method-label">Total</span>
+                        <strong style={{ fontVariantNumeric: "tabular-nums" }}>{privacyMode ? "••••" : fmt(grandTotal)}</strong>
+                      </span>
                     </span>
                   )}
                 </div>
@@ -785,9 +770,11 @@ export const AppHeader = memo(function AppHeader({
                 {/* Indicador sutil de modal */}
                 <span
                   style={{
+                    position: "absolute",
+                    right: 4,
                     fontSize: 11,
-                    color: scheduledStats.isFullyPaid ? "rgba(255,255,255,0.7)" : C.textSoft,
-                    marginLeft: 1,
+                    color: !isDailySummaryHovered && scheduledStats.isFullyPaid ? "rgba(255,255,255,0.7)" : C.textSoft,
+                    pointerEvents: "none",
                     transition: "transform .2s ease",
                     transform: isDailySummaryHovered ? "rotate(90deg)" : "none"
                   }}

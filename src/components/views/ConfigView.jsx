@@ -407,6 +407,18 @@ export default function ConfigView({ planillaRamas = ["manos"], config, setConfi
                   />
                 </div>
 
+                <div style={{ flex: "1 1 100%" }}>
+                  <label style={cfgLabel} htmlFor={`prof-notes-${prof.id}`}>Anotaciones</label>
+                  <textarea
+                    id={`prof-notes-${prof.id}`}
+                    value={prof.notes || ""}
+                    onChange={e => updateProf(prof.id, "notes", e.target.value)}
+                    placeholder="Observaciones"
+                    rows={2}
+                    style={{ ...cfgInput, resize: "vertical", minHeight: 60, textAlign: "left", padding: 12, boxSizing: "border-box" }}
+                  />
+                </div>
+
                 <div style={{ flex: "1.2 1 140px", minWidth: 135 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
                     <label style={{ ...cfgLabel, marginBottom: 0 }}>Rama / Especialidad</label>

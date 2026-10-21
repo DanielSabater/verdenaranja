@@ -1095,7 +1095,7 @@ export default function ContabilidadView({
         ))}
       </div>
 
-        <div className="accounting-period-controls" style={{ display:"flex", gap:6, flexWrap:"wrap", alignItems:"center" }}>
+        {seccion !== "sueldos" && <div className="accounting-period-controls" style={{ display:"flex", gap:6, flexWrap:"wrap", alignItems:"center" }}>
           {[["dia","Hoy"],["semana","Semana"],["mes","Mes"],["anual","Anual"],["todo","Todo"],["custom","Custom"]].map(([id,label]) => (
             <button key={id} onClick={()=>setContPeriod(id)} style={{ padding:"5px 14px", borderRadius:20, border:`1.5px solid ${contPeriod===id?C.green:C.border}`, background:contPeriod===id?`linear-gradient(135deg,${C.green},${C.greenLight})`:C.white, color:contPeriod===id?"#fff":C.textSoft, fontSize:10, cursor:"pointer", fontFamily:"Georgia,serif", transition:"all .15s" }}>{label}</button>
           ))}
@@ -1104,7 +1104,7 @@ export default function ContabilidadView({
             <span style={{color:C.textSoft}}>→</span>
             <input type="date" value={contTo} onChange={e=>setContTo(e.target.value)} style={{...inputStyle,width:"auto",fontSize:11}}/>
           </>}
-        </div>
+        </div>}
 
         {seccion === "sueldos" && (
           <div className="accounting-date-nav" role="group" aria-label="Mes de sueldos" tabIndex={0}
@@ -2337,7 +2337,7 @@ export default function ContabilidadView({
       {seccion==="sueldos" && (
         <div>
 
-          <SalaryPanel key={sueldoPeriod} professionals={safeProfessionals.filter(p => !p.deletedAt || p.deletedAt >= sueldoPeriod + "-01" || Object.keys(safeSueldos).some(key => key.startsWith(`${p.id}||`)) || profStats(p.id, "all").turnos > 0)} sueldos={safeSueldos} setSueldos={setSueldos} period={sueldoPeriod} statsFor={profStats} breakdownFor={getDailyBreakdown} onReceipt={setReceiptProf} />
+          <SalaryPanel key={sueldoPeriod} professionals={safeProfessionals.filter(p => !p.deletedAt)} sueldos={safeSueldos} setSueldos={setSueldos} period={sueldoPeriod} statsFor={profStats} breakdownFor={getDailyBreakdown} onReceipt={setReceiptProf} />
         </div>
       )}
       {/* ── DETALLE DIARIO ── */}

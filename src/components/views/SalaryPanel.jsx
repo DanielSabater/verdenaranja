@@ -1,3 +1,4 @@
+import { salaryDayBalances } from "../../utils/salaryDayBalances.js"
 import MoneyInput from "../ui/MoneyInput.jsx"
 import { parseArgentineMoney, formatArgentineMoney } from "../../utils/argentineMoney.js"
 import React, { useState, useEffect, useRef } from 'react'
@@ -51,14 +52,21 @@ export default function SalaryPanel({ professionals, sueldos, setSueldos, period
     return () => { observer.disconnect(); window.removeEventListener('resize', measure) }
   }, [selected])
   const recordFor = id => sueldos[`${id}||${period}`] || {}
-  const summary = p => {
+  const summary = (p, fullMonth = false) => {
     const record = recordFor(p.id)
-    const stats = statsFor(p.id, record.dias || 'all')
-    const paid = paidSalary(record, p.id, period)
-    return { record, stats, paid, balance: Math.round((stats.comision - paid) * 100) / 100 }
+    const stats = statsFor(p.id, fullMonth ? 'all' : record.dias || 'all')
+    const dayBalances = salaryDayBalances(record, p.id, period, breakdownFor(p.id, 'all'))
+    const paid = fullMonth || !record.dias || record.dias === 'all' ? paidSalary(record, p.id, period) : record.dias.reduce((sum, day) => sum + (dayBalances[day]?.paid || 0), 0)
+    return { record, stats, paid, dayBalances, balance: Math.round((stats.comision - paid) * 100) / 100 }
   }
-  const open = p => { select(p); setCancelling(null); setCancelReason(''); setAmount(''); setDate(todayKey()); setNote(''); setError(''); setNotice(''); operation.current = crypto.randomUUID() }
-  const rows = professionals.map(p => ({ p, ...summary(p) }))
+  const open = p => {
+    const balances = salaryDayBalances(recordFor(p.id), p.id, period, breakdownFor(p.id, 'all'))
+    if (Object.values(balances).some(day => day.status === 'paid')) {
+      const pending = Object.keys(balances).filter(day => balances[day].status !== 'paid')
+      setSueldos(previous => ({ ...previous, [`${p.id}||${period}`]: { ...previous[`${p.id}||${period}`], pagos: salaryPayments(previous[`${p.id}||${period}`], p.id, period), dias: pending } }))
+    }
+    select(p); setCancelling(null); setCancelReason(''); setAmount(''); setDate(todayKey()); setNote(''); setError(''); setNotice(''); operation.current = crypto.randomUUID() }
+  const rows = professionals.map(p => ({ p, ...summary(p, true) }))
   const totals = rows.reduce((a, r) => [a[0] + r.stats.comision, a[1] + r.paid, a[2] + Math.max(0, r.balance)], [0, 0, 0])
   const metrics = values => <div className="salary-metrics" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 12, margin: '20px 0' }}>{values.map(([label, value]) => <div key={label} style={{ background: C.cream, borderRadius: 14, padding: 18, border: `1px dashed ${C.border}` }}><div style={{ color: C.textSoft, fontSize: 12 }}>{label}</div><strong style={{ display: 'block', marginTop: 8, color: label.includes('pendiente') ? C.orange : C.green, fontSize: 24 }}>{fmt(value)}</strong></div>)}</div>
   return <>
@@ -66,16 +74,22 @@ export default function SalaryPanel({ professionals, sueldos, setSueldos, period
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(min(100%,280px),1fr))', gap: 16 }}>{rows.map(({ p, stats, paid, balance }) => <button key={p.id} onClick={() => open(p)} style={{ ...button, padding: 22, textAlign: 'left', border: `1.5px solid ${C.border}` }}><div style={{ fontSize: 22 }}>{p.emoji} {p.name}</div><p style={{ color: C.textSoft }}>{stats.turnos} turnos · {stats.dias} días trabajados</p><div style={{ borderTop: `1px dashed ${C.border}`, paddingTop: 16, display: 'flex', justifyContent: 'space-between' }}><span>{balance > 0 ? 'Pendiente' : balance < 0 ? 'Saldo a favor' : paid > 0 ? 'Saldado' : 'Sin saldo'}</span><strong style={{ color: balance > 0 ? C.orange : C.green }}>{fmt(Math.abs(balance))}</strong></div><div style={{ marginTop: 18, fontSize: 12 }}>Ver cuenta y registrar pagos →</div></button>)}</div>
     {!rows.length && <p>No hay profesionales para este período.</p>}
     {selected && createPortal((() => {
-      const { record, stats, paid, balance } = summary(selected)
+      const { record, stats, paid, dayBalances, balance } = summary(selected)
       const history = Object.entries(sueldos).filter(([key]) => key.startsWith(`${selected.id}||`)).flatMap(([key, value]) => salaryPayments(value, selected.id, key.split('||')[1]).map(payment => ({ ...payment, periodo: key.split('||')[1] }))).sort((a, b) => b.fecha.localeCompare(a.fecha))
       const register = e => {
         e.preventDefault()
         const payment = { id: operation.current, monto: parseArgentineMoney(amount), fecha: date, nota: note.trim(), profesionalId: selected.id, periodo: period, dias: record.dias || 'all', creadoEn: new Date().toISOString() }
         try {
-          appendSalaryPayment(record, payment, stats.comision)
+          appendSalaryPayment(record, payment, paidSalary(record, selected.id, period) + balance)
           setSueldos(previous => {
             const key = `${selected.id}||${period}`
-            try { return { ...previous, [key]: appendSalaryPayment(previous[key], payment, stats.comision) } } catch { return previous }
+            try {
+              const current = previous[key] || {}
+              const allocated = salaryDayBalances(current, selected.id, period, breakdownFor(selected.id, 'all'))
+              const applied = payment.dias === 'all' ? paidSalary(current, selected.id, period) : payment.dias.reduce((sum, day) => sum + (allocated[day]?.paid || 0), 0)
+              const remaining = statsFor(selected.id, payment.dias).comision - applied
+              return { ...previous, [key]: appendSalaryPayment(current, payment, paidSalary(current, selected.id, period) + remaining) }
+            } catch { return previous }
           })
           setAmount(''); setNote(''); setNotice('Pago registrado en la cuenta.'); setError('')
         } catch (err) { setError(err.message) }
@@ -123,15 +137,15 @@ export default function SalaryPanel({ professionals, sueldos, setSueldos, period
         <div className="salary-sheet-actions"><button ref={backButton} style={button} onClick={() => select(null)}>← Volver a sueldos</button></div>
         <div className="salary-primary-columns"><div className="salary-account-summary">
         <div className="salary-account-heading" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, flexWrap: 'wrap', marginTop: 28 }}><div><div style={{ color: C.orange }}>CUENTA DEL PROFESIONAL · {period}</div><h1>{selected.emoji} {selected.name}</h1></div><button style={button} onClick={() => { select(null); onReceipt(selected) }}>Ver comprobante</button></div>
-        {metrics([['Comisión a liquidar', stats.comision], ['Pagos del período', paid], [balance < 0 ? 'Saldo a favor' : 'Saldo pendiente', Math.abs(balance)]])}
+        {metrics([['Comisión a liquidar', stats.comision], ['Pagos aplicados a estos días', paid], [balance < 0 ? 'Saldo a favor' : 'Saldo pendiente', Math.abs(balance)]])}
         <p style={{ color: C.textSoft }}>{stats.turnos} turnos · {stats.dias} días trabajados · Facturado: {fmt(stats.facturado)} · Propinas: {fmt(stats.propinas)} (por separado)</p>
         {record.dias && record.dias !== 'all' && <p>Liquidación de días seleccionados: {record.dias.map(d => d.slice(-2)).join(', ') || 'ninguno'}. Se conserva la selección anterior.</p>}
-        <details style={{ marginTop: 20 }}><summary style={{ cursor: 'pointer', color: C.green }}>Días incluidos en la liquidación</summary><p>Los pagos registrados conservan los días que tenían al registrarse.</p><button style={button} onClick={() => setSueldos(previous => ({ ...previous, [`${selected.id}||${period}`]: { ...previous[`${selected.id}||${period}`], dias: 'all' } }))}>Mes completo</button><div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 16 }}>{Array.from({ length: new Date(Number(period.slice(0, 4)), Number(period.slice(5)), 0).getDate() }, (_, i) => `${period}-${String(i + 1).padStart(2, '0')}`).map(day => <label key={day}><input type="checkbox" checked={!record.dias || record.dias === 'all' || record.dias.includes(day)} onChange={() => setSueldos(previous => {
+        <details style={{ marginTop: 20 }}><summary style={{ cursor: 'pointer', color: C.green, width: 'fit-content', maxWidth: '100%' }}>Días incluidos en la liquidación</summary><p>Los días pagados siguen visibles. Los pagos parciales se distribuyen entre los días incluidos según su comisión.</p><button style={button} onClick={() => setSueldos(previous => ({ ...previous, [`${selected.id}||${period}`]: { ...previous[`${selected.id}||${period}`], pagos: salaryPayments(previous[`${selected.id}||${period}`], selected.id, period), dias: 'all' } }))}>Todos los días con turnos</button><div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 16 }}>{Object.keys(dayBalances).sort().map(day => <label key={day} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 9px', borderRadius: 8, border: `1px solid ${dayBalances[day]?.status === 'paid' ? C.greenMint : C.border}`, background: dayBalances[day]?.status === 'paid' ? C.greenPale : C.white, color: dayBalances[day]?.status === 'partial' ? C.orange : C.green }}><input type="checkbox" checked={!record.dias || record.dias === 'all' || record.dias.includes(day)} onChange={() => setSueldos(previous => {
           const key = `${selected.id}||${period}`
           const current = previous[key] || {}
-          const days = !current.dias || current.dias === 'all' ? Array.from({ length: new Date(Number(period.slice(0, 4)), Number(period.slice(5)), 0).getDate() }, (_, i) => `${period}-${String(i + 1).padStart(2, '0')}`) : current.dias
-          return { ...previous, [key]: { ...current, dias: days.includes(day) ? days.filter(d => d !== day) : [...days, day] } }
-        })}/>{day.slice(-2)}</label>)}</div></details>
+          const days = !current.dias || current.dias === 'all' ? Object.keys(dayBalances).sort() : current.dias
+          return { ...previous, [key]: { ...current, pagos: salaryPayments(current, selected.id, period), dias: days.includes(day) ? days.filter(d => d !== day) : [...days, day] } }
+        })}/><span style={{ textDecoration: dayBalances[day]?.status === 'paid' ? 'line-through' : 'none' }}>{`${['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'][new Date(`${day}T12:00:00`).getDay()]} ${day.slice(8, 10)}/${day.slice(5, 7)}`}</span>{dayBalances[day]?.status === 'paid' && <small>✓ Pagado</small>}{dayBalances[day]?.status === 'partial' && <small>Parcial</small>}</label>)}</div></details>
         </div><section className="salary-payment-form" style={{ background: C.white, padding: 24, borderRadius: 18, border: `1px dashed ${C.green}`, marginTop: 24 }}><h2>Registrar un pago</h2><p>Se imputa a {selected.name} · {period}. Podés abonar una parte o el saldo completo.</p>
           {balance > 0 ? <form onSubmit={register}><div className="salary-payment-fields" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 16 }}><label>Importe ($)<MoneyInput value={amount} max={balance} onChange={value => { setAmount(value); operation.current = crypto.randomUUID(); setNotice('') }} style={field}/></label><label>Fecha<input required type="date" value={date} onChange={e => { setDate(e.target.value); operation.current = crypto.randomUUID() }} style={field}/></label><label>Nota (opcional)<input value={note} onChange={e => { setNote(e.target.value); operation.current = crypto.randomUUID() }} style={field}/></label></div><div style={{ display: 'flex', gap: 12, marginTop: 16, flexWrap: 'wrap' }}><button type="button" style={button} onClick={() => { setAmount(formatArgentineMoney(balance)); operation.current = crypto.randomUUID() }}>Usar saldo completo</button><button type="submit" disabled={!amount} style={{ ...button, background: C.green, color: C.white }}>Registrar pago</button></div></form> : <p>Este período no tiene saldo pendiente.</p>}
           {error && <p role="alert" style={{ color: '#a83232' }}>{error}</p>}{notice && <p role="status" style={{ color: C.green }}>{notice}</p>}
@@ -160,7 +174,7 @@ export default function SalaryPanel({ professionals, sueldos, setSueldos, period
               <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 12 }}><button type="button" style={button} onClick={() => { setCancelling(null); setCancelReason('') }}>Conservar pago</button><button type="submit" disabled={!cancelReason.trim()} style={{ ...button, color: C.orange }}>Confirmar anulación</button></div>
             </form> : <button type="button" style={{ ...button, marginTop: 12, fontSize: 12, color: C.orange }} onClick={() => { setCancelling({ id: payment.id, periodo: payment.periodo }); setCancelReason('') }}>Anular pago</button>}
         </div>)}
-        <h2 style={{ marginTop: 32 }}>Detalle del período</h2>{breakdownFor(selected.id, record.dias || 'all').map(day => <details key={day.dk} style={{ background: C.white, padding: 16, borderBottom: `1px dashed ${C.border}` }}><summary style={{ cursor: 'pointer' }}>{day.dateLabel} · {day.turnos} turnos · Comisión {fmt(day.comision)}</summary>{day.appts.map((a, i) => <p key={i}>{a.hour} · {a.clientName} · {fmt(a.comision)}</p>)}</details>)}
+        <h2 style={{ marginTop: 32 }}>Detalle del período</h2>{breakdownFor(selected.id, record.dias || 'all').map(day => <details key={day.dk} style={{ background: C.white, padding: 16, borderBottom: `1px dashed ${C.border}` }}><summary style={{ cursor: 'pointer' }}>{day.dateLabel} · {day.turnos} turnos · Comisión {fmt(day.comision)}</summary>{day.appts.map((a, i) => <p key={i}>{a.hour} · {a.clientName} · Comisión: {fmt(a.comision)}</p>)}</details>)}
       </div></div>
     })(), document.body)}
   </>
