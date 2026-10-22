@@ -257,6 +257,7 @@ export function SearchTurnosModal({
       onClick={e => {
         if (e.target === e.currentTarget) onClose()
       }}
+      className="desktop-bottom-toolbar-backdrop"
       style={{
         position: "fixed",
         inset: 0,

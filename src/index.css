@@ -324,7 +324,7 @@ select {
 
   .date-notebook-island,
   .date-actions-island {
-    position: static !important;
+    position: fixed !important;
     grid-row: 1;
   }
 
@@ -654,15 +654,17 @@ select {
 @keyframes pvFade {
   from {
     opacity: 0;
+    filter: blur(4px);
   }
 
   to {
     opacity: 1;
+    filter: none;
   }
 }
 
 .pv-view {
-  animation: pvFade 0.2s ease forwards;
+  animation: pvFade 0.28s ease-out;
   scrollbar-gutter: stable;
   overflow-x: hidden;
   max-width: 100vw;
@@ -1411,4 +1413,13 @@ select {
     top: max(8px, env(safe-area-inset-top)) !important;
     bottom: max(8px, env(safe-area-inset-bottom)) !important;
   }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pv-view { animation: none; }
+}
+
+/* La botonera queda sobre el fondo completo, sin cortar el desenfoque. */
+@media (min-width: 1101px) {
+  body:has(.desktop-bottom-toolbar-backdrop) :is(.date-actions-island, .date-notebook-island) { z-index: 1100 !important; }
 }

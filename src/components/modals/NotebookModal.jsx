@@ -1548,7 +1548,7 @@ export function NotebookModal({
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose?.()
       }}
-      className="modal-overlay"
+      className="modal-overlay desktop-bottom-toolbar-backdrop"
       style={{
         position: "fixed",
         inset: 0,

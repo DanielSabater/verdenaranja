@@ -1,3 +1,5 @@
+import { reuseClientViewCalculation } from "../../utils/clientViewCache.js"
+import { todayKey } from "../../utils/dates.js"
 import { clientSearchRank, normalizeClientQuery } from "../../utils/clientSearch.js"
 import { useState, useMemo, useEffect, useRef } from "react"
 import { C } from "../../constants/colors.js"
@@ -5,7 +7,7 @@ import { PAYMENT_METHODS } from "../../constants/data.js"
 import { GhostBtn, SolidBtn, Field, inputStyle, Overlay } from "../ui/index.jsx"
 import { formatWaNumber, openWhatsAppLink, extractPhoneFromString } from "../../utils/whatsapp.js"
 import MergeClientsModal from "../modals/MergeClientsModal.jsx"
-import { findDuplicateSuggestions, getPairKey } from "../../utils/clientDeduplication.js"
+import { getPairKey } from "../../utils/clientDeduplication.js"
 
 function WhatsAppIcon({ size = 15, color = "currentColor", style = {} }) {
   return (
@@ -51,7 +53,7 @@ export default function ClientesView({ clientes, setClientes, allData, updateCli
   const safeD = allData || {}
 
   // ── Mapeo de estadísticas históricas por cliente ──
-  const clientStatsMap = useMemo(() => {
+  const clientStatsMap = useMemo(() => reuseClientViewCalculation('history', [safeD], () => {
     const map = new Map()
     Object.entries(safeD).forEach(([fecha, day]) => {
       Object.values(day || {}).forEach(a => {
@@ -88,10 +90,11 @@ export default function ClientesView({ clientes, setClientes, allData, updateCli
       })
     })
     return map
-  }, [safeD])
+  }), [safeD])
 
   // ── Enriquecimiento de la lista de clientes ──
-  const enriched = useMemo(() => {
+  const calculationDay = todayKey()
+  const enriched = useMemo(() => reuseClientViewCalculation('enriched', [safe, clientStatsMap, calculationDay], () => {
     const now = new Date()
     return safe.map(c => {
       const key = (c.name || "").trim().toLowerCase()
@@ -150,7 +153,7 @@ export default function ClientesView({ clientes, setClientes, allData, updateCli
         rawAppts: st ? st.rawAppts : []
       }
     })
-  }, [safe, clientStatsMap])
+  }), [safe, clientStatsMap, calculationDay])
 
   // ── Pares ignorados persistidos en localStorage ──
   const [ignoredPairs, setIgnoredPairs] = useState(() => {
@@ -171,13 +174,29 @@ export default function ClientesView({ clientes, setClientes, allData, updateCli
       return
     }
 
-    // Se ejecuta de manera asíncrona tras pintar la pantalla de inmediato
-    const timer = setTimeout(() => {
-      const sugs = findDuplicateSuggestions(enriched, ignoredPairs)
-      setDuplicateSuggestions(sugs)
-    }, 40)
-
-    return () => clearTimeout(timer)
+    let cancelled = false
+    let worker
+    setDuplicateSuggestions([])
+    try {
+      worker = new Worker(new URL('../../workers/clientDuplicates.worker.js', import.meta.url), { type: 'module' })
+      worker.onmessage = ({ data }) => {
+        if (cancelled) return
+        const clientsById = new Map(enriched.map(client => [client.id, client]))
+        setDuplicateSuggestions(data.map(({ clientAId, clientBId, ...suggestion }) => ({
+          ...suggestion, clientA: clientsById.get(clientAId), clientB: clientsById.get(clientBId)
+        })).filter(suggestion => suggestion.clientA && suggestion.clientB))
+        worker.terminate()
+      }
+      worker.onerror = () => worker.terminate()
+      worker.postMessage({
+        clients: enriched.map(({ id, name, phone, effectivePhone, notes, visits }) => ({ id, name, phone, effectivePhone, notes, visits })),
+        ignored: [...ignoredPairs]
+      })
+    } catch (error) {
+      console.warn('No se pudo iniciar la búsqueda de duplicados en segundo plano:', error)
+      worker?.terminate()
+    }
+    return () => { cancelled = true; worker?.terminate() }
   }, [enriched, ignoredPairs])
 
   // ── Lista de todos los servicios históricos disponibles ──

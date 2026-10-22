@@ -1774,7 +1774,7 @@ export default function App() {
         calendarOpen={calendarOpen} setCalendarOpen={setCalendarOpen}
         calViewDate={calViewDate} setCalViewDate={setCalViewDate}
         allData={allData}
-        onQuickGasto={() => setQuickGastoModal(true)}
+        onQuickGasto={() => setQuickGastoModal(open => !open)}
         professionals={professionals}
         activeRama={activeRama}
         setActiveRama={setActiveRama}
@@ -1784,7 +1784,7 @@ export default function App() {
         notebookOpen={notebookOpen}
         onOpenNotebook={() => { playPageSound(); setNotebookOpen(v => !v); }}
         todoTasks={todoTasks}
-        onOpenSearchTurnos={() => setSearchTurnosOpen(true)}
+        onOpenSearchTurnos={() => setSearchTurnosOpen(open => !open)}
         onNavigateToTurno={handleNavigateToTurno}
         onDeleteAppointment={deleteAppointment}
         clientes={clientes}
@@ -1938,7 +1938,8 @@ export default function App() {
           const accentColor = isIngreso ? C.green : C.orange
           return (
             <>
-              <div 
+              <div
+                className="desktop-bottom-toolbar-backdrop"
                 onClick={() => setQuickGastoModal(false)} 
                 style={{ 
                   position: "fixed", 

@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom"
 import { memo, useState, useRef, useEffect, useMemo } from "react"
 import { C } from "../../constants/colors.js"
 import { PAYMENT_METHODS } from "../../constants/data.js"
@@ -176,7 +177,7 @@ export const AppHeader = memo(function AppHeader({
   const cells = []
   for (let i = 0; i < startDow; i++) cells.push(null)
   for (let d = 1; d <= lastDay.getDate(); d++) cells.push(d)
-  while (cells.length < 42) cells.push(null)
+  while (cells.length % 7 !== 0) cells.push(null)
 
   const prevMonth = () => { let m = vm - 1, y = vy; if (m < 1) { m = 12; y-- } setCalViewDate(`${y}-${String(m).padStart(2, "0")}`) }
   const nextMonth = () => { let m = vm + 1, y = vy; if (m > 12) { m = 1; y++ } setCalViewDate(`${y}-${String(m).padStart(2, "0")}`) }
@@ -610,7 +611,7 @@ export const AppHeader = memo(function AppHeader({
         <div className="desktop-nav-container">
           <div className="desktop-nav" style={{ gap: 4 }}>
             {VIEWS.map(v => (
-              <button key={v.id} onClick={() => setActiveView(v.id)} style={{ padding: "8px 20px", borderRadius: 20, cursor: "pointer", border: `2px solid ${activeView === v.id ? C.green : C.border}`, backgroundColor: activeView === v.id ? C.green : C.white, backgroundImage: "linear-gradient(135deg, transparent, rgba(255,255,255,.18))", color: activeView === v.id ? "#fff" : C.textSoft, fontSize: 10, letterSpacing: "1px", textTransform: "uppercase", fontFamily: "Georgia,serif", transition: "none" }}>{v.label}</button>
+              <button key={v.id} onClick={() => setActiveView(v.id)} style={{ padding: "8px 20px", borderRadius: 20, cursor: "pointer", border: `2px solid ${activeView === v.id ? C.green : C.border}`, backgroundColor: activeView === v.id ? C.green : C.white, backgroundImage: "linear-gradient(135deg, transparent, rgba(255,255,255,.18))", color: activeView === v.id ? "#fff" : C.textSoft, fontSize: 10, letterSpacing: "1px", textTransform: "uppercase", fontFamily: "Georgia,serif", transition: "background-color .18s ease, color .18s ease, border-color .18s ease" }}>{v.label}</button>
             ))}
           </div>
         </div>
@@ -979,7 +980,7 @@ export const AppHeader = memo(function AppHeader({
       {/* Calendar popup */}
       {calendarOpen && activeView === "turnos" && (
         <>
-          <div onClick={() => setCalendarOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 299, background: "var(--modal-overlay-bg, rgba(0,0,0,.18))", backdropFilter: "var(--modal-overlay-blur, blur(5px))", WebkitBackdropFilter: "var(--modal-overlay-blur, blur(5px))" }} />
+          <div className="desktop-bottom-toolbar-backdrop" onClick={() => setCalendarOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 299, background: "var(--modal-overlay-bg, rgba(0,0,0,.18))", backdropFilter: "var(--modal-overlay-blur, blur(5px))", WebkitBackdropFilter: "var(--modal-overlay-blur, blur(5px))" }} />
           <div onClick={e => e.stopPropagation()} style={{
             position: "fixed",
             bottom: isMobile ? "calc(76px + env(safe-area-inset-bottom))" : 76,
@@ -995,16 +996,11 @@ export const AppHeader = memo(function AppHeader({
             borderRadius: 16,
             border: isLiquid ? "1px solid rgba(255, 255, 255, 0.55)" : `1.5px solid ${C.border}`,
             boxShadow: isLiquid ? "0 8px 32px rgba(31, 38, 135, 0.08), inset 0 1px 1px rgba(255, 255, 255, 0.3)" : `0 8px 24px ${C.shadow}`,
-            padding: "16px 20px 20px",
+            padding: "10px 20px",
             display: "flex",
             flexDirection: "column",
             alignItems: "center"
           }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 14 }}>
-              <button onClick={prevMonth} style={{ width: 30, height: 30, borderRadius: "50%", border: `1px solid ${C.border}`, background: C.white, color: C.green, fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>‹</button>
-              <div style={{ fontSize: 14, color: C.text, fontWeight: "bold", minWidth: 160, textAlign: "center" }}>{MESES_ES[vm - 1].charAt(0).toUpperCase() + MESES_ES[vm - 1].slice(1)} {vy}</div>
-              <button onClick={nextMonth} style={{ width: 30, height: 30, borderRadius: "50%", border: `1px solid ${C.border}`, background: C.white, color: C.green, fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>›</button>
-            </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(7,36px)", gap: 4, marginBottom: 6 }}>
               {["Lu", "Ma", "Mi", "Ju", "Vi", "Sá", "Do"].map(d => <div key={d} style={{ width: 36, textAlign: "center", fontSize: 9, letterSpacing: "1px", textTransform: "uppercase", color: d === "Do" ? "#d0b0b0" : C.textSoft, fontFamily: "Georgia,serif" }}>{d}</div>)}
             </div>
@@ -1020,7 +1016,12 @@ export const AppHeader = memo(function AppHeader({
                 )
               })}
             </div>
-            <button onClick={() => setCalendarOpen(false)} style={{ marginTop: 14, padding: "5px 20px", borderRadius: 20, border: `1px solid ${C.border}`, background: "transparent", color: C.textSoft, fontSize: 9, letterSpacing: "1.5px", textTransform: "uppercase", cursor: "pointer", fontFamily: "Georgia,serif" }}>Cerrar</button>
+            <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 8 }}>
+              <button onClick={prevMonth} style={{ width: 30, height: 30, borderRadius: "50%", border: `1px solid ${C.border}`, background: C.white, color: C.green, fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>‹</button>
+              <div style={{ fontSize: 14, color: C.text, fontWeight: "bold", minWidth: 160, textAlign: "center" }}>{MESES_ES[vm - 1].charAt(0).toUpperCase() + MESES_ES[vm - 1].slice(1)} {vy}</div>
+              <button onClick={nextMonth} style={{ width: 30, height: 30, borderRadius: "50%", border: `1px solid ${C.border}`, background: C.white, color: C.green, fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>›</button>
+            </div>
+
           </div>
         </>
       )}
@@ -1390,8 +1391,8 @@ export const AppHeader = memo(function AppHeader({
             </div>
 
             {/* Island 3: Notepad (Bottom Left) */}
-            <div className="date-notebook-island" style={{
-              position: "absolute", left: 0,
+            {createPortal(<div className="date-notebook-island" style={{
+              position: "fixed", bottom: 8, left: 16, zIndex: 98,
               background: isLiquid ? "rgba(255, 255, 255, 0.45)" : C.white,
               backdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none",
               WebkitBackdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none",
@@ -1431,11 +1432,11 @@ export const AppHeader = memo(function AppHeader({
                   }} />
                 )}
               </div>
-            </div>
+            </div>, document.body)}
 
             {/* Island 2: Actions */}
-            <div className="date-actions-island" style={{
-              position: "absolute", right: 0,
+            {createPortal(<div className="date-actions-island" style={{
+              position: "fixed", bottom: 8, right: 16, zIndex: 98,
               background: isLiquid ? "rgba(255, 255, 255, 0.45)" : C.white,
               backdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none",
               WebkitBackdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none",
@@ -1484,7 +1485,7 @@ export const AppHeader = memo(function AppHeader({
                 title="Gasto rápido"
               >💸</button>
               <button onClick={() => setCalendarOpen(v => !v)} style={{ width: 46, height: 46, borderRadius: 18, border: `none`, background: calendarOpen ? `linear-gradient(135deg,${C.green},${C.greenLight})` : C.cream, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all .18s", boxShadow: calendarOpen ? `0 4px 12px ${C.green}55` : "none" }}>📅</button>
-            </div>
+            </div>, document.body)}
           </div>
         )
       })()}
