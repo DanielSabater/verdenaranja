@@ -701,12 +701,12 @@ select {
 
 .appt-card.paid:hover,
 .appt-card.paid.force-hover {
-  box-shadow: 0 0 0 2px #3a7d44, 0 4px 20px rgba(58, 125, 68, .35), 0 0 24px rgba(58, 125, 68, .20) !important;
+  box-shadow: 0 4px 20px rgba(58, 125, 68, .35), 0 0 24px rgba(58, 125, 68, .20) !important;
 }
 
 .appt-card.unpaid:hover,
 .appt-card.unpaid.force-hover {
-  box-shadow: 0 0 0 2px #e8793a, 0 4px 20px rgba(232, 121, 58, .35), 0 0 24px rgba(232, 121, 58, .20) !important;
+  box-shadow: 0 4px 20px rgba(232, 121, 58, .35), 0 0 24px rgba(232, 121, 58, .20) !important;
 }
 
 .appt-card.blocked:hover,
@@ -730,49 +730,21 @@ select {
 .appt-card.current:not(.blocked) {
   border-color: transparent !important;
   background:
-    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.68) 10%, rgba(255, 255, 255, 0.35) 100%),
+    linear-gradient(135deg, rgba(231, 243, 255, .96), rgba(221, 230, 255, .96)) padding-box,
     conic-gradient(
       from var(--conic-angle),
-      rgba(56, 189, 248, 0.48) 0%,
-      rgba(2, 132, 199, 0.44) 25%,
-      rgba(99, 102, 241, 0.46) 50%,
-      rgba(14, 165, 233, 0.48) 75%,
-      rgba(56, 189, 248, 0.48) 100%
-    ) !important;
-  box-shadow: 0 0 16px rgba(14, 165, 233, 0.38), 0 2px 10px rgba(2, 132, 199, 0.22) !important;
-  backdrop-filter: blur(4px);
-}
-
-.appt-card.current:not(.blocked)::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 2.5px;
-  background: conic-gradient(
-    from var(--conic-angle),
-    #38bdf8 0%,
-    #0284c7 25%,
-    #6366f1 50%,
-    #0ea5e9 75%,
-    #38bdf8 100%
-  );
-  -webkit-mask:
-    linear-gradient(#fff 0 0) content-box,
-    linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask:
-    linear-gradient(#fff 0 0) content-box,
-    linear-gradient(#fff 0 0);
-  mask-composite: exclude;
-  pointer-events: none;
-  z-index: 6;
+      #38bdf8 0%,
+      #0284c7 25%,
+      #6366f1 50%,
+      #0ea5e9 75%,
+      #38bdf8 100%
+    ) border-box !important;
   animation: conicBorderRotate 3s linear infinite;
 }
 
-.appt-card.current:hover,
-.appt-card.current.force-hover {
-  box-shadow: 0 0 22px rgba(14, 165, 233, 0.65), 0 4px 18px rgba(99, 102, 241, 0.45) !important;
+.appt-card.current:not(.blocked):hover,
+.appt-card.current:not(.blocked).force-hover {
+  box-shadow: 0 4px 20px rgba(74, 144, 226, .35), 0 0 24px rgba(74, 144, 226, .20) !important;
 }
 
 /* Hide date carousel on mobile navigation and elevate actions island */
