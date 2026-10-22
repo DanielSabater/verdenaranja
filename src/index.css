@@ -701,6 +701,20 @@ select {
   transform: scale(1.005) !important;
 }
 
+/* Engrosa el borde real sin sumar un contorno ni desplazar el contenido. */
+.appt-card:is(.paid, .unpaid):not(.blocked):not(.note):is(:hover, .force-hover) {
+  border-width: 3px !important;
+  padding: 4.5px 5.5px !important;
+}
+
+.appt-card.paid:is(:hover, .force-hover) {
+  border-color: #3a7d44 !important;
+}
+
+.appt-card.unpaid:not(.current):is(:hover, .force-hover) {
+  border-color: #e8793a !important;
+}
+
 .appt-card.paid:hover,
 .appt-card.paid.force-hover {
   box-shadow: 0 4px 20px rgba(58, 125, 68, .35), 0 0 24px rgba(58, 125, 68, .20) !important;
