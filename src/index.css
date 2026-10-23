@@ -311,7 +311,7 @@ select {
 @media (min-width: 1101px) {
   .date-strip {
     display: grid !important;
-    grid-template-columns: minmax(220px, 1fr) minmax(0, var(--date-carousel-width)) minmax(220px, 1fr);
+    grid-template-columns: minmax(64px, 1fr) minmax(0, var(--date-carousel-width)) minmax(64px, 1fr);
     gap: 16px;
   }
 
@@ -352,6 +352,12 @@ select {
 }
 .date-carousel-fade-prev { left: 0; }
 .date-carousel-fade-next { right: 0; }
+
+/* El foco de teclado no agrega un contorno a los días del carrusel. */
+.date-carousel-scroll > button:focus,
+.date-carousel-scroll > button:focus-visible {
+  outline: none;
+}
 
 /* Hide scrollbar for date carousel */
 .date-carousel-scroll {

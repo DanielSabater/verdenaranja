@@ -2,12 +2,14 @@ import { createPortal } from "react-dom"
 import { memo, useState, useRef, useEffect, useMemo } from "react"
 import { C } from "../../constants/colors.js"
 import { PAYMENT_METHODS } from "../../constants/data.js"
-import { fmt, apptTotal, apptPaidTotal, apptComisionTotal, hasRealAppointments } from "../../utils/appointments.js"
+import { fmt, apptTotal, apptPaidTotal, apptComisionTotal } from "../../utils/appointments.js"
 import { AnimatedNumber } from "../ui/index.jsx"
 import { MESES_ES, todayKey, fmtDate, fmtShort, nextWorkDay } from "../../utils/dates.js"
 import { formatWaNumber, openWhatsAppLink, cleanClientName } from "../../utils/whatsapp.js"
 import { useIsMobile } from "../../hooks/useIsMobile.js"
 import { DailySummaryModal } from "../modals/DailySummaryModal.jsx"
+import { CalendarModal } from "../modals/CalendarModal.jsx"
+import { DateActionsMenu } from "./DateActionsMenu.jsx"
 
 function getRamaEmoji(rama) {
   const r = String(rama).toLowerCase().trim()
@@ -170,18 +172,6 @@ export const AppHeader = memo(function AppHeader({
     { id: "config", icon: "⚙️", label: "Config" },
   ]
 
-  const [vy, vm] = (calViewDate || "2026-01").split("-").map(Number)
-  const firstDay = new Date(vy, vm - 1, 1)
-  const lastDay = new Date(vy, vm, 0)
-  const startDow = (firstDay.getDay() + 6) % 7
-  const cells = []
-  for (let i = 0; i < startDow; i++) cells.push(null)
-  for (let d = 1; d <= lastDay.getDate(); d++) cells.push(d)
-  while (cells.length % 7 !== 0) cells.push(null)
-
-  const prevMonth = () => { let m = vm - 1, y = vy; if (m < 1) { m = 12; y-- } setCalViewDate(`${y}-${String(m).padStart(2, "0")}`) }
-  const nextMonth = () => { let m = vm + 1, y = vy; if (m > 12) { m = 1; y++ } setCalViewDate(`${y}-${String(m).padStart(2, "0")}`) }
-
   const playClickSound = () => {
     try {
       const ctx = new (window.AudioContext || window.webkitAudioContext)()
@@ -294,6 +284,18 @@ export const AppHeader = memo(function AppHeader({
   const headerAccentColor = isToday ? C.green : (C.orange || "#e8793a")
 
   const [isFanOpen, setIsFanOpen] = useState(false)
+  const fanTriggerRef = useRef(null)
+  useEffect(() => {
+    if (!isFanOpen) return
+    const onEscape = event => {
+      if (event.key !== "Escape") return
+      event.preventDefault(); event.stopPropagation()
+      setIsFanOpen(false)
+      fanTriggerRef.current?.focus({ preventScroll: true })
+    }
+    window.addEventListener("keydown", onEscape, true)
+    return () => window.removeEventListener("keydown", onEscape, true)
+  }, [isFanOpen])
 
   useEffect(() => {
     if (activeView !== "turnos") {
@@ -977,53 +979,10 @@ export const AppHeader = memo(function AppHeader({
         </div>
       </header>
 
-      {/* Calendar popup */}
       {calendarOpen && activeView === "turnos" && (
-        <>
-          <div className="desktop-bottom-toolbar-backdrop" onClick={() => setCalendarOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 299, background: "var(--modal-overlay-bg, rgba(0,0,0,.18))", backdropFilter: "var(--modal-overlay-blur, blur(5px))", WebkitBackdropFilter: "var(--modal-overlay-blur, blur(5px))" }} />
-          <div onClick={e => e.stopPropagation()} style={{
-            position: "fixed",
-            bottom: isMobile ? "calc(76px + env(safe-area-inset-bottom))" : 76,
-            right: isMobile ? "auto" : 12,
-            left: isMobile ? "50%" : "auto",
-            transform: isMobile ? "translateX(-50%)" : "none",
-            width: 320,
-            maxWidth: "92vw",
-            zIndex: 300,
-            background: isLiquid ? "rgba(255, 255, 255, 0.45)" : C.white,
-            backdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none",
-            WebkitBackdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none",
-            borderRadius: 16,
-            border: isLiquid ? "1px solid rgba(255, 255, 255, 0.55)" : `1.5px solid ${C.border}`,
-            boxShadow: isLiquid ? "0 8px 32px rgba(31, 38, 135, 0.08), inset 0 1px 1px rgba(255, 255, 255, 0.3)" : `0 8px 24px ${C.shadow}`,
-            padding: "10px 20px",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center"
-          }}>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(7,36px)", gap: 4, marginBottom: 6 }}>
-              {["Lu", "Ma", "Mi", "Ju", "Vi", "Sá", "Do"].map(d => <div key={d} style={{ width: 36, textAlign: "center", fontSize: 9, letterSpacing: "1px", textTransform: "uppercase", color: d === "Do" ? "#d0b0b0" : C.textSoft, fontFamily: "Georgia,serif" }}>{d}</div>)}
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(7,36px)", gap: 4 }}>
-              {cells.map((day, idx) => {
-                if (!day) return <div key={idx} style={{ width: 36, height: 36 }} />
-                const dow = idx % 7, isSun = dow === 6, dk = `${vy}-${String(vm).padStart(2, "0")}-${String(day).padStart(2, "0")}`, isCur = dk === currentDate, isToday = dk === tKey, hasAppts = hasRealAppointments((allData || {})[dk])
-                return (
-                  <button key={idx} disabled={isSun} onClick={() => { setCurrentDate(dk); setCalendarOpen(false) }} style={{ width: 36, height: 36, borderRadius: 10, position: "relative", border: `1.5px solid ${isCur ? C.green : isToday ? C.greenMint : (isLiquid ? "rgba(255,255,255,0.4)" : C.border)}`, background: isCur ? `linear-gradient(135deg,${C.green},${C.greenLight})` : isToday ? C.greenPale : hasAppts ? (isLiquid ? "rgba(255,255,255,0.6)" : "#f5faf5") : (isLiquid ? "rgba(255,255,255,0.25)" : C.white), color: isCur ? "#fff" : isSun ? "#e0cece" : isToday ? C.green : C.text, fontSize: 12, fontWeight: isCur || isToday ? "bold" : "normal", cursor: isSun ? "not-allowed" : "pointer", fontFamily: "Georgia,serif", transition: "all .12s", boxShadow: isLiquid ? "inset 0 1px 1px rgba(255,255,255,0.3)" : "none" }}>
-                    {day}
-                    {hasAppts && <div style={{ position: "absolute", bottom: 2, left: "50%", transform: "translateX(-50%)", width: 4, height: 4, borderRadius: "50%", background: isCur ? "rgba(255,255,255,.8)" : C.green }} />}
-                  </button>
-                )
-              })}
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 8 }}>
-              <button onClick={prevMonth} style={{ width: 30, height: 30, borderRadius: "50%", border: `1px solid ${C.border}`, background: C.white, color: C.green, fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>‹</button>
-              <div style={{ fontSize: 14, color: C.text, fontWeight: "bold", minWidth: 160, textAlign: "center" }}>{MESES_ES[vm - 1].charAt(0).toUpperCase() + MESES_ES[vm - 1].slice(1)} {vy}</div>
-              <button onClick={nextMonth} style={{ width: 30, height: 30, borderRadius: "50%", border: `1px solid ${C.border}`, background: C.white, color: C.green, fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>›</button>
-            </div>
-
-          </div>
-        </>
+        <CalendarModal monthKey={calViewDate || currentDate.slice(0, 7)} currentDate={currentDate} allData={allData}
+          onMonthChange={setCalViewDate} onClose={() => setCalendarOpen(false)}
+          onSelect={date => { setCurrentDate(date); setCalendarOpen(false) }} />
       )}
 
       {/* Bottom date strip & controls */}
@@ -1116,6 +1075,8 @@ export const AppHeader = memo(function AppHeader({
                       <button
                         key={item.id}
                         type="button"
+                        tabIndex={isFanOpen ? 0 : -1}
+                        aria-hidden={!isFanOpen}
                         onClick={(e) => {
                           e.stopPropagation()
                           playClickSound()
@@ -1182,6 +1143,9 @@ export const AppHeader = memo(function AppHeader({
                       playClickSound()
                       setIsFanOpen(prev => !prev)
                     }}
+                    ref={fanTriggerRef}
+                    aria-label="Opciones de turnos"
+                    aria-expanded={isFanOpen}
                     title={isFanOpen ? "Cerrar menú" : "Abrir opciones de turnos"}
                     style={{
                       pointerEvents: "auto",
@@ -1384,10 +1348,12 @@ export const AppHeader = memo(function AppHeader({
 
               </div>
 
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", marginLeft: 8, marginRight: 4, width: 95, flexShrink: 0 }}>
+              <button type="button" aria-label="Abrir calendario" aria-haspopup="dialog" aria-expanded={calendarOpen}
+                onClick={() => { setCalViewDate(currentDate.slice(0, 7)); setCalendarOpen(true) }}
+                style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", marginLeft: 8, marginRight: 4, width: 95, flexShrink: 0, border: "none", padding: 0, background: "transparent", cursor: "pointer", fontFamily: "Georgia,serif" }}>
                 <div style={{ fontSize: 11, color: isDiffMonth ? "#e63946" : C.green, fontWeight: "bold", textTransform: "uppercase", letterSpacing: ".8px" }}>{monthName}</div>
                 <div style={{ fontSize: 9, color: C.textSoft, opacity: .8, marginTop: -1 }}>{y}</div>
-              </div>
+              </button>
             </div>
 
             {/* Island 3: Notepad (Bottom Left) */}
@@ -1434,58 +1400,15 @@ export const AppHeader = memo(function AppHeader({
               </div>
             </div>, document.body)}
 
-            {/* Island 2: Actions */}
-            {createPortal(<div className="date-actions-island" style={{
-              position: "fixed", bottom: 8, right: 16, zIndex: 98,
-              background: isLiquid ? "rgba(255, 255, 255, 0.45)" : C.white,
-              backdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none",
-              WebkitBackdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none",
-              borderRadius: 24,
-              boxShadow: isLiquid ? "0 8px 32px rgba(31, 38, 135, 0.08), inset 0 1px 1px rgba(255, 255, 255, 0.3)" : `0 4px 20px ${C.shadow}`,
-              border: isLiquid ? "1px solid rgba(255, 255, 255, 0.55)" : `1.5px solid ${C.border}`,
-              display: "flex", alignItems: "center",
-              padding: "6px", gap: 6,
-              pointerEvents: "auto",
-              flexShrink: 0
-            }}>
-              <button
-                className={currentDate !== tKey ? "today-alert-btn" : ""}
-                onClick={handleHoyClick}
-                title={currentDate !== tKey ? "Haz clic para volver a la fecha de hoy" : "Hoy"}
-                style={{
-                  width: 46, height: 46, borderRadius: 18,
-                  border: `none`,
-                  background: currentDate !== tKey
-                    ? `linear-gradient(135deg, ${C.orange}, ${C.amber || "#e07b20"})`
-                    : C.greenPale,
-                  fontSize: 10, fontWeight: "bold",
-                  color: currentDate !== tKey ? "#ffffff" : C.green,
-                  opacity: 1,
-                  cursor: "pointer",
-                  fontFamily: "Georgia,serif", letterSpacing: "1px", display: "flex", alignItems: "center", justifyContent: "center",
-                  boxShadow: currentDate !== tKey ? `0 4px 14px rgba(232, 121, 58, 0.45)` : "none",
-                  transition: "transform .15s cubic-bezier(0.175, 0.885, 0.32, 1.275), background .2s, opacity .2s, box-shadow .2s",
-                  transform: hoyBounce ? "scale(0.85)" : "scale(1)"
-                }}
-              >HOY</button>
-              <button 
-                onClick={onOpenSearchTurnos} 
-                style={{
-                  width: 46, height: 46, borderRadius: 18, border: `none`,
-                  background: C.greenPale,
-                  fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-                  transition: "all .18s",
-                  boxShadow: "none"
-                }}
-                title="Buscar turnos por clienta o teléfono [Tecla B]"
-              >🔍</button>
-              <button 
-                onClick={onQuickGasto} 
-                style={{ width: 46, height: 46, borderRadius: 18, border: `none`, background: C.cream, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all .18s" }}
-                title="Gasto rápido"
-              >💸</button>
-              <button onClick={() => setCalendarOpen(v => !v)} style={{ width: 46, height: 46, borderRadius: 18, border: `none`, background: calendarOpen ? `linear-gradient(135deg,${C.green},${C.greenLight})` : C.cream, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all .18s", boxShadow: calendarOpen ? `0 4px 12px ${C.green}55` : "none" }}>📅</button>
-            </div>, document.body)}
+            {/* Las cuatro acciones derechas comparten un único desplegable. */}
+            {createPortal(<DateActionsMenu isLiquid={isLiquid} awayFromToday={currentDate !== tKey} items={[
+              { id: "hoy", label: "Hoy", content: "◎", action: handleHoyClick, highlighted: currentDate !== tKey },
+              { id: "buscar", label: "Buscar turnos", content: "🔍", action: onOpenSearchTurnos },
+              { id: "gasto", label: "Gasto rápido", content: "💸", action: onQuickGasto },
+              { id: "calendario", label: "Calendario", content: "📅", action: () => {
+                setCalViewDate(currentDate.slice(0, 7)); setCalendarOpen(true)
+              } },
+            ]} />, document.body)}
           </div>
         )
       })()}

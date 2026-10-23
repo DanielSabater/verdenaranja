@@ -282,8 +282,7 @@ export default function App() {
 
   useEffect(() => {
     if (calendarOpen) {
-      const d = new Date()
-      setCalViewDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`)
+      setCalViewDate(currentDate.slice(0, 7))
     }
   }, [calendarOpen])
 
