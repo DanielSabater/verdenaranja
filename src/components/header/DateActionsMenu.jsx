@@ -7,7 +7,8 @@ export function DateActionsMenu({ items, isLiquid, awayFromToday }) {
   const root = useRef(null)
   const trigger = useRef(null)
   const skipFocusOpen = useRef(false)
-  const pointerType = useRef('')
+  const today = items.find(item => item.id === 'hoy')
+  const options = items.filter(item => item.id !== 'hoy')
 
   useEffect(() => {
     if (!open) return
@@ -28,7 +29,7 @@ export function DateActionsMenu({ items, isLiquid, awayFromToday }) {
     }
   }, [open])
 
-  return <div ref={root} className="date-actions-island date-more-actions"
+  return <div ref={root} className="date-actions-island date-more-actions" data-open={open}
     style={{ '--quick-menu-surface': isLiquid ? 'rgba(255,255,255,.75)' : C.white }}
     onPointerEnter={event => { if (event.pointerType === 'mouse') setOpen(true) }}
     onPointerLeave={event => { if (event.pointerType === 'mouse') setOpen(false) }}
@@ -42,12 +43,11 @@ export function DateActionsMenu({ items, isLiquid, awayFromToday }) {
         : (index + (['ArrowUp', 'ArrowLeft'].includes(event.key) ? -1 : 1) + options.length) % options.length
       options[next]?.focus()
     }}>
-    <button ref={trigger} type="button" className={`date-more-trigger${awayFromToday ? ' date-more-trigger-away' : ''}`} aria-label="Más acciones de la agenda"
+    <button ref={trigger} type="button" className={`date-more-trigger${awayFromToday ? ' date-more-trigger-away' : ''}`} aria-label={open ? 'Ir a hoy' : 'Abrir accesos rápidos'}
       aria-haspopup="menu" aria-expanded={open} aria-controls="date-more-menu"
-      onPointerDown={event => { pointerType.current = event.pointerType }}
-      onClick={event => {
-        if (event.detail === 0 || pointerType.current !== 'mouse') setOpen(value => !value)
-        else setOpen(true)
+      onClick={() => {
+        if (!open) setOpen(true)
+        else today?.action()
       }}
       onFocus={event => { if (!skipFocusOpen.current && event.currentTarget.matches(':focus-visible')) setOpen(true) }}
       onKeyDown={event => {
@@ -59,17 +59,21 @@ export function DateActionsMenu({ items, isLiquid, awayFromToday }) {
           })
         }
       }}>
-      <span aria-hidden="true">+</span>
+      <span aria-hidden="true">{open ? 'Hoy' : '+'}</span>
     </button>
-    {open && <div className="date-more-menu-bridge">
+    <div className="date-more-menu-bridge" inert={open ? undefined : ''} aria-hidden={!open}>
       <div id="date-more-menu" className="date-more-menu" role="menu" aria-label="Acciones de la agenda">
-        {items.map(item => <button key={item.id} type="button" role="menuitem"
-          className={`date-more-item${item.highlighted ? ' date-more-item-highlighted' : ''}`}
-          onClick={() => { setOpen(false); item.action() }}>
-          <span className="date-more-item-icon" aria-hidden="true">{item.content}</span>
-          <span>{item.label}</span>
-        </button>)}
+        {options.map(item => <div className="date-more-option-island" key={item.id}>
+          <button type="button" role="menuitem" className="date-more-item" aria-label={item.label} title={item.label}
+            onClick={() => { setOpen(false); item.action() }}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              {item.id === 'buscar' ? <><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></>
+                : item.id === 'gasto' ? <><rect x="2" y="5" width="20" height="14" rx="2" /><circle cx="12" cy="12" r="3" /><path d="M6 12h.01M18 12h.01" /></>
+                : <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M16 3v4M8 3v4M3 11h18M8 15h.01M12 15h.01M16 15h.01M8 18h.01M12 18h.01" /></>}
+            </svg>
+          </button>
+        </div>)}
       </div>
-    </div>}
+    </div>
   </div>
 }

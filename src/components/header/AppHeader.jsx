@@ -1359,29 +1359,46 @@ export const AppHeader = memo(function AppHeader({
             {/* Island 3: Notepad (Bottom Left) */}
             {createPortal(<div className="date-notebook-island" style={{
               position: "fixed", bottom: 8, left: 16, zIndex: 98,
-              background: isLiquid ? "rgba(255, 255, 255, 0.45)" : C.white,
-              backdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none",
-              WebkitBackdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none",
-              borderRadius: 24,
-              boxShadow: isLiquid ? "0 8px 32px rgba(31, 38, 135, 0.08), inset 0 1px 1px rgba(255, 255, 255, 0.3)" : `0 4px 20px ${C.shadow}`,
-              border: isLiquid ? "1px solid rgba(255, 255, 255, 0.55)" : `1.5px solid ${C.border}`,
+              background: isLiquid ? "rgba(255, 255, 255, 0.75)" : C.white,
+              backdropFilter: isLiquid ? "blur(25px) saturate(160%)" : "none",
+              WebkitBackdropFilter: isLiquid ? "blur(25px) saturate(160%)" : "none",
+              borderRadius: 23,
+              boxShadow: "0 4px 20px rgba(35,72,42,.1)",
+              border: `${isLiquid ? 1 : 1.5}px solid rgba(185,213,192,.7)`,
               display: "flex", alignItems: "center",
               padding: "6px",
               pointerEvents: "auto",
               flexShrink: 0
             }}>
               <div style={{ position: "relative" }}>
-                <button 
+                <button type="button" aria-label="Anotador" aria-expanded={notebookOpen}
                   onClick={onOpenNotebook} 
                   style={{
-                    width: 46, height: 46, borderRadius: 18, border: `none`,
+                    width: 46, height: 46, borderRadius: 17, border: `none`,
                     background: C.orangePale,
                     fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
                     transition: "all .18s",
                     boxShadow: "none"
                   }}
                   title="Anotador"
-                >📝</button>
+                >
+                  <svg width="32" height="32" viewBox="0 0 40 40" fill="none" aria-hidden="true" focusable="false">
+                    <rect x="7" y="6" width="24" height="30" rx="4" fill="#244d2d" opacity=".25" />
+                    <rect x="6" y="4" width="24" height="30" rx="3" fill="#edbc48" stroke="#9b7129" strokeWidth="1" />
+                    <path d="M11 5h16a2 2 0 0 1 2 2v24a2 2 0 0 1-2 2H11Z" fill="#ffe6a0" />
+                    <path d="M12 6v25" stroke="#e6a563" strokeWidth=".8" />
+                    <path d="M15 11h10M15 16h10M15 21h7M15 26h5" stroke="#bd9b50" strokeWidth="1.2" strokeLinecap="round" />
+                    <path d="M5 9h4M5 15h4M5 21h4M5 27h4" stroke="#fff4d1" strokeWidth="2.2" strokeLinecap="round" />
+                    <g transform="rotate(31 29 23)">
+                      <rect x="26.5" y="10" width="5" height="22" rx="1" fill="#f0b62f" stroke="#8a6026" strokeWidth=".8" />
+                      <path d="M28 14v15" stroke="#ffe59c" strokeWidth="1.2" />
+                      <path d="M26.5 31 29 37l2.5-6Z" fill="#f7dfb0" stroke="#8a6026" strokeWidth=".8" strokeLinejoin="round" />
+                      <path d="m28.1 35 0.9 2 .9-2" fill="#36533b" />
+                      <path d="M26.5 13h5" stroke="#fff1c7" strokeWidth="2" />
+                      <path d="M27 10v-1a2 2 0 0 1 4 0v1" fill="#e99b83" />
+                    </g>
+                  </svg>
+                </button>
                 {hasUncheckedTasks && (
                   <div style={{
                     position: "absolute",
@@ -1400,7 +1417,7 @@ export const AppHeader = memo(function AppHeader({
               </div>
             </div>, document.body)}
 
-            {/* Las cuatro acciones derechas comparten un único desplegable. */}
+            {/* Accesos rápidos: Hoy en la base y tres islas independientes. */}
             {createPortal(<DateActionsMenu isLiquid={isLiquid} awayFromToday={currentDate !== tKey} items={[
               { id: "hoy", label: "Hoy", content: "◎", action: handleHoyClick, highlighted: currentDate !== tKey },
               { id: "buscar", label: "Buscar turnos", content: "🔍", action: onOpenSearchTurnos },

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import { C } from "../../constants/colors.js"
 import { CAT_OPTIONS, PAYMENT_METHODS } from "../../constants/data.js"
 import { fmt, apptTotal } from "../../utils/appointments.js"
@@ -6,6 +6,8 @@ import { Overlay, ModalHeader, Field, GhostBtn, SolidBtn, inputStyle, modalBox }
 import { getApptClientPhone, formatWaNumber, generateReminderMessage, openWhatsAppLink, cleanClientName, normalizeStr, extractPhoneFromString, extractClientPhone, ensurePhoneInName } from "../../utils/whatsapp.js"
 import { fmtDate, todayKey } from "../../utils/dates.js"
 import { useIsMobile } from "../../hooks/useIsMobile.js"
+import { orderAppointmentServices } from "../../utils/appointmentServiceOrder.js"
+import { appointmentClientSuggestions } from "../../utils/appointmentClientSuggestions.js"
 import { RescheduleContent } from "./RescheduleModal.jsx"
 
 function WhatsAppIcon({ size = 15, color = "currentColor", style = {} }) {
@@ -273,10 +275,25 @@ export function AppModals({
     )]
   }, [config?.customCategories])
   const [showSug, setShowSug] = useState(false)
+  const suggestionBlurTimer = useRef(null)
+  // Cada apertura empieza cerrada; ningún blur anterior debe modificar la siguiente edición.
+  useEffect(() => {
+    setShowSug(false)
+    clearTimeout(suggestionBlurTimer.current)
+    return () => clearTimeout(suggestionBlurTimer.current)
+  }, [modal])
   const [serviceHighlightIdx, setServiceHighlightIdx] = useState(-1)
   const [isNoteMode, setIsNoteMode] = useState(false)
   const [noteDuration, setNoteDuration] = useState(30)
   const [modalMode, setModalMode] = useState("form") // "form" | "reschedule"
+  const clientInput = useRef(null)
+
+  useEffect(() => {
+    if (!modal || isNoteMode || modalMode !== "form") return
+    // Solo escritorio con puntero preciso: no disparar el teclado de pantallas táctiles.
+    if (!window.matchMedia('(min-width: 1101px) and (hover: hover) and (pointer: fine)').matches) return
+    clientInput.current?.focus({ preventScroll: true })
+  }, [modal, isNoteMode, modalMode])
 
 
   // Una sola entrada visible; conservar el teléfono estructurado para WhatsApp.
@@ -324,23 +341,7 @@ export function AppModals({
   const safeClientes = clientes || []
 
   // Sugerencias para el nombre de la clienta (desde la primera letra o número)
-  const suggestions = useMemo(() => {
-    const raw = (clientName || "").trim().toLowerCase()
-    if (!raw) return []
-    const rawDigits = raw.replace(/\D/g, "")
-
-    return safeClientes.filter(cl => {
-      if (!cl || !cl.name) return false
-      const clName = cl.name.toLowerCase()
-      const clPhoneDigits = (cl.phone || "").replace(/\D/g, "")
-      const clNameClean = cleanClientName(cl.name).toLowerCase()
-
-      const matchName = clName.includes(raw) || clNameClean.includes(raw)
-      const matchPhone = rawDigits.length >= 1 && clPhoneDigits.includes(rawDigits)
-
-      return (matchName || matchPhone) && clName !== raw
-    }).slice(0, 8)
-  }, [clientName, safeClientes])
+  const suggestions = useMemo(() => appointmentClientSuggestions(clientName, safeClientes), [clientName, safeClientes])
 
   // Análisis inteligente de reconocimiento de la clienta y lo que suele pedir
   const clientAnalysis = useMemo(() => {
@@ -425,6 +426,8 @@ export function AppModals({
   }
 
   const handleSave = (phoneOverride) => {
+    clearTimeout(suggestionBlurTimer.current)
+    setShowSug(false)
     if (isNoteMode) {
       saveAppt({
         isNote: true,
@@ -519,9 +522,7 @@ export function AppModals({
 
   // Ordenar la lista filtrada sin duplicar servicios ni alterar sus filtros.
   const usualServiceCounts = new Map(clientAnalysis.usualServices.map(service => [service.id || service.name, service.count]))
-  const orderedServices = [...filteredServices].sort((a, b) =>
-    (usualServiceCounts.get(b.id || b.name) || 0) - (usualServiceCounts.get(a.id || a.name) || 0)
-  )
+  const orderedServices = orderAppointmentServices(filteredServices, chosenServices, clientAnalysis.usualServices)
 
 
   return (
@@ -720,7 +721,7 @@ export function AppModals({
 
                       {/* ── 1. NOMBRE DE LA CLIENTA (EXTRA GRANDE Y EN DORADO) ── */}
                       <div style={{ marginBottom: 4 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5, height: 14 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 5, minHeight: 24 }}>
                           <label style={{ fontSize: 8, letterSpacing: "2.5px", color: "#a88526", textTransform: "uppercase", fontWeight: "bold" }}>
                             Nombre de la clienta
                           </label>
@@ -740,17 +741,25 @@ export function AppModals({
                               👑 Reconocida
                             </span>
                           ) : isNewCliente ? (
-                            <span style={{
-                              background: "#e0f2fe",
-                              border: "1px solid #bae6fd",
-                              color: "#0369a1",
-                              fontSize: 9,
-                              fontWeight: "bold",
-                              padding: "1px 7px",
-                              borderRadius: 12,
-                            }}>
-                              ✨ Clienta nueva
-                            </span>
+                              <button
+                                onClick={saveNewCliente}
+                                type="button"
+                                style={{
+                                  padding: "4px 9px",
+                                  borderRadius: 8,
+                                  border: "none",
+                                  background: `linear-gradient(135deg,${C.green},${C.greenLight})`,
+                                  color: "#fff",
+                                  fontSize: 9,
+                                  cursor: "pointer",
+                                  fontFamily: "Georgia,serif",
+                                  fontWeight: "bold",
+                                  whiteSpace: "nowrap",
+                                  marginLeft: 6,
+                                }}
+                              >
+                                💾 Guardar cliente
+                              </button>
                           ) : null}
                         </div>
 
@@ -772,6 +781,7 @@ export function AppModals({
                               {clientAnalysis.isRecognized ? "👑" : "✨"}
                             </span>
                             <input
+                              ref={clientInput}
                               value={clientName}
                               autoComplete="off"
                               autoCorrect="off"
@@ -803,10 +813,16 @@ export function AppModals({
                                 color: "#996515", // Dorado elegante y cálido
                                 fontFamily: "Georgia, serif",
                                 letterSpacing: "0.5px",
-                                padding: isMobile ? `8px ${clientName ? (isNewCliente ? 112 : 30) : 0}px 8px 0` : "8px 112px 8px 0",
+                                padding: `8px ${clientName ? 40 : 0}px 8px 0`,
                               }}
-                              onFocus={() => setShowSug(true)}
-                              onBlur={() => setTimeout(() => setShowSug(false), 200)}
+                              onFocus={() => {
+                                clearTimeout(suggestionBlurTimer.current)
+                                if (!modal.editKey) setShowSug(true)
+                              }}
+                              onBlur={() => {
+                                clearTimeout(suggestionBlurTimer.current)
+                                suggestionBlurTimer.current = setTimeout(() => setShowSug(false), 200)
+                              }}
                             />
                             {clientName && (
                               <button
@@ -819,34 +835,9 @@ export function AppModals({
                                   setShowSug(false)
                                   document.getElementById("appointment-client-input")?.focus()
                                 }}
-                                style={{ position: "absolute", right: isNewCliente ? 88 : 12, top: "50%", transform: "translateY(-50%)", width: 28, height: 28, flexShrink: 0, borderRadius: 6, border: "none", background: "transparent", color: "#a99c7d", cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", marginLeft: 6 }}
+                                style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", width: 28, height: 28, flexShrink: 0, borderRadius: 6, border: "none", background: "transparent", color: "#a99c7d", cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", marginLeft: 6 }}
                               >
                                 ×
-                              </button>
-                            )}
-                            {isNewCliente && (
-                              <button
-                                onMouseDown={saveNewCliente}
-                                type="button"
-                                style={{
-                                  position: "absolute",
-                                  right: 10,
-                                  top: "50%",
-                                  transform: "translateY(-50%)",
-                                  padding: "4px 9px",
-                                  borderRadius: 8,
-                                  border: "none",
-                                  background: `linear-gradient(135deg,${C.green},${C.greenLight})`,
-                                  color: "#fff",
-                                  fontSize: 9,
-                                  cursor: "pointer",
-                                  fontFamily: "Georgia,serif",
-                                  fontWeight: "bold",
-                                  whiteSpace: "nowrap",
-                                  marginLeft: 6,
-                                }}
-                              >
-                                💾 Guardar
                               </button>
                             )}
                           </div>
