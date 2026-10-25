@@ -684,10 +684,27 @@ select {
 
 /* ── Appointment card glow on hover ── */
 .appt-card {
+  isolation: isolate;
   transition: box-shadow 0.2s ease, transform 0.2s ease !important;
   scrollbar-width: none !important;
   -ms-overflow-style: none !important;
   overflow: hidden !important;
+}
+.appointment-color-fade-anchor { display: contents; }
+.appointment-color-fade {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: -1;
+  animation: appointment-color-fade-out 360ms ease-out forwards;
+}
+@keyframes appointment-color-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .appointment-color-fade { animation-duration: 1ms; }
 }
 
 .appt-card::-webkit-scrollbar,
@@ -707,10 +724,10 @@ select {
   transform: scale(1.005) !important;
 }
 
-/* Engrosa el borde real sin sumar un contorno ni desplazar el contenido. */
+/* Conserva el borde y el espacio interior al pasar el puntero. */
 .appt-card:is(.paid, .unpaid):not(.blocked):not(.note):is(:hover, .force-hover) {
-  border-width: 3px !important;
-  padding: 4.5px 5.5px !important;
+  border-width: 1.5px !important;
+  padding: 5px 5px 29px !important;
 }
 
 .appt-card.paid:is(:hover, .force-hover) {
@@ -1442,4 +1459,102 @@ select {
 /* La botonera queda sobre el fondo completo, sin cortar el desenfoque. */
 @media (min-width: 1101px) {
   body:has(.desktop-bottom-toolbar-backdrop) :is(.date-actions-island, .date-notebook-island) { z-index: 1100 !important; }
+}
+
+/* Tarjetas de turno: el monto ocupa su columna y el nombre continúa sin recortarse. */
+/* La altura la determina la duración del turno; el contenido no expande la fila. */
+.appt-card .appointment-card-copy {
+  position: static;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+  color: #385139;
+}
+.appt-card .appointment-card-name-price {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+}
+.appt-card .appointment-card-name-price .appointment-card-name { flex: 1; }
+.appt-card .appointment-card-tip { flex-shrink: 0; font: 8px/17px Georgia, serif; white-space: nowrap; }
+.appt-card .appointment-card-name {
+  min-width: 0;
+  font: bold 14px/17px Georgia, serif;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.appt-card .appointment-card-service-price { margin-top: 10px; }
+.appt-card .compact .appointment-card-service-price { margin-top: 4px; }
+.appt-card .appointment-card-services { font: 11px/16px Georgia, serif; overflow-wrap: anywhere; }
+.appt-card .appointment-card-service-window { overflow: hidden; }
+.appt-card .appointment-card-service-window[data-overflow="true"] {
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 max(0px, calc(100% - 10px)), transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 max(0px, calc(100% - 10px)), transparent 100%);
+}
+@keyframes appointment-services-travel {
+  0%, 15% { transform: translateY(0); }
+  85%, 100% { transform: translateY(var(--service-travel)); }
+}
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .appt-card:hover .appointment-card-service-window[data-overflow="true"] .appointment-card-services {
+    animation: appointment-services-travel var(--service-travel-time) ease-in-out infinite alternate;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .appt-card .appointment-card-service-window[data-touch-playing="true"] .appointment-card-services {
+    animation: appointment-services-travel var(--service-travel-time) ease-in-out infinite alternate;
+  }
+}
+.appt-card .appointment-card-note { font: italic 9px/12px Georgia, serif; color: #747562; margin-top: 2px; overflow-wrap: anywhere; }
+/* Teléfono abreviado y duración comparten la altura de los controles inferiores. */
+.appt-card .appointment-card-footer-info {
+  position: absolute;
+  bottom: 5px;
+  left: 5px;
+  height: 24px;
+  max-width: calc(100% - 145px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  font: 9px/11px Georgia, serif;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.appt-card .appointment-card-phone-tail,
+.appt-card .appointment-card-duration {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+@media (max-width: 1100px) {
+  .appt-card:is(.paid, .unpaid):not(.blocked):not(.note):is(:hover, .force-hover) {
+    padding: 5px 5px 45px !important;
+  }
+  .appt-card .appointment-card-footer-info {
+    bottom: 5px;
+    height: 40px;
+    max-width: calc(100% - 100px);
+  }
+}
+
+/* El importe cambia de leyenda solo en la acción principal, sin alterar su ancho. */
+.arrival-pay-control .arrival-control-hover-action,
+.arrival-pay-control .arrival-control-amount {
+  transition: transform 260ms ease-in-out, opacity 180ms ease-in-out;
+  transform-origin: 50% 50% -6.5px;
+  backface-visibility: hidden;
+}
+.arrival-pay-control .arrival-control-hover-action { opacity: 0; pointer-events: none; transform: perspective(180px) rotateX(-90deg); }
+.arrival-pay-control .arrival-control-amount { opacity: 1; pointer-events: none; transform: perspective(180px) rotateX(0deg); }
+@media (hover: hover) and (pointer: fine) {
+  .arrival-pay-control button[data-amount-action="true"]:hover .arrival-control-amount { opacity: 0; transform: perspective(180px) rotateX(90deg); }
+  .arrival-pay-control button[data-amount-action="true"]:hover .arrival-control-hover-action { opacity: 1; transform: perspective(180px) rotateX(0deg); }
+}
+.arrival-pay-control button[data-amount-action="true"]:focus-visible .arrival-control-amount { opacity: 0; transform: perspective(180px) rotateX(90deg); }
+.arrival-pay-control button[data-amount-action="true"]:focus-visible .arrival-control-hover-action { opacity: 1; transform: perspective(180px) rotateX(0deg); }
+@media (prefers-reduced-motion: reduce) {
+  .arrival-pay-control .arrival-control-hover-action,
+  .arrival-pay-control .arrival-control-amount { transition: none; }
 }

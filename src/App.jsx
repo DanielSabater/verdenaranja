@@ -352,6 +352,7 @@ export default function App() {
   const [modal, setModal] = useState(null)
   const [payModal, setPayModal] = useState(null)
   const [deleteKey, setDeleteKey] = useState(null)
+  const [undoPayment, setUndoPayment] = useState(null)
   const [clientName, setClientName] = useState("")
   const [chosenServices, setChosenServices] = useState([])
   const [filterCat, setFilterCat] = useState("all")
@@ -382,7 +383,7 @@ export default function App() {
   activeViewRef.current = activeView
   const isAnyModalOpenRef = useRef(false)
   isAnyModalOpenRef.current = Boolean(
-    modal || payModal || deleteKey || gastoModal || quickGastoModal || arqueoModal || notebookOpen || searchTurnosOpen || historyModalOpen || calendarOpen || rescheduleData
+    modal || payModal || deleteKey || undoPayment || gastoModal || quickGastoModal || arqueoModal || notebookOpen || searchTurnosOpen || historyModalOpen || calendarOpen || rescheduleData
   )
 
   const executeDateJump = useCallback((dayToJump) => {
@@ -1421,8 +1422,8 @@ export default function App() {
     })
   }, [setAppointments])
 
-  const confirmPay = (forceUnpay = false) => {
-    const keys = multiPayKeys
+  const confirmPay = (forceUnpay = false, targetKeys = multiPayKeys, restoreArrival = false) => {
+    const keys = targetKeys
     const totalToPay = keys.reduce((sum, k) => sum + apptTotal(appointments[k]), 0)
     const tipAmount = Object.values(apptTip || {}).reduce((sum, v) => sum + (parseFloat(v) || 0), 0)
     const discountAmount = parseFloat(apptDiscount) || 0
@@ -1461,6 +1462,7 @@ export default function App() {
           next[k] = {
             ...appt,
             paid: false,
+            arrived: restoreArrival ? true : appt.arrived,
             payGroupId: undefined,
             payMethod: undefined,
             paymentSplits: undefined,
@@ -1888,6 +1890,17 @@ export default function App() {
                 onOpenReschedule={(data) => setRescheduleData(data)}
                 onToggleTipsRelease={onToggleTipsRelease}
                 onToggleArrived={handleToggleArrived}
+                onUndoPay={(key) => {
+                  const appt = appointments[key]
+                  if (!appt?.paid) return
+                  const keys = appt.payGroupId
+                    ? Object.keys(appointments).filter(k => appointments[k]?.payGroupId === appt.payGroupId)
+                    : [key]
+                  const message = keys.length > 1
+                    ? `¿Seguro que querés desmarcar el pago conjunto de estos ${keys.length} turnos? Volverán al estado en salón.`
+                    : '¿Seguro que querés desmarcar el pago de este turno? Volverá al estado en salón.'
+                  setUndoPayment({ keys, message })
+                }}
                 CELL_H={CELL_H}
                 activeRama={activeRama}
                 selectedMultiPayKeys={selectedMultiPayKeys}
@@ -2067,6 +2080,12 @@ export default function App() {
           modal={modal} setModal={setModal}
           payModal={payModal} setPayModal={setPayModal}
           deleteKey={deleteKey} setDeleteKey={setDeleteKey}
+          undoPayment={undoPayment} onCloseUndoPayment={() => setUndoPayment(null)}
+          onConfirmUndoPayment={() => {
+            if (!undoPayment) return
+            confirmPay(true, undoPayment.keys, true)
+            setUndoPayment(null)
+          }}
           clientName={clientName} setClientName={setClientName}
           apptNotes={apptNotes} setApptNotes={setApptNotes}
           apptTip={apptTip} setApptTip={setApptTip}

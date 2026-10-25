@@ -1,5 +1,6 @@
+import { ArrivalPayControl } from "./ArrivalPayControl.jsx"
 import ProfessionalName from "../ui/ProfessionalName.jsx"
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useLayoutEffect } from "react"
 import { C } from "../../constants/colors.js"
 import { PAYMENT_METHODS, HOURS, BLOCKED_COLORS, getBlockedAlphas } from "../../constants/data.js"
 import { fmt, cellKey, apptTotal, apptDur, apptPaidTotal, apptComisionableTotal, apptComisionTotal, getApptSlots, commissionServicesFor, isServiceExcluido, hasCommissionableServices, getProfDaySchedule, isHourOutsideSchedule, isHourScheduleBlocked } from "../../utils/appointments.js"
@@ -139,6 +140,107 @@ const getTurnCountdown = (hourStr, isToday) => {
     return { type: "overdue", label: `⏰ +${formatMinsToHours(overdue)}` }
   }
   return null
+}
+
+// Conserva el fondo anterior durante el fundido sin cubrir texto ni controles.
+function AppointmentColorFade({ paid, arrived }) {
+  const anchorRef = useRef(null)
+  const previousRef = useRef(null)
+  const [previousBackground, setPreviousBackground] = useState(null)
+  useLayoutEffect(() => {
+    const card = anchorRef.current?.closest('.appt-card')
+    if (!card) return
+    const state = `${Boolean(paid)}-${Boolean(arrived)}`
+    const background = getComputedStyle(card).background
+    const previous = previousRef.current
+    if (previous && previous.state !== state) {
+      setPreviousBackground({ background: previous.background, state })
+    }
+    previousRef.current = { state, background }
+  }, [paid, arrived])
+  return <span ref={anchorRef} aria-hidden="true" className="appointment-color-fade-anchor">
+    {previousBackground && <span key={previousBackground.state} className="appointment-color-fade"
+      style={{ background: previousBackground.background }} onAnimationEnd={() => setPreviousBackground(null)} />}
+  </span>
+}
+
+// Contenido compartimentado: los controles inferiores conservan sus posiciones y callbacks.
+function AppointmentCardDetails({ appt, clientes, compact, isMobile, isResizing, liveHour, liveEndHour, badgeWidth }) {
+  const { phone, cleanName } = getApptClientPhone(appt, clientes)
+  const name = cleanName || cleanClientName(appt.client) || appt.client
+  const serviceLabel = (appt.services || []).map(service => `${service.icon || ''} ${service.name}`).join(' · ')
+  const serviceWindowRef = useRef(null)
+  const serviceListRef = useRef(null)
+  const [serviceOverflow, setServiceOverflow] = useState(0)
+  const [servicesPlaying, setServicesPlaying] = useState(false)
+  useEffect(() => {
+    const viewport = serviceWindowRef.current
+    const list = serviceListRef.current
+    const card = viewport?.closest('.appt-card')
+    const copy = viewport?.closest('.appointment-card-copy')
+    if (!viewport || !list || !card || !copy) return
+    const toolbar = card.querySelector('.arrival-pay-control')?.parentElement
+    const measure = () => {
+      const footer = card.querySelector('.appointment-card-footer-info')
+      if (footer && toolbar) {
+        const availableWidth = toolbar.getBoundingClientRect().left - footer.getBoundingClientRect().left - 5
+        const scale = card.getBoundingClientRect().width / card.offsetWidth
+        footer.style.maxWidth = `${Math.max(0, availableWidth / scale)}px`
+      }
+      const bottom = Math.min(copy.getBoundingClientRect().bottom, footer ? footer.getBoundingClientRect().top : Infinity)
+      const available = Math.max(0, bottom - viewport.getBoundingClientRect().top)
+      viewport.style.maxHeight = `${available}px`
+      setServiceOverflow(Math.max(0, list.scrollHeight - available))
+    }
+    const observer = new ResizeObserver(measure)
+    observer.observe(copy)
+    observer.observe(list)
+    if (toolbar) observer.observe(toolbar)
+    const nameElement = card.querySelector('.appointment-card-name-price')
+    if (nameElement) observer.observe(nameElement)
+    measure()
+    return () => observer.disconnect()
+  }, [serviceLabel, name, badgeWidth])
+  return <>
+    <AppointmentColorFade paid={appt.paid} arrived={appt.arrived} />
+    <div className="appointment-card-name-price" style={{ paddingTop: badgeWidth > 12 ? 18 : 0 }}>
+      <div className="appointment-card-name" title={name}>{name}</div>
+      {appt.tip > 0 && <span className="appointment-card-tip" style={{ color: C.gold }} title={`Propina: ${fmt(appt.tip)}`} aria-label={`Propina: ${fmt(appt.tip)}`}>🎁 {fmt(appt.tip)}</span>}
+    </div>
+    <div ref={serviceWindowRef} className="appointment-card-service-price appointment-card-service-window" title=""
+      data-overflow={serviceOverflow > 1}
+      data-touch-playing={isMobile && servicesPlaying && serviceOverflow > 1}
+      role={isMobile && serviceOverflow > 1 ? 'button' : undefined}
+      tabIndex={isMobile && serviceOverflow > 1 ? 0 : undefined}
+      aria-label={isMobile && serviceOverflow > 1 ? `${servicesPlaying ? 'Detener' : 'Mostrar'} servicios: ${serviceLabel}` : undefined}
+      aria-pressed={isMobile && serviceOverflow > 1 ? servicesPlaying : undefined}
+      onClick={event => {
+        if (!isMobile || serviceOverflow <= 1) return
+        event.stopPropagation()
+        setServicesPlaying(value => !value)
+      }}
+      onKeyDown={event => {
+        if (!isMobile || serviceOverflow <= 1 || !['Enter', ' '].includes(event.key)) return
+        event.preventDefault()
+        event.stopPropagation()
+        setServicesPlaying(value => !value)
+      }}
+      style={{ '--service-travel': `-${serviceOverflow}px`, '--service-travel-time': `${Math.max(4, serviceOverflow / 12 + 2)}s` }}>
+      <div ref={serviceListRef} className="appointment-card-services" style={{ color: appt.paid ? C.green : C.orange }}>
+        {compact ? serviceLabel : (appt.services || []).map((service, index) =>
+          <div key={index}>{service.icon} {service.name}</div>)}
+      </div>
+    </div>
+    {appt.notes && <div className="appointment-card-note" title={appt.notes}>📝 {appt.notes}</div>}
+    <div className="appointment-card-footer-info" style={{ color: isResizing ? C.green : C.textSoft }}>
+      {phone && <span className="appointment-card-phone-tail" title={phone} aria-label={`Últimos cuatro dígitos del teléfono: ${phone.replace(/\D/g, '').slice(-4)}`}>
+        {phone.replace(/\D/g, '').slice(-4)}
+      </span>}
+      <span className="appointment-card-duration">
+        {isResizing ? `${liveHour} – ${liveEndHour}` : `${apptDur(appt)} min`}
+      </span>
+    </div>
+  </>
 }
 
 function ApptCard({
@@ -374,7 +476,7 @@ function ApptCard({
 
       {!appt.isBlocked ? (
         <div style={{ position: "absolute", bottom: isMobile ? 4 : 6, right: isMobile ? 4 : 6, display: "flex", alignItems: "center", gap: isMobile ? 3 : 4, zIndex: 12 }}>
-          <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); onDelete(k) }} style={{ width: 22, height: 22, borderRadius: 6, border: `1px solid ${C.border}`, background: "rgba(255,255,255,.9)", color: "#c0a0a0", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>✕</button>
+          <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); onDelete(k) }} type="button" aria-label="Eliminar turno" title="Eliminar turno" style={{ width: 22, height: 22, borderRadius: 6, border: `1px solid ${C.border}`, background: "rgba(255,255,255,.9)", color: "#c0a0a0", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>✕</button>
           {appt.isNote ? (
             <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); onEdit(k, appointments[k]) }} style={smallBtn(C.green, isMobile)}>{isMobile ? "✏️" : "✏️ Editar"}</button>
           ) : (
@@ -430,7 +532,7 @@ export function AppGrid({
   onDragStart, onDragEnd, onDragOver, onDragLeave, onDrop,
   onResizeStart,
   paidAppts, totalByProf, earningsByProf, comisionPct, services,
-  onCellClick, onEdit, onPay, onDelete,
+  onCellClick, onEdit, onPay, onUndoPay, onDelete,
   onOpenReschedule,
   CELL_H,
   currentDate,
@@ -1191,8 +1293,8 @@ export function AppGrid({
           tableLayout: "fixed",
           width: "100%",
           minWidth: (isMobile && isLandscape)
-            ? "100%"
-            : (isMobile ? `calc(52px + ${orderedProfessionals.length} * calc((100vw - 70px) / ${colsToShowMobile}))` : `calc(52px + ${orderedProfessionals.length * 140}px)`)
+            ? `calc(52px + ${orderedProfessionals.length * 160}px)`
+            : (isMobile ? `calc(52px + ${orderedProfessionals.length} * max(160px, calc((100vw - 70px) / ${colsToShowMobile})))` : `calc(52px + ${orderedProfessionals.length * 140}px)`)
         }}>
            <thead ref={theadRef} onDragOver={e => e.preventDefault()} style={{ position: "sticky", top: (isMobile && isLandscape) ? 0 : 56, zIndex: 100 }}>
              <tr style={{ background: isLiquid ? "rgba(255, 255, 255, 0.45)" : C.white, backdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none", WebkitBackdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none", borderBottom: isLiquid ? `2px solid rgba(255,255,255,0.4)` : `2px solid ${C.border}` }}>
@@ -1213,8 +1315,8 @@ export function AppGrid({
                         padding: (isMobile && isLandscape) ? "5px 2px" : (isMobile ? "11px 2px 6px" : "12px 5px 8px"),
                         width: `${100 / orderedProfessionals.length}%`,
                         minWidth: (isMobile && isLandscape)
-                          ? `calc((100vw - 60px) / ${orderedProfessionals.length})`
-                          : (isMobile ? `calc((100vw - 70px) / ${colsToShowMobile})` : 140),
+                          ? 160
+                          : (isMobile ? `max(160px, calc((100vw - 70px) / ${colsToShowMobile}))` : 140),
                         transition: "all .2s",
                         opacity: dragCol === p.id ? 0.4 : 1,
                         borderLeft: dragOver === p.id ? `3px solid ${C.green}` : "none",
@@ -1444,7 +1546,7 @@ export function AppGrid({
                 return (
                   <td key={`${currentDate}-${prof.id}`} className={!appt && !isSchedBlocked && !draggingKey && !resizePreview ? "grid-empty-cell" : undefined} data-prof-id={prof.id} data-hour={hour} rowSpan={effectiveSpan}
                     style={{
-                      padding: config.gridStyle === "classic" ? 3 : "5px 6px",
+                      padding: appt || isSchedBlocked ? 2 : config.gridStyle === "classic" ? 3 : "5px 6px",
                       height: (appt || isSchedBlocked) ? `${effectiveSpan * 100}px` : 100,
                       verticalAlign: "middle",
                       border: config.gridStyle === "classic" ? `1px solid ${C.border}` : "none",
@@ -1579,7 +1681,7 @@ export function AppGrid({
                                         : overdueStyle
                                           ? overdueStyle.border
                                           : `1.5px solid ${appt.paid ? C.greenLight : C.orangeLight}`),
-                            padding: "6px 7px 6px",
+                            padding: appt.isNote || appt.isBlocked ? "6px 7px 6px" : isMobile ? "5px 5px 45px" : "5px 5px 29px",
                             display: "flex", flexDirection: "column",
                             boxShadow: isDragging
                               ? `0 10px 30px rgba(58,125,68,.30)`
@@ -1735,10 +1837,14 @@ export function AppGrid({
                               {cd.label}
                             </div>
                           ) : (
-                            <div style={{ position: "absolute", top: 4, right: 5, fontSize: 9, color: "rgba(100,130,100,.4)", pointerEvents: "none" }}>⠿</div>
+                            <div style={{ position: "absolute", top: 4, right: 5, fontSize: 9, color: "rgba(100,130,100,.4)", pointerEvents: "none", display: appt.tip > 0 ? "none" : undefined }}>⠿</div>
                           )}
 
-                          <div style={{ overflow: "hidden", marginTop: 2 }}>
+                          <div className={!appt.isNote && !appt.isBlocked ? `appointment-card-copy${liveSlots <= 1 ? ' compact' : ''}` : undefined}
+                            title={!appt.isNote && !appt.isBlocked ? [appt.client, ...(appt.services || []).map(service => service.name), appt.notes,
+                              appt.paid ? `Abonado · ${PAYMENT_METHODS.find(method => method.id === appt.payMethod)?.label || ''}` : '',
+                              appt.tip > 0 ? `Propina: ${fmt(appt.tip)}` : '', appt.createdAt ? `Tomado a las ${appt.createdAt}` : ''].filter(Boolean).join('\n') : undefined}
+                            style={appt.isNote || appt.isBlocked ? { overflow: "hidden", marginTop: 2 } : undefined}>
                              {appt.isNote ? (
                                <div>
                                  <div style={{ fontSize: 9, fontWeight: "bold", color: "#856404", display: "flex", alignItems: "center", gap: 3, marginBottom: 4 }}>
@@ -1770,51 +1876,15 @@ export function AppGrid({
                                </div>
                              ) : (
                                <>
-                                 <div style={{ fontSize: 11, fontWeight: "bold", color: C.text, marginBottom: 1, paddingRight: cd ? (isMobile ? 50 : 58) : 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                   {appt.client}
-                                 </div>
-                                 {(appt.services || []).map((sv, i) => (
-                                   <div key={i} style={{ fontSize: 9, color: appt.paid ? C.green : C.orange, lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sv.icon} {sv.name}</div>
-                                 ))}
-                                 {appt.notes && (
-                                   <div style={{ fontSize: 9, color: C.textSoft, fontStyle: "italic", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>📝 {appt.notes}</div>
-                                 )}
-                                 <div style={{ fontSize: 9, color: C.textSoft, marginTop: 2 }}>
-                                    <span style={{ color: isResizing ? C.green : C.textSoft, fontWeight: isResizing ? "bold" : "normal", transition: "color .15s" }}>
-                                      {isResizing ? `${liveHour} – ${liveEndHour}` : `${apptDur(appt)} min`}
-                                    </span>
-                                    {" · "}<span style={{ color: C.orange, fontWeight: "bold" }}>{fmt(appt.paid ? apptPaidTotal(appt) : apptTotal(appt))}</span>
-                                 </div>
+                                 <AppointmentCardDetails appt={appt} clientes={clientes} compact={liveSlots <= 1} isMobile={isMobile}
+                                   isResizing={isResizing} liveHour={liveHour} liveEndHour={liveEndHour}
+                                   badgeWidth={cd || isSelectedForMultiPay ? (isMobile ? 50 : 58) : 12} />
                                </>
                              )}
-                            {!appt.isBlocked && !appt.paid && appt.arrived && (
-                              <div
-                                onMouseDown={e => e.stopPropagation()}
-                                onClick={e => { e.stopPropagation(); onToggleArrived && onToggleArrived(k) }}
-                                title="En el salón. Clic para desmarcar si fue un error"
-                                style={{
-                                  display: "inline-flex", alignItems: "center", gap: 3,
-                                  background: "#e0f2fe", color: "#0369a1", border: "1px solid #bae6fd",
-                                  borderRadius: 6, padding: "1px 5px", fontSize: 8, fontWeight: "bold",
-                                  marginTop: 2, cursor: "pointer", width: "fit-content"
-                                }}
-                              >
-                                <span>📍 En salón</span>
-                                <span style={{ fontSize: 7, opacity: 0.6 }}>✕</span>
-                              </div>
-                            )}
                             {!appt.isBlocked && appt.createdAt && (
                               <div style={{ fontSize: 8, color: C.textSoft, marginTop: 1, opacity: .7 }}>🕐 Tomado a las {appt.createdAt}</div>
                             )}
-                            {!appt.isBlocked && appt.paid && (
-                              <div style={{ fontSize: 8, color: C.green, marginTop: 1, letterSpacing: ".8px" }}>
-                                {appt.paymentSplits?.length > 1
-                                  ? appt.paymentSplits.map((r, i) => { const pm = PAYMENT_METHODS.find(m => m.id === r.methodId); return <span key={i} style={{ marginRight: 3 }}>{pm?.icon} {fmt(r.amount)}</span> })
-                                  : <>✓ {PAYMENT_METHODS.find(m => m.id === appt.payMethod)?.icon} {PAYMENT_METHODS.find(m => m.id === appt.payMethod)?.label}</>
-                                }
-                              </div>
-                            )}
-                            {!appt.isBlocked && appt.tip > 0 && (
+                            {appt.isNote && appt.tip > 0 && (
                               <div style={{ fontSize: 8, color: C.gold, marginTop: 1 }}>🎁 Propina: {fmt(appt.tip)}</div>
                             )}
                           </div>
@@ -1846,7 +1916,7 @@ export function AppGrid({
                               </button>
                             </div>
                           ) : (
-                            <div style={{ position: "absolute", bottom: isMobile ? 4 : 6, right: isMobile ? 4 : 6, display: "flex", alignItems: "center", gap: isMobile ? 3 : 4, zIndex: 5 }}>
+                            <div style={{ position: "absolute", bottom: 5, right: 5, display: "flex", alignItems: "center", gap: isMobile ? 3 : 4, zIndex: 5 }}>
                               {!appt.isNote && !appt.paid && (
                                 <button
                                   type="button"
@@ -1886,20 +1956,12 @@ export function AppGrid({
                                   {appt.waSent && <span style={{ fontSize: 7, marginLeft: 1, fontWeight: "bold", color: "#6b7280" }}>✓</span>}
                                 </button>
                               )}
-                              <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); onDelete(k) }} style={{ width: 22, height: 22, borderRadius: 6, border: `1px solid ${C.border}`, background: "rgba(255,255,255,.9)", color: "#c0a0a0", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>✕</button>
-
-                              {appt.isNote ? (
-                                <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); onEdit(k, appointments[k]) }} style={smallBtn(C.green, isMobile)}>{isMobile ? "✏️" : "✏️ Editar"}</button>
-                              ) : (
-                                appt.paid
-                                  ? (() => {
-                                    const pmColor = PAYMENT_METHODS.find(m => m.id === appt.payMethod)?.color || "#7a9e7a"
-                                    return <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); onPay(k) }} style={smallBtn(pmColor, isMobile)}>{isMobile ? "✏️" : "✏️ Pago"}</button>
-                                  })()
-                                  : !appt.arrived
-                                    ? <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); onToggleArrived && onToggleArrived(k) }} style={{ ...smallBtn("transparent", isMobile), background: "rgba(232, 121, 58, 0.12)", border: "1px solid rgba(232, 121, 58, 0.4)", color: C.orange }} title="Tocar cuando la clienta llegue al local">{isMobile ? "📍" : "📍 Llegó"}</button>
-                                    : <button onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); onPay(k) }} style={smallBtn(C.orange, isMobile)}>{isMobile ? "💰" : "💰 Abonar"}</button>
-                              )}
+                              <ArrivalPayControl arrived={appt.arrived} isMobile={isMobile}
+                                amount={appt.isNote ? undefined : fmt(appt.paid ? apptPaidTotal(appt) : apptTotal(appt))}
+                                mode={appt.isNote ? 'note' : appt.paid ? 'paid' : 'appointment'}
+                                color={appt.paid ? (PAYMENT_METHODS.find(method => method.id === appt.payMethod)?.color || '#7a9e7a') : undefined}
+                                onArrive={() => onToggleArrived?.(k)} onPay={() => onPay(k)} onUndoPay={() => onUndoPay?.(k)}
+                                onEdit={() => onEdit(k, appointments[k])} onDelete={() => onDelete(k)} />
                             </div>
                           )}
 

@@ -242,6 +242,7 @@ export function AppModals({
   modal, setModal,
   payModal, setPayModal,
   deleteKey, setDeleteKey,
+  undoPayment, onCloseUndoPayment, onConfirmUndoPayment,
   clientName, setClientName,
   apptNotes, setApptNotes,
   chosenServices, setChosenServices,
@@ -1492,6 +1493,20 @@ export function AppModals({
       })()}
 
       {/* ── MODAL ELIMINAR ── */}
+      {undoPayment && (
+        <Overlay onClose={onCloseUndoPayment}>
+          <div className="modal-sheet" role="dialog" aria-modal="true" aria-labelledby="undo-payment-title"
+            style={{ ...modalBox, textAlign: "center", maxWidth: 360, width: "calc(100vw - 32px)" }}>
+            <div style={{ fontSize: 36, marginBottom: 10 }}>↩️</div>
+            <div id="undo-payment-title" style={{ fontSize: 15, color: C.text, marginBottom: 5 }}>¿Desmarcar pago?</div>
+            <div style={{ fontSize: 12, color: C.textSoft, marginBottom: 20 }}>{undoPayment.message}</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <GhostBtn onClick={onCloseUndoPayment}>Volver</GhostBtn>
+              <SolidBtn onClick={onConfirmUndoPayment} color="#d44a4a">Desmarcar pago</SolidBtn>
+            </div>
+          </div>
+        </Overlay>
+      )}
       {deleteKey && (
         <Overlay onClose={() => setDeleteKey(null)}>
           <div className="modal-sheet" style={{ ...modalBox, textAlign: "center", maxWidth: 360, width: "calc(100vw - 32px)" }}>
