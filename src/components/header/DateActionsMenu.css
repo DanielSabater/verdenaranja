@@ -40,14 +40,14 @@
   visibility: hidden;
   pointer-events: none;
   /* Ocultar recién cuando termina la última isla; reabrir cancela esta espera. */
-  transition: visibility 0s linear 350ms;
+  transition: visibility 0s linear 540ms;
 }
 .date-more-actions[data-open="true"] .date-more-menu-bridge { visibility: visible; pointer-events: auto; transition-delay: 0ms; }
 .date-more-menu { display: flex; flex-direction: column; gap: 10px; }
 .date-more-option-island {
   opacity: 0;
-  transform: translateY(20px);
-  transition: transform 50ms ease-out, opacity 50ms ease-out;
+  transform: translateY(8px);
+  transition: transform 240ms cubic-bezier(.22,1,.36,1), opacity 220ms ease-in-out;
 }
 /* Cierre inverso: búsqueda, gasto y calendario. */
 .date-more-option-island:nth-child(1) { transition-delay: 0ms; }
