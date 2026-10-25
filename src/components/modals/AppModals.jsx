@@ -311,7 +311,7 @@ export function AppModals({
   useEffect(() => {
     if (modal) {
       const appt = modal.editKey ? appointments[modal.editKey] : null
-      setIsNoteMode(appt?.isNote || false)
+      setIsNoteMode(appt?.isNote || Boolean(modal.isNote))
       setNoteDuration(appt?.manualDur || 30)
       setModalMode("form")
 

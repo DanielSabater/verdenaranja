@@ -724,10 +724,10 @@ select {
   transform: scale(1.005) !important;
 }
 
-/* Conserva el borde y el espacio interior al pasar el puntero. */
+/* Engrosa el borde y compensa su tamaño para conservar la posición del contenido. */
 .appt-card:is(.paid, .unpaid):not(.blocked):not(.note):is(:hover, .force-hover) {
-  border-width: 1.5px !important;
-  padding: 5px 5px 29px !important;
+  border-width: 3px !important;
+  padding: 3.5px 3.5px 27.5px !important;
 }
 
 .appt-card.paid:is(:hover, .force-hover) {
@@ -1530,7 +1530,7 @@ select {
 }
 @media (max-width: 1100px) {
   .appt-card:is(.paid, .unpaid):not(.blocked):not(.note):is(:hover, .force-hover) {
-    padding: 5px 5px 45px !important;
+    padding: 3.5px 3.5px 43.5px !important;
   }
   .appt-card .appointment-card-footer-info {
     bottom: 5px;

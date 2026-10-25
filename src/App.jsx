@@ -1874,6 +1874,7 @@ export default function App() {
                 paidAppts={paidAppts} totalByProf={totalByProf} earningsByProf={earningsByProf} comisionPct={comisionPct} services={services}
                 currentDate={currentDate}
                 onCellClick={(profId, hour) => { setModal({ profId, hour, editKey: null }); setChosenServices([]); setClientName(""); setFilterCat("all"); setApptNotes(""); setApptTip({}) }}
+                onCreateNote={(profId, hour) => { setModal({ profId, hour, editKey: null, isNote: true }); setChosenServices([]); setClientName(""); setFilterCat("all"); setApptNotes(""); setApptTip({}) }}
                 onEdit={(key, appt) => { if (!appt || appt.isBlocked || appt.isUnblockOverride) return; setModal({ profId: appt.profId, hour: appt.hour, editKey: key }); setChosenServices([...(appt.services || [])]); setClientName(appt.client); setFilterCat("all"); setApptNotes(appt.notes || ""); setApptTip({ [key]: appt.tip ? appt.tip.toString() : "" }) }}
                 onPay={(key) => { const a = appointments[key]; if (!a || a.isBlocked || a.isUnblockOverride) return; if (a?.paymentSplits?.length) setPaymentSplits(a.paymentSplits.map(s => ({ ...s }))); else setPaymentSplits([{ methodId: "efectivo", amount: Math.max(0, apptTotal(a) + (a.tip || 0) - (a.discount || 0)) }]); setApptTip({ [key]: a.tip ? a.tip.toString() : "" }); setApptDiscount(a.discount || ""); setPayModal(key) }}
                 onDelete={(key) => {

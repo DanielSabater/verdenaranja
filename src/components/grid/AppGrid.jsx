@@ -532,7 +532,7 @@ export function AppGrid({
   onDragStart, onDragEnd, onDragOver, onDragLeave, onDrop,
   onResizeStart,
   paidAppts, totalByProf, earningsByProf, comisionPct, services,
-  onCellClick, onEdit, onPay, onUndoPay, onDelete,
+  onCellClick, onCreateNote, onEdit, onPay, onUndoPay, onDelete,
   onOpenReschedule,
   CELL_H,
   currentDate,
@@ -2808,6 +2808,14 @@ export function AppGrid({
         >
             {!menuPos.hasAppt ? (
               <>
+                {!menuPos.isScheduleBlocked && onCreateNote && (
+                  <button type="button" onClick={() => { onCreateNote(menuPos.profId, menuPos.hour); setMenuPos(null) }}
+                    style={{ padding: '8px 12px', background: 'transparent', border: 'none', borderRadius: 8, textAlign: 'left', fontSize: 12, cursor: 'pointer', color: C.text, display: 'flex', alignItems: 'center', gap: 8 }}
+                    onMouseEnter={event => event.currentTarget.style.background = '#f4f4f5'}
+                    onMouseLeave={event => event.currentTarget.style.background = 'transparent'}>
+                    <span>📌</span><span>Agregar nota</span>
+                  </button>
+                )}
                 {clipboardAppt && onPasteAppt && (
                   <>
                     <div style={{
