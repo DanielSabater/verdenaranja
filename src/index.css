@@ -1539,22 +1539,47 @@ select {
   }
 }
 
-/* El importe cambia de leyenda solo en la acción principal, sin alterar su ancho. */
-.arrival-pay-control .arrival-control-hover-action,
-.arrival-pay-control .arrival-control-amount {
-  transition: transform 260ms ease-in-out, opacity 180ms ease-in-out;
-  transform-origin: 50% 50% -6.5px;
-  backface-visibility: hidden;
+/* El relleno termina antes de ejecutar la acción; deshacer invierte el recorrido. */
+.arrival-control-fill {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  transform-origin: left;
+  animation: arrival-control-fill 400ms linear both;
 }
-.arrival-pay-control .arrival-control-hover-action { opacity: 0; pointer-events: none; transform: perspective(180px) rotateX(-90deg); }
-.arrival-pay-control .arrival-control-amount { opacity: 1; pointer-events: none; transform: perspective(180px) rotateX(0deg); }
-@media (hover: hover) and (pointer: fine) {
-  .arrival-pay-control button[data-amount-action="true"]:hover .arrival-control-amount { opacity: 0; transform: perspective(180px) rotateX(90deg); }
-  .arrival-pay-control button[data-amount-action="true"]:hover .arrival-control-hover-action { opacity: 1; transform: perspective(180px) rotateX(0deg); }
+.arrival-control-fill[data-direction="backward"] { transform-origin: right; }
+@keyframes arrival-control-fill {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
 }
-.arrival-pay-control button[data-amount-action="true"]:focus-visible .arrival-control-amount { opacity: 0; transform: perspective(180px) rotateX(90deg); }
-.arrival-pay-control button[data-amount-action="true"]:focus-visible .arrival-control-hover-action { opacity: 1; transform: perspective(180px) rotateX(0deg); }
 @media (prefers-reduced-motion: reduce) {
-  .arrival-pay-control .arrival-control-hover-action,
-  .arrival-pay-control .arrival-control-amount { transition: none; }
+  .arrival-control-fill { animation-duration: 1ms; }
+}
+
+/* El giro avanza con el estado del turno y se invierte al retroceder. */
+.arrival-control-rotation {
+  display: grid;
+  perspective: 180px;
+  pointer-events: none;
+}
+.arrival-control-face {
+  grid-area: 1 / 1;
+  white-space: nowrap;
+  backface-visibility: hidden;
+  transform-origin: 50% 50% -6.5px;
+}
+.arrival-control-rotation[data-direction="forward"] { --rotation-in: -90deg; --rotation-out: 90deg; }
+.arrival-control-rotation[data-direction="backward"] { --rotation-in: 90deg; --rotation-out: -90deg; }
+.arrival-control-face-in { animation: arrival-face-in 260ms ease-in-out both; }
+.arrival-control-face-out { animation: arrival-face-out 260ms ease-in-out both; }
+@keyframes arrival-face-in {
+  from { transform: rotateX(var(--rotation-in)); opacity: 0; }
+  to { transform: rotateX(0deg); opacity: 1; }
+}
+@keyframes arrival-face-out {
+  from { transform: rotateX(0deg); opacity: 1; }
+  to { transform: rotateX(var(--rotation-out)); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .arrival-control-face-in, .arrival-control-face-out { animation-duration: 1ms; }
 }

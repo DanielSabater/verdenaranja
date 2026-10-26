@@ -1,4 +1,5 @@
 import { ArrivalPayControl } from "./ArrivalPayControl.jsx"
+import { appointmentCountdown } from '../../utils/appointmentCountdown.js'
 import ProfessionalName from "../ui/ProfessionalName.jsx"
 import { useState, useRef, useEffect, useLayoutEffect } from "react"
 import { C } from "../../constants/colors.js"
@@ -204,8 +205,8 @@ function AppointmentCardDetails({ appt, clientes, compact, isMobile, isResizing,
   return <>
     <AppointmentColorFade paid={appt.paid} arrived={appt.arrived} />
     <div className="appointment-card-name-price" style={{ paddingTop: badgeWidth > 12 ? 18 : 0 }}>
-      <div className="appointment-card-name" title={name}>{name}</div>
-      {appt.tip > 0 && <span className="appointment-card-tip" style={{ color: C.gold }} title={`Propina: ${fmt(appt.tip)}`} aria-label={`Propina: ${fmt(appt.tip)}`}>🎁 {fmt(appt.tip)}</span>}
+      <div className="appointment-card-name">{name}</div>
+      {appt.tip > 0 && <span className="appointment-card-tip" style={{ color: C.gold }} aria-label={`Propina: ${fmt(appt.tip)}`}>🎁 {fmt(appt.tip)}</span>}
     </div>
     <div ref={serviceWindowRef} className="appointment-card-service-price appointment-card-service-window" title=""
       data-overflow={serviceOverflow > 1}
@@ -231,9 +232,9 @@ function AppointmentCardDetails({ appt, clientes, compact, isMobile, isResizing,
           <div key={index}>{service.icon} {service.name}</div>)}
       </div>
     </div>
-    {appt.notes && <div className="appointment-card-note" title={appt.notes}>📝 {appt.notes}</div>}
+    {appt.notes && <div className="appointment-card-note">📝 {appt.notes}</div>}
     <div className="appointment-card-footer-info" style={{ color: isResizing ? C.green : C.textSoft }}>
-      {phone && <span className="appointment-card-phone-tail" title={phone} aria-label={`Últimos cuatro dígitos del teléfono: ${phone.replace(/\D/g, '').slice(-4)}`}>
+      {phone && <span className="appointment-card-phone-tail" aria-label={`Últimos cuatro dígitos del teléfono: ${phone.replace(/\D/g, '').slice(-4)}`}>
         {phone.replace(/\D/g, '').slice(-4)}
       </span>}
       <span className="appointment-card-duration">
@@ -532,7 +533,7 @@ export function AppGrid({
   onDragStart, onDragEnd, onDragOver, onDragLeave, onDrop,
   onResizeStart,
   paidAppts, totalByProf, earningsByProf, comisionPct, services,
-  onCellClick, onCreateNote, onEdit, onPay, onUndoPay, onDelete,
+  onCellClick, onCreateNote, onEdit, onPay, onUndoPay, onDelete, paymentTransition,
   onOpenReschedule,
   CELL_H,
   currentDate,
@@ -1616,6 +1617,7 @@ export function AppGrid({
                       const liveDurMins = liveSlots * 30
 
                       const isToday = currentDate === todayKey()
+                      const countdown = appointmentCountdown(appt, { isToday, isNext: isCurrentTurn })
                       const hasPrevPaidOrArrived = checkHasPrevPaidOrArrived(prof.id, appt.hour, appointments, HOURS)
                       const overdueInfo = getOverdueInfo(appt, isToday, hasPrevPaidOrArrived)
                       const cd = overdueInfo?.cd
@@ -1806,44 +1808,11 @@ export function AppGrid({
                             }}>
                               <span>✓ #{selectedIndex}</span>
                             </div>
-                          ) : cd ? (
-                            <div
-                              title={cd.type === "overdue" ? `Clienta demorada ${formatMinsToHours(overdueInfo?.overdue)}` : `Próximo turno en ${formatMinsToHours(cd.mins)}`}
-                              style={{
-                                position: "absolute",
-                                top: 4,
-                                right: 5,
-                                fontSize: isMobile ? 8 : 8.5,
-                                fontWeight: "700",
-                                padding: "1px 5px",
-                                borderRadius: 5,
-                                background: cd.type === "overdue"
-                                  ? `hsla(${Math.max(0, 26 - (overdueInfo?.ratio || 0) * 26)}, 90%, 50%, 0.14)`
-                                  : "rgba(120, 113, 108, 0.12)",
-                                color: cd.type === "overdue"
-                                  ? `hsl(${Math.max(0, 26 - (overdueInfo?.ratio || 0) * 26)}, 90%, 38%)`
-                                  : "#666",
-                                border: `1px solid ${cd.type === "overdue"
-                                  ? `hsla(${Math.max(0, 26 - (overdueInfo?.ratio || 0) * 26)}, 90%, 50%, 0.35)`
-                                  : "rgba(120, 113, 108, 0.2)"}`,
-                                pointerEvents: "none",
-                                zIndex: 11,
-                                lineHeight: 1.2,
-                                letterSpacing: "0.2px",
-                                display: "flex", alignItems: "center", gap: 2,
-                                boxShadow: cd.type === "overdue" ? `0 1px 4px hsla(${Math.max(0, 26 - (overdueInfo?.ratio || 0) * 26)}, 90%, 50%, 0.2)` : "none"
-                              }}
-                            >
-                              {cd.label}
-                            </div>
                           ) : (
                             <div style={{ position: "absolute", top: 4, right: 5, fontSize: 9, color: "rgba(100,130,100,.4)", pointerEvents: "none", display: appt.tip > 0 ? "none" : undefined }}>⠿</div>
                           )}
 
                           <div className={!appt.isNote && !appt.isBlocked ? `appointment-card-copy${liveSlots <= 1 ? ' compact' : ''}` : undefined}
-                            title={!appt.isNote && !appt.isBlocked ? [appt.client, ...(appt.services || []).map(service => service.name), appt.notes,
-                              appt.paid ? `Abonado · ${PAYMENT_METHODS.find(method => method.id === appt.payMethod)?.label || ''}` : '',
-                              appt.tip > 0 ? `Propina: ${fmt(appt.tip)}` : '', appt.createdAt ? `Tomado a las ${appt.createdAt}` : ''].filter(Boolean).join('\n') : undefined}
                             style={appt.isNote || appt.isBlocked ? { overflow: "hidden", marginTop: 2 } : undefined}>
                              {appt.isNote ? (
                                <div>
@@ -1878,7 +1847,7 @@ export function AppGrid({
                                <>
                                  <AppointmentCardDetails appt={appt} clientes={clientes} compact={liveSlots <= 1} isMobile={isMobile}
                                    isResizing={isResizing} liveHour={liveHour} liveEndHour={liveEndHour}
-                                   badgeWidth={cd || isSelectedForMultiPay ? (isMobile ? 50 : 58) : 12} />
+                                   badgeWidth={isSelectedForMultiPay ? (isMobile ? 50 : 58) : 12} />
                                </>
                              )}
                             {!appt.isBlocked && appt.createdAt && (
@@ -1958,6 +1927,9 @@ export function AppGrid({
                               )}
                               <ArrivalPayControl arrived={appt.arrived} isMobile={isMobile}
                                 amount={appt.isNote ? undefined : fmt(appt.paid ? apptPaidTotal(appt) : apptTotal(appt))}
+                                countdown={countdown}
+                                fillTransition={paymentTransition?.date === currentDate && paymentTransition.keys.includes(k) ? paymentTransition : null}
+                                transitionLocked={Boolean(paymentTransition)}
                                 mode={appt.isNote ? 'note' : appt.paid ? 'paid' : 'appointment'}
                                 color={appt.paid ? (PAYMENT_METHODS.find(method => method.id === appt.payMethod)?.color || '#7a9e7a') : undefined}
                                 onArrive={() => onToggleArrived?.(k)} onPay={() => onPay(k)} onUndoPay={() => onUndoPay?.(k)}

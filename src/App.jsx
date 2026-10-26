@@ -7,6 +7,7 @@ import { toDateKey, todayKey, isWorkDay, nextWorkDay, addMonths, DIAS_ES, MESES_
 import { normalizeStr, formatWaNumber, generateRescheduleMessage, openWhatsAppLink } from "./utils/whatsapp.js"
 import { useIsMobile } from "./hooks/useIsMobile.js"
 import { usePersistentState } from "./hooks/usePersistentState.js"
+import { useFillTransition } from './hooks/useFillTransition.js'
 import { AppHeader } from "./components/header/AppHeader.jsx"
 import { DateNav } from "./components/grid/DateNav.jsx"
 import { AppGrid } from "./components/grid/AppGrid.jsx"
@@ -353,6 +354,7 @@ export default function App() {
   const [payModal, setPayModal] = useState(null)
   const [deleteKey, setDeleteKey] = useState(null)
   const [undoPayment, setUndoPayment] = useState(null)
+  const paymentFill = useFillTransition()
   const [clientName, setClientName] = useState("")
   const [chosenServices, setChosenServices] = useState([])
   const [filterCat, setFilterCat] = useState("all")
@@ -383,7 +385,7 @@ export default function App() {
   activeViewRef.current = activeView
   const isAnyModalOpenRef = useRef(false)
   isAnyModalOpenRef.current = Boolean(
-    modal || payModal || deleteKey || undoPayment || gastoModal || quickGastoModal || arqueoModal || notebookOpen || searchTurnosOpen || historyModalOpen || calendarOpen || rescheduleData
+    modal || payModal || deleteKey || undoPayment || paymentFill.pending || gastoModal || quickGastoModal || arqueoModal || notebookOpen || searchTurnosOpen || historyModalOpen || calendarOpen || rescheduleData
   )
 
   const executeDateJump = useCallback((dayToJump) => {
@@ -1422,7 +1424,14 @@ export default function App() {
     })
   }, [setAppointments])
 
-  const confirmPay = (forceUnpay = false, targetKeys = multiPayKeys, restoreArrival = false) => {
+  const confirmPay = (forceUnpay = false, targetKeys = multiPayKeys, restoreArrival = false, afterFill = false) => {
+    if (!afterFill) {
+      const keys = [...targetKeys]
+      if (!keys.length) return
+      const isReverting = forceUnpay || !paymentSplits.some(split => split.methodId && split.amount !== '' && !isNaN(parseFloat(split.amount)))
+      if (paymentFill.run({ keys, date: currentDate, direction: isReverting ? 'backward' : 'forward' }, () => confirmPay(forceUnpay, keys, restoreArrival, true))) setPayModal(null)
+      return
+    }
     const keys = targetKeys
     const totalToPay = keys.reduce((sum, k) => sum + apptTotal(appointments[k]), 0)
     const tipAmount = Object.values(apptTip || {}).reduce((sum, v) => sum + (parseFloat(v) || 0), 0)
@@ -1515,7 +1524,7 @@ export default function App() {
   const removeSplit = (idx) => setPaymentSplits(p => p.filter((_, i) => i !== idx))
   const updateSplit = (idx, field, value) => setPaymentSplits(p => p.map((r, i) => i === idx ? { ...r, [field]: value } : r))
 
-  const doDelete = () => {
+  const commitDelete = () => {
     const apptToDelete = appointments[deleteKey]
     if (apptToDelete) {
       const profName = (config?.professionals || []).find(p => p.id === apptToDelete.profId)?.name || "Profesional"
@@ -1540,6 +1549,11 @@ export default function App() {
     }
     setAppointments(p => { const n = { ...p }; delete n[deleteKey]; return n })
     setDeleteKey(null)
+  }
+
+  const doDelete = () => {
+    if (!deleteKey) return
+    if (paymentFill.run({ keys: [deleteKey], date: currentDate, direction: 'backward' }, commitDelete)) setDeleteKey(null)
   }
 
   const onToggleTipsRelease = useCallback((profId, shouldRelease) => {
@@ -1891,6 +1905,7 @@ export default function App() {
                 onOpenReschedule={(data) => setRescheduleData(data)}
                 onToggleTipsRelease={onToggleTipsRelease}
                 onToggleArrived={handleToggleArrived}
+                paymentTransition={paymentFill.pending}
                 onUndoPay={(key) => {
                   const appt = appointments[key]
                   if (!appt?.paid) return

@@ -54,185 +54,56 @@ function playPaySound() {
 
 
 
-function ChosenServiceRow({ group, onIncrease, onDecrease, isMobile }) {
+function ChosenServiceRow({ group, onIncrease, onDecrease }) {
   const [isHovered, setIsHovered] = useState(false)
   const s = group.service
   const count = group.count
-  const showControls = isHovered || isMobile
+  const quantityButtonStyle = {
+    width: 35, height: 35, minWidth: 35, minHeight: 35, maxHeight: 35,
+    flexShrink: 0, boxSizing: "border-box", borderRadius: 9,
+    display: "flex", alignItems: "center", justifyContent: "center",
+    cursor: "pointer", padding: 0, font: "bold 16px/1 Georgia,serif",
+    transition: "background .12s ease, border-color .12s ease, color .12s ease",
+  }
 
   return (
-    <div
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      style={{
-        width: "100%",
-        height: 35,
-        minHeight: 35,
-        maxHeight: 35,
-        boxSizing: "border-box",
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        padding: "0 11px",
-        borderRadius: 9,
-        border: `1.5px solid ${C.green}`,
-        outline: "1px dashed rgba(58, 125, 68, 0.35)",
-        outlineOffset: "-3px",
-        background: "rgba(58, 125, 68, 0.04)",
-        transition: "box-shadow .15s ease, background-color .15s ease",
+    <div className="chosen-service-row" onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}
+      style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", height: 35, minHeight: 35 }}>
+      <button type="button" className="qty-btn-minus" title={count > 1 ? "Disminuir cantidad" : "Quitar servicio"}
+        aria-label={`${count > 1 ? 'Disminuir cantidad de' : 'Quitar'} ${s.name}`}
+        onClick={event => { event.stopPropagation(); onDecrease(group) }}
+        style={{ ...quantityButtonStyle, border: `1px solid ${C.border}`, background: C.white, color: "#c62828" }}
+        onMouseEnter={event => { event.currentTarget.style.background = "#ffebee"; event.currentTarget.style.borderColor = "#ef5350" }}
+        onMouseLeave={event => { event.currentTarget.style.background = C.white; event.currentTarget.style.borderColor = C.border }}>
+        −
+      </button>
+      <div className="chosen-service-capsule" style={{
+        flex: 1, minWidth: 0, height: 35, minHeight: 35, maxHeight: 35, boxSizing: "border-box",
+        display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6,
+        padding: "0 11px", borderRadius: 9, border: `1.5px solid ${C.green}`,
+        outline: "1px dashed rgba(58, 125, 68, 0.35)", outlineOffset: "-3px",
+        background: "rgba(58, 125, 68, 0.04)", transition: "box-shadow .15s ease, background-color .15s ease",
         boxShadow: isHovered ? "0 2px 8px rgba(58, 125, 68, 0.12)" : "none",
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, flex: 1, paddingRight: 6 }}>
-        <div
-          style={{
-            width: 17,
-            height: 17,
-            minWidth: 17,
-            minHeight: 17,
-            maxWidth: 17,
-            maxHeight: 17,
-            borderRadius: 5,
-            border: `2px solid ${C.green}`,
-            background: C.green,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-            boxSizing: "border-box",
-          }}
-        >
-          {count > 1 ? (
-            <span style={{ fontSize: 10, color: "#fff", fontWeight: "bold", lineHeight: 1 }}>{count}</span>
-          ) : (
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-          )}
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, overflow: "hidden" }}>
-          <span style={{ fontSize: 11, color: C.text, fontWeight: "bold", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "inline-flex", alignItems: "center", gap: 4 }}>
-            <span style={{ fontSize: 12, lineHeight: 1, flexShrink: 0, display: "inline-flex", alignItems: "center" }}>{s.icon}</span>
-            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</span>
-          </span>
-          <span style={{ fontSize: 9, color: C.textSoft, whiteSpace: "nowrap", flexShrink: 0 }}>
-            {group.totalDuration} min
-          </span>
-          {count > 1 && (
-            <span style={{
-              fontSize: 9,
-              color: C.green,
-              fontWeight: "bold",
-              background: C.greenPale,
-              padding: "1px 6px",
-              borderRadius: 6,
-              border: `1px solid ${C.greenMint}`,
-              whiteSpace: "nowrap",
-              flexShrink: 0,
-              lineHeight: 1.2,
-            }}>
-              x{count}
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, flex: 1 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, overflow: "hidden" }}>
+            <span style={{ fontSize: 11, color: C.text, fontWeight: "bold", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "inline-flex", alignItems: "center", gap: 4 }}>
+              <span style={{ fontSize: 12, lineHeight: 1, flexShrink: 0 }}>{s.icon}</span>
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</span>
             </span>
-          )}
-        </div>
-      </div>
-
-      <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0, height: "100%" }}>
-        {showControls && (
-          <div style={{ display: "flex", alignItems: "center", gap: 3, height: 20, flexShrink: 0, animation: "fadeIn .15s ease" }}>
-            <button
-              type="button"
-              className="qty-btn-minus"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDecrease(group);
-              }}
-              style={{
-                width: 20,
-                height: 20,
-                minWidth: 20,
-                minHeight: 20,
-                maxHeight: 20,
-                borderRadius: 5,
-                border: `1px solid ${C.border}`,
-                background: C.white,
-                color: "#c62828",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "pointer",
-                fontSize: 12,
-                fontWeight: "bold",
-                padding: 0,
-                lineHeight: 1,
-                boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-                transition: "background .12s ease, border-color .12s ease",
-                flexShrink: 0,
-                boxSizing: "border-box",
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.background = "#ffebee";
-                e.currentTarget.style.borderColor = "#ef5350";
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.background = C.white;
-                e.currentTarget.style.borderColor = C.border;
-              }}
-              title={count > 1 ? "Disminuir cantidad" : "Quitar servicio"}
-            >
-              –
-            </button>
-            <span style={{ fontSize: 11, fontWeight: "bold", color: C.text, minWidth: 14, textAlign: "center", lineHeight: 1 }}>
-              {count}
-            </span>
-            <button
-              type="button"
-              className="qty-btn-plus"
-              onClick={(e) => {
-                e.stopPropagation();
-                onIncrease(group.service);
-              }}
-              style={{
-                width: 20,
-                height: 20,
-                minWidth: 20,
-                minHeight: 20,
-                maxHeight: 20,
-                borderRadius: 5,
-                border: `1px solid ${C.green}`,
-                background: C.greenPale,
-                color: C.green,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "pointer",
-                fontSize: 12,
-                fontWeight: "bold",
-                padding: 0,
-                lineHeight: 1,
-                boxShadow: "0 1px 3px rgba(58,125,68,0.12)",
-                transition: "background .12s ease, color .12s ease",
-                flexShrink: 0,
-                boxSizing: "border-box",
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.background = C.green;
-                e.currentTarget.style.color = "#fff";
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.background = C.greenPale;
-                e.currentTarget.style.color = C.green;
-              }}
-              title="Aumentar cantidad"
-            >
-              +
-            </button>
+            <span style={{ fontSize: 9, color: C.textSoft, whiteSpace: "nowrap", flexShrink: 0 }}>{group.totalDuration} min</span>
+            {count > 1 && <span style={{ fontSize: 9, color: C.green, fontWeight: "bold", background: C.greenPale, padding: "1px 6px", borderRadius: 6, border: `1px solid ${C.greenMint}`, whiteSpace: "nowrap", flexShrink: 0, lineHeight: 1.2 }}>x{count}</span>}
           </div>
-        )}
-        <span style={{ fontSize: 11, color: C.orange, fontWeight: "bold", whiteSpace: "nowrap", lineHeight: 1 }}>
-          {fmt(group.totalPrice)}
-        </span>
+        </div>
+        <span style={{ fontSize: 11, color: C.orange, fontWeight: "bold", whiteSpace: "nowrap", lineHeight: 1, flexShrink: 0 }}>{fmt(group.totalPrice)}</span>
       </div>
+      <button type="button" className="qty-btn-plus" title="Aumentar cantidad" aria-label={`Aumentar cantidad de ${s.name}`}
+        onClick={event => { event.stopPropagation(); onIncrease(s) }}
+        style={{ ...quantityButtonStyle, border: `1px solid ${C.green}`, background: C.greenPale, color: C.green }}
+        onMouseEnter={event => { event.currentTarget.style.background = C.green; event.currentTarget.style.color = "#fff" }}
+        onMouseLeave={event => { event.currentTarget.style.background = C.greenPale; event.currentTarget.style.color = C.green }}>
+        +
+      </button>
     </div>
   )
 }
