@@ -10,9 +10,15 @@ export function appointmentCountdown(appt, { isToday, isNext, now = new Date() }
   const minutes = Math.abs(difference)
   const hours = Math.floor(minutes / 60)
   const rest = minutes % 60
-  const duration = hours ? `${hours}h${rest ? `${rest}m` : ''}` : `${minutes}m`
+  const duration = `${hours}:${String(rest).padStart(2, '0')}`
   return {
     label: difference > 0 ? `⏳ ${duration}` : difference < 0 ? `⏰ +${duration}` : '⏰ Ahora',
     description: difference > 0 ? `Faltan ${minutes} minutos para el turno` : difference < 0 ? `Pasaron ${minutes} minutos desde la hora del turno` : 'Es la hora del turno',
   }
+}
+// El siguiente reloj saltea los turnos que ya llegaron, aunque sigan sin pagar.
+export function nextAwaitingAppointment(appointments, profId) {
+  return Object.values(appointments).filter(appt => appt && appt.profId === profId
+    && !appt.paid && !appt.arrived && !appt.isNote && !appt.isBlocked && !appt.isUnblockOverride)
+    .sort((a, b) => (a.hour || '').localeCompare(b.hour || ''))[0] || null
 }

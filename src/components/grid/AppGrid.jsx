@@ -1,5 +1,5 @@
 import { ArrivalPayControl } from "./ArrivalPayControl.jsx"
-import { appointmentCountdown } from '../../utils/appointmentCountdown.js'
+import { appointmentCountdown, nextAwaitingAppointment } from '../../utils/appointmentCountdown.js'
 import ProfessionalName from "../ui/ProfessionalName.jsx"
 import { useState, useRef, useEffect, useLayoutEffect } from "react"
 import { C } from "../../constants/colors.js"
@@ -1154,6 +1154,11 @@ export function AppGrid({
     return keys
   })()
 
+  const nextArrivalKeys = new Set(orderedProfessionals.flatMap(prof => {
+    const next = nextAwaitingAppointment(appointments, prof.id)
+    return next ? [cellKey(prof.id, next.hour)] : []
+  }))
+
   const getProfSummary = (profId) => {
     const prof = professionals.find(p => p.id === profId)
     const effComisionPct = (prof?.comisionPct !== undefined && prof?.comisionPct !== null && prof?.comisionPct !== "")
@@ -1614,7 +1619,7 @@ export function AppGrid({
                       const liveDurMins = liveSlots * 30
 
                       const isToday = currentDate === todayKey()
-                      const countdown = appointmentCountdown(appt, { isToday, isNext: isCurrentTurn })
+                      const countdown = appointmentCountdown(appt, { isToday, isNext: nextArrivalKeys.has(k) })
                       const hasPrevPaidOrArrived = checkHasPrevPaidOrArrived(prof.id, appt.hour, appointments, HOURS)
                       const overdueInfo = getOverdueInfo(appt, isToday, hasPrevPaidOrArrived)
                       const cd = overdueInfo?.cd

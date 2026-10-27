@@ -719,15 +719,22 @@ select {
   -ms-overflow-style: none !important;
 }
 
-.appt-card:hover,
-.appt-card.force-hover {
-  transform: scale(1.005) !important;
+/* El refuerzo exterior no modifica el borde ni el espacio del contenido. */
+.appt-card:is(.paid, .unpaid):not(.blocked):not(.note):is(:hover, .force-hover) {
+  outline: 1.5px solid var(--appointment-hover-border, #e8793a);
+  outline-offset: 0;
 }
 
-/* Engrosa el borde y compensa su tamaño para conservar la posición del contenido. */
-.appt-card:is(.paid, .unpaid):not(.blocked):not(.note):is(:hover, .force-hover) {
-  border-width: 3px !important;
-  padding: 3.5px 3.5px 27.5px !important;
+.appt-card.paid:is(:hover, .force-hover) {
+  --appointment-hover-border: #3a7d44;
+}
+
+.appt-card.current:not(.blocked):is(:hover, .force-hover) {
+  --appointment-hover-border: #4a90e2;
+}
+
+.appt-card.overdue-alert-card:is(:hover, .force-hover) {
+  --appointment-hover-border: #dc2626;
 }
 
 .appt-card.paid:is(:hover, .force-hover) {
@@ -1163,7 +1170,6 @@ select {
 .appt-card.overdue-alert-card:hover,
 .appt-card.overdue-alert-card.force-hover {
   box-shadow: 0 0 0 2px #dc2626, 0 4px 20px rgba(220, 38, 38, .35), 0 0 24px rgba(220, 38, 38, .20) !important;
-  transform: scale(1.005) !important;
 }
 
 @media (min-width: 1025px) {
@@ -1540,9 +1546,6 @@ select {
   text-overflow: ellipsis;
 }
 @media (max-width: 1100px) {
-  .appt-card:is(.paid, .unpaid):not(.blocked):not(.note):is(:hover, .force-hover) {
-    padding: 3.5px 3.5px 43.5px !important;
-  }
   .appt-card .appointment-card-footer-info {
     bottom: 5px;
     height: 40px;
