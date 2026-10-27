@@ -1476,13 +1476,25 @@ select {
   gap: 4px;
 }
 .appt-card .appointment-card-name-price .appointment-card-name { flex: 1; }
-.appt-card .appointment-card-tip { flex-shrink: 0; font: 8px/17px Georgia, serif; white-space: nowrap; }
+.appt-card .appointment-card-tip { flex-shrink: 0; font: 9px/11px Georgia, serif; white-space: nowrap; }
 .appt-card .appointment-card-name {
   min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
   font: bold 14px/17px Georgia, serif;
   white-space: normal;
   overflow-wrap: anywhere;
 }
+.appt-card .appointment-card-client-name { flex: 1; min-width: 0; }
+.appt-card .appointment-card-phone {
+  flex-shrink: 0;
+  margin-left: auto;
+  font: normal 12px/17px Georgia, serif;
+  color: #5a7060;
+  white-space: nowrap;
+}
+.appt-card:has(.appointment-card-phone) .appointment-card-drag-hint { display: none; }
 
 .appt-card .appointment-card-service-price { margin-top: 10px; }
 .appt-card .compact .appointment-card-service-price { margin-top: 4px; }
@@ -1507,7 +1519,7 @@ select {
   }
 }
 .appt-card .appointment-card-note { font: italic 9px/12px Georgia, serif; color: #747562; margin-top: 2px; overflow-wrap: anywhere; }
-/* Teléfono abreviado y duración comparten la altura de los controles inferiores. */
+/* La duración conserva su posición junto a los controles inferiores. */
 .appt-card .appointment-card-footer-info {
   position: absolute;
   bottom: 5px;
@@ -1522,7 +1534,6 @@ select {
   white-space: nowrap;
   overflow: hidden;
 }
-.appt-card .appointment-card-phone-tail,
 .appt-card .appointment-card-duration {
   display: block;
   overflow: hidden;

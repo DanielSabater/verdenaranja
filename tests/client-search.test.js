@@ -38,3 +38,18 @@ test('La búsqueda no modifica nombres, teléfonos ni notas', () => {
   clientSearchRank(client, 'ari')
   assert.equal(JSON.stringify(client), original)
 })
+
+test('un número completo encuentra fragmentos del nombre en cualquier posición', () => {
+  const clients = [{ name: 'Ana 4321' }, { name: 'Beto 1165' }, { name: 'Ceci 2178' }, { name: 'Dora 9999' }]
+  assert.deepEqual(order(clients, '1165432178').map(client => client.name), ['Ana 4321', 'Beto 1165', 'Ceci 2178'])
+})
+
+test('ignora separadores del teléfono y prioriza su coincidencia completa', () => {
+  const clients = [{ name: 'Ana 4321' }, { name: 'Zoe', phone: '(11) 6543-2178' }]
+  assert.deepEqual(order(clients, '1165432178').map(client => client.name), ['Zoe', 'Ana 4321'])
+  assert.ok(Number.isFinite(clientSearchRank({ name: 'Zoe (11) 6543-2178' }, '654321')))
+})
+
+test('un número de horario corto no basta para asociarlo a un teléfono completo', () => {
+  assert.equal(clientSearchRank({ name: 'Ana 15:00', phone: '' }, '1165432178'), Infinity)
+})

@@ -201,12 +201,11 @@ function AppointmentCardDetails({ appt, clientes, compact, isMobile, isResizing,
     if (nameElement) observer.observe(nameElement)
     measure()
     return () => observer.disconnect()
-  }, [serviceLabel, name, badgeWidth])
+  }, [serviceLabel, name, phone, badgeWidth])
   return <>
     <AppointmentColorFade paid={appt.paid} arrived={appt.arrived} />
     <div className="appointment-card-name-price" style={{ paddingTop: badgeWidth > 12 ? 18 : 0 }}>
-      <div className="appointment-card-name">{name}</div>
-      {appt.tip > 0 && <span className="appointment-card-tip" style={{ color: C.gold }} aria-label={`Propina: ${fmt(appt.tip)}`}>🎁 {fmt(appt.tip)}</span>}
+      <div className="appointment-card-name"><span className="appointment-card-client-name">{name}</span>{phone && <span className="appointment-card-phone" aria-label={`Teléfono: ${phone}`}>{phone}</span>}</div>
     </div>
     <div ref={serviceWindowRef} className="appointment-card-service-price appointment-card-service-window" title=""
       data-overflow={serviceOverflow > 1}
@@ -234,9 +233,7 @@ function AppointmentCardDetails({ appt, clientes, compact, isMobile, isResizing,
     </div>
     {appt.notes && <div className="appointment-card-note">📝 {appt.notes}</div>}
     <div className="appointment-card-footer-info" style={{ color: isResizing ? C.green : C.textSoft }}>
-      {phone && <span className="appointment-card-phone-tail" aria-label={`Últimos cuatro dígitos del teléfono: ${phone.replace(/\D/g, '').slice(-4)}`}>
-        {phone.replace(/\D/g, '').slice(-4)}
-      </span>}
+      {appt.tip > 0 && <span className="appointment-card-tip" style={{ color: C.gold }} aria-label={`Propina: ${fmt(appt.tip)}`}>🎁 {fmt(appt.tip)}</span>}
       <span className="appointment-card-duration">
         {isResizing ? `${liveHour} – ${liveEndHour}` : `${apptDur(appt)} min`}
       </span>
@@ -1809,7 +1806,7 @@ export function AppGrid({
                               <span>✓ #{selectedIndex}</span>
                             </div>
                           ) : (
-                            <div style={{ position: "absolute", top: 4, right: 5, fontSize: 9, color: "rgba(100,130,100,.4)", pointerEvents: "none", display: appt.tip > 0 ? "none" : undefined }}>⠿</div>
+                            <div className="appointment-card-drag-hint" style={{ position: "absolute", top: 4, right: 5, fontSize: 9, color: "rgba(100,130,100,.4)", pointerEvents: "none", display: appt.tip > 0 ? "none" : undefined }}>⠿</div>
                           )}
 
                           <div className={!appt.isNote && !appt.isBlocked ? `appointment-card-copy${liveSlots <= 1 ? ' compact' : ''}` : undefined}

@@ -7,7 +7,7 @@ import { getApptClientPhone, formatWaNumber, generateReminderMessage, openWhatsA
 import { fmtDate, todayKey } from "../../utils/dates.js"
 import { useIsMobile } from "../../hooks/useIsMobile.js"
 import { orderAppointmentServices } from "../../utils/appointmentServiceOrder.js"
-import { appointmentClientSuggestions } from "../../utils/appointmentClientSuggestions.js"
+import { appointmentClientSuggestions, suggestedClientValue, savedClientForValue, addClientDraft } from "../../utils/appointmentClientSuggestions.js"
 import { RescheduleContent } from "./RescheduleModal.jsx"
 
 function WhatsAppIcon({ size = 15, color = "currentColor", style = {} }) {
@@ -169,14 +169,14 @@ export function AppModals({
 
 
   // Una sola entrada visible; conservar el teléfono estructurado para WhatsApp.
+  const safeClientes = clientes || []
+  const savedClient = savedClientForValue(clientName, safeClientes)
   const embeddedPhone = extractClientPhone(clientName)
-  const matchedPhone = !/\d/.test(clientName || "")
-    ? (clientes || []).find(c => c && normalizeStr(cleanClientName(c.name)) === normalizeStr(cleanClientName(clientName)))?.phone
-    : ""
+  const matchedPhone = savedClient?.phone || ''
   const originalAppt = modal?.editKey ? appointments[modal.editKey] : null
   const originalPhone = originalAppt?.clientPhone || originalAppt?.phone || ""
   const preservedPhone = originalPhone && clientName === ensurePhoneInName(originalAppt.client, originalPhone) ? originalPhone : ""
-  const clientPhone = embeddedPhone || matchedPhone || preservedPhone || ""
+  const clientPhone = matchedPhone || embeddedPhone || preservedPhone || ""
   const isMobile = useIsMobile(820)
 
   useEffect(() => {
@@ -209,8 +209,6 @@ export function AppModals({
       }
     }
   }, [modal, appointments])
-
-  const safeClientes = clientes || []
 
   // Sugerencias para el nombre de la clienta (desde la primera letra o número)
   const suggestions = useMemo(() => appointmentClientSuggestions(clientName, safeClientes), [clientName, safeClientes])
@@ -288,13 +286,12 @@ export function AppModals({
     }
   }, [clientName, clientPhone, safeClientes, allData, services])
 
-  const isNewCliente = !clientAnalysis.isRecognized && clientName.trim().length >= 1
+  const isNewCliente = !savedClient && clientName.trim().length >= 1
 
   const saveNewCliente = () => {
     if (!clientName.trim()) return
     const trimmedPhone = clientPhone.trim()
-    const finalName = ensurePhoneInName(clientName, trimmedPhone)
-    setClientes(p => [...(p || []), { id: Date.now(), name: finalName, phone: trimmedPhone, notes: "" }])
+    setClientes(previous => addClientDraft(previous, clientName.trim(), trimmedPhone, Date.now()))
   }
 
   const handleSave = (phoneOverride) => {
@@ -325,23 +322,7 @@ export function AppModals({
       manualSlots: undefined,
     })
 
-    if (finalClientName && setClientes) {
-      setClientes(prev => {
-        const list = Array.isArray(prev) ? [...prev] : []
-        const norm = normalizeStr(cleanClientName(finalClientName))
-        const idx = list.findIndex(c => c && normalizeStr(cleanClientName(c.name)) === norm)
-        if (idx >= 0) {
-          list[idx] = {
-            ...list[idx],
-            name: ensurePhoneInName(list[idx].name, trimmedPhone),
-            phone: trimmedPhone || list[idx].phone
-          }
-        } else {
-          list.push({ id: Date.now(), name: finalClientName, phone: trimmedPhone, notes: "" })
-        }
-        return list
-      })
-    }
+    // La ficha sólo se guarda desde el botón explícito «Guardar cliente».
   }
 
   const handleToggleService = (s) => {
@@ -597,13 +578,17 @@ export function AppModals({
                           <label style={{ fontSize: 8, letterSpacing: "2.5px", color: "#a88526", textTransform: "uppercase", fontWeight: "bold" }}>
                             Nombre de la clienta
                           </label>
-                          {clientAnalysis.isRecognized ? (
+                          <div role="status" aria-live="polite" style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6, flexWrap: 'wrap' }}>
+                          {clientAnalysis.isRecognized && (
                             <span style={{
                               background: "linear-gradient(135deg, #fef3c7, #fde68a)",
                               border: "1px solid #d4af37",
                               color: "#854d0e",
                               fontSize: 9,
                               fontWeight: "bold",
+                              lineHeight: '14px',
+                              height: 18,
+                              boxSizing: 'border-box',
                               padding: "1px 7px",
                               borderRadius: 12,
                               display: "inline-flex",
@@ -612,14 +597,21 @@ export function AppModals({
                             }}>
                               👑 Reconocida
                             </span>
-                          ) : isNewCliente ? (
+                          )}
+                          {isNewCliente && (
                               <button
                                 onClick={saveNewCliente}
                                 type="button"
                                 style={{
-                                  padding: "4px 9px",
-                                  borderRadius: 8,
-                                  border: "none",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  height: 18,
+                                  boxSizing: "border-box",
+                                  lineHeight: "14px",
+                                  padding: "1px 7px",
+                                  borderRadius: 12,
+                                  border: `1px solid ${C.green}`,
                                   background: `linear-gradient(135deg,${C.green},${C.greenLight})`,
                                   color: "#fff",
                                   fontSize: 9,
@@ -627,12 +619,19 @@ export function AppModals({
                                   fontFamily: "Georgia,serif",
                                   fontWeight: "bold",
                                   whiteSpace: "nowrap",
-                                  marginLeft: 6,
                                 }}
                               >
                                 💾 Guardar cliente
                               </button>
-                          ) : null}
+                          )}
+                          {clientName.trim() && <span data-client-saved={Boolean(savedClient)} style={{
+                            display: 'inline-flex', alignItems: 'center', padding: '1px 7px', borderRadius: 12,
+                            fontSize: 9, fontWeight: 'bold', lineHeight: '14px', height: 18, boxSizing: 'border-box',
+                            color: savedClient ? C.green : C.textSoft,
+                            background: savedClient ? C.greenPale : C.cream,
+                            border: `1px solid ${C.border}`, whiteSpace: 'nowrap',
+                          }}>{savedClient ? '✓ Ficha guardada' : 'Datos sin guardar'}</span>}
+                          </div>
                         </div>
 
                         <div style={{ position: "relative" }}>
@@ -719,7 +718,7 @@ export function AppModals({
                               {suggestions.map(cl => {
                                 const clean = cleanClientName(cl.name)
                                 const ph = cl.phone || extractPhoneFromString(cl.name)
-                                const nameWithPhone = ensurePhoneInName(cl.name, ph)
+                                const nameWithPhone = suggestedClientValue(clientName, cl)
                                 return (
                                   <div
                                     key={cl.id}
