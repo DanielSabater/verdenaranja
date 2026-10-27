@@ -1594,3 +1594,14 @@ select {
 @media (prefers-reduced-motion: reduce) {
   .arrival-control-face-in, .arrival-control-face-out { animation-duration: 1ms; }
 }
+
+/* Movimientos rápidos centrados, con historial independiente del formulario. */
+.quick-movement-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.quick-movement-history { min-width: 0; padding: 14px; border: 1px dashed #cde0d0; border-radius: 12px; background: #fafbf8; }
+@keyframes quickMovementFade { from { opacity: 0; } to { opacity: 1; } }
+@media (max-width: 600px) {
+  .quick-movement-columns { grid-template-columns: 1fr; gap: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .quick-movement-dialog { animation: none !important; }
+}

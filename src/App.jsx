@@ -2,8 +2,8 @@ import { useMobileNavigation } from "./hooks/useMobileBack.js"
 import { useState, useRef, useCallback, useMemo, useEffect } from "react"
 import { C } from "./constants/colors.js"
 import { PAYMENT_METHODS, HOURS, APP_VERSION, getModalOverlayStyle } from "./constants/data.js"
-import { cellKey, apptTotal, apptDur, apptPaidTotal, apptComisionableTotal, apptComisionTotal, createCommissionSnapshot, getApptSlots, isHourScheduleBlocked } from "./utils/appointments.js"
-import { toDateKey, todayKey, isWorkDay, nextWorkDay, addMonths, DIAS_ES, MESES_ES } from "./utils/dates.js"
+import { fmt, cellKey, apptTotal, apptDur, apptPaidTotal, apptComisionableTotal, apptComisionTotal, createCommissionSnapshot, getApptSlots, isHourScheduleBlocked } from "./utils/appointments.js"
+import { toDateKey, todayKey, isWorkDay, nextWorkDay, addMonths, DIAS_ES, MESES_ES, fmtDate } from "./utils/dates.js"
 import { normalizeStr, formatWaNumber, generateRescheduleMessage, openWhatsAppLink } from "./utils/whatsapp.js"
 import { useIsMobile } from "./hooks/useIsMobile.js"
 import { usePersistentState } from "./hooks/usePersistentState.js"
@@ -1964,10 +1964,13 @@ export default function App() {
         {quickGastoModal && (() => {
           const isIngreso = quickGastoForm.tipo === "ingreso"
           const accentColor = isIngreso ? C.green : C.orange
+          const dayMovements = (gastos || []).filter(item => item.fecha === currentDate)
+          const dayExpenses = dayMovements.filter(item => item.tipo !== 'ingreso' && Number(item.monto) >= 0)
+          const dayExpenseTotal = dayExpenses.reduce((total, item) => total + Number(item.monto || 0), 0)
           return (
             <>
               <div
-                className="desktop-bottom-toolbar-backdrop"
+                className="quick-movement-backdrop"
                 onClick={() => setQuickGastoModal(false)} 
                 style={{ 
                   position: "fixed", 
@@ -1978,15 +1981,19 @@ export default function App() {
                   WebkitBackdropFilter: "var(--modal-overlay-blur, blur(5px))"
                 }} 
               />
-              <div 
-                onClick={e => e.stopPropagation()} 
-                style={{ 
-                  position: "fixed", 
-                  bottom: 76, 
-                  right: 16, 
-                  width: 330, 
-                  maxWidth: "92vw", 
-                  maxHeight: "85vh", 
+              <div
+                className="quick-movement-dialog"
+                role="dialog" aria-modal="true" aria-labelledby="quick-movement-title"
+                onKeyDown={e => { if (e.key === 'Escape') setQuickGastoModal(false) }}
+                onClick={e => e.stopPropagation()}
+                style={{
+                  position: "fixed",
+                  top: "50%",
+                  left: "50%",
+                  transform: "translate(-50%, -50%)",
+                  width: 680,
+                  maxWidth: "calc(100vw - 32px)",
+                  maxHeight: "calc(100dvh - 32px)",
                   overflowY: "auto", 
                   zIndex: 300, 
                   background: "rgba(255, 255, 255, 0.95)", 
@@ -1999,17 +2006,22 @@ export default function App() {
                   display: "flex", 
                   flexDirection: "column", 
                   gap: 12,
-                  animation: "slideUp .2s cubic-bezier(0.16, 1, 0.3, 1)"
+                  animation: "quickMovementFade .2s ease-out"
                 }}
               >
                 {/* Close & Header */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div style={{ fontSize: 13, color: C.text, fontWeight: "bold", display: "flex", alignItems: "center", gap: 6 }}>
+                  <div id="quick-movement-title" style={{ fontSize: 16, color: C.text, fontWeight: "bold", display: "flex", alignItems: "center", gap: 6 }}>
                     <span>{isIngreso ? "💰" : "💸"}</span> {isIngreso ? "Entrada Rápida" : "Salida Rápida"}
                   </div>
-                  <button onClick={() => setQuickGastoModal(false)} style={{ background:"transparent", border:"none", cursor:"pointer", color:C.textSoft, fontSize:20, lineHeight: 1 }}>&times;</button>
+                  <button aria-label="Cerrar movimientos rápidos" onClick={() => setQuickGastoModal(false)} style={{ background:"transparent", border:"none", cursor:"pointer", color:C.textSoft, fontSize:20, lineHeight: 1 }}>&times;</button>
                 </div>
 
+                <div style={{ color: C.textSoft, fontSize: 12 }}>
+                  {fmtDate(currentDate)} · Los movimientos se registran en esta fecha de la agenda.
+                </div>
+                <div className="quick-movement-columns">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
                 {/* Tabs */}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, background: "#f3f3f3", borderRadius: 10, padding: 3 }}>
                   <button 
@@ -2087,6 +2099,27 @@ export default function App() {
                 <SolidBtn onClick={handleQuickGastoSave} disabled={!quickGastoForm.monto} color={accentColor} style={{ marginTop: 4 }}>
                   {isIngreso ? "✅ Guardar Entrada" : "✅ Guardar Salida"}
                 </SolidBtn>
+                </div>
+                <section className="quick-movement-history" aria-label="Movimientos del día">
+                  <div style={{ fontSize: 11, letterSpacing: 1.5, color: C.green, fontWeight: 'bold' }}>MOVIMIENTOS DEL DÍA</div>
+                  <div style={{ margin: '10px 0 14px', color: C.textSoft, fontSize: 12 }}>
+                    {dayExpenses.length} salidas · <strong style={{ color: C.orange }}>{fmt(dayExpenseTotal)}</strong>
+                  </div>
+                  <div style={{ maxHeight: 270, overflowY: 'auto' }}>
+                    {dayMovements.length === 0 ? <p style={{ color: C.textSoft, fontSize: 12, lineHeight: 1.6 }}>Todavía no hay movimientos registrados para este día.</p> : [...dayMovements].reverse().map(item => {
+                      const incoming = item.tipo === 'ingreso' || Number(item.monto) < 0
+                      const method = PAYMENT_METHODS.find(method => method.id === item.metodoPago)
+                      return <div key={item.id} style={{ padding: '10px 0', borderBottom: `1px dotted ${C.border}` }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12 }}>
+                          <span style={{ overflowWrap: 'anywhere' }}>{item.descripcion || (incoming ? 'Entrada' : 'Salida')}</span>
+                          <strong style={{ color: incoming ? C.green : C.orange, whiteSpace: 'nowrap' }}>{incoming ? '+' : '−'}{fmt(Math.abs(Number(item.monto) || 0))}</strong>
+                        </div>
+                        <div style={{ color: C.textSoft, fontSize: 10, marginTop: 4 }}>{incoming ? 'Entrada' : 'Salida'} · {method?.label || 'Sin medio de pago indicado'}</div>
+                      </div>
+                    })}
+                  </div>
+                </section>
+                </div>
               </div>
             </>
           )
