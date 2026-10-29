@@ -12,14 +12,14 @@ test('el recorrido de reloj, llegada, monto y cobro avanza siempre en orden', ()
     arrivalControlDisplay({ ...base, countdown: null, arrived: true, mode: 'paid' }),
   ]
   assert.deepEqual(faces.map(face => face.step), [0, 1, 2, 3, 4])
-  assert.deepEqual(faces.map(face => face.text), ['⏳ 15m', '¿Llegó?', '$30.000', 'Cobrar', 'Pago'])
+  assert.deepEqual(faces.map(face => face.text), ['⏳ 15m', '¿Llegó?', '$30.000', 'Cobrar', '$30.000'])
 })
-test('pagado muestra Pago y revela el importe al apoyar el puntero o enfocar', () => {
+test('pagado muestra el importe y revela Pago al apoyar el puntero o enfocar', () => {
   const base = { mode: 'paid', amount: '$38.000' }
-  assert.equal(arrivalControlDisplay(base).text, 'Pago')
-  assert.equal(arrivalControlDisplay(base).isAction, true)
-  assert.equal(arrivalControlDisplay({ ...base, active: true }).text, '$38.000')
-  assert.equal(arrivalControlDisplay({ ...base, active: true }).isAction, false)
+  assert.equal(arrivalControlDisplay(base).text, '$38.000')
+  assert.equal(arrivalControlDisplay(base).isAction, false)
+  assert.equal(arrivalControlDisplay({ ...base, active: true }).text, 'Pago')
+  assert.equal(arrivalControlDisplay({ ...base, active: true }).isAction, true)
 })
 test('desmarcar pago y llegada retrocede y salir del botón vuelve a la cara anterior', () => {
   const base = { mode: 'appointment', amount: '$30.000' }
