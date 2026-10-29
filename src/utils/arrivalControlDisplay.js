@@ -4,7 +4,7 @@ export function arrivalControlDisplay({ mode, arrived, amount, countdown, active
   const showAction = active && !showAmountAfterArrival
   return {
     step: stage + (showAction ? 1 : 0),
-    text: showAction ? (mode === 'paid' ? 'Pago' : arrived ? 'Cobrar' : '¿Llegó?') : countdown?.label || amount,
-    isAction: showAction,
+    text: mode === 'paid' ? (active ? amount : 'Pago') : showAction ? (arrived ? 'Cobrar' : '¿Llegó?') : countdown?.label || amount,
+    isAction: mode === 'paid' ? !active : showAction,
   }
 }

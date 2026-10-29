@@ -169,6 +169,8 @@ function AppointmentColorFade({ paid, arrived }) {
 function AppointmentCardDetails({ appt, clientes, compact, isMobile, isResizing, liveHour, liveEndHour, badgeWidth }) {
   const { phone, cleanName } = getApptClientPhone(appt, clientes)
   const name = cleanName || cleanClientName(appt.client) || appt.client
+  const paymentIds = [...new Set((appt.paymentSplits || []).filter(part => Number(part.amount) > 0).map(part => part.methodId))]
+  const paymentLabel = appt.paid ? (paymentIds.length > 1 ? 'Mixto' : PAYMENT_METHODS.find(method => method.id === (paymentIds[0] || appt.payMethod))?.label || '') : ''
   const serviceLabel = (appt.services || []).map(service => `${service.icon || ''} ${service.name}`).join(' · ')
   const serviceWindowRef = useRef(null)
   const serviceListRef = useRef(null)
@@ -201,7 +203,7 @@ function AppointmentCardDetails({ appt, clientes, compact, isMobile, isResizing,
     if (nameElement) observer.observe(nameElement)
     measure()
     return () => observer.disconnect()
-  }, [serviceLabel, name, phone, badgeWidth])
+  }, [serviceLabel, name, phone, badgeWidth, appt.tip, appt.paid])
   return <>
     <AppointmentColorFade paid={appt.paid} arrived={appt.arrived} />
     <div className="appointment-card-name-price" style={{ paddingTop: badgeWidth > 12 ? 18 : 0 }}>
@@ -233,10 +235,10 @@ function AppointmentCardDetails({ appt, clientes, compact, isMobile, isResizing,
     </div>
     {appt.notes && <div className="appointment-card-note">📝 {appt.notes}</div>}
     <div className="appointment-card-footer-info" style={{ color: isResizing ? C.green : C.textSoft }}>
-      {appt.tip > 0 && <span className="appointment-card-tip" style={{ color: C.gold }} aria-label={`Propina: ${fmt(appt.tip)}`}>🎁 {fmt(appt.tip)}</span>}
-      <span className="appointment-card-duration">
+      {appt.tip > 0 && !isResizing ? <span className="appointment-card-tip" style={{ color: C.gold }} aria-label={`Propina: ${fmt(appt.tip)}`}>🎁 {fmt(appt.tip)}</span> : <span className="appointment-card-duration">
         {isResizing ? `${liveHour} – ${liveEndHour}` : `${apptDur(appt)} min`}
-      </span>
+      </span>}
+      {paymentLabel && <span className="appointment-card-duration" title={paymentLabel}>{paymentLabel}</span>}
     </div>
   </>
 }

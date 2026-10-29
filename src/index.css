@@ -776,7 +776,12 @@ select {
 .appt-card.current:not(.blocked) {
   border-color: transparent !important;
   background:
-    linear-gradient(135deg, rgba(231, 243, 255, .96), rgba(221, 230, 255, .96)) padding-box,
+    linear-gradient(
+      var(--conic-angle),
+      #cce7fa 0%,
+      #bddcf0 35%,
+      #d1cdf5 100%
+    ) padding-box,
     conic-gradient(
       from var(--conic-angle),
       #38bdf8 0%,
