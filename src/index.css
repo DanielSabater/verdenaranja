@@ -1562,6 +1562,17 @@ select {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.appt-card .appointment-card-footer-info[data-countdown="true"] {
+  justify-content: center;
+}
+.appt-card .appointment-card-countdown {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  font: normal 12px/1 Georgia, serif;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
 @media (max-width: 1100px) {
   .appt-card .appointment-card-footer-info {
     bottom: 5px;

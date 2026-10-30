@@ -236,12 +236,14 @@ function AppointmentCardDetails({ appt, clientes, compact, isMobile, isResizing,
       </div>
     </div>
     {appt.notes && <div className="appointment-card-note">📝 {appt.notes}</div>}
-    <div className="appointment-card-footer-info" style={{ color: isResizing ? C.green : C.textSoft }}>
+    <div className="appointment-card-footer-info" data-countdown={Boolean(footerCountdown && !isResizing)} style={{ color: isResizing ? C.green : C.textSoft }}>
+      {footerCountdown && !isResizing ? <span className="appointment-card-countdown" aria-label={footerCountdown.description}>{footerCountdown.label}</span> : <>
       {appt.tip > 0 && !isResizing && <span className="appointment-card-tip" style={{ color: C.gold }} aria-label={`Propina: ${fmt(appt.tip)}`}>🎁 {fmt(appt.tip)}</span>}
       {(footerCountdown || !(appt.tip > 0) || isResizing) && <span className="appointment-card-duration" aria-label={!isResizing ? footerCountdown?.description : undefined}>
         {isResizing ? `${liveHour} – ${liveEndHour}` : footerCountdown?.label || `${apptDur(appt)} min`}
       </span>}
       {paymentLabel && <span className="appointment-card-duration" title={paymentLabel}>{paymentIcon && <span aria-hidden="true">{paymentIcon} </span>}{paymentLabel}</span>}
+      </>}
     </div>
   </>
 }
