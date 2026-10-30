@@ -130,19 +130,31 @@ select {
   display: flex;
   gap: 6px;
   padding: 0 8px 0 0;
-  opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  transform: translate(14px, -50%);
-  transition: opacity .18s ease, transform .18s ease, visibility .18s;
+  transform: translateY(-50%);
+  transition: visibility 0s linear 540ms;
   z-index: 20;
 }
 
 .payment-methods-reveal.is-open {
-  opacity: 1;
   visibility: visible;
   pointer-events: auto;
-  transform: translate(0, -50%);
+  transition-delay: 0ms;
+}
+
+.payment-method-island {
+  opacity: 0;
+  transform: translateX(12px);
+  pointer-events: none;
+  transition: transform 240ms cubic-bezier(.22,1,.36,1), opacity 220ms ease-in-out;
+  transition-delay: var(--method-exit-delay);
+}
+.payment-methods-reveal.is-open .payment-method-island {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
+  transition-delay: var(--method-enter-delay);
 }
 
 .payment-method-summary {
@@ -1612,4 +1624,47 @@ select {
 }
 @media (prefers-reduced-motion: reduce) {
   .quick-movement-dialog { animation: none !important; }
+}
+
+/* Una sola notificación discreta para el portapapeles y los avisos de agenda. */
+.agenda-notice {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9998;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: max-content;
+  max-width: min(440px, calc(100vw - 32px));
+  box-sizing: border-box;
+  padding: 7px 10px 7px 12px;
+  border: 1px solid #cde0d0;
+  border-radius: 12px;
+  background: #fffdf9;
+  color: #385139;
+  box-shadow: 0 3px 12px rgba(40, 70, 45, .12);
+  font: 11px/16px Georgia, serif;
+  animation: fadeIn .15s ease-out;
+}
+.agenda-notice-message { min-width: 0; overflow-wrap: anywhere; }
+.agenda-notice-hint { color: #5a7060; }
+.agenda-notice button {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: #edf4eb;
+  color: #385139;
+  cursor: pointer;
+}
+.agenda-notice button:hover { background: #dcebd9; }
+@media (pointer: coarse) { .agenda-notice button { width: 40px; height: 40px; } }
+@media (prefers-reduced-motion: reduce) { .agenda-notice { animation: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .payment-method-island { transition: none; transform: none; }
 }

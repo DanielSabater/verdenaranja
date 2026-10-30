@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { appointmentCountdown, nextAwaitingAppointment } from '../src/utils/appointmentCountdown.js'
+import { appointmentCountdown, nextAwaitingAppointment, previousAppointmentAttended } from '../src/utils/appointmentCountdown.js'
 
 const options = { isToday: true, isNext: true, now: new Date(2026, 9, 26, 10, 0) }
 test('el siguiente reloj avanza al marcar llegada sin esperar el pago y vuelve al desmarcarla', () => {
@@ -43,4 +43,20 @@ test('al marcar llegada deja de mostrar el reloj sin alterar el turno', () => {
   const appt = { hour: '09:00', arrived: true }
   assert.equal(appointmentCountdown(appt, options), null)
   assert.deepEqual(appt, { hour: '09:00', arrived: true })
+})
+
+test('ubica el reloj abajo si el anterior de esa profesional llegó o ya pagó', () => {
+  const next = { profId: 1, hour: '11:00' }
+  const previous = { profId: 1, hour: '10:00', arrived: true }
+  const list = { next, previous, note: { profId: 1, hour: '10:30', isNote: true }, other: { profId: 2, hour: '10:45', arrived: true } }
+  assert.equal(previousAppointmentAttended(list, next), true)
+  previous.paid = true
+  assert.equal(previousAppointmentAttended(list, next), true)
+  previous.paid = false
+  previous.arrived = false
+  assert.equal(previousAppointmentAttended(list, next), false)
+  previous.arrived = true
+  list.middle = { profId: 1, hour: '10:15', paid: false }
+  assert.equal(previousAppointmentAttended(list, next), false)
+  assert.equal(previousAppointmentAttended({}, next), false)
 })

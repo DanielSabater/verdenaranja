@@ -828,8 +828,7 @@ export default function App() {
       fromDate: currentDate,
       fromKey: key
     })
-    setTruncateToast(`✂️ Turno de ${a.client || "Clienta"} cortado. Pegalo con Ctrl+V / ⌘V o clic derecho`)
-    setTimeout(() => setTruncateToast(null), 3500)
+    setTruncateToast(null)
   }, [appointments, currentDate])
 
   const handleCopyAppt = useCallback((key) => {
@@ -841,8 +840,7 @@ export default function App() {
       fromDate: currentDate,
       fromKey: key
     })
-    setTruncateToast(`📋 Turno de ${a.client || "Clienta"} copiado. Pegalo con Ctrl+V / ⌘V o clic derecho`)
-    setTimeout(() => setTruncateToast(null), 3500)
+    setTruncateToast(null)
   }, [appointments, currentDate])
 
   const handleCancelClipboard = useCallback(() => {
@@ -918,7 +916,7 @@ export default function App() {
         toHour
       })
       setClipboardAppt(null)
-      setTruncateToast(`✅ Turno de ${appt.client || "Clienta"} movido con éxito a ${toHour} hs`)
+      setTruncateToast(`✓ Turno movido · ${toHour}`)
       setTimeout(() => setTruncateToast(null), 3000)
 
       const toProfName = (config?.professionals || []).find(p => p.id === toProfId)?.name || "Profesional"
@@ -950,7 +948,7 @@ export default function App() {
         toHour
       })
       setClipboardAppt(null)
-      setTruncateToast(`✅ Turno de ${appt.client || "Clienta"} copiado con éxito a ${toHour} hs`)
+      setTruncateToast(`✓ Turno pegado · ${toHour}`)
       setTimeout(() => setTruncateToast(null), 3000)
 
       const toProfName = (config?.professionals || []).find(p => p.id === toProfId)?.name || "Profesional"
@@ -1845,33 +1843,17 @@ export default function App() {
                 </div>
               )}
 
-              {truncateToast && (
-                <div style={{
-                  position: "fixed",
-                  top: isMobile ? 66 : 76,
-                  left: "50%",
-                  transform: "translateX(-50%)",
-                  background: "linear-gradient(135deg, #d97706, #b45309)",
-                  color: "#fff",
-                  padding: "10px 22px",
-                  borderRadius: 24,
-                  fontSize: 13,
-                  fontWeight: "600",
-                  boxShadow: "0 8px 26px rgba(0,0,0,.35), 0 2px 8px rgba(217,119,6,.4)",
-                  zIndex: 99999,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 12,
-                  animation: "fadeIn .2s ease-out",
-                  pointerEvents: "auto",
-                }}>
-                  <span>{truncateToast}</span>
-                  <button
-                    onClick={() => setTruncateToast(null)}
-                    style={{ background: "rgba(255,255,255,0.2)", border: "none", color: "#fff", cursor: "pointer", fontSize: 13, lineHeight: 1, padding: "3px 7px", borderRadius: 12 }}
-                  >
-                    ✕
-                  </button>
+              {(truncateToast || clipboardAppt) && (
+                <div className="agenda-notice" role="status" aria-live="polite"
+                  style={{ bottom: isMobile
+                    ? (selectedMultiPayKeys?.length > 0 ? 'calc(200px + env(safe-area-inset-bottom))' : 'calc(140px + env(safe-area-inset-bottom))')
+                    : (selectedMultiPayKeys?.length > 0 ? 144 : 86) }}>
+                  <span className="agenda-notice-message">{truncateToast || (clipboardAppt.mode === 'cut' ? '✂️ Turno listo para mover' : '📋 Turno copiado')}
+                    {!truncateToast && <span className="agenda-notice-hint"> · Pegá en una celda vacía</span>}
+                  </span>
+                  <button type="button" aria-label={truncateToast ? 'Cerrar aviso' : 'Cancelar copiado o movimiento'}
+                    title={truncateToast ? 'Cerrar aviso' : 'Cancelar (Esc)'}
+                    onClick={() => { if (truncateToast) setTruncateToast(null); else handleCancelClipboard() }}>✕</button>
                 </div>
               )}
 

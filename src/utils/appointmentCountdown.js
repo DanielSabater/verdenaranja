@@ -22,3 +22,11 @@ export function nextAwaitingAppointment(appointments, profId) {
     && !appt.paid && !appt.arrived && !appt.isNote && !appt.isBlocked && !appt.isUnblockOverride)
     .sort((a, b) => (a.hour || '').localeCompare(b.hour || ''))[0] || null
 }
+
+// Sólo el turno inmediatamente anterior de la misma profesional determina la ubicación.
+export function previousAppointmentAttended(appointments, appt) {
+  const previous = Object.values(appointments).filter(item => item && item.profId === appt.profId
+    && !item.isNote && !item.isBlocked && !item.isUnblockOverride && item.hour < appt.hour)
+    .sort((a, b) => b.hour.localeCompare(a.hour))[0]
+  return Boolean(previous && (previous.arrived || previous.paid))
+}

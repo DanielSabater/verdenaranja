@@ -1,5 +1,5 @@
 import { ArrivalPayControl } from "./ArrivalPayControl.jsx"
-import { appointmentCountdown, nextAwaitingAppointment } from '../../utils/appointmentCountdown.js'
+import { appointmentCountdown, nextAwaitingAppointment, previousAppointmentAttended } from '../../utils/appointmentCountdown.js'
 import ProfessionalName from "../ui/ProfessionalName.jsx"
 import { useState, useRef, useEffect, useLayoutEffect } from "react"
 import { C } from "../../constants/colors.js"
@@ -166,7 +166,7 @@ function AppointmentColorFade({ paid, arrived }) {
 }
 
 // Contenido compartimentado: los controles inferiores conservan sus posiciones y callbacks.
-function AppointmentCardDetails({ appt, clientes, compact, isMobile, isResizing, liveHour, liveEndHour, badgeWidth }) {
+function AppointmentCardDetails({ appt, clientes, compact, isMobile, isResizing, liveHour, liveEndHour, badgeWidth, footerCountdown }) {
   const { phone, cleanName } = getApptClientPhone(appt, clientes)
   const name = cleanName || cleanClientName(appt.client) || appt.client
   const paymentIds = [...new Set((appt.paymentSplits || []).filter(part => Number(part.amount) > 0).map(part => part.methodId))]
@@ -235,8 +235,9 @@ function AppointmentCardDetails({ appt, clientes, compact, isMobile, isResizing,
     </div>
     {appt.notes && <div className="appointment-card-note">📝 {appt.notes}</div>}
     <div className="appointment-card-footer-info" style={{ color: isResizing ? C.green : C.textSoft }}>
-      {appt.tip > 0 && !isResizing ? <span className="appointment-card-tip" style={{ color: C.gold }} aria-label={`Propina: ${fmt(appt.tip)}`}>🎁 {fmt(appt.tip)}</span> : <span className="appointment-card-duration">
-        {isResizing ? `${liveHour} – ${liveEndHour}` : `${apptDur(appt)} min`}
+      {appt.tip > 0 && !isResizing && <span className="appointment-card-tip" style={{ color: C.gold }} aria-label={`Propina: ${fmt(appt.tip)}`}>🎁 {fmt(appt.tip)}</span>}
+      {(footerCountdown || !(appt.tip > 0) || isResizing) && <span className="appointment-card-duration" aria-label={!isResizing ? footerCountdown?.description : undefined}>
+        {isResizing ? `${liveHour} – ${liveEndHour}` : footerCountdown?.label || `${apptDur(appt)} min`}
       </span>}
       {paymentLabel && <span className="appointment-card-duration" title={paymentLabel}>{paymentLabel}</span>}
     </div>
@@ -1622,6 +1623,7 @@ export function AppGrid({
 
                       const isToday = currentDate === todayKey()
                       const countdown = appointmentCountdown(appt, { isToday, isNext: nextArrivalKeys.has(k) })
+                      const footerCountdown = countdown && previousAppointmentAttended(appointments, appt) ? countdown : null
                       const hasPrevPaidOrArrived = checkHasPrevPaidOrArrived(prof.id, appt.hour, appointments, HOURS)
                       const overdueInfo = getOverdueInfo(appt, isToday, hasPrevPaidOrArrived)
                       const cd = overdueInfo?.cd
@@ -1850,6 +1852,7 @@ export function AppGrid({
                              ) : (
                                <>
                                  <AppointmentCardDetails appt={appt} clientes={clientes} compact={liveSlots <= 1} isMobile={isMobile}
+                                   footerCountdown={footerCountdown}
                                    isResizing={isResizing} liveHour={liveHour} liveEndHour={liveEndHour}
                                    badgeWidth={isSelectedForMultiPay ? (isMobile ? 50 : 58) : 12} />
                                </>
@@ -1931,7 +1934,7 @@ export function AppGrid({
                               )}
                               <ArrivalPayControl arrived={appt.arrived} isMobile={isMobile}
                                 amount={appt.isNote ? undefined : fmt(appt.paid ? apptPaidTotal(appt) : apptTotal(appt))}
-                                countdown={countdown}
+                                countdown={footerCountdown ? null : countdown}
                                 fillTransition={paymentTransition?.date === currentDate && paymentTransition.keys.includes(k) ? paymentTransition : null}
                                 transitionLocked={Boolean(paymentTransition)}
                                 mode={appt.isNote ? 'note' : appt.paid ? 'paid' : 'appointment'}
@@ -3261,73 +3264,6 @@ export function AppGrid({
           </div>
         )
       })()}
-
-      {/* Barra flotante para Cortar / Copiar turno activo */}
-      {clipboardAppt && (
-        <div
-          style={{
-            position: "fixed",
-            bottom: isMobile
-              ? (selectedMultiPayKeys?.length > 0 ? "calc(200px + env(safe-area-inset-bottom))" : "calc(140px + env(safe-area-inset-bottom))")
-              : (selectedMultiPayKeys?.length > 0 ? 144 : 86),
-            left: "50%",
-            transform: "translateX(-50%)",
-            background: clipboardAppt.mode === "cut"
-              ? "linear-gradient(135deg, #ea580c, #c2410c)"
-              : "linear-gradient(135deg, #2563eb, #1d4ed8)",
-            color: "#ffffff",
-            borderRadius: 36,
-            padding: "8px 16px 8px 20px",
-            fontSize: 13,
-            zIndex: 9998,
-            boxShadow: "0 10px 35px rgba(0,0,0,0.35), 0 0 0 1.5px rgba(255,255,255,0.25)",
-            display: "flex",
-            alignItems: "center",
-            gap: 14,
-            backdropFilter: "blur(12px)",
-            animation: "popIn .18s ease-out",
-            maxWidth: "92vw",
-            whiteSpace: "nowrap"
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 8, overflow: "hidden", textOverflow: "ellipsis" }}>
-            <span style={{ fontSize: 16 }}>{clipboardAppt.mode === "cut" ? "✂️" : "📋"}</span>
-            <span>
-              <strong>{clipboardAppt.mode === "cut" ? "Moviendo" : "Copiando"}:</strong>{" "}
-              <span style={{ color: "#fef08a", fontWeight: "bold" }}>{clipboardAppt.appt?.client || "Turno"}</span>
-              <span style={{ opacity: 0.9, fontSize: 11, marginLeft: 6 }}>
-                ({clipboardAppt.fromDate} · {clipboardAppt.appt?.hour} hs)
-              </span>
-            </span>
-          </div>
-          <div style={{ fontSize: 11, opacity: 0.9, borderLeft: "1px solid rgba(255,255,255,0.25)", paddingLeft: 12 }}>
-            Pegalo con Ctrl+V / ⌘V o clic derecho en una celda vacía
-          </div>
-          <button
-            onClick={e => {
-              e.stopPropagation()
-              if (onCancelClipboard) onCancelClipboard()
-            }}
-            style={{
-              background: "rgba(255,255,255,0.2)",
-              color: "#fff",
-              border: "none",
-              borderRadius: 20,
-              padding: "5px 12px",
-              fontSize: 11,
-              fontWeight: "bold",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: 4,
-              transition: "background .15s",
-            }}
-            title="Cancelar (Esc)"
-          >
-            <span>✕</span> Cancelar
-          </button>
-        </div>
-      )}
 
       {/* ── Modal para ingresar WhatsApp si no tiene número ── */}
       {waPromptModal && (

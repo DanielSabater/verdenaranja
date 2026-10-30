@@ -245,6 +245,7 @@ export const AppHeader = memo(function AppHeader({
   // Modal de resumen diario unificado (Efectivo, Débito, Mercado Pago, Sin Cobrar)
   const [dailySummaryOpen, setDailySummaryOpen] = useState(false)
   const [isDailySummaryHovered, setIsDailySummaryHovered] = useState(false)
+  const [hoveredPaymentMethod, setHoveredPaymentMethod] = useState(null)
   const dailySummaryHoverTimerRef = useRef(null)
 
   const handleDailySummaryMouseEnter = () => {
@@ -261,6 +262,7 @@ export const AppHeader = memo(function AppHeader({
     }
     dailySummaryHoverTimerRef.current = setTimeout(() => {
       setIsDailySummaryHovered(false)
+      setHoveredPaymentMethod(null)
     }, 220)
   }
 
@@ -619,7 +621,7 @@ export const AppHeader = memo(function AppHeader({
         </div>
 
         {/* Right Container (Metrics, savebadge & status alignment) */}
-        <div className="header-right-container" onMouseEnter={handleDailySummaryMouseEnter} onMouseLeave={handleDailySummaryMouseLeave}>
+        <div className="header-right-container">
           {/* Save Badge */}
           <div className="desktop-savebadge" style={{ padding: "4px 10px", borderRadius: 16, minWidth: 90, textAlign: "center", background: saveStatus === "saving" ? "#f5f5f5" : saveStatus === "saved" ? C.greenPale : saveStatus === "error" ? "#fde8e8" : "transparent", border: `1px solid ${saveStatus === "saving" ? "#ddd" : saveStatus === "saved" ? C.greenMint : saveStatus === "error" ? "#f4b0b0" : "transparent"}`, opacity: saveStatus === "idle" ? 0 : 1, transition: "opacity .3s ease" }}>
             <span style={{ fontSize: 9, color: saveStatus === "saved" ? C.green : saveStatus === "error" ? "#c04040" : "#aaa" }}>{saveStatus === "saving" ? "⏳ Guardando..." : saveStatus === "saved" ? "✓ Guardado" : saveStatus === "error" ? "⚠️ Error" : "✓ Guardado"}</span>
@@ -635,42 +637,59 @@ export const AppHeader = memo(function AppHeader({
             flexShrink: 0
           }} title={connStatus === "online" ? "Sincronización Activa" : "Reconectando..."} />
 
-          {/* Botón Compacto de Resumen Diario en Header (Abre el modal unificado y despliega turnos adeudados al apoyar el puntero) */}
+          {/* El porcentaje inicia el despliegue; sus opciones conservan el acceso al detalle. */}
           {activeView === "turnos" && (
             <div
               className="daily-summary-wrapper"
               style={{ position: "relative" }}
-              onMouseEnter={handleDailySummaryMouseEnter}
               onMouseLeave={handleDailySummaryMouseLeave}
-              onFocus={handleDailySummaryMouseEnter}
-              onBlur={e => {
-                if (!e.currentTarget.contains(e.relatedTarget)) handleDailySummaryMouseLeave()
-              }}
+              onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget)) handleDailySummaryMouseLeave() }}
               onKeyDown={e => {
                 if (e.key === "Escape") setIsDailySummaryHovered(false)
               }}
             >
               <div className={`payment-methods-reveal${isDailySummaryHovered && !dailySummaryOpen ? " is-open" : ""}`} aria-hidden={!isDailySummaryHovered || dailySummaryOpen}>
-                {PAYMENT_METHODS.map(method => {
+                {PAYMENT_METHODS.map((method, index) => {
                   const count = isDailySummaryHovered ? getApptsByMethod(method.id).length : 0
                   return (
+                    <div key={method.id} className="payment-method-island" style={{ position: 'relative', '--method-enter-delay': `${(PAYMENT_METHODS.length - 1 - index) * 150}ms`, '--method-exit-delay': `${index * 150}ms` }}>
                     <button
-                      key={method.id}
                       type="button"
                       tabIndex={isDailySummaryHovered && !dailySummaryOpen ? 0 : -1}
                       className="payment-method-summary"
                       style={{ "--method-color": method.color }}
                       title={`${method.label}: ${privacyMode ? "••••" : fmt(totalByMethod(method.id))} · ${count} cobros. Ver detalle del día`}
+                      onMouseEnter={() => { handleDailySummaryMouseEnter(); setHoveredPaymentMethod(method.id) }}
+                      onFocus={() => { handleDailySummaryMouseEnter(); setHoveredPaymentMethod(method.id) }}
                       onClick={() => { setIsDailySummaryHovered(false); setDailySummaryOpen(true) }}
                     >
                       <span className="payment-method-label">{method.icon} {method.label}</span>
                       <strong>{privacyMode ? "••••" : fmt(totalByMethod(method.id))}</strong>
                     </button>
+              {isDailySummaryHovered && !dailySummaryOpen && hoveredPaymentMethod === method.id && (() => {
+                const method = PAYMENT_METHODS.find(item => item.id === hoveredPaymentMethod)
+                const items = getApptsByMethod(hoveredPaymentMethod)
+                return <div className="past-unpaid-dropdown" role="region" aria-label={`Detalle de ${method?.label}`}
+                  onMouseEnter={handleDailySummaryMouseEnter} onMouseLeave={handleDailySummaryMouseLeave}
+                  style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 250, width: 330, maxWidth: 'calc(100vw - 24px)', maxHeight: 400, overflowY: 'auto', background: C.white, border: `1.5px solid ${C.border}`, borderRadius: 14, boxShadow: '0 12px 36px rgba(0,0,0,.18)', padding: 12 }}>
+                  <div style={{ color: method?.color, fontSize: 12, fontWeight: 'bold', marginBottom: 10 }}>{method?.icon} {method?.label} · {items.length} cobros · {privacyMode ? '••••' : fmt(totalByMethod(method.id))}</div>
+                  {items.length ? items.map((item, index) => <div key={`${item.profId}-${item.hour}-${index}`} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, padding: '7px 0', borderBottom: `1px dotted ${C.border}`, fontSize: 11, color: C.text }}>
+                    <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>
+                      <span style={{ fontWeight: 'bold' }}>{item.hour} · {privacyMode ? '••••' : cleanClientName(item.client) || 'Clienta'}</span>
+                      <span style={{ display: 'block', marginTop: 3, fontSize: 10, color: C.textSoft }}>{professionals.find(prof => prof.id === item.profId)?.name || 'Profesional'} · {(item.services || []).map(service => service.name).join(', ') || 'Turno'}</span>
+                    </span>
+                    <strong style={{ whiteSpace: 'nowrap' }}>{privacyMode ? '••••' : fmt(item.methodAmount)}</strong>
+                  </div>) : <div style={{ fontSize: 11, color: C.textSoft }}>No hay cobros con este método.</div>}
+                </div>
+              })()}
+                    </div>
                   )
                 })}
                   </div>
               <button
                 type="button"
+                onMouseEnter={() => { handleDailySummaryMouseEnter(); setHoveredPaymentMethod(null) }}
+                onFocus={() => { handleDailySummaryMouseEnter(); setHoveredPaymentMethod(null) }}
                 onClick={() => {
                   if (dailySummaryHoverTimerRef.current) {
                     clearTimeout(dailySummaryHoverTimerRef.current)
@@ -681,9 +700,13 @@ export const AppHeader = memo(function AppHeader({
                 className="payment-method-summary daily-total-summary"
                 style={{
                   "--method-color": C.green,
+                  width: 128,
+                  minWidth: 128,
+                  maxWidth: 128,
+                  boxSizing: 'border-box',
                   flexDirection: "row",
                   position: "relative",
-                  gap: 8,
+                  gap: 4,
                   flexShrink: 0,
                   ...(!isDailySummaryHovered && scheduledStats.isFullyPaid ? {
                     background: `linear-gradient(135deg, ${C.green}, ${C.greenLight})`,
@@ -763,8 +786,7 @@ export const AppHeader = memo(function AppHeader({
                         aria-label={`Total cobrado del día: ${privacyMode ? "oculto" : fmt(grandTotal)}`}
                         style={{ display: "flex", flexDirection: "column", gap: 2, whiteSpace: "nowrap", color: C.green }}
                       >
-                        <span className="payment-method-label">Total</span>
-                        <strong style={{ fontVariantNumeric: "tabular-nums" }}>{privacyMode ? "••••" : fmt(grandTotal)}</strong>
+                        <strong style={{ fontVariantNumeric: "tabular-nums", fontSize: 14 }}>{privacyMode ? "••••" : fmt(grandTotal)}</strong>
                       </span>
                     </span>
                   )}
@@ -788,7 +810,7 @@ export const AppHeader = memo(function AppHeader({
 
 
               {/* Panel vertical desplegable hacia abajo con turnos adeudados al posar el puntero */}
-              {isDailySummaryHovered && !dailySummaryOpen && (
+              {isDailySummaryHovered && !dailySummaryOpen && !hoveredPaymentMethod && pastUnpaidAppts.length > 0 && (
                 <div
                   className="past-unpaid-dropdown"
                   onMouseEnter={handleDailySummaryMouseEnter}
