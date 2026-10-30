@@ -170,7 +170,9 @@ function AppointmentCardDetails({ appt, clientes, compact, isMobile, isResizing,
   const { phone, cleanName } = getApptClientPhone(appt, clientes)
   const name = cleanName || cleanClientName(appt.client) || appt.client
   const paymentIds = [...new Set((appt.paymentSplits || []).filter(part => Number(part.amount) > 0).map(part => part.methodId))]
-  const paymentLabel = appt.paid ? (paymentIds.length > 1 ? 'Mixto' : PAYMENT_METHODS.find(method => method.id === (paymentIds[0] || appt.payMethod))?.label || '') : ''
+  const paymentMethod = PAYMENT_METHODS.find(method => method.id === (paymentIds[0] || appt.payMethod))
+  const paymentLabel = appt.paid ? (paymentIds.length > 1 ? 'Mixto' : paymentMethod?.label || '') : ''
+  const paymentIcon = paymentIds.length > 1 ? '🔀' : paymentMethod?.icon
   const serviceLabel = (appt.services || []).map(service => `${service.icon || ''} ${service.name}`).join(' · ')
   const serviceWindowRef = useRef(null)
   const serviceListRef = useRef(null)
@@ -239,7 +241,7 @@ function AppointmentCardDetails({ appt, clientes, compact, isMobile, isResizing,
       {(footerCountdown || !(appt.tip > 0) || isResizing) && <span className="appointment-card-duration" aria-label={!isResizing ? footerCountdown?.description : undefined}>
         {isResizing ? `${liveHour} – ${liveEndHour}` : footerCountdown?.label || `${apptDur(appt)} min`}
       </span>}
-      {paymentLabel && <span className="appointment-card-duration" title={paymentLabel}>{paymentLabel}</span>}
+      {paymentLabel && <span className="appointment-card-duration" title={paymentLabel}>{paymentIcon && <span aria-hidden="true">{paymentIcon} </span>}{paymentLabel}</span>}
     </div>
   </>
 }
