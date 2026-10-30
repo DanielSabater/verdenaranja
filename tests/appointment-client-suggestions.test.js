@@ -1,6 +1,13 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { appointmentClientSuggestions, suggestedClientValue, savedClientForValue, addClientDraft } from '../src/utils/appointmentClientSuggestions.js'
+import { appointmentClientSuggestions, suggestedClientValue, savedClientForValue, addClientDraft, clientSuggestionDetails } from '../src/utils/appointmentClientSuggestions.js'
+
+test('Las sugerencias muestran teléfonos completos o parciales, separados o dentro del nombre', () => {
+  assert.deepEqual(clientSuggestionDetails({ name: 'Olga', phone: '1155551234' }), { name: 'Olga', phone: '1155551234' })
+  assert.deepEqual(clientSuggestionDetails({ name: 'Olga 1084' }), { name: 'Olga', phone: '1084' })
+  assert.deepEqual(clientSuggestionDetails({ name: 'Olga', phone: '12' }), { name: 'Olga', phone: '12' })
+  assert.deepEqual(clientSuggestionDetails({ name: 'Olga 11-5555-1234' }), { name: 'Olga', phone: '11-5555-1234' })
+})
 
 const clients = [
   { id: 1, name: 'Daniel Sabater', phone: '1155551234' },

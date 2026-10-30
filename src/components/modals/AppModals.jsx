@@ -7,7 +7,7 @@ import { getApptClientPhone, formatWaNumber, generateReminderMessage, openWhatsA
 import { fmtDate, todayKey } from "../../utils/dates.js"
 import { useIsMobile } from "../../hooks/useIsMobile.js"
 import { orderAppointmentServices } from "../../utils/appointmentServiceOrder.js"
-import { appointmentClientSuggestions, suggestedClientValue, savedClientForValue, addClientDraft } from "../../utils/appointmentClientSuggestions.js"
+import { appointmentClientSuggestions, suggestedClientValue, savedClientForValue, addClientDraft, clientSuggestionDetails } from "../../utils/appointmentClientSuggestions.js"
 import { RescheduleContent } from "./RescheduleModal.jsx"
 
 function WhatsAppIcon({ size = 15, color = "currentColor", style = {} }) {
@@ -716,8 +716,7 @@ export function AppModals({
                           {showSug && suggestions.length > 0 && (
                             <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 999, background: C.white, borderRadius: 12, border: `1.5px solid #d4af37`, boxShadow: "0 8px 24px rgba(184,134,11,.18)", overflowY: "auto", maxHeight: 220 }}>
                               {suggestions.map(cl => {
-                                const clean = cleanClientName(cl.name)
-                                const ph = cl.phone || extractPhoneFromString(cl.name)
+                                const { name: clean, phone: ph } = clientSuggestionDetails(cl)
                                 const nameWithPhone = suggestedClientValue(clientName, cl)
                                 return (
                                   <div
@@ -732,7 +731,7 @@ export function AppModals({
                                   >
                                     <div>
                                       <div style={{ fontSize: 13, fontWeight: "bold", color: "#996515" }}>{clean || cl.name}</div>
-                                      {ph && <div style={{ fontSize: 10, color: C.textSoft }}>📱 {ph}</div>}
+                                      {ph && <div style={{ fontSize: 12, color: C.textSoft }}>📱 {ph}</div>}
                                     </div>
                                     <span style={{ fontSize: 10, color: C.green, fontWeight: "bold" }}>Seleccionar →</span>
                                   </div>

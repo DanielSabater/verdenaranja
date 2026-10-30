@@ -1,7 +1,15 @@
-import { cleanClientName, ensurePhoneInName, extractClientPhone, extractPhoneFromString, normalizeStr } from './whatsapp.js'
+import { cleanClientName, ensurePhoneInName, extractClientPhone, extractPhoneFromString, extractNumberFromText, normalizeStr } from './whatsapp.js'
 
 const normalizeName = value => normalizeStr(cleanClientName(value)).replace(/\s+/g, ' ')
 const digits = value => (value || '').replace(/\D/g, '')
+
+export function clientSuggestionDetails(client) {
+  const embeddedPhone = extractNumberFromText(client.name)
+  return {
+    name: cleanClientName(embeddedPhone ? client.name.replace(embeddedPhone, '') : client.name) || client.name,
+    phone: String(client.phone || embeddedPhone || '').trim(),
+  }
+}
 
 export function appointmentClientSuggestions(clientName, clients = []) {
   const raw = (clientName || '').trim().toLowerCase()
