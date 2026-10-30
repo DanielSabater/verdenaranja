@@ -11,9 +11,9 @@ test('No propone la ficha ya cargada al editar con teléfono separado', () => {
   assert.deepEqual(appointmentClientSuggestions('Daniel Sabater 1155551234', clients), [])
 })
 
-test('El nombre completo tampoco propone otra vez su propia ficha', () => {
-  assert.deepEqual(appointmentClientSuggestions('Daniel Sabater', clients), [])
-  assert.deepEqual(appointmentClientSuggestions('Daniel Sabater', [{ name: 'Daniel Sabater 1155551234' }]), [])
+test('El nombre completo mantiene la sugerencia si todavía falta el teléfono', () => {
+  assert.deepEqual(appointmentClientSuggestions('Daniel Sabater', clients).map(client => client.id), [1])
+  assert.equal(appointmentClientSuggestions('Daniel Sabater', [{ name: 'Daniel Sabater 1155551234' }]).length, 1)
 })
 
 test('La misma identidad admite diferencias de formato, mayúsculas y espacios', () => {
@@ -64,7 +64,7 @@ test('al elegir una sugerencia reemplaza la consulta por el nombre guardado, sin
   const client = { name: 'Ana 4321', phone: '' }
   assert.equal(suggestedClientValue('1165432178', client), 'Ana 4321')
   assert.deepEqual(client, { name: 'Ana 4321', phone: '' })
-  assert.equal(suggestedClientValue('Ana', { name: 'Ana', phone: '1165432178' }), 'Ana')
+  assert.equal(suggestedClientValue('Ana', { name: 'Ana', phone: '1165432178' }), 'Ana 1165432178')
 })
 
 test('la ficha guardada requiere coincidencia de los datos y no sólo del nombre limpio', () => {
@@ -93,4 +93,12 @@ test('guardar una edición crea sólo la ficha explícita y no modifica otras po
   assert.deepEqual(clients, [{ id: 1, name: 'Ana 4321', phone: '' }])
   assert.equal(addClientDraft(saved, 'Ana 1165432178', '1165432178', 3), saved)
   assert.equal(addClientDraft(clients, '', '', 4), clients)
+})
+
+test('sigue sugiriendo con nombre completo y teléfono parcial hasta completar ambos', () => {
+  for (const value of ['Daniel Sabater', 'Dániel   Sabater', 'Daniel Sabater 1', 'Daniel Sabater 1155', 'Daniel Sabater 1155551']) {
+    assert.ok(appointmentClientSuggestions(value, clients).some(client => client.id === 1), value)
+  }
+  assert.deepEqual(appointmentClientSuggestions('Daniel Sabater 1155551234', clients), [])
+  assert.equal(suggestedClientValue('Daniel Sabater 1155', clients[0]), 'Daniel Sabater 1155551234')
 })

@@ -3,7 +3,7 @@ import { C } from "../../constants/colors.js"
 import { CAT_OPTIONS, PAYMENT_METHODS } from "../../constants/data.js"
 import { fmt, apptTotal } from "../../utils/appointments.js"
 import { Overlay, ModalHeader, Field, GhostBtn, SolidBtn, inputStyle, modalBox } from "../ui/index.jsx"
-import { getApptClientPhone, formatWaNumber, generateReminderMessage, openWhatsAppLink, cleanClientName, normalizeStr, extractPhoneFromString, extractClientPhone, ensurePhoneInName } from "../../utils/whatsapp.js"
+import { getApptClientPhone, formatWaNumber, generateReminderMessage, openWhatsAppLink, cleanClientName, normalizeStr, extractPhoneFromString, extractClientPhone, extractNumberFromText, ensurePhoneInName } from "../../utils/whatsapp.js"
 import { fmtDate, todayKey } from "../../utils/dates.js"
 import { useIsMobile } from "../../hooks/useIsMobile.js"
 import { orderAppointmentServices } from "../../utils/appointmentServiceOrder.js"
@@ -171,12 +171,12 @@ export function AppModals({
   // Una sola entrada visible; conservar el teléfono estructurado para WhatsApp.
   const safeClientes = clientes || []
   const savedClient = savedClientForValue(clientName, safeClientes)
-  const embeddedPhone = extractClientPhone(clientName)
+  const embeddedPhone = extractClientPhone(clientName) || extractNumberFromText(clientName)
   const matchedPhone = savedClient?.phone || ''
   const originalAppt = modal?.editKey ? appointments[modal.editKey] : null
   const originalPhone = originalAppt?.clientPhone || originalAppt?.phone || ""
   const preservedPhone = originalPhone && clientName === ensurePhoneInName(originalAppt.client, originalPhone) ? originalPhone : ""
-  const clientPhone = matchedPhone || embeddedPhone || preservedPhone || ""
+  const clientPhone = embeddedPhone || matchedPhone || preservedPhone || ""
   const isMobile = useIsMobile(820)
 
   useEffect(() => {

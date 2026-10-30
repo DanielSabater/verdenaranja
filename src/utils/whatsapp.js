@@ -162,6 +162,16 @@ export function getApptClientPhone(appt, clientes = []) {
 
   const rawClient = appt.client || ""
   const normName = normalizeStr(cleanClientName(rawClient))
+  const inlineNumber = extractNumberFromText(rawClient)
+  const explicitPhone = String(appt.clientPhone || appt.phone || inlineNumber || '').trim()
+  // Los dígitos del propio turno, incluso parciales, prevalecen sobre el directorio.
+  if (explicitPhone) {
+    return {
+      phone: explicitPhone,
+      cleanName: cleanClientName(inlineNumber ? rawClient.replace(inlineNumber, '') : rawClient) || rawClient,
+      fromClientRecord: false,
+    }
+  }
 
   // 1. Buscar coincidencia en la base de clientes
   if (normName && Array.isArray(clientes)) {

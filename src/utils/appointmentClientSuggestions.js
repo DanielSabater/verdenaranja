@@ -14,24 +14,25 @@ export function appointmentClientSuggestions(clientName, clients = []) {
     if (!client?.name) return null
     const name = client.name.toLowerCase()
     const phone = digits(client.phone || extractPhoneFromString(client.name))
-    // Una ficha ya identificada no es una alternativa, lleve el teléfono separado o en el nombre.
+    // El nombre completo sigue ofreciendo la ficha hasta completar también su teléfono.
     const sameClient = queryName && queryName === normalizeName(client.name)
-      && (!queryPhone || queryPhone === phone)
-    if (sameClient || name === raw) return null
+      && queryPhone.length >= 8 && queryPhone === phone
+    if (sameClient || (!phone && name === raw)) return null
     const numericParts = [phone, ...(client.name.match(/\d{4,}/g) || [])].filter(Boolean)
     let rank = Infinity
     if (rawDigits && numericParts.some(part => part === rawDigits)) rank = 0
     else if (rawDigits && numericParts.some(part => part.includes(rawDigits))) rank = 1
     // Un número abreviado guardado en el nombre también puede estar dentro de uno completo.
     else if (rawDigits && numericParts.some(part => part.length >= 4 && rawDigits.includes(part))) rank = 2
+    if (!rawDigits && queryName && normalizeName(client.name).includes(queryName)) rank = Math.min(rank, 3)
     if (name.includes(raw) || cleanClientName(client.name).toLowerCase().includes(raw)) rank = Math.min(rank, 3)
     return Number.isFinite(rank) ? { client, rank, index } : null
   }).filter(Boolean).sort((a, b) => a.rank - b.rank || a.index - b.index).slice(0, 8).map(result => result.client)
 }
 
 export function suggestedClientValue(_query, client) {
-  // La elección reemplaza la consulta por el nombre realmente guardado.
-  return (client.name || '').trim()
+  // Reemplazar por los datos guardados, incluyendo el teléfono estructurado de la ficha.
+  return ensurePhoneInName(client.name, client.phone || extractPhoneFromString(client.name))
 }
 
 export function savedClientForValue(value, clients = []) {
