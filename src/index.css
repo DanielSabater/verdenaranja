@@ -1466,7 +1466,9 @@ select {
 }
 
 /* El resaltado solo se aplica mientras la celda está libre y bajo el puntero. */
-.grid-empty-cell:hover { background: #e8f5eb !important; }
+.grid-empty-cell:hover:not(:has(.appt-card)) { background: #e8f5eb !important; }
+/* Occupying a cell clears its previous hover immediately, including during native drops. */
+.grid-occupied-cell { background: transparent !important; transition: none !important; }
 
 @media (max-width: 850px) and (max-height: 550px) and (orientation: landscape) {
   .notebook-popover {
@@ -1678,4 +1680,12 @@ select {
 @media (prefers-reduced-motion: reduce) { .agenda-notice { animation: none; } }
 @media (prefers-reduced-motion: reduce) {
   .payment-method-island { transition: none; transform: none; }
+}
+
+/* Use the host's arrow on passive grid surfaces. Interactive controls and
+   resize handles keep their own explicit cursors. Drag/drop effects stay native. */
+.grid-scroll,
+.grid-scroll td[data-prof-id],
+.grid-scroll .appt-card {
+  cursor: default !important;
 }

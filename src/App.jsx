@@ -1094,7 +1094,20 @@ export default function App() {
     return actualSlots
   }
 
-  const onDragStart = (e, key) => { setDraggingKey(key); dragNode.current = key; e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", key) }
+  const onDragStart = (e, key) => {
+    const card = e.currentTarget
+    const rect = card.getBoundingClientRect()
+    const image = card.cloneNode(true)
+    Object.assign(image.style, { position: "fixed", left: "-10000px", top: "0", width: rect.width + "px", height: rect.height + "px", opacity: "1", visibility: "visible", transform: "none", pointerEvents: "none" })
+    image.setAttribute("aria-hidden", "true")
+    document.body.appendChild(image)
+    e.dataTransfer.setDragImage(image, e.clientX - rect.left, e.clientY - rect.top)
+    requestAnimationFrame(() => image.remove())
+    setDraggingKey(key)
+    dragNode.current = key
+    e.dataTransfer.effectAllowed = "move"
+    e.dataTransfer.setData("text/plain", key)
+  }
   const onDragEnd = () => { setDraggingKey(null); setDropTarget(null); setDropValid(false); dragNode.current = null }
   const onDragLeave = () => { setDropTarget(null); setDropValid(false) }
   const onDragOver = (e, profId, hour) => {
@@ -1226,7 +1239,23 @@ export default function App() {
 
       r.latestHourIdx = hourIdx
       r.latestSlots = slots
-      setResizePreview({ key: r.key, hourIdx, slots, deltaY: ev.clientY - r.startY, edge: r.edge, origSlots: r.origSlots, origHourIdx: r.origHourIdx, profId: r.profId })
+      // Bound the continuous card preview by the available space, just like the saved duration.
+      let maxVisualSlots = HOURS.length - r.origHourIdx
+      if (r.edge === "bottom") {
+        for (let s = 1; s < maxVisualSlots; s++) {
+          if (isOccupied(r.profId, HOURS[r.origHourIdx + s], r.key)) { maxVisualSlots = s; break }
+        }
+      }
+      let minVisualHourIdx = 0
+      if (r.edge === "top") {
+        for (let i = r.origHourIdx - 1; i >= 0; i--) {
+          if (isOccupied(r.profId, HOURS[i], r.key)) { minVisualHourIdx = i + 1; break }
+        }
+      }
+      const visualDeltaY = r.edge === "bottom"
+        ? Math.max((1 - r.origSlots) * CELL_H, Math.min(ev.clientY - r.startY, (maxVisualSlots - r.origSlots) * CELL_H))
+        : Math.max((minVisualHourIdx - r.origHourIdx) * CELL_H, Math.min(ev.clientY - r.startY, (r.origSlots - 1) * CELL_H))
+      setResizePreview({ key: r.key, hourIdx, slots, deltaY: visualDeltaY, edge: r.edge, origSlots: r.origSlots, origHourIdx: r.origHourIdx, profId: r.profId })
     }
     const onUp = () => {
       window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp)
@@ -1813,15 +1842,7 @@ export default function App() {
                   bottom: isMobile ? "calc(140px + env(safe-area-inset-bottom))" : 86,
                   left: "50%",
                   transform: "translateX(-50%)",
-                  background: resizePreview
-                    ? "rgba(58,125,68,.92)"
-                    : dropTarget
-                      ? dropValid
-                        ? dropTarget.willTruncate
-                          ? "rgba(217,119,6,.95)"
-                          : "rgba(58,125,68,.92)"
-                        : "rgba(200,60,60,.88)"
-                      : "rgba(40,40,40,.82)",
+                  background: "rgba(58,125,68,.92)",
                   color: "#fff",
                   borderRadius: 30,
                   padding: "8px 22px",
@@ -1831,19 +1852,11 @@ export default function App() {
                   boxShadow: "0 4px 20px rgba(0,0,0,.25)",
                   pointerEvents: "none"
                 }}>
-                  {resizePreview
-                    ? "↕ Soltá para confirmar"
-                    : dropTarget
-                      ? dropValid
-                        ? dropTarget.willTruncate
-                          ? `⚠️ Hueco de ${dropTarget.durationMins} min (se acotará) · Soltá para mover`
-                          : "✅ Soltar para mover aquí"
-                        : "🚫 Horario ocupado"
-                      : "☝️ Arrastrá a un nuevo horario"}
+                  {resizePreview ? "↕ Soltá para confirmar" : "✅ Soltar para mover aquí"}
                 </div>
               )}
 
-              {(truncateToast || clipboardAppt) && (
+              {!draggingKey && !resizePreview && (truncateToast || clipboardAppt) && (
                 <div className="agenda-notice" role="status" aria-live="polite"
                   style={{ bottom: isMobile
                     ? (selectedMultiPayKeys?.length > 0 ? 'calc(200px + env(safe-area-inset-bottom))' : 'calc(140px + env(safe-area-inset-bottom))')
@@ -2196,7 +2209,7 @@ export default function App() {
         />
 
         {/* Notificación flotante con Deshacer */}
-        {undoToast && (
+        {undoToast && !draggingKey && !resizePreview && (
           <div style={{
             position: "fixed",
             bottom: isMobile ? "calc(140px + env(safe-area-inset-bottom))" : 86,

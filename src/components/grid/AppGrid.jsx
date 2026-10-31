@@ -1,3 +1,5 @@
+import { resizeCardBounds } from "../../utils/resizeCardBounds.js"
+import { gridBorderTarget } from "../../utils/gridBorderTarget.js"
 import { ArrivalPayControl } from "./ArrivalPayControl.jsx"
 import { appointmentCountdown, nextAwaitingAppointment } from '../../utils/appointmentCountdown.js'
 import ProfessionalName from "../ui/ProfessionalName.jsx"
@@ -334,11 +336,15 @@ function ApptCard({
                 : overdueStyle
                   ? overdueStyle.boxShadow
                   : `0 2px 8px ${showPaid ? "rgba(58,125,68,0.1)" : "rgba(232,121,58,0.1)"}`,
-        opacity: isDragging ? 0.45 : 1,
+        opacity: isDragging ? 0 : 1,
         transform: isDragging ? "scale(0.97)" : "scale(1)",
         transition: isResizing ? "none" : "opacity .15s, box-shadow .15s, transform .15s",
         cursor: "grab",
         position: "relative",
+        ...(isResizing ? {
+          position: "absolute", height: "auto", left: 2, right: 2,
+          ...resizeCardBounds(resizePreview),
+        } : {}),
         overflow: "hidden",
         zIndex: isOverdueAlert ? 6 : 1,
       }}
@@ -355,25 +361,6 @@ function ApptCard({
       <div onMouseDown={e => { e.stopPropagation(); onResizeStart(e, k, "top") }}
         style={{ position: "absolute", top: 0, left: 0, right: 0, height: 8, cursor: "n-resize", zIndex: 10, borderRadius: "9px 9px 0 0" }} />
 
-      {isResizing && (() => {
-        const snappedChange = resizePreview.edge === "top"
-          ? (resizePreview.hourIdx - resizePreview.origHourIdx) * 100
-          : (resizePreview.slots - resizePreview.origSlots) * 100
-        const visualDelta = resizePreview.deltaY - snappedChange
-        return (
-          <div style={{
-            position: "absolute",
-            top: resizePreview.edge === "top" ? visualDelta : -2,
-            bottom: resizePreview.edge === "bottom" ? -visualDelta : -2,
-            left: -2, right: -2,
-            border: `2px dashed ${C.green}`,
-            borderRadius: 9,
-            pointerEvents: "none",
-            zIndex: 100,
-            boxShadow: `0 0 10px rgba(58,125,68,0.2)`
-          }} />
-        )
-      })()}
 
       {isResizing && (
         <div style={{ position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)", background: C.green, color: "#fff", borderRadius: 8, padding: "2px 8px", fontSize: 9, fontWeight: "bold", letterSpacing: "1px", whiteSpace: "nowrap", zIndex: 20, pointerEvents: "none", boxShadow: "0 2px 8px rgba(58,125,68,.35)" }}>{liveHour} – {liveEndHour} · {liveDurMins} min</div>
@@ -1107,6 +1094,11 @@ export function AppGrid({
 
   // Verifica si una celda está libre de turnos y bloqueada por horario no laboral de la profesional
   const isFreeSchedBlocked = (prof, h) => {
+    // A resized card owns its preview rows; unrelated schedule blocks stay rendered.
+    if (resizePreview?.profId === prof.id) {
+      const index = HOURS.indexOf(h)
+      if (index >= resizePreview.hourIdx && index < resizePreview.hourIdx + resizePreview.slots) return false
+    }
     const cellK = cellKey(prof.id, h)
     const cellAppt = appointments[cellK]
     if (cellAppt && !cellAppt.isUnblockOverride) return false
@@ -1265,12 +1257,37 @@ export function AppGrid({
     )
   }
 
+  const pointerGridTarget = e => {
+    const grid = scrollContainerRef.current
+    if (!grid) return null
+    const rows = [...grid.querySelectorAll('tbody > tr[data-hour]')].map(row => {
+      const rect = row.getBoundingClientRect()
+      return { hour: row.dataset.hour, top: rect.top, bottom: rect.bottom }
+    })
+    const columns = orderedProfessionals.map(prof => {
+      const cell = [...grid.querySelectorAll('td[data-prof-id]')].find(cell => cell.dataset.profId === String(prof.id))
+      const rect = cell?.getBoundingClientRect()
+      return rect ? { profId: prof.id, left: rect.left, right: rect.right } : null
+    }).filter(Boolean)
+    return gridBorderTarget(e.clientX, e.clientY, columns, rows)
+  }
+  // Normal cells keep their existing handlers. Only table dividers need this fallback.
+  const handleDividerDrag = (e, drop) => {
+    if (!draggingKey || (e.target instanceof Element && e.target.closest('td[data-prof-id]'))) return
+    const target = pointerGridTarget(e)
+    if (!target) return
+    if (drop) onDrop(e, target.profId, target.hour)
+    else onDragOver(e, target.profId, target.hour)
+  }
+
   return (
     <div 
       ref={scrollContainerRef} 
-      className="grid-scroll" 
+      className="grid-scroll"
+      onDragOver={e => handleDividerDrag(e, false)}
+      onDrop={e => handleDividerDrag(e, true)}
       onMouseLeave={() => { hoveredCellRef.current = null }}
-      style={{ touchAction: isMobile ? "pan-x pan-y" : "auto", overflow: "auto", padding: isMobile ? "0 8px 120px 0" : "0 8px 78px", WebkitOverflowScrolling: "touch", maxHeight: "100%", scrollSnapType: isMobile ? "x mandatory" : "none", scrollPaddingLeft: 60, scrollPaddingBottom: isMobile ? 120 : 78 }}
+      style={{ cursor: "pointer", touchAction: isMobile ? "pan-x pan-y" : "auto", overflow: "auto", padding: isMobile ? "0 8px 120px 0" : "0 8px 78px", WebkitOverflowScrolling: "touch", maxHeight: "100%", scrollSnapType: isMobile ? "x mandatory" : "none", scrollPaddingLeft: 60, scrollPaddingBottom: isMobile ? 120 : 78 }}
     >
       {showToast && isMobile && !isLandscape && (
         <div style={{
@@ -1471,7 +1488,7 @@ export function AppGrid({
                 if (isBlocked && !isEditingRemote) return null
 
                 // Bloqueo automático de horario por día/franja no laboral de la profesional
-                const isSchedBlocked = !appt && !isEditingRemote && !draggingKey && !resizePreview && isFreeSchedBlocked(prof, hour)
+                const isSchedBlocked = !appt && !isEditingRemote && isFreeSchedBlocked(prof, hour)
                 if (isSchedBlocked && hIdx > 0 && isFreeSchedBlocked(prof, HOURS[hIdx - 1])) {
                   return null
                 }
@@ -1499,7 +1516,7 @@ export function AppGrid({
 
                 const offSchedule = !appt && isOutsideSchedule(prof, hour)
                 let cellBg = offSchedule && !isSchedBlocked ? "rgba(220,60,60,.07)" : ""
-                if (draggingKey) {
+                if (draggingKey && !isSchedBlocked) {
                   if (isTargetSlot && !appt) {
                     if (!dropValid) {
                       cellBg = C.dragBad
@@ -1554,7 +1571,7 @@ export function AppGrid({
                 const effectiveSpan = appt ? (span || 1) : (isSchedBlocked ? schedBlockSlots : 1)
 
                 return (
-                  <td key={`${currentDate}-${prof.id}`} className={!appt && !isSchedBlocked && !draggingKey && !resizePreview ? "grid-empty-cell" : undefined} data-prof-id={prof.id} data-hour={hour} rowSpan={effectiveSpan}
+                  <td key={`${currentDate}-${prof.id}`} className={appt ? "grid-occupied-cell" : (!isSchedBlocked && !draggingKey && !resizePreview ? "grid-empty-cell" : undefined)} data-prof-id={prof.id} data-hour={hour} rowSpan={effectiveSpan}
                     style={{
                       padding: appt || isSchedBlocked ? 2 : config.gridStyle === "classic" ? 3 : "5px 6px",
                       height: (appt || isSchedBlocked) ? `${effectiveSpan * 100}px` : 100,
@@ -1585,7 +1602,7 @@ export function AppGrid({
                     onContextMenu={e => handleContextMenu(e, prof.id, hour, !!appt, { isScheduleBlocked: isSchedBlocked, schedBlockHours })}
                     onDragOver={e => {
                       if (!appt) {
-                        onDragOver(e, prof.id, hour)
+                        onDragOver(e, prof.id, isSchedBlocked ? (pointerGridTarget(e)?.hour || hour) : hour)
                       } else if (isDragging) {
                         handleApptDragOver(e)
                       }
@@ -1595,7 +1612,7 @@ export function AppGrid({
                     }}
                     onDrop={e => {
                       if (!appt) {
-                        onDrop(e, prof.id, hour)
+                        onDrop(e, prof.id, isSchedBlocked ? (pointerGridTarget(e)?.hour || hour) : hour)
                       } else if (isDragging) {
                         handleApptDrop(e)
                       }
@@ -1613,6 +1630,7 @@ export function AppGrid({
                         <span style={{ fontSize: 8, fontWeight: "bold", color: "orange", letterSpacing: 1, textShadow: "0 0 5px rgba(255,255,255,0.8)" }}>EDITANDO...</span>
                       </div>
                     )}
+                    {isDragging && <div aria-hidden="true" style={{ position: "absolute", inset: 2, border: "2px dashed #a9b9ab", borderRadius: 9, background: "rgba(58,125,68,.06)", color: C.textSoft, fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>Ubicación original</div>}
                     {appt ? (() => {
                       const isResizing = Boolean(resizePreview && (resizePreview.key === k || isResizeStart))
                       const isCurrentTurn = currentTurnKeys.has(k)
@@ -1708,11 +1726,15 @@ export function AppGrid({
                                     : overdueStyle
                                       ? overdueStyle.boxShadow
                                       : `0 2px 8px ${appt.paid ? "rgba(58,125,68,0.1)" : "rgba(232,121,58,0.1)"}`)),
-                            opacity: isDragging ? 0.45 : (isCutAppt ? 0.45 : 1),
+                            opacity: isDragging ? 0 : (isCutAppt ? 0.45 : 1),
                             transform: isDragging ? "scale(0.97)" : (isSelectedForMultiPay ? "scale(1.02)" : "scale(1)"),
                             transition: isResizing ? "none" : "opacity .15s, box-shadow .15s, transform .15s",
                             cursor: (selectedMultiPayKeys && selectedMultiPayKeys.length > 0 && !appt.isBlocked) ? "pointer" : "grab",
                             position: "relative",
+                            ...(isResizing ? {
+                              position: "absolute", height: "auto", left: 2, right: 2,
+                              ...resizeCardBounds(resizePreview),
+                            } : {}),
                             overflow: "hidden",
                             zIndex: isSelectedForMultiPay ? 15 : (isOverdueAlert ? 6 : 1),
                           }}
@@ -1741,66 +1763,9 @@ export function AppGrid({
                               📋 Copiado
                             </div>
                           )}
-                          {isDragging && (span || 1) > 1 && (
-                            <div style={{
-                              position: "absolute",
-                              inset: 0,
-                              display: "flex",
-                              flexDirection: "column",
-                              pointerEvents: "none",
-                              zIndex: 25,
-                              background: "rgba(255,255,255,0.88)",
-                              borderRadius: 8,
-                              padding: 4,
-                              gap: 4,
-                            }}>
-                              {Array.from({ length: span || 1 }).map((_, sIdx) => {
-                                const startHourIdx = HOURS.indexOf(appt.hour)
-                                const slotHour = HOURS[startHourIdx + sIdx]
-                                const isThisSlotTarget = dropTarget?.profId === prof.id && dropTarget?.hour === slotHour
-                                return (
-                                  <div key={sIdx} style={{
-                                    flex: 1,
-                                    border: isThisSlotTarget ? (dropValid ? (dropTarget?.willTruncate ? "2px dashed #d97706" : `2px dashed ${C.green}`) : "2px dashed #e06060") : "1.5px dashed rgba(58,125,68,0.35)",
-                                    background: isThisSlotTarget ? (dropValid ? (dropTarget?.willTruncate ? "rgba(245, 158, 11, 0.25)" : "rgba(58,125,68,0.2)") : "rgba(220,60,60,0.2)") : "rgba(255,255,255,0.7)",
-                                    borderRadius: 6,
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    fontWeight: "bold",
-                                    fontSize: 11,
-                                    color: isThisSlotTarget ? (dropValid ? (dropTarget?.willTruncate ? "#d97706" : (C.greenDark || "#2d5e34")) : "#c0392b") : C.textSoft,
-                                    transition: "all .1s",
-                                    boxShadow: isThisSlotTarget ? `0 2px 8px ${dropValid ? (dropTarget?.willTruncate ? "rgba(217, 119, 6, 0.3)" : "rgba(58,125,68,0.25)") : "rgba(220,60,60,0.25)"}` : "none",
-                                  }}>
-                                    {isThisSlotTarget ? (dropValid ? (dropTarget?.willTruncate ? `⚠️ Acotar a ${dropTarget.durationMins}m` : `✓ Mover a ${slotHour}`) : `✕ ${slotHour} ocupado`) : slotHour}
-                                  </div>
-                                )
-                              })}
-                            </div>
-                          )}
                           <div onMouseDown={e => { e.stopPropagation(); onResizeStart(e, k, "top") }}
                             style={{ position: "absolute", top: 0, left: 0, right: 0, height: 8, cursor: "n-resize", zIndex: 10, borderRadius: "9px 9px 0 0" }} />
 
-                          {isResizing && (() => {
-                            const snappedChange = resizePreview.edge === "top"
-                              ? (resizePreview.hourIdx - resizePreview.origHourIdx) * 100
-                              : (resizePreview.slots - resizePreview.origSlots) * 100
-                            const visualDelta = resizePreview.deltaY - snappedChange
-                            return (
-                              <div style={{
-                                position: "absolute",
-                                top: resizePreview.edge === "top" ? visualDelta : -2,
-                                bottom: resizePreview.edge === "bottom" ? -visualDelta : -2,
-                                left: -2, right: -2,
-                                border: `2px dashed ${C.green}`,
-                                borderRadius: 9,
-                                pointerEvents: "none",
-                                zIndex: 100,
-                                boxShadow: `0 0 10px rgba(58,125,68,0.2)`
-                              }} />
-                            )
-                          })()}
 
                           {isResizing && (
                             <div style={{ position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)", background: C.green, color: "#fff", borderRadius: 8, padding: "2px 8px", fontSize: 9, fontWeight: "bold", letterSpacing: "1px", whiteSpace: "nowrap", zIndex: 20, pointerEvents: "none", boxShadow: "0 2px 8px rgba(58,125,68,.35)" }}>{liveHour} – {liveEndHour} · {liveDurMins} min</div>
