@@ -3,11 +3,11 @@ import { C } from "../../constants/colors.js"
 import { CAT_OPTIONS, PAYMENT_METHODS } from "../../constants/data.js"
 import { fmt, apptTotal } from "../../utils/appointments.js"
 import { Overlay, ModalHeader, Field, GhostBtn, SolidBtn, inputStyle, modalBox } from "../ui/index.jsx"
-import { getApptClientPhone, formatWaNumber, generateReminderMessage, openWhatsAppLink, cleanClientName, normalizeStr, extractPhoneFromString, extractClientPhone, extractNumberFromText, ensurePhoneInName } from "../../utils/whatsapp.js"
+import { getApptClientPhone, formatWaNumber, generateReminderMessage, openWhatsAppLink, cleanClientName, normalizeStr, extractClientPhone, extractNumberFromText, ensurePhoneInName } from "../../utils/whatsapp.js"
 import { fmtDate, todayKey } from "../../utils/dates.js"
 import { useIsMobile } from "../../hooks/useIsMobile.js"
 import { orderAppointmentServices } from "../../utils/appointmentServiceOrder.js"
-import { appointmentClientSuggestions, suggestedClientValue, savedClientForValue, addClientDraft, clientSuggestionDetails } from "../../utils/appointmentClientSuggestions.js"
+import { appointmentClientSuggestions, savedClientForValue, addClientDraft, clientSuggestionDetails } from "../../utils/appointmentClientSuggestions.js"
 import { RescheduleContent } from "./RescheduleModal.jsx"
 
 function WhatsAppIcon({ size = 15, color = "currentColor", style = {} }) {
@@ -147,6 +147,7 @@ export function AppModals({
     )]
   }, [config?.customCategories])
   const [showSug, setShowSug] = useState(false)
+  const [suggestionField, setSuggestionField] = useState("name")
   const suggestionBlurTimer = useRef(null)
   // Cada apertura empieza cerrada; ningún blur anterior debe modificar la siguiente edición.
   useEffect(() => {
@@ -168,50 +169,29 @@ export function AppModals({
   }, [modal, isNoteMode, modalMode])
 
 
-  // Una sola entrada visible; conservar el teléfono estructurado para WhatsApp.
   const safeClientes = clientes || []
-  const savedClient = savedClientForValue(clientName, safeClientes)
-  const embeddedPhone = extractClientPhone(clientName) || extractNumberFromText(clientName)
-  const matchedPhone = savedClient?.phone || ''
-  const originalAppt = modal?.editKey ? appointments[modal.editKey] : null
-  const originalPhone = originalAppt?.clientPhone || originalAppt?.phone || ""
-  const preservedPhone = originalPhone && clientName === ensurePhoneInName(originalAppt.client, originalPhone) ? originalPhone : ""
-  const clientPhone = embeddedPhone || matchedPhone || preservedPhone || ""
+  const [clientPhone, setClientPhone] = useState("")
+  const savedClient = savedClientForValue(ensurePhoneInName(clientName, clientPhone), safeClientes)
+    || savedClientForValue(clientName, safeClientes)
   const isMobile = useIsMobile(820)
 
   useEffect(() => {
-    if (modal) {
-      const appt = modal.editKey ? appointments[modal.editKey] : null
-      setIsNoteMode(appt?.isNote || Boolean(modal.isNote))
-      setNoteDuration(appt?.manualDur || 30)
-      setModalMode("form")
-
-      // Cargar teléfono si ya existía en el turno o en la clienta
-      if (modal.editKey && appt) {
-        const ph = appt.clientPhone || appt.phone || getApptClientPhone(appt, clientes).phone || ""
-        if (ph && appt.client) {
-          const withPhone = ensurePhoneInName(appt.client, ph)
-          if (withPhone !== clientName) {
-            setClientName(withPhone)
-          }
-        }
-      } else if (clientName) {
-        const extracted = extractClientPhone(clientName)
-        const norm = normalizeStr(cleanClientName(clientName))
-        const found = (clientes || []).find(c => c && normalizeStr(c.name) === norm)
-        const initialPh = extracted || found?.phone || ""
-        if (initialPh) {
-          const withPhone = ensurePhoneInName(clientName, initialPh)
-          if (withPhone !== clientName) {
-            setClientName(withPhone)
-          }
-        }
-      }
-    }
-  }, [modal, appointments])
+    if (!modal) return
+    const appt = modal.editKey ? appointments[modal.editKey] : null
+    setIsNoteMode(appt?.isNote || Boolean(modal.isNote))
+    setNoteDuration(appt?.manualDur || 30)
+    setModalMode("form")
+    const initialName = appt?.client || clientName || ""
+    const embedded = extractClientPhone(initialName)
+    const saved = savedClientForValue(initialName, clientes || [])
+    const phone = appt?.clientPhone || appt?.phone || saved?.phone || embedded || ""
+    setClientPhone(phone)
+    if (phone) setClientName(ensurePhoneInName(initialName, phone))
+  }, [modal])
 
   // Sugerencias para el nombre de la clienta (desde la primera letra o número)
-  const suggestions = useMemo(() => appointmentClientSuggestions(clientName, safeClientes), [clientName, safeClientes])
+  const suggestionQuery = suggestionField === "phone" ? clientPhone : clientName
+  const suggestions = useMemo(() => appointmentClientSuggestions(suggestionQuery, safeClientes), [suggestionQuery, safeClientes])
 
   // Análisis inteligente de reconocimiento de la clienta y lo que suele pedir
   const clientAnalysis = useMemo(() => {
@@ -294,6 +274,55 @@ export function AppModals({
     setClientes(previous => addClientDraft(previous, clientName.trim(), trimmedPhone, Date.now()))
   }
 
+  const advanceClientField = (event, nextId) => {
+    if (event.key !== "Enter" || event.nativeEvent.isComposing) return
+    event.preventDefault()
+    event.stopPropagation()
+    if (showSug && suggestions.length) {
+      const details = clientSuggestionDetails(suggestions[0])
+      setClientName(ensurePhoneInName(details.name, details.phone))
+      setClientPhone(details.phone)
+    }
+    clearTimeout(suggestionBlurTimer.current)
+    setShowSug(false)
+    requestAnimationFrame(() => document.getElementById(nextId)?.focus())
+  }
+
+  const renderClientSuggestions = () => (showSug && suggestions.length > 0 && (
+                            <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 999, background: C.white, borderRadius: 12, border: `1.5px solid #d4af37`, boxShadow: "0 8px 24px rgba(184,134,11,.18)", overflowY: "auto", maxHeight: 220 }}>
+                              {suggestions.map(cl => {
+                                const { name: clean, phone: ph } = clientSuggestionDetails(cl)
+
+                                return (
+                                  <div
+                                    key={cl.id}
+                                    onMouseDown={event => {
+                                      event.preventDefault();
+                                      clearTimeout(suggestionBlurTimer.current);
+                                      setClientName(ensurePhoneInName(clean || cl.name, ph));
+                                      setClientPhone(ph || "");
+                                      setShowSug(false);
+                                      const nextId = !apptNotes.trim()
+                                        ? "appointment-notes-input"
+                                        : "search-services-input";
+                                      requestAnimationFrame(() => document.getElementById(nextId)?.focus());
+                                    }}
+                                    style={{ padding: "8px 12px", cursor: "pointer", borderBottom: `1px solid ${C.greenPale}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}
+                                    onMouseEnter={e => e.currentTarget.style.background = "#fffbf0"}
+                                    onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                                  >
+                                    <div>
+                                      <div style={{ fontSize: 13, fontWeight: "bold", color: "#996515" }}>{clean || cl.name}</div>
+                                      {ph && <div style={{ fontSize: 12, color: C.textSoft }}>📱 {ph}</div>}
+                                    </div>
+                                    <span style={{ fontSize: 10, color: C.green, fontWeight: "bold" }}>Seleccionar →</span>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          )
+  )
+
   const handleSave = (phoneOverride) => {
     clearTimeout(suggestionBlurTimer.current)
     setShowSug(false)
@@ -308,7 +337,7 @@ export function AppModals({
     }
 
     const trimmedPhone = typeof phoneOverride === "string" ? phoneOverride.trim() : clientPhone.trim()
-    // El teléfono tiene que quedar en el nombre también
+    // La entrada unificada conserva también el teléfono estructurado.
     const finalClientName = ensurePhoneInName(clientName, trimmedPhone)
     if (finalClientName !== clientName) {
       setClientName(finalClientName)
@@ -384,7 +413,7 @@ export function AppModals({
       {modal && (
         <Overlay onClose={() => setModal(null)} style={{ "--appointment-sheet-height": isNoteMode ? "auto" : "100%" }}>
           <div
-            className="modal-sheet appointment-modal"
+            className={`modal-sheet appointment-modal${!isNoteMode && modalMode === "form" ? " appointment-classic" : ""}`}
             style={{
               ...modalBox,
               width: isNoteMode ? "min(520px, calc(100vw - 24px))" : "min(960px, calc(100vw - 24px))",
@@ -524,7 +553,7 @@ export function AppModals({
                   >
                     {/* ═══ COLUMNA IZQUIERDA: CLIENTA Y DETALLES DEL TURNO ═══ */}
                     <div
-                      className="no-scrollbar"
+                      className="no-scrollbar appointment-form-column"
                       style={{
                         flex: isMobile ? "none" : "1 1 0",
                         minWidth: 0,
@@ -573,31 +602,9 @@ export function AppModals({
                       </ModalHeader>
 
                       {/* ── 1. NOMBRE DE LA CLIENTA (EXTRA GRANDE Y EN DORADO) ── */}
-                      <div style={{ marginBottom: 4 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 5, minHeight: 24 }}>
-                          <label style={{ fontSize: 8, letterSpacing: "2.5px", color: "#a88526", textTransform: "uppercase", fontWeight: "bold" }}>
-                            Nombre de la clienta
-                          </label>
+                      <div className="appointment-client-block" style={{ marginBottom: 0 }}>
+                        <div style={{ display: clientName.trim() ? "flex" : "none", justifyContent: "flex-end", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 5, minHeight: 24 }}>
                           <div role="status" aria-live="polite" style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6, flexWrap: 'wrap' }}>
-                          {clientAnalysis.isRecognized && (
-                            <span style={{
-                              background: "linear-gradient(135deg, #fef3c7, #fde68a)",
-                              border: "1px solid #d4af37",
-                              color: "#854d0e",
-                              fontSize: 9,
-                              fontWeight: "bold",
-                              lineHeight: '14px',
-                              height: 18,
-                              boxSizing: 'border-box',
-                              padding: "1px 7px",
-                              borderRadius: 12,
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: 3,
-                            }}>
-                              👑 Reconocida
-                            </span>
-                          )}
                           {isNewCliente && (
                               <button
                                 onClick={saveNewCliente}
@@ -635,7 +642,7 @@ export function AppModals({
                         </div>
 
                         <div style={{ position: "relative" }}>
-                          <div style={{
+                          <div className="appointment-name-shell" style={{
                             position: "relative",
                             display: "flex",
                             alignItems: "center",
@@ -666,12 +673,14 @@ export function AppModals({
                                 // Capitalizar palabras pero preservando números, espacios y caracteres intactos (nunca se borra)
                                 const capitalized = raw.split(' ').map(word => word ? word.charAt(0).toUpperCase() + word.slice(1) : '').join(' ')
                                 setClientName(capitalized)
-
+                                setClientPhone(extractClientPhone(capitalized) || extractNumberFromText(capitalized) || "")
+                                setSuggestionField("name")
                                 setShowSug(true)
                               }}
                               placeholder="Nombre o teléfono"
                               id="appointment-client-input"
-                              aria-label="Nombre de la clienta y WhatsApp"
+                              onKeyDown={e => advanceClientField(e, "appointment-notes-input")}
+                              aria-label="Nombre o teléfono de la clienta"
                               style={{
                                 width: "100%",
                                 minWidth: 0,
@@ -688,7 +697,8 @@ export function AppModals({
                               }}
                               onFocus={() => {
                                 clearTimeout(suggestionBlurTimer.current)
-                                if (!modal.editKey) setShowSug(true)
+                                setSuggestionField("name")
+                                setShowSug(false)
                               }}
                               onBlur={() => {
                                 clearTimeout(suggestionBlurTimer.current)
@@ -698,11 +708,12 @@ export function AppModals({
                             {clientName && (
                               <button
                                 type="button"
-                                aria-label="Borrar nombre y teléfono de la clienta"
-                                title="Borrar nombre y teléfono"
+                                aria-label="Borrar nombre de la clienta"
+                                title="Borrar nombre"
                                 onMouseDown={e => e.preventDefault()}
                                 onClick={() => {
                                   setClientName("")
+                                  setClientPhone("")
                                   setShowSug(false)
                                   document.getElementById("appointment-client-input")?.focus()
                                 }}
@@ -713,44 +724,25 @@ export function AppModals({
                             )}
                           </div>
 
-                          {showSug && suggestions.length > 0 && (
-                            <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 999, background: C.white, borderRadius: 12, border: `1.5px solid #d4af37`, boxShadow: "0 8px 24px rgba(184,134,11,.18)", overflowY: "auto", maxHeight: 220 }}>
-                              {suggestions.map(cl => {
-                                const { name: clean, phone: ph } = clientSuggestionDetails(cl)
-                                const nameWithPhone = suggestedClientValue(clientName, cl)
-                                return (
-                                  <div
-                                    key={cl.id}
-                                    onMouseDown={() => {
-                                      setClientName(nameWithPhone);
-                                      setShowSug(false);
-                                    }}
-                                    style={{ padding: "8px 12px", cursor: "pointer", borderBottom: `1px solid ${C.greenPale}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}
-                                    onMouseEnter={e => e.currentTarget.style.background = "#fffbf0"}
-                                    onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-                                  >
-                                    <div>
-                                      <div style={{ fontSize: 13, fontWeight: "bold", color: "#996515" }}>{clean || cl.name}</div>
-                                      {ph && <div style={{ fontSize: 12, color: C.textSoft }}>📱 {ph}</div>}
-                                    </div>
-                                    <span style={{ fontSize: 10, color: C.green, fontWeight: "bold" }}>Seleccionar →</span>
-                                  </div>
-                                )
-                              })}
-                            </div>
-                          )}
+                          {suggestionField === "name" && renderClientSuggestions()}
                         </div>
                       </div>
 
                       {/* ── 4. OBSERVACIONES ── */}
-                      <details key={modal.editKey || `${currentDate}-${modal.profId}-${modal.hour}`} open={apptNotes.trim() ? true : undefined} style={{ marginBottom: 4 }}>
-                        <summary style={{ cursor: "pointer", color: C.green, fontSize: 12, padding: "5px 0", listStyle: "none" }}>＋ {apptNotes.trim() ? "Editar observación" : "Agregar observación"}</summary>
-                        <div style={{ paddingTop: 6 }}>
-                      <Field label="Observaciones" style={{ marginBottom: 4 }}>
+                      <div style={{ marginBottom: 4 }}>
                         <textarea
+                          id="appointment-notes-input"
+                          onKeyDown={e => {
+                            if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              requestAnimationFrame(() => document.getElementById("search-services-input")?.focus())
+                            }
+                          }}
+                          aria-label="Observaciones del turno"
                           value={apptNotes}
                           onChange={e => setApptNotes(e.target.value)}
-                          placeholder="Ej: diseño especial, uñas cortas, alergia a producto..."
+                          placeholder="Observaciones: diseño especial, alergias, horario..."
                           rows={2}
                           autoComplete="off"
                           autoCorrect="off"
@@ -765,16 +757,14 @@ export function AppModals({
                             outlineOffset: "-3px",
                           }}
                         />
-                      </Field>
-                        </div>
-                      </details>
+                      </div>
 
                       <section className="appointment-catalog" aria-label="Elegir servicios" style={{ display: "flex", flexDirection: "column", gap: 8, minHeight: isMobile ? 300 : 220, height: isMobile ? 380 : "auto", flex: isMobile ? "none" : "1 0 220px", overflowY: "auto", padding: 12, borderRadius: 14, border: `1.5px solid ${C.greenMint || C.border}`, outline: "1.2px dashed rgba(58, 125, 68, 0.4)", outlineOffset: "-4px", background: C.cream }}>
                         {/* Buscador de servicios */}
                         <input
                           id="search-services-input"
                           type="text"
-                          placeholder="Buscar servicios por nombre o duración..."
+                          placeholder="Buscar servicio · Enter agrega · Enter vacío continúa"
                           value={searchTerm}
                           autoComplete="off"
                           autoCorrect="off"
@@ -785,6 +775,12 @@ export function AppModals({
                           aria-autocomplete="none"
                           onChange={e => { setSearchTerm(e.target.value); setServiceHighlightIdx(-1); }}
                           onKeyDown={e => {
+                            if (e.nativeEvent.isComposing) return;
+                            if (e.key === "Enter" && !searchTerm.trim() && serviceHighlightIdx < 0) {
+                              e.preventDefault();
+                              document.getElementById("appointment-confirm-button")?.focus();
+                              return;
+                            }
                             const list = orderedServices;
                             if (list.length === 0) return;
                             if (e.key === "Enter") {
@@ -863,14 +859,14 @@ export function AppModals({
                           {orderedServices.map((s, idx) => {
                             const isUsual = usualServiceCounts.has(s.id || s.name)
                             const isFirstMatch = idx === serviceHighlightIdx
-                            const borderColor = isFirstMatch 
+                            const borderColor = isFirstMatch
                               ? "#8eae91"
                               : (isUsual ? "#d4af37" : C.border)
                             const bgColor = isFirstMatch ? "#edf4ed" : isUsual ? "#fffdf5" : C.white
 
                             return (
-                              <div 
-                                key={s.id} 
+                              <div
+                                key={s.id}
                                 id={`service-item-${idx}`}
                                 onMouseEnter={() => setServiceHighlightIdx(idx)}
                                 onMouseLeave={() => setServiceHighlightIdx(-1)}
@@ -885,11 +881,11 @@ export function AppModals({
                                       { backgroundColor: removing ? "#fff0df" : "#d9efdb", boxShadow: removing ? "0 0 0 2px rgba(215, 139, 61, .35)" : "0 0 0 2px rgba(58, 125, 68, .4), 0 0 12px rgba(58, 125, 68, .2)", opacity: 0 },
                                     ], { duration: 1500, easing: "cubic-bezier(0.22, 1, 0.36, 1)" })
                                   }
-                                  handleToggleService(s); 
-                                  setSearchTerm(""); 
+                                  handleToggleService(s);
+                                  setSearchTerm("");
                                   setServiceHighlightIdx(-1);
                                   if (!isMobile) document.getElementById("search-services-input")?.focus();
-                                }} 
+                                }}
                                 style={{
                                   width: "100%",
                                   position: "relative",
@@ -1086,14 +1082,15 @@ export function AppModals({
               <GhostBtn onClick={() => setModal(null)} style={{ flex: 1 }}>
                 Cancelar
               </GhostBtn>
-              <SolidBtn 
-                onClick={handleSave} 
-                disabled={!clientName.trim()} 
+              <SolidBtn
+                id="appointment-confirm-button"
+                onClick={handleSave}
+                disabled={!clientName.trim()}
                 color={C.green}
                 style={{ flex: 1.6 }}
               >
-                {isNoteMode 
-                  ? (modal.editKey ? "📝 Guardar" : "📌 Crear") 
+                {isNoteMode
+                  ? (modal.editKey ? "📝 Guardar" : "📌 Crear")
                   : (modal.editKey ? "🌿 Confirmar" : "🌿 Confirmar turno")}
               </SolidBtn>
             </div>
@@ -1173,7 +1170,7 @@ export function AppModals({
                                 const val = e.target.value
                                 const nextTip = { ...apptTip, [k]: val }
                                 setApptTip(nextTip)
-                                
+
                                 if (paymentSplits.length === 1) {
                                   const totalTipAmount = Object.values(nextTip).reduce((s, v) => s + (parseFloat(v) || 0), 0)
                                   const total = multiPayKeys.reduce((s, key) => s + (appointments[key] ? apptTotal(appointments[key]) : 0), 0)
@@ -1340,12 +1337,12 @@ export function AppModals({
 
               <div style={{ display: "flex", gap: 8, width: "100%" }}>
                 {appt.paid && (
-                  <GhostBtn 
+                  <GhostBtn
                     onClick={() => {
                       if (window.confirm("¿Seguro que querés desmarcar el pago de este turno?")) {
                         confirmPay(true)
                       }
-                    }} 
+                    }}
                     style={{ borderColor: C.red, color: C.red }}
                   >
                     Desmarcar Pago

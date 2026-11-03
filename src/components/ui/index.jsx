@@ -89,9 +89,9 @@ export function GhostBtn({ onClick, children, disabled = false, title, style = {
   )
 }
 
-export function SolidBtn({ onClick, children, disabled = false, color = C.green, style = {} }) {
+export function SolidBtn({ id, onClick, children, disabled = false, color = C.green, style = {} }) {
   return (
-    <button onClick={onClick} disabled={disabled} style={{
+    <button id={id} onClick={onClick} disabled={disabled} style={{
       flex: 2, padding: "10px 0", borderRadius: 11, border: "none",
       background: disabled ? "#e8e8e8" : `linear-gradient(135deg,${color},${color}cc)`,
       color: disabled ? "#bbb" : C.white,

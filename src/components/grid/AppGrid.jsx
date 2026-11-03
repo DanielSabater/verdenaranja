@@ -205,14 +205,17 @@ function AppointmentCardDetails({ appt, clientes, compact, isMobile, isResizing,
     if (toolbar) observer.observe(toolbar)
     const nameElement = card.querySelector('.appointment-card-name-price')
     if (nameElement) observer.observe(nameElement)
+    const noteElement = card.querySelector(".appointment-card-note")
+    if (noteElement) observer.observe(noteElement)
     measure()
     return () => observer.disconnect()
-  }, [serviceLabel, name, phone, badgeWidth, appt.tip, appt.paid])
+  }, [serviceLabel, name, phone, badgeWidth, appt.tip, appt.paid, appt.notes])
   return <>
     <AppointmentColorFade paid={appt.paid} arrived={appt.arrived} />
     <div className="appointment-card-name-price" style={{ paddingTop: badgeWidth > 12 ? 18 : 0 }}>
       <div className="appointment-card-name"><span className="appointment-card-client-name">{name}</span>{phone && <span className="appointment-card-phone" aria-label={`Teléfono: ${phone}`}>{phone}</span>}</div>
     </div>
+    {appt.notes?.trim() && <div className="appointment-card-note" title={appt.notes}><mark className="appointment-note-label">📝 {appt.notes}</mark></div>}
     <div ref={serviceWindowRef} className="appointment-card-service-price appointment-card-service-window" title=""
       data-overflow={serviceOverflow > 1}
       data-touch-playing={isMobile && servicesPlaying && serviceOverflow > 1}
@@ -237,7 +240,6 @@ function AppointmentCardDetails({ appt, clientes, compact, isMobile, isResizing,
           <div key={index}>{service.icon} {service.name}</div>)}
       </div>
     </div>
-    {appt.notes && <div className="appointment-card-note">📝 {appt.notes}</div>}
     <div className="appointment-card-footer-info" data-countdown={Boolean(footerCountdown && !isResizing)} style={{ color: isResizing ? C.green : C.textSoft }}>
       {footerCountdown && !isResizing ? <span className="appointment-card-countdown" aria-label={footerCountdown.description}>{footerCountdown.label}</span> : <>
       {appt.tip > 0 && !isResizing && <span className="appointment-card-tip" style={{ color: C.gold }} aria-label={`Propina: ${fmt(appt.tip)}`}>🎁 {fmt(appt.tip)}</span>}
@@ -420,12 +422,12 @@ function ApptCard({
              <div style={{ fontSize: 11, fontWeight: "bold", color: appt.isBlocked ? C.red : C.text, marginBottom: 1, paddingRight: cd ? (isMobile ? 50 : 58) : 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                {appt.isBlocked ? "" : appt.client}
              </div>
+             {appt.notes && (
+               <div title={appt.notes} style={{ fontSize: 9, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><mark className={appt.isBlocked ? undefined : "appointment-note-label"}>📝 {appt.notes}</mark></div>
+             )}
              {!appt.isBlocked && (appt.services || []).map((sv, i) => (
                <div key={i} style={{ fontSize: 9, color: showPaid ? C.green : C.orange, lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sv.icon} {sv.name}</div>
              ))}
-             {appt.notes && (
-               <div style={{ fontSize: 9, color: appt.isBlocked ? C.red : C.textSoft, fontStyle: "italic", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", opacity: appt.isBlocked ? 0.8 : 1 }}>📝 {appt.notes}</div>
-             )}
              <div style={{ fontSize: 9, color: C.textSoft, marginTop: 2 }}>
                 <span style={{ color: isResizing ? C.green : C.textSoft, fontWeight: isResizing ? "bold" : "normal", transition: "color .15s" }}>
                   {isResizing ? `${liveHour} – ${liveEndHour}` : `${apptDur(appt)} min`}
