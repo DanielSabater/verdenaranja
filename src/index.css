@@ -1780,6 +1780,43 @@ select {
   color: #293c2d !important;
 }
 
+/* Escala compacta para el formulario en teléfonos; los campos mantienen 16px
+   al escribir para evitar el zoom automático del teclado en iOS. */
+@media (max-width: 640px) {
+  .appointment-classic .appointment-form-column > :first-child > :nth-child(2) {
+    font-size: 14px !important;
+    line-height: 1.35;
+  }
+  .appointment-classic .appointment-form-column input::placeholder,
+  .appointment-classic .appointment-form-column textarea::placeholder {
+    font-size: 13px;
+    line-height: 1.35;
+  }
+  .appointment-classic #appointment-client-input::placeholder {
+    font-size: 15px;
+  }
+  .appointment-classic .appointment-form-column textarea {
+    height: 52px;
+    min-height: 52px;
+    line-height: 1.35;
+  }
+  .appointment-classic .service-scroll [id^="service-item-"] {
+    gap: 8px;
+    line-height: 1.35;
+  }
+  .appointment-classic .service-scroll [id^="service-item-"] > div {
+    min-width: 0;
+  }
+  .appointment-classic .service-scroll [id^="service-item-"] > div > div > span:first-child {
+    font-size: 12px !important;
+    overflow-wrap: anywhere;
+  }
+  .appointment-classic .service-scroll [id^="service-item-"] > span:last-child {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+}
+
 /* Observaciones como rótulo amarillo dentro de la tarjeta del turno. */
 .appointment-note-label {
   background: #fff0a6;

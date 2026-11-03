@@ -721,6 +721,7 @@ export function AppGrid({
   const updateColsToShow = (val) => {
     const nextVal = Math.min(orderedProfessionals.length, Math.max(1, val))
     if (nextVal !== lastColsRef.current) {
+      lastColsRef.current = nextVal
       setColsToShow(nextVal)
       try { localStorage.setItem("pv:colsToShow", String(nextVal)) } catch {}
       setShowToast(true)
@@ -734,6 +735,7 @@ export function AppGrid({
     if (!el || !isMobile) return
 
     const onTouchStartN = (e) => {
+      touchStartDistRef.current = null
       if (e.touches.length === 2) {
         if (e.cancelable) e.preventDefault()
         const dist = Math.hypot(
@@ -781,11 +783,13 @@ export function AppGrid({
     el.addEventListener("touchstart", onTouchStartN, { passive: false })
     el.addEventListener("touchmove", onTouchMoveN, { passive: false })
     el.addEventListener("touchend", onTouchEndN, { passive: true })
+    el.addEventListener("touchcancel", onTouchEndN, { passive: true })
 
     return () => {
       el.removeEventListener("touchstart", onTouchStartN)
       el.removeEventListener("touchmove", onTouchMoveN)
       el.removeEventListener("touchend", onTouchEndN)
+      el.removeEventListener("touchcancel", onTouchEndN)
     }
   }, [isMobile, orderedProfessionals.length])
 
@@ -1323,7 +1327,7 @@ export function AppGrid({
           width: "100%",
           minWidth: (isMobile && isLandscape)
             ? `calc(52px + ${orderedProfessionals.length * 160}px)`
-            : (isMobile ? `calc(52px + ${orderedProfessionals.length} * max(160px, calc((100vw - 70px) / ${colsToShowMobile})))` : `calc(52px + ${orderedProfessionals.length * 140}px)`)
+            : (isMobile ? `calc(52px + ${orderedProfessionals.length} * max(40px, calc((100vw - 70px) / ${colsToShowMobile})))` : `calc(52px + ${orderedProfessionals.length * 140}px)`)
         }}>
            <thead ref={theadRef} onDragOver={e => e.preventDefault()} style={{ position: "sticky", top: (isMobile && isLandscape) ? 0 : 56, zIndex: 100 }}>
              <tr style={{ background: isLiquid ? "rgba(255, 255, 255, 0.45)" : C.white, backdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none", WebkitBackdropFilter: isLiquid ? "blur(30px) saturate(200%)" : "none", borderBottom: isLiquid ? `2px solid rgba(255,255,255,0.4)` : `2px solid ${C.border}` }}>
@@ -1345,7 +1349,7 @@ export function AppGrid({
                         width: `${100 / orderedProfessionals.length}%`,
                         minWidth: (isMobile && isLandscape)
                           ? 160
-                          : (isMobile ? `max(160px, calc((100vw - 70px) / ${colsToShowMobile}))` : 140),
+                          : (isMobile ? `max(40px, calc((100vw - 70px) / ${colsToShowMobile}))` : 140),
                         transition: "all .2s",
                         opacity: dragCol === p.id ? 0.4 : 1,
                         borderLeft: dragOver === p.id ? `3px solid ${C.green}` : "none",

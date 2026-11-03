@@ -764,7 +764,7 @@ export function AppModals({
                         <input
                           id="search-services-input"
                           type="text"
-                          placeholder="Buscar servicio · Enter agrega · Enter vacío continúa"
+                          placeholder={isMobile ? "Buscar servicio" : "Buscar servicio · Enter agrega · Enter vacío continúa"}
                           value={searchTerm}
                           autoComplete="off"
                           autoCorrect="off"
