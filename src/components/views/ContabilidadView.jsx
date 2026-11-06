@@ -1,13 +1,10 @@
 import SalaryPanel from "./SalaryPanel.jsx"
-import { paidSalary } from "../../utils/salaryPayments.js"
+import { salaryReceiptAppointment } from "../../utils/salaryReceiptMessage.js"
 import { incrementalAccountingIndex, incrementalBillingComparison, incrementalDayDetail } from "../../utils/incrementalAccounting.js"
 import { reuseAccountingCalculation, memoizeAppointmentCommission } from "../../utils/accountingCache.js"
 import { comparisonBucketAvailable, comparisonBucketInProgress } from "../../utils/billingComparison.js"
 import { useMobileBackLayer } from "../../hooks/useMobileBack.js"
 import React, { useState, useMemo, useEffect } from "react"
-import { createPortal } from "react-dom"
-import html2canvas from "html2canvas"
-import { jsPDF } from "jspdf"
 import { C } from "../../constants/colors.js"
 import { PAYMENT_METHODS, GASTO_CATS } from "../../constants/data.js"
 import { fmt, apptTotal, apptPaidTotal, apptComisionableTotal, apptComisionTotal } from "../../utils/appointments.js"
@@ -63,7 +60,6 @@ export default function ContabilidadView({
   const safeServices = services || []
   const [seccion, setSeccion] = useState("resumen")
   const [expandedDates, setExpandedDates] = useState({})
-  const [receiptProf, setReceiptProf] = useState(null)
   const [activeZoomedChart, setActiveZoomedChart] = useState(null)
   useMobileBackLayer(Boolean(activeZoomedChart), () => setActiveZoomedChart(null))
   const [hoveredProfId, setHoveredProfId] = useState(null)
@@ -810,8 +806,6 @@ export default function ContabilidadView({
   }, [safeAllData, rangeFrom, rangeTo])
 
   // ── sueldos ────────────────────────────────────────────────────────────────
-  const sueldoKey   = (profId) => `${profId}||${sueldoPeriod}`
-  const profSueldo  = (profId) => safeSueldos[sueldoKey(profId)] || { pagado:false, monto:"", fecha:"" }
   
   const parseClientName = (fullName) => {
     if (!fullName) return { name: "", phone: "" };
@@ -861,6 +855,7 @@ export default function ContabilidadView({
             hour: appt.hour || "--:--",
             services: appt.services || [],
             amount,
+            receiptDetail: salaryReceiptAppointment(appt, safeServices),
             comision: commission
           })
         }
@@ -2337,7 +2332,7 @@ export default function ContabilidadView({
       {seccion==="sueldos" && (
         <div>
 
-          <SalaryPanel key={sueldoPeriod} professionals={safeProfessionals.filter(p => !p.deletedAt)} sueldos={safeSueldos} setSueldos={setSueldos} period={sueldoPeriod} statsFor={profStats} breakdownFor={getDailyBreakdown} onReceipt={setReceiptProf} receiptOpen={Boolean(receiptProf)} waOpenMode={config?.waOpenMode || "app"} />
+          <SalaryPanel key={sueldoPeriod} professionals={safeProfessionals.filter(p => !p.deletedAt)} sueldos={safeSueldos} setSueldos={setSueldos} period={sueldoPeriod} statsFor={profStats} breakdownFor={getDailyBreakdown} waOpenMode={config?.waOpenMode || "app"} />
         </div>
       )}
       {/* ── DETALLE DIARIO ── */}
@@ -2596,332 +2591,6 @@ export default function ContabilidadView({
           </div>
         </Overlay>
       )}
-
-      {/* ── Modal Recibo de Sueldo ── */}
-      {receiptProf && (() => {
-        const p = receiptProf
-        const sd = profSueldo(p.id)
-        const selectedDays = sd.dias || "all"
-        const stats = profStats(p.id, selectedDays)
-        const dailyBreakdown = getDailyBreakdown(p.id, selectedDays)
-        
-        // Month details for title
-        const [sy, sm] = sueldoPeriod.split("-").map(Number)
-        const monthName = MESES_ES[sm - 1]
-        const periodLabel = `${monthName.charAt(0).toUpperCase() + monthName.slice(1)} ${sy}`
-
-        const exportAsPng = () => {
-          const element = document.getElementById("salary-receipt-card")
-          if (!element) return
-          html2canvas(element, {
-            scale: 4,
-            backgroundColor: "#ffffff",
-            useCORS: true,
-            onclone: (clonedDoc) => {
-              const receipt = clonedDoc.getElementById('salary-receipt-card')
-              receipt.style.width = '720px'
-              receipt.style.boxSizing = 'border-box'
-              let ancestor = receipt.parentElement
-              while (ancestor && ancestor !== clonedDoc.body) {
-                ancestor.style.overflow = 'visible'
-                ancestor.style.maxHeight = 'none'
-                ancestor.style.maxWidth = 'none'
-                ancestor.style.flexShrink = '0'
-                ancestor = ancestor.parentElement
-              }
-              const sourceNodes = element.querySelectorAll('*')
-              receipt.querySelectorAll('*').forEach((node, index) => {
-                const size = parseFloat(getComputedStyle(sourceNodes[index]).fontSize)
-                if (size) node.style.fontSize = `${Math.max(12, size)}px`
-              })
-              const elms = clonedDoc.querySelectorAll(".phone-suffix")
-              elms.forEach(el => el.style.display = "none")
-            }
-          }).then(canvas => {
-            const dataUrl = canvas.toDataURL("image/png")
-            const link = document.createElement("a")
-            link.download = `Recibo_${p.name}_${periodLabel.replace(/\s+/g, "_")}.png`
-            link.href = dataUrl
-            document.body.appendChild(link)
-            link.click()
-            document.body.removeChild(link)
-          }).catch(err => {
-            console.error("Error exporting PNG:", err)
-            alert("Error al exportar a PNG")
-          })
-        }
-
-        const exportAsPdf = () => {
-          const doc = new jsPDF({ unit: 'mm', format: 'a4' })
-          let y = 20
-          const line = (text, size = 11, bold = false) => {
-            doc.setFont('times', bold ? 'bold' : 'normal')
-            doc.setFontSize(size)
-            for (const row of doc.splitTextToSize(String(text), 170)) {
-              if (y > 275) { doc.addPage(); y = 20 }
-              doc.text(row, 20, y)
-              y += size * .45 + 2
-            }
-          }
-          doc.setTextColor(58, 125, 68)
-          line('Verde Naranja', 20, true)
-          line('Comprobante de sueldo', 15, true)
-          doc.setTextColor(45, 55, 45)
-          line(`${p.name} · ${periodLabel}`, 12)
-          y += 5
-          for (const day of dailyBreakdown) {
-            doc.setTextColor(58, 125, 68)
-            line(`${day.dateLabel} · ${day.turnos} turnos · Comisión ${fmt(day.comision)}`, 12, true)
-            doc.setTextColor(45, 55, 45)
-            for (const appt of day.appts) {
-              line(`${appt.hour || ''} · ${appt.clientName} · Cobrado: ${fmt(appt.amount)}`)
-              const servicesText = (appt.services || []).map(service => service.name).join(', ')
-              if (servicesText) line(servicesText, 10)
-            }
-            y += 4
-          }
-          if (!dailyBreakdown.length) line('Sin actividad registrada')
-          y += 5
-          line(`Comisión de los días incluidos: ${fmt(stats.comision)}`, 13, true)
-          line(`Pagos registrados del período: ${fmt(paidSalary(sd, p.id, sueldoPeriod))}`, 12, true)
-          doc.save(`Recibo_${p.name}_${periodLabel.replace(/\s+/g, '_')}.pdf`)
-        }
-        
-        return createPortal(
-          <>
-            {/* Inject dynamic print stylesheet */}
-            <style dangerouslySetInnerHTML={{ __html: `
-              @media print {
-                body { background: #ffffff !important; color: #000000 !important; }
-                #root { display: none !important; }
-                #printable-receipt-portal { display: block !important; position: absolute; left: 0; top: 0; width: 100% !important; margin: 0 !important; padding: 10px !important; box-sizing: border-box !important; }
-                .phone-suffix { display: none !important; }
-                @page { margin: 1.5cm; }
-              }
-            ` }} />
-
-            <Overlay 
-              onClose={() => setReceiptProf(null)}
-              style={{
-                zIndex: 2100,
-                top: "56px",
-                bottom: "0",
-                alignItems: "flex-start",
-                justifyContent: "center",
-                paddingTop: "16px",
-                paddingBottom: "24px"
-              }}
-            >
-              <div style={{ 
-                ...modalBox, 
-                width: "min(600px, calc(100vw - 20px))", 
-                maxHeight: "calc(100% - 32px)",
-                padding: "20px 24px",
-                position: "relative",
-                background: C.white,
-                borderRadius: 16,
-                border: `1.5px solid ${C.border}`,
-                boxShadow: "0 20px 60px rgba(58,125,68,0.15)",
-                display: "flex",
-                flexDirection: "column",
-                overflow: "hidden"
-              }}>
-                
-                {/* Scrollable content wrapper with hidden scrollbar */}
-                <div className="no-scrollbar" style={{ flex: 1, overflowY: "auto", marginBottom: 12 }}>
-                  {/* ID wrapper for PNG Capture */}
-                  <div id="salary-receipt-card" style={{ background: C.white, padding: "8px", borderRadius: 12 }}>
-                    {/* Visual Ticket header wrapper */}
-                    <div style={{ 
-                      textAlign: "center", 
-                      paddingBottom: 12, 
-                      borderBottom: `1px dashed ${C.border}`,
-                      marginBottom: 16
-                    }}>
-                      <div style={{ fontSize: 14, fontWeight: "bold", color: C.text, fontFamily: "Georgia,serif" }}>
-                        Comprobante de Sueldo
-                      </div>
-                      <div style={{ fontSize: 11, color: C.textSoft, marginTop: 4 }}>
-                        {p.name} · {periodLabel}
-                      </div>
-                    </div>
-
-                    {/* Daily Breakdown Detail List */}
-                    <div style={{ marginBottom: 16 }}>
-                      <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: 12, background: C.white }}>
-                        {dailyBreakdown.length === 0 ? (
-                          <div style={{ padding: "20px 10px", textAlign: "center", color: C.textSoft, fontSize: 11 }}>
-                            Sin actividad registrada
-                          </div>
-                        ) : (
-                          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 10 }}>
-                            {dailyBreakdown.map(d => (
-                              <div key={d.dk} style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: 8, background: C.white, display: "flex", flexDirection: "column", gap: 6 }}>
-                                {/* Day Header */}
-                                <div style={{ 
-                                  display: "flex", 
-                                  justifyContent: "space-between", 
-                                  alignItems: "center", 
-                                  fontWeight: "bold", 
-                                  color: C.text, 
-                                  fontSize: 9.8, 
-                                  background: C.cream, 
-                                  padding: "4px 6px", 
-                                  borderRadius: 5
-                                }}>
-                                  <span>{d.shortLabel} ({d.turnos})</span>
-                                  <span style={{ color: C.green }}>{fmt(d.comision)}</span>
-                                </div>
-                                {/* Appointments list */}
-                                <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                                  {d.appts.map((a, aIdx) => (
-                                    <div key={aIdx} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", fontSize: 8.8 }}>
-                                      <div style={{ flex: 1, paddingRight: 4 }}>
-                                        <div style={{ color: C.text, fontWeight: "500", lineHeight: 1.1 }}>
-                                          {a.hour} · {a.clientName}
-                                          {a.clientPhone && <span className="phone-suffix" style={{ color: C.textSoft, fontSize: 8 }}>{a.clientPhone}</span>}
-                                        </div>
-                                        <div style={{ display: "flex", flexWrap: "wrap", gap: 2, marginTop: 2 }}>
-                                          {a.services.map((sv, sIdx) => (
-                                            <span key={sIdx} style={{ fontSize: 7.5, color: C.textSoft, background: "#f0faf2", padding: "0 3px", borderRadius: 3, border: `1px solid ${C.border}` }}>
-                                              {sv.name}
-                                            </span>
-                                          ))}
-                                        </div>
-                                      </div>
-                                      <div style={{ textAlign: "right", color: C.textSoft, fontWeight: "bold", whiteSpace: "nowrap" }}>
-                                        {fmt(a.amount)}
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Final Totals summary */}
-                    <div style={{ 
-                      background: C.cream, 
-                      borderRadius: 10, 
-                      border: `1px solid ${C.border}`, 
-                      padding: "12px 14px", 
-                      marginBottom: 16,
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center"
-                    }}>
-                      <span style={{ fontSize: 11, fontWeight: "bold", color: C.textSoft, letterSpacing: "1px" }}>
-                        COMISIÓN ({comisionPct}%):
-                      </span>
-                      <span style={{ fontSize: 18, fontWeight: "bold", color: C.green }}>
-                        {fmt(stats.comision)}
-                      </span>
-                    </div>
-                    
-                    {paidSalary(sd, p.id, sueldoPeriod) > 0 && (
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 10px 16px" }}>
-                        <span style={{ fontSize: 10, color: C.textSoft }}>Monto Liquidado / Pagado:</span>
-                        <span style={{ fontSize: 14, fontWeight: "bold", color: C.orange }}>{fmt(paidSalary(sd, p.id, sueldoPeriod))}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Buttons (Fixed at the bottom) */}
-                <div style={{ display: "flex", gap: 8, flexShrink: 0, paddingTop: 10, borderTop: `1px solid ${C.border}` }}>
-                  <GhostBtn onClick={() => setReceiptProf(null)}>Cerrar</GhostBtn>
-                  <SolidBtn onClick={exportAsPdf} color={C.green}>
-                    PDF
-                  </SolidBtn>
-                  <SolidBtn onClick={exportAsPng} color={C.orange}>
-                    PNG
-                  </SolidBtn>
-                </div>
-
-              </div>
-            </Overlay>
-
-            {/* Print Portal - Rendered under document.body solely for printing */}
-            {createPortal(
-              <div id="printable-receipt-portal" style={{ display: "none" }}>
-                <div style={{ 
-                  fontFamily: "Georgia, serif", 
-                  color: "#000000", 
-                  width: "100%",
-                  maxWidth: "600px",
-                  margin: "0 auto",
-                  padding: "10px"
-                }}>
-                  {/* Print Header */}
-                  <div style={{ fontSize: "15px", fontWeight: "bold", borderBottom: "1.5px solid #000000", paddingBottom: "6px", marginBottom: "15px", textAlign: "left" }}>
-                    Liquidación: {p.name} ({periodLabel})
-                  </div>
-
-                  {/* Print Breakdown */}
-                  <div style={{ marginBottom: "15px" }}>
-                    {dailyBreakdown.length === 0 ? (
-                      <div style={{ textAlign: "center", padding: "15px 0", fontSize: "12px" }}>
-                        Sin actividad registrada.
-                      </div>
-                    ) : (
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "10px" }}>
-                        {dailyBreakdown.map(d => (
-                          <div key={d.dk} style={{ border: "1px solid #000000", borderRadius: "8px", padding: "8px", pageBreakInside: "avoid", display: "flex", flexDirection: "column", gap: "6px" }}>
-                            <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "bold", fontSize: "9.5px", borderBottom: "1px solid #000000", paddingBottom: "4px" }}>
-                              <span>{d.dateLabel} ({d.turnos})</span>
-                              <span>{fmt(d.comision)}</span>
-                            </div>
-                            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                              {d.appts.map((a, aIdx) => (
-                                <div key={aIdx} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", fontSize: "8.5px" }}>
-                                  <div style={{ flex: 1, paddingRight: "4px" }}>
-                                    <div style={{ fontWeight: "500", lineHeight: 1.1 }}>
-                                      {a.hour} · {a.clientName}
-                                      {a.clientPhone && <span className="phone-suffix" style={{ color: "#777777", fontSize: "7.5px" }}>{a.clientPhone}</span>}
-                                    </div>
-                                    <div style={{ fontSize: "7.5px", color: "#555555", display: "flex", flexWrap: "wrap", gap: "2px", marginTop: "2px" }}>
-                                      {a.services.map((sv, sIdx) => (
-                                        <span key={sIdx} style={{ border: "1px solid #cccccc", padding: "0 3px", borderRadius: "3px" }}>
-                                          {sv.name}
-                                        </span>
-                                      ))}
-                                    </div>
-                                  </div>
-                                  <div style={{ textAlign: "right", fontWeight: "bold", whiteSpace: "nowrap" }}>
-                                    {fmt(a.amount)}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Print Summary Box */}
-                  <div style={{ 
-                    borderTop: "2.5px solid #000000", 
-                    paddingTop: "10px", 
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    pageBreakInside: "avoid"
-                  }}>
-                    <span style={{ fontWeight: "bold", fontSize: "13px" }}>COMISIÓN ({comisionPct}%):</span>
-                    <span style={{ fontWeight: "bold", fontSize: "18px" }}>{fmt(stats.comision)}</span>
-                  </div>
-                </div>
-              </div>,
-              document.body
-            )}
-          </>,
-          document.body
-        )
-      })()}
 
       {/* ── Modal Zoom de Gráfico ── */}
       {activeZoomedChart && (

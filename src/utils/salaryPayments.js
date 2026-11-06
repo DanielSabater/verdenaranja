@@ -29,3 +29,18 @@ export function cancelSalaryPayment(record = {}, professionalId, period, payment
   const lastDate = active.map(payment => payment.fecha || '').sort().at(-1) || ''
   return { ...record, pagos: updated, monto: total, fecha: lastDate, pagado: active.length > 0 && total >= commission }
 }
+
+// Agrupa por la liquidación que contiene el pago, no por su fecha de pago.
+export function salaryPaymentHistory(sueldos, professionalId) {
+  return Object.entries(sueldos)
+    .filter(([key]) => key.startsWith(`${professionalId}||`))
+    .map(([key, record]) => {
+      const periodo = key.split('||')[1]
+      const payments = salaryPayments(record, professionalId, periodo)
+        .map(payment => ({ ...payment, periodo }))
+        .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''))
+      return { periodo, payments }
+    })
+    .filter(group => group.payments.length)
+    .sort((a, b) => b.periodo.localeCompare(a.periodo))
+}

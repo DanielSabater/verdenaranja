@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { salaryPayments, paidSalary, appendSalaryPayment } from '../src/utils/salaryPayments.js'
+import { salaryPayments, paidSalary, appendSalaryPayment, salaryPaymentHistory } from '../src/utils/salaryPayments.js'
 const payment = { id: 'p1', profesionalId: 'ana', periodo: '2026-10', monto: 30, fecha: '2026-10-18' }
 test('conserva pagos anteriores y agrega parciales sin duplicar', () => {
   const old = { pagado: true, monto: '20', fecha: '2026-10-01', dias: ['2026-10-01'] }
@@ -52,4 +52,22 @@ test('anula pago anterior y solo modifica el período indicado', async () => {
   assert.equal(next[key].fecha, '')
   assert.equal(next[key].pagado, false)
   assert.equal(salaryPayments(next[key], 'ana', '2026-09').length, 1)
+})
+
+test('history groups payments by settlement period and orders payments by date', () => {
+  const records = {
+    'p1||2026-10': { pagos: [{ id: 'late', fecha: '2026-11-05', monto: 100 }, { id: 'early', fecha: '2026-10-20', monto: 50, anulado: true }] },
+    'p1||2026-11': { pagos: [{ id: 'nov', fecha: '2026-11-01', monto: 200 }] },
+    'p1||2026-09': { pagado: true, monto: 30, fecha: '2026-10-01' },
+    'p1||2026-12': { pagos: [] },
+    'p2||2026-12': { pagos: [{ id: 'other', fecha: '2026-12-01', monto: 1 }] },
+  }
+  const before = JSON.stringify(records)
+  const groups = salaryPaymentHistory(records, 'p1')
+  assert.deepEqual(groups.map(group => group.periodo), ['2026-11', '2026-10', '2026-09'])
+  assert.deepEqual(groups[1].payments.map(payment => payment.id), ['late', 'early'])
+  assert.equal(groups[1].payments[0].periodo, '2026-10')
+  assert.equal(groups[1].payments[1].anulado, true)
+  assert.equal(groups[2].payments[0].anterior, true)
+  assert.equal(JSON.stringify(records), before)
 })
